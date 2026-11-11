@@ -1,0 +1,128 @@
+# =====================================================================
+# Normetry — public repository. Nothing secret is ever committed.
+# Local secrets live in .env / dotnet user-secrets; CI uses GitHub Secrets.
+# =====================================================================
+
+# ---------- Secrets & credentials ----------
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+secrets.json
+secrets.*.json
+appsettings.*.local.json
+appsettings.Local.json
+*.local.json
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+*.gpg
+credentials.json
+service-account*.json
+.netrc
+.npmrc
+.pypirc
+
+# ---------- .NET ----------
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+TestResults/
+*.user
+*.suo
+*.userprefs
+*.rsuser
+.vs/
+*.nupkg
+*.snupkg
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+BenchmarkDotNet.Artifacts/
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.python-version
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+
+# ---------- Node / Web ----------
+node_modules/
+.pnpm-store/
+.vite/
+.next/
+.turbo/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Infra (Terraform / Docker) ----------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+docker-compose.override.yml
+deploy/.data/
+
+# ---------- Local data & models ----------
+# Uploaded tenant documents, model weights and scratch data never go to git.
+uploads/
+.data/
+*.gguf
+*.safetensors
+*.onnx
+models/cache/
+
+# ---------- Logs ----------
+*.log
+logs/
+
+# ---------- IDEs & OS ----------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Local AI tooling ----------
+.claude/settings.local.json
+CLAUDE.local.md
+graphify-out/
