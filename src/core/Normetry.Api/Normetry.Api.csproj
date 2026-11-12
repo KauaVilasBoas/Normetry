@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Normetry.Application\Normetry.Application.csproj" />
+    <ProjectReference Include="..\Normetry.Infrastructure\Normetry.Infrastructure.csproj" />
+    <ProjectReference Include="..\Normetry.ServiceDefaults\Normetry.ServiceDefaults.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Normetry.Domain\Normetry.Domain.csproj" />
+    <ProjectReference Include="..\Normetry.BuildingBlocks\Normetry.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>
