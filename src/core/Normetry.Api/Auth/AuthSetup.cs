@@ -27,6 +27,12 @@ public static class Policies
     public const string Owner = NormetryRoles.Owner;
     public const string Manager = NormetryRoles.Manager;
     public const string Auditor = NormetryRoles.Auditor;
+
+    /// <summary>
+    /// Owner or Manager, on top of <see cref="Tenant"/>. Roles have no hierarchy yet (Owner does
+    /// not imply Manager), so endpoints open to several roles list them; a hierarchy needs an ADR.
+    /// </summary>
+    public const string OwnerOrManager = "OwnerOrManager";
 }
 
 internal static class AuthSetup
@@ -142,6 +148,9 @@ internal static class AuthSetup
             {
                 options.AddPolicy(role, policy => policy.Combine(tenant).RequireRole(role));
             }
+            options.AddPolicy(Policies.OwnerOrManager, policy =>
+                policy.Combine(tenant).RequireRole(NormetryRoles.Owner, NormetryRoles.Manager)
+            );
 
             // An endpoint that declares no authorization is tenant-scoped, never anonymous.
             options.FallbackPolicy = tenant;

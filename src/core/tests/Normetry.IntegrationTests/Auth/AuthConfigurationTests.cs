@@ -89,6 +89,7 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
             Policies.Owner,
             Policies.Manager,
             Policies.Auditor,
+            Policies.OwnerOrManager,
         ];
         var endpoints = factory
             .Services.GetRequiredService<EndpointDataSource>()
