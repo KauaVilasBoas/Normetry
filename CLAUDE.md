@@ -3,7 +3,7 @@
 Multi-tenant compliance copilot for regulated establishments (food service first: FDA Food Code, EU Regulation 852/2004, Anvisa RDC 216/2004). Public portfolio repository.
 
 - Product, architecture, ADR summary and roadmap: `README.md`. Full decisions: `docs/adr/`.
-- Status: phase 0 (foundation). The .NET solution and `src/ai` are scaffolded; `src/web` is not yet. Update the commands below when they become real.
+- Status: phase 0 (foundation) is done; phase 1 (regulation RAG) is next. The .NET solution and `src/ai` are scaffolded; `src/web` is not yet. Update the commands below when they become real.
 
 ## Layout (monorepo)
 
