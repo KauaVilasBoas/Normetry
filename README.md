@@ -407,6 +407,7 @@ normetry/
 │   │   ├── Normetry.Domain/
 │   │   ├── Normetry.Application/
 │   │   ├── Normetry.Infrastructure/
+│   │   ├── Normetry.Migrations/   # EF Core: Schema/ and Data/, run as core_owner
 │   │   ├── Normetry.Api/
 │   │   ├── Normetry.ServiceDefaults/  # Aspire: telemetry, health checks
 │   │   ├── Normetry.AppHost/      # Aspire
