@@ -38,7 +38,7 @@ public sealed class CatalogTests
             """
         );
 
-        Assert.Equal(["establishments", "tenants"], usable); // the check is not vacuous
+        Assert.Equal(["chat_message_counts", "establishments", "tenants"], usable); // the check is not vacuous
         Assert.Empty(unforced);
     }
 
@@ -55,6 +55,7 @@ public sealed class CatalogTests
 
         Assert.Equal(
             [
+                "chat_message_counts.chat_message_counts_tenant ALL app_core",
                 "establishments.establishments_tenant ALL app_core",
                 "tenants.tenants_insert INSERT app_core",
                 "tenants.tenants_select SELECT app_core",
@@ -79,6 +80,9 @@ public sealed class CatalogTests
 
         Assert.Equal(
             [
+                "chat_message_counts app_core INSERT",
+                "chat_message_counts app_core SELECT",
+                "chat_message_counts app_core UPDATE",
                 "establishments app_core DELETE",
                 "establishments app_core INSERT",
                 "establishments app_core SELECT",
@@ -112,5 +116,6 @@ public sealed class CatalogTests
         );
 
         Assert.Contains(applied, id => id.EndsWith("_CreateTenantsAndEstablishments"));
+        Assert.Contains(applied, id => id.EndsWith("_CreateChatMessageCounts"));
     }
 }

@@ -3,7 +3,8 @@ using Xunit;
 namespace Normetry.IntegrationTests.Database;
 
 /// <summary>
-/// RLS on core.tenants and core.establishments, in plain SQL as app_core (the rls-table skill).
+/// RLS on core.tenants, core.establishments and core.chat_message_counts, in plain SQL as
+/// app_core (the rls-table skill).
 /// Every test makes its own tenants, so tests never see each other's rows.
 /// </summary>
 [Collection(DatabaseCollection.Name)]
@@ -16,6 +17,12 @@ public sealed class RowLevelSecurityTests
         """;
     private const string VisibleEstablishments =
         "SELECT id FROM core.establishments WHERE id = ANY($1)";
+    private const string InsertChatCount = """
+        INSERT INTO core.chat_message_counts (tenant_id, user_id, day, count)
+        VALUES ($1, 'user', DATE '2031-01-01', 1)
+        """;
+    private const string VisibleChatCounts =
+        "SELECT tenant_id FROM core.chat_message_counts WHERE tenant_id = ANY($1)";
 
     private readonly DatabaseFixture db;
 
@@ -194,6 +201,105 @@ public sealed class RowLevelSecurityTests
 
         await using var session = await Session.BeginAsync(AppCore, sessionTenant);
         await session.AssertDeniedAsync(sql, target);
+    }
+
+    /// <summary>Two new tenants with one chat count each, written by app_core.</summary>
+    private async Task<(Guid TenantA, Guid TenantB)> SeedChatCountsAsync()
+    {
+        var (tenantA, tenantB, _, _) = await SeedAsync();
+        foreach (var tenant in new[] { tenantA, tenantB })
+        {
+            await using var session = await Session.BeginAsync(AppCore, tenant);
+            await session.ExecuteAsync(InsertChatCount, tenant);
+            await session.CommitAsync();
+        }
+        return (tenantA, tenantB);
+    }
+
+    [Fact]
+    public async Task Each_tenant_reads_and_updates_only_its_own_chat_counts()
+    {
+        var (tenantA, tenantB) = await SeedChatCountsAsync();
+        Guid[] both = [tenantA, tenantB];
+
+        await using (var session = await Session.BeginAsync(AppCore, tenantB))
+        {
+            Assert.Equal([tenantB], await session.ColumnAsync<Guid>(VisibleChatCounts, both));
+            var updated = await session.ExecuteAsync(
+                "UPDATE core.chat_message_counts SET count = 99 WHERE tenant_id = $1",
+                tenantA
+            );
+            Assert.Equal(0, updated);
+            await session.CommitAsync();
+        }
+
+        await using var sessionA = await Session.BeginAsync(AppCore, tenantA);
+        Assert.Equal([tenantA], await sessionA.ColumnAsync<Guid>(VisibleChatCounts, both));
+        Assert.Equal(
+            1,
+            await sessionA.ScalarAsync<int>(
+                "SELECT count FROM core.chat_message_counts WHERE tenant_id = $1",
+                tenantA
+            )
+        );
+    }
+
+    [Fact]
+    public async Task App_core_cannot_delete_chat_counts_even_its_own()
+    {
+        var (tenantA, _) = await SeedChatCountsAsync();
+
+        await using var session = await Session.BeginAsync(AppCore, tenantA);
+        await session.AssertDeniedAsync(
+            "DELETE FROM core.chat_message_counts WHERE tenant_id = $1",
+            tenantA
+        );
+    }
+
+    [Fact]
+    public async Task A_tenant_cannot_insert_or_move_chat_counts_into_another_tenant()
+    {
+        var (tenantA, tenantB) = await SeedChatCountsAsync();
+
+        await using (var session = await Session.BeginAsync(AppCore, tenantB))
+        {
+            await session.AssertDeniedAsync(
+                InsertChatCount.Replace("'user'", "'another user'"),
+                tenantA
+            );
+        }
+        await using (var session = await Session.BeginAsync(AppCore, tenantA))
+        {
+            await session.AssertDeniedAsync(
+                "UPDATE core.chat_message_counts SET tenant_id = $1 WHERE tenant_id = $2",
+                tenantB,
+                tenantA
+            );
+        }
+    }
+
+    [Fact]
+    public async Task Without_a_tenant_no_chat_count_is_visible_and_writes_fail()
+    {
+        var (tenantA, tenantB) = await SeedChatCountsAsync();
+
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            Assert.Empty(
+                await session.ColumnAsync<Guid>(VisibleChatCounts, new[] { tenantA, tenantB })
+            );
+            Assert.Equal(
+                0,
+                await session.ExecuteAsync("UPDATE core.chat_message_counts SET count = 99")
+            );
+        }
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            await session.AssertDeniedAsync(
+                InsertChatCount.Replace("'user'", "'another user'"),
+                tenantA
+            );
+        }
     }
 
     [Fact]
