@@ -9,4 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Normetry.Api\Normetry.Api.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Keycloak" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Python" />
+  </ItemGroup>
 </Project>
