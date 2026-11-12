@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet csharpier:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(node --test:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr checks:*)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.env.development)",
+      "Read(**/.env.production)",
+      "Read(**/secrets.json)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.pfx)",
+      "Read(**/*.p12)",
+      "Edit(**/.env)",
+      "Edit(**/.env.local)",
+      "Edit(**/.env.*.local)",
+      "Edit(**/.env.development)",
+      "Edit(**/.env.production)",
+      "Edit(**/secrets.json)",
+      "Edit(**/*.pem)",
+      "Edit(**/*.key)",
+      "Edit(**/*.pfx)",
+      "Edit(**/*.p12)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-secrets.mjs\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-shell.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-on-edit.mjs\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
