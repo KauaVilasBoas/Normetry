@@ -11,6 +11,7 @@
   </Folder>
   <Folder Name="/src/core/tests/">
     <Project Path="src/core/tests/Normetry.ArchitectureTests/Normetry.ArchitectureTests.csproj" />
+    <Project Path="src/core/tests/Normetry.IntegrationTests/Normetry.IntegrationTests.csproj" />
     <Project Path="src/core/tests/Normetry.UnitTests/Normetry.UnitTests.csproj" />
   </Folder>
 </Solution>
