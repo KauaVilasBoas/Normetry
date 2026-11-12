@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NetArchTest.eNhancedEdition" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Normetry.BuildingBlocks\Normetry.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\Normetry.Domain\Normetry.Domain.csproj" />
+    <ProjectReference Include="..\..\Normetry.Application\Normetry.Application.csproj" />
+    <ProjectReference Include="..\..\Normetry.Infrastructure\Normetry.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

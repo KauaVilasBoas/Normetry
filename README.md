@@ -405,11 +405,14 @@ The Aspire dashboard shows every service, container and OpenTelemetry trace.
 normetry/
 ├── src/
 │   ├── core/                      # .NET 10
+│   │   ├── Normetry.BuildingBlocks/
 │   │   ├── Normetry.Domain/
 │   │   ├── Normetry.Application/
 │   │   ├── Normetry.Infrastructure/
 │   │   ├── Normetry.Api/
-│   │   └── Normetry.AppHost/      # Aspire
+│   │   ├── Normetry.ServiceDefaults/  # Aspire: telemetry, health checks
+│   │   ├── Normetry.AppHost/      # Aspire
+│   │   └── tests/                 # unit, integration, architecture
 │   ├── ai/                        # Python
 │   │   ├── normetry_ai/
 │   │   │   ├── api/               # FastAPI: chat and search

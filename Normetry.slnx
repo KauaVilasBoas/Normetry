@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/core/">
+    <Project Path="src/core/Normetry.Api/Normetry.Api.csproj" />
+    <Project Path="src/core/Normetry.AppHost/Normetry.AppHost.csproj" />
+    <Project Path="src/core/Normetry.Application/Normetry.Application.csproj" />
+    <Project Path="src/core/Normetry.BuildingBlocks/Normetry.BuildingBlocks.csproj" />
+    <Project Path="src/core/Normetry.Domain/Normetry.Domain.csproj" />
+    <Project Path="src/core/Normetry.Infrastructure/Normetry.Infrastructure.csproj" />
+    <Project Path="src/core/Normetry.ServiceDefaults/Normetry.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/core/tests/">
+    <Project Path="src/core/tests/Normetry.ArchitectureTests/Normetry.ArchitectureTests.csproj" />
+  </Folder>
+</Solution>
