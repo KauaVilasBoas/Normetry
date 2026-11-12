@@ -50,6 +50,13 @@ var keycloak = builder
     .AddKeycloak("keycloak", port: 8180)
     .WithRealmImport("../../../deploy/keycloak/normetry-realm.json");
 
+// Short-lived: applies the core migrations as core_owner and exits. Only this step gets the owner
+// connection string, because the owner can switch RLS off; the API connects as app_core.
+var coreMigrate = builder
+    .AddProject<Projects.Normetry_Migrations>("core-migrate")
+    .WithEnvironment("ConnectionStrings__core-migrations", Npgsql("core_owner", coreOwnerPassword))
+    .WaitFor(postgres);
+
 // Probed over http so the API reports healthy even before the HTTPS dev certificate is trusted.
 builder
     .AddProject<Projects.Normetry_Api>("api")
@@ -57,7 +64,9 @@ builder
     .WithEnvironment("ConnectionStrings__core", Npgsql("app_core", appCorePassword))
     .WithEnvironment("Ai__InternalToken", internalToken)
     .WithReference(keycloak)
-    .WaitFor(postgres);
+    .WaitFor(keycloak)
+    .WaitFor(postgres)
+    .WaitForCompletion(coreMigrate);
 
 // Short-lived: applies the ai migrations as ai_owner and exits. Only this step gets the owner URL,
 // because the owner can switch RLS off; the running service connects as app_ai.
