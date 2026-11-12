@@ -34,13 +34,15 @@ public class LayerDependencyTests
             "Microsoft.AspNetCore"
         );
 
+    // ICurrentUser and ITenantContext live here; HttpContext must stay behind them, in Api.
     [Fact]
-    public void Application_does_not_depend_on_Infrastructure_Api_or_EF_Core() =>
+    public void Application_does_not_depend_on_Infrastructure_Api_EF_Core_or_ASP_NET_Core() =>
         AssertNoDependency(
             typeof(Application.AssemblyMarker).Assembly,
             "Normetry.Infrastructure",
             "Normetry.Api",
-            "Microsoft.EntityFrameworkCore"
+            "Microsoft.EntityFrameworkCore",
+            "Microsoft.AspNetCore"
         );
 
     [Fact]
