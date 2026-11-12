@@ -36,6 +36,10 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 ## Workflow
 
 - The user drives feature by feature. One feature = one GitHub issue → branch `feat/<issue>-<slug>` (or `fix/`, `docs/`, `chore/`) → PR containing `Closes #<issue>`. Use `gh` for issues and PRs.
+- Issue lifecycle, every time:
+  1. Starting an issue: `gh issue edit <n> --add-assignee @me --add-label "status: in progress"`, then create its branch.
+  2. The PR body contains `Closes #<n>`, so the merge closes the issue.
+  3. After the PR merges into `main`: `gh issue edit <n> --remove-label "status: in progress"` and comment on the issue with the PR link and a short summary of what shipped (`gh issue comment <n> --body-file ...`).
 - Conventional Commits, atomic: one logical change per commit. Commit or push only when the user asks.
 - Every branch merged into `main` is deleted. GitHub deletes the remote branch on merge; locally run `git switch main && git pull --prune` and `git branch -d <branch>`.
 - Versioning is SemVer (`vMAJOR.MINOR.PATCH`), one version for the whole monorepo, `0.x` until the MVP is published (`1.0.0` = end of phase 3). release-please (`.github/workflows/release-please.yml`) derives it from the commits: `fix` → patch, `feat` → minor, `!` or `BREAKING CHANGE` → major (minor while `0.x`); `docs`/`chore`/`refactor`/`test`/`ci` do not release. It keeps a release PR open; merging that PR creates the tag, the GitHub Release and the `CHANGELOG.md` entry. Never create tags, bump versions or edit `CHANGELOG.md` by hand.
