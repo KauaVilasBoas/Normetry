@@ -3,7 +3,7 @@
 Multi-tenant compliance copilot for regulated establishments (food service first: FDA Food Code, EU Regulation 852/2004, Anvisa RDC 216/2004). Public portfolio repository.
 
 - Product, architecture, ADR summary and roadmap: `README.md`. Full decisions: `docs/adr/`.
-- Status: phase 0 (foundation). The .NET solution is scaffolded; `src/ai` and `src/web` are not yet. Update the commands below when they become real.
+- Status: phase 0 (foundation). The .NET solution and `src/ai` are scaffolded; `src/web` is not yet. Update the commands below when they become real.
 
 ## Layout (monorepo)
 
@@ -30,7 +30,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 
 - Run everything: `dotnet run --project src/core/Normetry.AppHost` (Aspire dashboard at `https://localhost:17081`; the login link is printed in the console)
 - .NET (from the repo root): `dotnet build` · `dotnet test` · `dotnet tool restore` then `dotnet csharpier check .`
-- Python (from `src/ai`, planned): `uv sync` · `uv run pytest` · `uv run ruff check`
+- Python (from `src/ai`): `uv sync` · `uv run pytest` · `uv run ruff check` · `uv run ruff format --check` · run with `uv run uvicorn normetry_ai.api:create_app --factory` (needs `NORMETRY_INTERNAL_TOKEN`, see `src/ai/.env.example`)
 - Claude hooks self-test: `node --test ".claude/hooks/*.test.mjs"`
 
 ## Workflow
