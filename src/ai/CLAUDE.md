@@ -1,4 +1,4 @@
-# src/ai — Python AI service
+# src/ai: Python AI service
 
 Python 3.12+, managed with `uv` (`pyproject.toml` + `uv.lock`). FastAPI serves chat (SSE) and search; workers run ingestion, simulated inspection and change monitoring. LangGraph is used only for agents.
 
@@ -6,21 +6,45 @@ Python 3.12+, managed with `uv` (`pyproject.toml` + `uv.lock`). FastAPI serves c
 
 Flat layout: `normetry_ai/` and `tests/` sit next to `pyproject.toml`. A subpackage is created by the first feature that needs it.
 
-- `settings.py` — pydantic-settings, env prefix `NORMETRY_` (also read from `src/ai/.env`; placeholders in `.env.example`). Secrets are `SecretStr`.
-- `telemetry.py` — FastAPI traces over OTLP (gRPC), on only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
-- `api/` — FastAPI app factory `create_app`, the internal-token ASGI middleware (`auth.py`) and routes: `/health` now; chat over SSE and search later.
-- `ingestion/` — parse (Docling) → structural chunking → enrichment → embedding + `tsvector` → idempotent upsert by content hash.
-- `retrieval/` — hand-written hybrid search: pgvector top-k + full-text top-k → Reciprocal Rank Fusion → multilingual re-ranker. No framework retrievers.
-- `agents/` — LangGraph graphs (simulated inspection, change monitor) with Postgres checkpoints.
-- `llm/` — the only place that calls model providers: routing (cheap vs strong model), token and cost accounting per tenant, budget enforcement.
+- `settings.py`: pydantic-settings, env prefix `NORMETRY_` (also read from `src/ai/.env`; placeholders in `.env.example`). Secrets are `SecretStr`.
+- `telemetry.py`: FastAPI traces over OTLP (gRPC), on only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+- `db.py`: the unit of work.
+  - `create_db_engine(settings)` builds the pooled engine for `NORMETRY_DATABASE_URL` (`app_ai`). A pool `checkin` listener runs `RESET app.tenant_id` (and commits) on every returned connection, so a stray session-level `SET` never reaches the next checkout.
+  - `tenant_transaction(engine, tenant_id)` opens a transaction, runs `SELECT set_config('app.tenant_id', :tenant, true)` and yields the connection; it commits on success and rolls back on error. It is the only code that sets `app.tenant_id`. The tenant must be a `uuid.UUID` other than the nil UUID (parse header or message values first). Every query on tenant data runs inside it. Outside it no tenant is set, so `app_ai` sees only the public corpus and every write fails.
+  - `check_runtime_role(connection)` raises when the connected role is a superuser, has BYPASSRLS, or owns schema `ai` or anything in it. The FastAPI lifespan runs it once at startup when `NORMETRY_DATABASE_URL` is set; without it the app starts with no database (health only).
+- `api/`: FastAPI app factory `create_app`, the internal-token ASGI middleware (`auth.py`) and routes: `/health` now; chat over SSE and search later.
+- `ingestion/`: parse (Docling) → structural chunking → enrichment → embedding + `tsvector` → idempotent upsert by content hash.
+- `retrieval/`: hand-written hybrid search: pgvector top-k + full-text top-k → Reciprocal Rank Fusion → multilingual re-ranker. No framework retrievers.
+- `agents/`: LangGraph graphs (simulated inspection, change monitor) with Postgres checkpoints.
+- `llm/`: the only place that calls model providers: routing (cheap vs strong model), token and cost accounting per tenant, budget enforcement.
 
 ## Boundaries
 
 - Not public. Every request must carry the internal token in `X-Normetry-Internal-Token` (exactly once). A pure ASGI middleware rejects every http and websocket scope without it before routing and body parsing (401, also for unknown paths). Do not move the check into route dependencies. OpenAPI and docs routes stay off. `NORMETRY_INTERNAL_TOKEN` (32+ characters) is required: without it the app does not start. Tenant, establishment and jurisdiction come only from the internal headers set by YARP.
-- Writes only schema `ai`, through Alembic migrations (`migrations/`, version table `ai.alembic_version`, autogenerate limited to schema `ai`). Results for the core (findings, document status) are published as queue events.
-- Migrations run as the owner role (`NORMETRY_MIGRATIONS_DATABASE_URL`, read only by `migrations/env.py`, no fallback); the app connects as `app_ai` (`NORMETRY_DATABASE_URL`, DML only). The owner role is `ai_owner`: it owns schema `ai` (created by the bootstrap in `deploy/postgres/init/`, so Alembic can write `ai.alembic_version`) and has no privileges on schema `core`. `NORMETRY_MIGRATIONS_DATABASE_URL` is only ever set for a migration step, never on the running service, because the owner can switch RLS off. The first migration revokes `app_ai`'s access to `ai.alembic_version`, and grants `corpus_ingestor` only the corpus tables (it has no default privileges).
-- The unit-of-work helper sets the tenant per transaction (`rls-table` skill). Workers take the tenant from the queue message.
-- The public corpus (`tenant_id IS NULL`) is written only by the corpus ingestion job, using the `corpus_ingestor` role.
+- Writes only schema `ai`, through Alembic migrations (version table `ai.alembic_version`). Results for the core (findings, document status) are published as queue events.
+- Migrations run as the owner role (`NORMETRY_MIGRATIONS_DATABASE_URL`, read only by `migrations/env.py`, no fallback); the app connects as `app_ai` (`NORMETRY_DATABASE_URL`, DML only). The owner role is `ai_owner`: it owns schema `ai` (created by the bootstrap in `deploy/postgres/init/`, so Alembic can write `ai.alembic_version`) and has no privileges on schema `core`. `NORMETRY_MIGRATIONS_DATABASE_URL` is only ever set for a migration step, never on the running service, because the owner can switch RLS off: set it in the shell for one `uv run alembic ...` command, or let the AppHost's `ai-migrate` step set it. It never goes in `src/ai/.env` (`MigrationSettings` does not read that file, and `.env.example` has no owner URL).
+- Grants follow least privilege. The bootstrap's default privileges give `app_ai` DML on every new `ai` table, so migrations revoke what it must not have: everything on `ai.alembic_version`, and UPDATE on `ai.chunks` (no update policy; a new version replaces chunks with delete and insert). `corpus_ingestor` has no default privileges: migrations grant it each corpus table explicitly.
+- Tenant-owned tables follow the `rls-table` skill: `ENABLE` and `FORCE ROW LEVEL SECURITY`, and policies scoped `TO app_ai` or `TO corpus_ingestor`, never to PUBLIC. Policies read the tenant as `(SELECT NULLIF(current_setting('app.tenant_id', true), '')::uuid)`: the scalar subquery is evaluated once per statement, not once per row. Workers take the tenant from the queue message.
+- The public corpus (`tenant_id IS NULL`, `source_type = 'regulation'`, enforced by a CHECK) is written only by the corpus ingestion job, using the `corpus_ingestor` role. `app_ai` reads it but cannot write it.
+- Chunk ids are generated by the database (`DEFAULT gen_random_uuid()`, read back with `RETURNING id`) and never taken from callers, messages or documents. Upserts name their target, `ON CONFLICT ON CONSTRAINT chunks_source_content_key DO NOTHING`: a bare `ON CONFLICT DO NOTHING` also matches the primary key and would turn a clash with another tenant's id into a silent 0-row insert.
+
+### Retrieval under RLS
+
+Notes for the retrieval work; none of this exists yet.
+
+- One HNSW index over all tenants returns an approximate candidate list (`hnsw.ef_search` long) and RLS filters it afterwards, so a large tenant or the corpus can crowd another tenant's rows out of the results.
+- Plan: a partial HNSW index for the corpus (`WHERE tenant_id IS NULL`); exact KNN for tenant rows through the btree that leads with `tenant_id` (tenant document sets are small); `SET LOCAL hnsw.iterative_scan` inside `tenant_transaction`; per-tenant caps on candidates; and an eval with one very large tenant next to a small one.
+- Check `EXPLAIN` as `app_ai` (not as the owner or a superuser) for the GIN `@@` path on `tsv` as well as the vector path.
+- Never fix RLS performance with SECURITY DEFINER functions or BYPASSRLS.
+- The LangGraph checkpoint tables (agents) are tenant data: they need `tenant_id` and RLS like `ai.chunks`.
+
+## Migrations
+
+- Layout: `migrations/schema/` holds structure (tables, indexes, constraints, RLS policies, grants and revokes) and `migrations/data/` holds rows that every environment needs. Both are version locations of one linear Alembic history (`version_locations` in `alembic.ini`, newline separated). A revision is either schema or data, never both. Demo data is not a migration.
+- Create: `uv run alembic revision --version-path migrations/schema -m "..."` for structure, `--version-path migrations/data` for rows. Ruff post-write hooks sort imports and format the new file; drop the unused `sqlalchemy` import when the revision only runs SQL.
+- Write revisions as raw SQL with `op.execute(...)`, one statement per call, with a `downgrade()` that undoes the structure. There is no `--autogenerate`: policies and grants do not autogenerate, so `target_metadata` stays `None`. Qualify pgvector objects with `public.` (the extension lives there).
+- Apply: `uv run alembic upgrade head` with `NORMETRY_MIGRATIONS_DATABASE_URL` (owner role, `postgresql+psycopg://...`) set in the shell for that command only. In the AppHost, the short-lived `ai-migrate` resource runs this command with only that variable, and the `ai` service starts after it exits 0.
+- `FORCE ROW LEVEL SECURITY` binds `ai_owner` too: with no policy for it, the owner reads and writes no rows of `ai.chunks`.
 
 ## LLM safety
 
@@ -34,7 +58,7 @@ Flat layout: `normetry_ai/` and `tests/` sit next to `pyproject.toml`. A subpack
 From `src/ai`:
 
 - `uv sync` · `uv run pytest` · `uv run ruff check` · `uv run ruff format` (`--check` in CI). The hook runs Ruff format on every edited `.py` file once `src/ai/.venv` exists.
-- Run: `uv run uvicorn normetry_ai.api:create_app --factory` with `NORMETRY_INTERNAL_TOKEN` set. The AppHost (`dotnet run --project src/core/Normetry.AppHost` from the repo root) runs `uv sync`, then this command with `--reload`, and sets `NORMETRY_INTERNAL_TOKEN`, both database URLs and the `OTEL_*` variables; environment variables take precedence over `src/ai/.env`.
-- Migrations (layout set up in #13): `uv run alembic revision --version-path migrations/schema -m "..."` for structure, `--version-path migrations/data` for rows; `uv run alembic upgrade head`, with `NORMETRY_MIGRATIONS_DATABASE_URL` (owner role, `postgresql+psycopg://...`). New revisions are import-sorted and formatted by Ruff post-write hooks.
-- Tests stay offline: build the app with `create_app(Settings(..., _env_file=None))` and use FastAPI's `TestClient`.
+- Run: `uv run uvicorn normetry_ai.api:create_app --factory` with `NORMETRY_INTERNAL_TOKEN` set. The AppHost (`dotnet run --project src/core/Normetry.AppHost` from the repo root) runs `uv sync`, waits for `ai-migrate`, then runs this command with `--reload` and sets `NORMETRY_INTERNAL_TOKEN`, `NORMETRY_DATABASE_URL` (`app_ai`) and the `OTEL_*` variables; environment variables take precedence over `src/ai/.env`.
+- API tests stay offline: build the app with `create_app(Settings(..., _env_file=None))` and use FastAPI's `TestClient`.
+- Database tests (`tests/test_database.py`, marker `integration`) start one `pgvector/pgvector:0.8.7-pg17` container per session with Testcontainers. They run the real bootstrap from `deploy/postgres/init/` with random passwords, then `alembic upgrade head` as `ai_owner`, and assert app behavior connected as the real roles, never as the superuser. They need Docker: without it they are skipped locally (or deselect them with `-m "not integration"`), and in CI (`CI` set) they fail instead of skipping. A new tenant-owned table needs its isolation tests there.
 - Type hints on all public functions.
