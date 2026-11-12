@@ -126,3 +126,9 @@ desktop.ini
 .claude/settings.local.json
 CLAUDE.local.md
 graphify-out/
+
+# ---------- Regulation corpus ----------
+# Downloaded by corpus/scripts/fetch_corpus.py instead of committed (size or
+# reuse terms, see corpus/README.md). The EU texts stay committed.
+corpus/us/food-code/
+corpus/br/rdc-216-2004/
