@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-phase_0_·_foundation-F2C744?labelColor=0B1220" alt="Status: phase 0"/>
+  <img src="https://img.shields.io/badge/status-phase_1_·_regulation_RAG-F2C744?labelColor=0B1220" alt="Status: phase 1"/>
   <a href="https://github.com/KauaVilasBoas/Normetry/actions/workflows/ci.yml">
     <img src="https://github.com/KauaVilasBoas/Normetry/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/>
   </a>
@@ -373,25 +373,37 @@ The LLM-as-judge is checked against about 30 hand-labeled examples before it is 
 
 ## Getting started
 
-Coming soon: run instructions arrive with the phase 0 scaffold.
-
-<!-- TODO(fill later): real prerequisites and commands once the monorepo is scaffolded
-Prerequisites: .NET 10 SDK, Python 3.12+, Node 20+, Docker.
+Prerequisites: .NET 10 SDK, [uv](https://docs.astral.sh/uv/) (it installs Python 3.12+), Docker.
 
 ```bash
 git clone https://github.com/KauaVilasBoas/Normetry.git
 cd Normetry
-cp .env.example .env              # fill in your own LLM provider key
-dotnet run --project src/core/Normetry.AppHost   # Aspire boots everything
+dotnet dev-certs https --trust                    # once, so services can send telemetry to the dashboard
+dotnet run --project src/core/Normetry.AppHost    # PostgreSQL, Keycloak, migrations, API and AI service
 ```
 
-The Aspire dashboard shows every service, container and OpenTelemetry trace.
-`docker compose -f deploy/docker-compose.yml up` is the alternative without Aspire.
--->
+The first run generates every password and the internal token and keeps them in the AppHost's user secrets, so there is nothing to configure. The console prints the Aspire dashboard login link (`https://localhost:17081`). If Docker cannot reach `mcr.microsoft.com`, set `ASPIRE_ENABLE_CONTAINER_TUNNEL=false` first.
+
+The local Keycloak realm has two demo tenants and three demo users ([`deploy/keycloak/README.md`](deploy/keycloak/README.md)). With the API on `http://localhost:5208`:
+
+```bash
+TOKEN=$(curl -s http://localhost:8180/realms/normetry/protocol/openid-connect/token \
+  -d grant_type=password -d client_id=normetry-dev \
+  -d username=bistro.owner -d password=local-demo-only | jq -r .access_token)
+
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5208/me          # user, tenant, roles
+curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Bistro Centro","type":"Restaurant","jurisdiction":"BR"}' \
+  http://localhost:5208/establishments                                     # 201
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5208/ai/health   # AI service, through the gateway
+```
+
+With a `bakery.auditor` token the Bistro's establishment does not show up: RLS hides it.
 
 ### Tests
 
-<!-- TODO(fill later): test commands for both services -->
+`dotnet test` from the repository root and `uv run pytest` from `src/ai`. Database tests need Docker; without it they are skipped locally and fail in CI.
+
 - Domain: unit tests.
 - Integration: Testcontainers with a real PostgreSQL, RLS included. Tenant A must never read tenant B's chunks.
 - Architecture: NetArchTest rules fail the build when a layer depends on one it should not.
@@ -441,8 +453,8 @@ normetry/
 
 | Phase | Delivery | Status |
 |---|---|---|
-| 0 · Foundation | Monorepo, Aspire, auth, tenants and establishments, PostgreSQL with RLS and isolation tests, CI | In progress |
-| 1 · Regulation RAG | Ingestion of the 3 regulations, hybrid search with re-ranker, cited chat, retrieval and generation evals in CI | Planned |
+| 0 · Foundation | Monorepo, Aspire, auth, tenants and establishments, PostgreSQL with RLS and isolation tests, CI | Done |
+| 1 · Regulation RAG | Ingestion of the 3 regulations, hybrid search with re-ranker, cited chat, retrieval and generation evals in CI | Next |
 | 2 · Simulated inspection | Async upload and ingestion, LangGraph agent, human review, planted scenarios | Planned |
 | 3 · Polish | Change monitor, MCP server, Langfuse, Azure deploy, demo video | Planned |
 
