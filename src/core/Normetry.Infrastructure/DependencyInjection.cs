@@ -37,7 +37,10 @@ public static class DependencyInjection
         return services;
     }
 
-    /// <summary>Development only: creates the demo tenants of the local Keycloak realm.</summary>
+    /// <summary>
+    /// Development only: creates the demo tenants of the local Keycloak realm and their demo
+    /// establishments.
+    /// </summary>
     public static IServiceCollection AddDemoTenantSeed(this IServiceCollection services) =>
         services.AddHostedService<DemoTenantSeed>();
 }
