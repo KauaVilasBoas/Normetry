@@ -20,10 +20,12 @@ public class LayerDependencyTests
             "Microsoft.AspNetCore"
         );
 
+    // The dispatcher lives in BuildingBlocks, which Domain references, so it is named explicitly.
     [Fact]
-    public void Domain_depends_only_on_BuildingBlocks() =>
+    public void Domain_depends_only_on_BuildingBlocks_and_not_on_the_dispatcher() =>
         AssertNoDependency(
             typeof(Domain.AssemblyMarker).Assembly,
+            "Normetry.BuildingBlocks.Cqrs",
             "Normetry.Application",
             "Normetry.Infrastructure",
             "Normetry.Api",
