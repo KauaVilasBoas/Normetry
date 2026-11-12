@@ -1,10 +1,14 @@
+from typing import Annotated
+
 import pytest
+from fastapi import Depends
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from starlette.websockets import WebSocketDisconnect
 
 from normetry_ai.api import create_app
 from normetry_ai.api.auth import INTERNAL_TOKEN_HEADER
+from normetry_ai.api.context import TENANT_HEADER, USER_HEADER, RequestContext, request_context
 from normetry_ai.settings import MigrationSettings, Settings
 
 TOKEN = "test-internal-token-0123456789abcdef"
@@ -87,3 +91,67 @@ def test_app_starts_without_a_database() -> None:
     settings = Settings(internal_token=TOKEN, database_url=None, _env_file=None)
     with TestClient(create_app(settings)) as client:  # runs the lifespan
         assert client.get("/health", headers=AUTH).status_code == 200
+
+
+def _context_client() -> TestClient:
+    app = create_app(Settings(internal_token=TOKEN, _env_file=None))
+
+    # Test-only route: the service has no endpoint that just echoes its caller.
+    @app.get("/context")
+    def context(ctx: Annotated[RequestContext, Depends(request_context)]) -> dict[str, str]:
+        return {"tenant_id": str(ctx.tenant_id), "user_id": ctx.user_id}
+
+    return TestClient(app)
+
+
+TENANT = "11111111-1111-4111-8111-111111111111"
+USER = "0b5a4c8e-7f1d-4e2a-9c3b-6d8e1f2a3b4c"
+
+
+def test_context_headers_without_the_token_get_401() -> None:
+    response = _context_client().get("/context", headers={TENANT_HEADER: TENANT, USER_HEADER: USER})
+
+    assert response.status_code == 401
+
+
+def test_context_carries_the_internal_header_values() -> None:
+    response = _context_client().get(
+        "/context", headers={**AUTH, TENANT_HEADER: TENANT, USER_HEADER: USER}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"tenant_id": TENANT, "user_id": USER}
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        [(USER_HEADER, USER)],
+        [(TENANT_HEADER, TENANT)],
+        [(TENANT_HEADER, TENANT), (TENANT_HEADER, TENANT), (USER_HEADER, USER)],
+        [(TENANT_HEADER, TENANT), (USER_HEADER, USER), (USER_HEADER, USER)],
+        [(TENANT_HEADER, "not-a-uuid"), (USER_HEADER, USER)],
+        [(TENANT_HEADER, "00000000-0000-0000-0000-000000000000"), (USER_HEADER, USER)],
+        [(TENANT_HEADER, TENANT.replace("-", "")), (USER_HEADER, USER)],
+        [(TENANT_HEADER, TENANT.upper().replace("1", "A")), (USER_HEADER, USER)],
+        [(TENANT_HEADER, TENANT), (USER_HEADER, "")],
+    ],
+    ids=[
+        "no-tenant",
+        "no-user",
+        "two-tenants",
+        "two-users",
+        "bad-uuid",
+        "nil",
+        "no-dashes",
+        "upper-case",
+        "empty-user",
+    ],
+)
+def test_context_without_exactly_one_valid_value_each_gets_400(
+    headers: list[tuple[str, str]],
+) -> None:
+    response = _context_client().get("/context", headers=[*AUTH.items(), *headers])
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Missing or invalid internal context headers."}
