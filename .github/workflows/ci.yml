@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One run per ref: a new push to a pull request cancels its older run; runs on main always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  core:
+    name: core (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # No NuGet cache: the action's cache needs packages.lock.json files, which the repo does not use.
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Restore tools
+        run: dotnet tool restore
+      - name: Check formatting
+        run: dotnet csharpier check .
+      - name: Build
+        run: dotnet build --configuration Release
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+  ai:
+    name: ai (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/ai
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Python comes from src/ai/.python-version; uv is pinned here because uv.lock does not lock it.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.23"
+          working-directory: src/ai
+          enable-cache: true
+      - name: Sync
+        run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check
+      - name: Check formatting
+        run: uv run ruff format --check
+      - name: Test
+        run: uv run pytest
+
+  hooks:
+    name: Claude hooks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: Test
+        run: node --test ".claude/hooks/*.test.mjs"
