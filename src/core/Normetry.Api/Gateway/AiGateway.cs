@@ -132,7 +132,7 @@ internal static class AiGateway
     {
         app.MapReverseProxy(proxy =>
         {
-            // Loads the establishment before anything is forwarded.
+            // Loads the establishment and counts chat messages before anything is forwarded.
             proxy.Use(EstablishmentScope.InvokeAsync);
             // The steps of the default pipeline, which a custom one replaces.
             proxy.UseSessionAffinity();

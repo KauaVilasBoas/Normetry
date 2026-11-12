@@ -23,6 +23,7 @@ public static class ResultProblemDetails
             ErrorType.NotFound => StatusCodes.Status404NotFound,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
             ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+            ErrorType.RateLimited => StatusCodes.Status429TooManyRequests,
             _ => StatusCodes.Status500InternalServerError,
         };
         problem.Detail = error.Type == ErrorType.Unexpected ? null : error.Message;

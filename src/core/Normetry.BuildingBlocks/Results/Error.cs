@@ -7,6 +7,9 @@ public enum ErrorType
     NotFound,
     Conflict,
     Forbidden,
+
+    /// <summary>A limit such as a daily quota is reached; the caller may retry later.</summary>
+    RateLimited,
     Unexpected,
 }
 
