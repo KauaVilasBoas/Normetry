@@ -132,20 +132,35 @@ public sealed class TenantTransactionTests
     }
 
     [Fact]
-    public async Task The_demo_seed_creates_the_realm_tenants_and_is_idempotent()
+    public async Task The_demo_seed_creates_the_realm_tenants_and_their_establishments_once()
     {
         var seed = db.Api.Services.GetServices<IHostedService>().OfType<DemoTenantSeed>().Single();
 
         // The API ran it once at startup; a second run must change nothing.
         await seed.StartAsync(Ct);
 
-        foreach (var tenant in new[] { ApiFactory.TenantA, ApiFactory.TenantB })
+        foreach (
+            var (tenant, expected) in new[]
+            {
+                (ApiFactory.TenantA, new[] { "Bistro Lisboa EU", "Bistro São Paulo BR" }),
+                (ApiFactory.TenantB, new[] { "Bakery Austin US" }),
+            }
+        )
         {
             await using var session = await Session.BeginAsync(
                 db.ConnectionString("app_core"),
                 Guid.Parse(tenant)
             );
             Assert.Equal(1L, await session.ScalarAsync<long>("SELECT count(*) FROM core.tenants"));
+            // Other tests add establishments of their own; the seeded names exist once each.
+            var seeded = await session.ColumnAsync<string>(
+                """
+                SELECT name || ' ' || jurisdiction FROM core.establishments
+                WHERE name = ANY($1) AND type = 'Restaurant' ORDER BY name
+                """,
+                (object)expected.Select(row => row[..row.LastIndexOf(' ')]).ToArray()
+            );
+            Assert.Equal(expected, seeded);
         }
     }
 
