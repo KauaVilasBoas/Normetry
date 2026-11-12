@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Application.Abstractions;
 using Normetry.Application.Establishments;
+using Normetry.Application.Tenancy;
 using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.Infrastructure.Persistence;
@@ -31,6 +32,7 @@ public static class DependencyInjection
         );
         // Registered before the demo seed, so the seed never runs on a privileged role.
         services.AddHostedService<RuntimeRoleCheck>();
+        services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IEstablishmentRepository, EstablishmentRepository>();
         services.AddScoped<IChatMessageCounter, ChatMessageCounter>();
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
