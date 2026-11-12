@@ -37,10 +37,13 @@ select = ["E", "F", "I", "B", "UP", "S"]
 
 [tool.pytest]
 testpaths = ["tests"]
+# Needs Docker (Testcontainers). Skip locally with -m "not integration"; CI runs everything.
+markers = ["integration: runs against a PostgreSQL container"]
 
 [dependency-groups]
 dev = [
     "httpx2>=2.16.0",
     "pytest>=9.2.0",
     "ruff>=0.17.4",
+    "testcontainers>=4.15.0",
 ]

@@ -5,7 +5,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from normetry_ai.api import create_app
 from normetry_ai.api.auth import INTERNAL_TOKEN_HEADER
-from normetry_ai.settings import Settings
+from normetry_ai.settings import MigrationSettings, Settings
 
 TOKEN = "test-internal-token-0123456789abcdef"
 AUTH = {INTERNAL_TOKEN_HEADER: TOKEN}
@@ -79,3 +79,11 @@ def test_app_refuses_to_start_without_a_valid_token(
 
 def test_runtime_settings_never_carry_the_migrations_url() -> None:
     assert "migrations_database_url" not in Settings.model_fields
+    # The owner URL comes only from the environment, never from src/ai/.env.
+    assert MigrationSettings.model_config["env_file"] is None
+
+
+def test_app_starts_without_a_database() -> None:
+    settings = Settings(internal_token=TOKEN, database_url=None, _env_file=None)
+    with TestClient(create_app(settings)) as client:  # runs the lifespan
+        assert client.get("/health", headers=AUTH).status_code == 200
