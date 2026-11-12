@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using Normetry.Infrastructure.Persistence;
 
 namespace Normetry.IntegrationTests;
 
@@ -20,23 +21,61 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     public const string Issuer = "https://issuer.test/realms/normetry";
     public const string UserId = "0b5a4c8e-7f1d-4e2a-9c3b-6d8e1f2a3b4c";
+
+    // The demo tenants: the API's Development seed creates them when a database is attached.
     public const string TenantA = "11111111-1111-4111-8111-111111111111";
     public const string TenantB = "22222222-2222-4222-8222-222222222222";
 
     private static readonly SecurityKey SigningKey = NewSigningKey();
 
+    /// <summary>
+    /// The <c>app_core</c> connection string of a test database (see <c>DatabaseFixture</c>).
+    /// Without one the API gets an address it never connects to, no role check and no demo seed,
+    /// which is enough for endpoints that do not touch the database.
+    /// </summary>
+    public string? CoreConnectionString { get; init; }
+
     public static SecurityKey NewSigningKey() =>
         new RsaSecurityKey(RSA.Create(2048)) { KeyId = "test-key" };
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder) =>
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseSetting("ConnectionStrings:core", CoreConnectionString ?? "Host=db.invalid");
         builder.ConfigureTestServices(services =>
+        {
             services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 // A static configuration replaces the download from the authority.
                 options.Configuration = new OpenIdConnectConfiguration { Issuer = Issuer };
                 options.Configuration.SigningKeys.Add(SigningKey);
-            })
-        );
+            });
+            if (CoreConnectionString is null)
+            {
+                foreach (
+                    var seed in services
+                        .Where(service =>
+                            service.ImplementationType == typeof(DemoTenantSeed)
+                            || service.ImplementationType == typeof(RuntimeRoleCheck)
+                        )
+                        .ToArray()
+                )
+                {
+                    services.Remove(seed);
+                }
+            }
+        });
+    }
+
+    /// <summary>A token for <paramref name="tenantId"/> holding only <paramref name="role"/>.</summary>
+    public static string CreateToken(string tenantId, string role) =>
+        CreateToken(token =>
+        {
+            token.Claims["tenant_id"] = tenantId;
+            token.Claims["realm_access"] = new Dictionary<string, object>
+            {
+                ["roles"] = new[] { role },
+            };
+        });
 
     /// <summary>
     /// An access token shaped like Keycloak's for a Demo Bistro Owner, signed with the trusted

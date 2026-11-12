@@ -174,6 +174,9 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
     [InlineData(NormetryRoles.Owner, Policies.Manager, false)]
     [InlineData(NormetryRoles.Auditor, Policies.Owner, false)]
     [InlineData("offline_access", Policies.Auditor, false)]
+    [InlineData(NormetryRoles.Owner, Policies.OwnerOrManager, true)]
+    [InlineData(NormetryRoles.Manager, Policies.OwnerOrManager, true)]
+    [InlineData(NormetryRoles.Auditor, Policies.OwnerOrManager, false)]
     public async Task A_role_policy_requires_its_realm_role(
         string realmRole,
         string policy,
