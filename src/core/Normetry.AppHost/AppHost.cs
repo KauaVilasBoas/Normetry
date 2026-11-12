@@ -59,6 +59,13 @@ builder
     .WithReference(keycloak)
     .WaitFor(postgres);
 
+// Short-lived: applies the ai migrations as ai_owner and exits. Only this step gets the owner URL,
+// because the owner can switch RLS off; the running service connects as app_ai.
+var aiMigrate = builder
+    .AddExecutable("ai-migrate", "uv", "../../ai", "run", "alembic", "upgrade", "head")
+    .WithEnvironment("NORMETRY_MIGRATIONS_DATABASE_URL", Psycopg("ai_owner", aiOwnerPassword))
+    .WaitFor(postgres);
+
 var ai = builder
     .AddUvicornApp("ai", "../../ai", "normetry_ai.api:create_app")
     .WithUv()
@@ -66,7 +73,8 @@ var ai = builder
     .WithArgs("--factory", "--reload-dir", "normetry_ai")
     .WithEnvironment("NORMETRY_INTERNAL_TOKEN", internalToken)
     .WithEnvironment("NORMETRY_DATABASE_URL", Psycopg("app_ai", appAiPassword))
-    .WaitFor(postgres);
+    .WaitFor(postgres)
+    .WaitForCompletion(aiMigrate);
 
 // Every AI route, /health included, answers 401 without the internal token, and
 // WithHttpHealthCheck cannot add headers, so this probe sends it.
