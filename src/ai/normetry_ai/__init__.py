@@ -1,0 +1,1 @@
+"""Normetry AI service."""

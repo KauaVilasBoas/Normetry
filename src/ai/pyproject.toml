@@ -1,0 +1,46 @@
+[project]
+name = "normetry-ai"
+# Not released on its own: the monorepo version comes from release-please (root CHANGELOG.md).
+version = "0.0.0"
+description = "Normetry AI service: ingestion, hybrid retrieval and agents behind the core's YARP gateway."
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.1",
+    "fastapi>=0.162.5",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.45.2",
+    "opentelemetry-instrumentation-fastapi>=0.66b2",
+    "opentelemetry-sdk>=1.45.2",
+    "psycopg[binary]>=3.3.8",
+    "pydantic-settings>=2.16.2",
+    "sqlalchemy>=2.1.8",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.23,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Flat layout: the package lives at src/ai/normetry_ai, not src/ai/src/normetry_ai.
+module-root = ""
+
+[tool.ruff]
+# Same print width as CSharpier on the .NET side.
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use plain asserts and hard-coded fake tokens.
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pytest]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
+]

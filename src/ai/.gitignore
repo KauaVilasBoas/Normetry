@@ -1,0 +1,2 @@
+# The root .gitignore ignores .python-version; uv pins this project's interpreter with it.
+!/.python-version
