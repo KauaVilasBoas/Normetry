@@ -122,14 +122,17 @@ public static class Extensions
         // See https://aka.ms/aspire/healthchecks for details before enabling these endpoints in non-development environments.
         if (app.Environment.IsDevelopment())
         {
+            // Anonymous on purpose: the API's fallback policy requires a tenant token, and the
+            // AppHost probes these endpoints without one.
             // All health checks must pass for app to be considered ready to accept traffic after starting
-            app.MapHealthChecks(HealthEndpointPath);
+            app.MapHealthChecks(HealthEndpointPath).AllowAnonymous();
 
             // Only health checks tagged with the "live" tag must pass for app to be considered alive
             app.MapHealthChecks(
-                AlivenessEndpointPath,
-                new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") }
-            );
+                    AlivenessEndpointPath,
+                    new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") }
+                )
+                .AllowAnonymous();
         }
 
         return app;
