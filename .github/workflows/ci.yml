@@ -56,6 +56,17 @@ jobs:
         run: uv run ruff check
       - name: Check formatting
         run: uv run ruff format --check
+      # The FDA and Anvisa files are not in git. The script downloads what is missing and checks
+      # every file's SHA-256 against corpus/manifest.json; the cache spares the publishers' sites.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            corpus/us/food-code
+            corpus/br/rdc-216-2004
+          key: corpus-${{ hashFiles('corpus/manifest.json') }}
+      - name: Fetch corpus
+        working-directory: .
+        run: uv run corpus/scripts/fetch_corpus.py
       - name: Test
         run: uv run pytest
 
