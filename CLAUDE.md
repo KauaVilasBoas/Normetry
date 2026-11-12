@@ -16,7 +16,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 | `corpus/` | versioned regulation texts + download scripts | |
 | `docs/adr/` | architecture decision records | `adr` skill |
 | `docs/design/` | approved UI reference (`reference.png`) + design system (`DESIGN.md`) | `normetry-design-system` skill |
-| `deploy/` | docker-compose, Terraform | |
+| `deploy/` | PostgreSQL bootstrap (`postgres/init/`), Keycloak dev realm; later docker-compose, Terraform | READMEs in `deploy/postgres/`, `deploy/keycloak/` |
 
 ## Invariants (changing one needs a new ADR)
 
@@ -28,7 +28,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 
 ## Commands
 
-- Run everything: `dotnet run --project src/core/Normetry.AppHost` (Aspire dashboard at `https://localhost:17081`; the login link is printed in the console)
+- Run everything: `dotnet run --project src/core/Normetry.AppHost` (needs Docker; starts PostgreSQL, Keycloak, the API and the AI service; Aspire dashboard at `https://localhost:17081`, the login link is printed in the console). Demo users: `deploy/keycloak/README.md`
 - .NET (from the repo root): `dotnet build` · `dotnet test` · `dotnet tool restore` then `dotnet csharpier check .`
 - Python (from `src/ai`): `uv sync` · `uv run pytest` · `uv run ruff check` · `uv run ruff format --check` · run with `uv run uvicorn normetry_ai.api:create_app --factory` (needs `NORMETRY_INTERNAL_TOKEN`, see `src/ai/.env.example`)
 - Claude hooks self-test: `node --test ".claude/hooks/*.test.mjs"`

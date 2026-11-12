@@ -18,7 +18,7 @@ Flat layout: `normetry_ai/` and `tests/` sit next to `pyproject.toml`. A subpack
 
 - Not public. Every request must carry the internal token in `X-Normetry-Internal-Token` (exactly once). A pure ASGI middleware rejects every http and websocket scope without it before routing and body parsing (401, also for unknown paths). Do not move the check into route dependencies. OpenAPI and docs routes stay off. `NORMETRY_INTERNAL_TOKEN` (32+ characters) is required: without it the app does not start. Tenant, establishment and jurisdiction come only from the internal headers set by YARP.
 - Writes only schema `ai`, through Alembic migrations (`migrations/`, version table `ai.alembic_version`, autogenerate limited to schema `ai`). Results for the core (findings, document status) are published as queue events.
-- Migrations run as the owner role (`NORMETRY_MIGRATIONS_DATABASE_URL`, read only by `migrations/env.py`, no fallback); the app connects as `app_ai` (`NORMETRY_DATABASE_URL`, DML only). The owner role has no privileges on schema `core`, enforced by the bootstrap SQL (#9/#13).
+- Migrations run as the owner role (`NORMETRY_MIGRATIONS_DATABASE_URL`, read only by `migrations/env.py`, no fallback); the app connects as `app_ai` (`NORMETRY_DATABASE_URL`, DML only). The owner role is `ai_owner`: it owns schema `ai` (created by the bootstrap in `deploy/postgres/init/`, so Alembic can write `ai.alembic_version`) and has no privileges on schema `core`. `NORMETRY_MIGRATIONS_DATABASE_URL` is only ever set for a migration step, never on the running service, because the owner can switch RLS off. The first migration revokes `app_ai`'s access to `ai.alembic_version`, and grants `corpus_ingestor` only the corpus tables (it has no default privileges).
 - The unit-of-work helper sets the tenant per transaction (`rls-table` skill). Workers take the tenant from the queue message.
 - The public corpus (`tenant_id IS NULL`) is written only by the corpus ingestion job, using the `corpus_ingestor` role.
 
@@ -34,7 +34,7 @@ Flat layout: `normetry_ai/` and `tests/` sit next to `pyproject.toml`. A subpack
 From `src/ai`:
 
 - `uv sync` · `uv run pytest` · `uv run ruff check` · `uv run ruff format` (`--check` in CI). The hook runs Ruff format on every edited `.py` file once `src/ai/.venv` exists.
-- Run: `uv run uvicorn normetry_ai.api:create_app --factory` with `NORMETRY_INTERNAL_TOKEN` set.
+- Run: `uv run uvicorn normetry_ai.api:create_app --factory` with `NORMETRY_INTERNAL_TOKEN` set. The AppHost (`dotnet run --project src/core/Normetry.AppHost` from the repo root) runs `uv sync`, then this command with `--reload`, and sets `NORMETRY_INTERNAL_TOKEN`, both database URLs and the `OTEL_*` variables; environment variables take precedence over `src/ai/.env`.
 - Migrations: `uv run alembic revision -m "..."` · `uv run alembic upgrade head`, with `NORMETRY_MIGRATIONS_DATABASE_URL` (owner role, `postgresql+psycopg://...`). New revisions are import-sorted and formatted by Ruff post-write hooks.
 - Tests stay offline: build the app with `create_app(Settings(..., _env_file=None))` and use FastAPI's `TestClient`.
 - Type hints on all public functions.
