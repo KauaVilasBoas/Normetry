@@ -55,6 +55,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 | `rls-table` skill | new or changed tenant-owned table or policy |
 | `cqrs-slice` skill | new command, query or endpoint in `src/core` |
 | `adr` skill | a significant decision is made or reversed |
+| `humanizer` skill | before finishing README, docs, ADRs or PR descriptions: removes AI-writing tells (file mode keeps code, paths and links intact) |
 | `normetry-design-system` skill | any UI work; the look is fixed by `docs/design/reference.png` + `docs/design/DESIGN.md` |
 | `supabase-postgres-best-practices` skill | SQL, schema, indexes, pgvector, connections (ignore Supabase-only APIs) |
 
