@@ -17,13 +17,21 @@ public static class InternalHeaders
     public const string Token = "X-Normetry-Internal-Token";
     public const string TenantId = "X-Normetry-Tenant-Id";
     public const string UserId = "X-Normetry-User-Id";
+
+    /// <summary>Only on establishment routes, after the core loaded the establishment under RLS.</summary>
+    public const string EstablishmentId = "X-Normetry-Establishment-Id";
+
+    /// <summary><c>US</c>, <c>EU</c> or <c>BR</c>: the jurisdiction of that establishment.</summary>
+    public const string Jurisdiction = "X-Normetry-Jurisdiction";
 }
 
 /// <summary>
-/// YARP route <c>/ai/{**catch-all}</c> to the AI service (ADR 004). Only tenant-scoped callers get
-/// through. The AI service trusts these headers, so the gateway removes every internal header and
-/// credential the client sent and sets the internal token, tenant and user from the validated
-/// token. Responses are not buffered, so server-sent events stream through.
+/// YARP routes <c>/ai/{**catch-all}</c> and <c>/ai/establishments/{**rest}</c> to the AI service
+/// (ADR 004). Only tenant-scoped callers get through. The AI service trusts these headers, so the
+/// gateway removes every internal header and credential the client sent and sets the internal
+/// token, tenant and user from the validated token, plus the establishment and its jurisdiction on
+/// establishment routes (<see cref="EstablishmentScope"/>). Responses are not buffered, so
+/// server-sent events stream through.
 /// </summary>
 internal static class AiGateway
 {
@@ -59,18 +67,16 @@ internal static class AiGateway
             );
         }
 
+        // The literal "establishments" segment wins over the catch-all, in any case. The id is
+        // not constrained in the pattern: a malformed one must get 404 from EstablishmentScope,
+        // not fall through to the catch-all route without establishment headers.
         RouteConfig[] routes =
         [
-            new RouteConfig
-            {
-                RouteId = "ai",
-                ClusterId = "ai",
-                AuthorizationPolicy = Policies.Tenant,
-                Match = new RouteMatch { Path = "/ai/{**catch-all}" },
-            }
-                .WithTransformPathRemovePrefix("/ai")
-                // A query-string token (SignalR style) must not reach the AI service or its logs.
-                .WithTransformQueryRemoveKey("access_token"),
+            Route("ai", "/ai/{**catch-all}"),
+            Route(
+                EstablishmentScope.RouteId,
+                $"/ai/establishments/{{**{EstablishmentScope.RouteValue}}}"
+            ),
         ];
         ClusterConfig[] clusters =
         [
@@ -105,6 +111,18 @@ internal static class AiGateway
         return builder;
     }
 
+    private static RouteConfig Route(string id, string path) =>
+        new RouteConfig
+        {
+            RouteId = id,
+            ClusterId = "ai",
+            AuthorizationPolicy = Policies.Tenant,
+            Match = new RouteMatch { Path = path },
+        }
+            .WithTransformPathRemovePrefix("/ai")
+            // A query-string token (SignalR style) must not reach the AI service or its logs.
+            .WithTransformQueryRemoveKey("access_token");
+
     // Also catches X_Normetry_*: some servers and adapters read underscores as dashes.
     private static bool IsInternal(string name) =>
         name.Replace('_', '-')
@@ -112,7 +130,15 @@ internal static class AiGateway
 
     public static WebApplication MapAiGateway(this WebApplication app)
     {
-        app.MapReverseProxy();
+        app.MapReverseProxy(proxy =>
+        {
+            // Loads the establishment before anything is forwarded.
+            proxy.Use(EstablishmentScope.InvokeAsync);
+            // The steps of the default pipeline, which a custom one replaces.
+            proxy.UseSessionAffinity();
+            proxy.UseLoadBalancing();
+            proxy.UsePassiveHealthChecks();
+        });
         return app;
     }
 
@@ -147,6 +173,29 @@ internal static class AiGateway
             AddHeader(context, InternalHeaders.Token, token);
             AddHeader(context, InternalHeaders.TenantId, tenantId.ToString());
             AddHeader(context, InternalHeaders.UserId, userId);
+
+            if (context.HttpContext.Features.Get<EstablishmentScope>() is { } establishment)
+            {
+                AddHeader(
+                    context,
+                    InternalHeaders.EstablishmentId,
+                    establishment.EstablishmentId.ToString()
+                );
+                AddHeader(
+                    context,
+                    InternalHeaders.Jurisdiction,
+                    establishment.Jurisdiction.ToString()
+                );
+            }
+            else if (
+                context.HttpContext.GetReverseProxyFeature().Route.Config.RouteId
+                == EstablishmentScope.RouteId
+            )
+            {
+                throw new InvalidOperationException(
+                    $"The proxy pipeline must run {nameof(EstablishmentScope)} on establishment routes."
+                );
+            }
             return ValueTask.CompletedTask;
         }
     }
