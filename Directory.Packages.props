@@ -18,6 +18,8 @@
   </ItemGroup>
   <ItemGroup Label="Api">
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery.Yarp" Version="10.11.0" />
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
   <ItemGroup Label="Infrastructure (EF Core 10 with Npgsql)">
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />

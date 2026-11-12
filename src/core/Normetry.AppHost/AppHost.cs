@@ -57,17 +57,6 @@ var coreMigrate = builder
     .WithEnvironment("ConnectionStrings__core-migrations", Npgsql("core_owner", coreOwnerPassword))
     .WaitFor(postgres);
 
-// Probed over http so the API reports healthy even before the HTTPS dev certificate is trusted.
-builder
-    .AddProject<Projects.Normetry_Api>("api")
-    .WithHttpHealthCheck("/health", endpointName: "http")
-    .WithEnvironment("ConnectionStrings__core", Npgsql("app_core", appCorePassword))
-    .WithEnvironment("Ai__InternalToken", internalToken)
-    .WithReference(keycloak)
-    .WaitFor(keycloak)
-    .WaitFor(postgres)
-    .WaitForCompletion(coreMigrate);
-
 // Short-lived: applies the ai migrations as ai_owner and exits. Only this step gets the owner URL,
 // because the owner can switch RLS off; the running service connects as app_ai.
 var aiMigrate = builder
@@ -84,6 +73,19 @@ var ai = builder
     .WithEnvironment("NORMETRY_DATABASE_URL", Psycopg("app_ai", appAiPassword))
     .WaitFor(postgres)
     .WaitForCompletion(aiMigrate);
+
+// Probed over http so the API reports healthy even before the HTTPS dev certificate is trusted.
+builder
+    .AddProject<Projects.Normetry_Api>("api")
+    .WithHttpHealthCheck("/health", endpointName: "http")
+    .WithEnvironment("ConnectionStrings__core", Npgsql("app_core", appCorePassword))
+    .WithEnvironment("Ai__InternalToken", internalToken)
+    .WithReference(keycloak)
+    // services__ai__http__0 for the /ai/* gateway (Aspire service discovery).
+    .WithReference(ai)
+    .WaitFor(keycloak)
+    .WaitFor(postgres)
+    .WaitForCompletion(coreMigrate);
 
 // Every AI route, /health included, answers 401 without the internal token, and
 // WithHttpHealthCheck cannot add headers, so this probe sends it.
