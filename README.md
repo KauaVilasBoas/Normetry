@@ -310,6 +310,7 @@ Each row will get a full record in [`docs/adr/`](docs/adr/).
 | 006 | Retrieval written by hand, LangGraph only for agents | Full control over each step, and every step can be explained | More code to own |
 | 007 | Verifiable citations | Structured output plus a check that every cited passage was retrieved | One extra validation step |
 | 008 | Embedding model behind an interface, chosen by eval | Changing models becomes an experiment with a measured result | None so far |
+| [009](docs/adr/009-in-house-cqrs-dispatcher.md) | In-house CQRS dispatcher instead of MediatR | MediatR has required a commercial license since 2025, and a small dispatcher shows how the pattern works | We own and test the pipeline, and there are no ecosystem extensions |
 
 <details>
 <summary>Why PostgreSQL and not SQL Server?</summary>
@@ -405,7 +406,7 @@ The Aspire dashboard shows every service, container and OpenTelemetry trace.
 normetry/
 ├── src/
 │   ├── core/                      # .NET 10
-│   │   ├── Normetry.BuildingBlocks/
+│   │   ├── Normetry.BuildingBlocks/  # CQRS dispatcher, Result types
 │   │   ├── Normetry.Domain/
 │   │   ├── Normetry.Application/
 │   │   ├── Normetry.Infrastructure/

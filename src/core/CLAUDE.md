@@ -4,7 +4,7 @@
 
 Solution: `Normetry.slnx` at the repo root. Shared build settings live in the root `Directory.Build.props` (net10.0, nullable, warnings as errors) and package versions in `Directory.Packages.props` (central package management: `PackageReference` items carry no `Version`).
 
-- `Normetry.BuildingBlocks` — shared primitives with no Normetry, EF Core or ASP.NET Core dependency.
+- `Normetry.BuildingBlocks` — shared primitives with no Normetry, EF Core or ASP.NET Core dependency. `Cqrs/` holds the in-house dispatcher (ADR 009): commands, queries, handlers, `IDispatcher`, pipeline behaviors (logging, FluentValidation) and `AddDispatcher(...)`, which scans for handlers and validators. `Results/` holds `Result`, `Result<T>` and `Error` for expected failures; `Normetry.Api` maps a failed result to ProblemDetails with `ToProblemDetails()`.
 - `Normetry.Domain` — entities, value objects, domain events. References only BuildingBlocks: no EF Core, ASP.NET Core or dispatcher.
 - `Normetry.Application` — commands, queries, handlers and validators, one folder per bounded context. References Domain and BuildingBlocks.
 - `Normetry.Infrastructure` — EF Core (Npgsql), outbox, messaging, blob storage; implements Application abstractions. References Application.
@@ -34,7 +34,7 @@ Bounded contexts: Tenancy & Identity, Establishments, Documents, Regulations (re
 
 Test projects live in `src/core/tests/`: xUnit v3 on Microsoft.Testing.Platform (selected in the root `global.json`). A test project needs at least one test, because the platform fails a run with zero tests.
 
-- Domain: unit tests (`Normetry.UnitTests`, added with the first slice).
+- Domain and BuildingBlocks: unit tests (`Normetry.UnitTests`; it references Api for the ProblemDetails mapping).
 - Handlers and persistence: integration tests with Testcontainers PostgreSQL, RLS included (`Normetry.IntegrationTests`, added with the first persistence work).
 - Architecture: NetArchTest rules (`Normetry.ArchitectureTests`).
 
