@@ -37,6 +37,8 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 
 - The user drives feature by feature. One feature = one GitHub issue → branch `feat/<issue>-<slug>` (or `fix/`, `docs/`, `chore/`) → PR containing `Closes #<issue>`. Use `gh` for issues and PRs.
 - Conventional Commits, atomic: one logical change per commit. Commit or push only when the user asks.
+- Every branch merged into `main` is deleted. GitHub deletes the remote branch on merge; locally run `git switch main && git pull --prune` and `git branch -d <branch>`.
+- Versioning is SemVer (`vMAJOR.MINOR.PATCH`), one version for the whole monorepo, `0.x` until the MVP is published (`1.0.0` = end of phase 3). release-please (`.github/workflows/release-please.yml`) derives it from the commits: `fix` → patch, `feat` → minor, `!` or `BREAKING CHANGE` → major (minor while `0.x`); `docs`/`chore`/`refactor`/`test`/`ci` do not release. It keeps a release PR open; merging that PR creates the tag, the GitHub Release and the `CHANGELOG.md` entry. Never create tags, bump versions or edit `CHANGELOG.md` by hand.
 - Code, comments, docs, commits and PRs in English.
 - Done = the affected builds and tests ran and passed. Prompt, retrieval or agent changes also need evals. Frontend changes also need a `ux-ui-designer` review.
 
