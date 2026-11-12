@@ -12,6 +12,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 | `src/core/` | .NET 10 core: API, domain, EF Core, outbox, YARP, SignalR, Aspire AppHost | `src/core/CLAUDE.md` |
 | `src/ai/` | Python 3.12+ AI service: FastAPI, ingestion, retrieval, LangGraph agents | `src/ai/CLAUDE.md` |
 | `src/web/` | React + TypeScript (not started) | add `src/web/CLAUDE.md` when scaffolded |
+| `src/shared/contracts/` | contracts both backends implement (`internal-http.md`: gateway headers) | change both sides in the same PR |
 | `evals/` | eval datasets, synthetic establishments, reports | |
 | `corpus/` | versioned regulation texts + download scripts | |
 | `docs/adr/` | architecture decision records | `adr` skill |

@@ -408,7 +408,7 @@ normetry/
 │   │   ├── Normetry.Application/
 │   │   ├── Normetry.Infrastructure/
 │   │   ├── Normetry.Migrations/   # EF Core: Schema/ and Data/, run as core_owner
-│   │   ├── Normetry.Api/
+│   │   ├── Normetry.Api/          # endpoints, auth, YARP gateway to /ai/*
 │   │   ├── Normetry.ServiceDefaults/  # Aspire: telemetry, health checks
 │   │   ├── Normetry.AppHost/      # Aspire
 │   │   └── tests/                 # unit, integration, architecture
@@ -420,6 +420,7 @@ normetry/
 │   │   │   ├── agents/            # LangGraph
 │   │   │   └── llm/               # providers, routing, cost
 │   │   └── tests/
+│   ├── shared/contracts/          # contracts both backends implement
 │   └── web/                       # React + TypeScript
 ├── evals/
 │   ├── datasets/

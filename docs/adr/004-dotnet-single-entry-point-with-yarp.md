@@ -10,7 +10,7 @@ The web app needs both services: the core's REST API and SignalR hub, and the AI
 ## Decision
 
 - Clients reach only the .NET core. YARP, hosted in `Normetry.Api`, forwards `/ai/*` to FastAPI.
-- The core validates the JWT (OIDC, with Keycloak in local development) and applies ASP.NET Core rate limiting and the per-tenant token budget. YARP then strips any client-sent tenant or internal headers and adds an internal token plus tenant, establishment and jurisdiction headers derived from the validated JWT.
+- The core validates the JWT (OIDC, with Keycloak in local development) and applies ASP.NET Core rate limiting and the per-tenant token budget. YARP then strips any client-sent tenant or internal headers and adds an internal token plus tenant and user headers derived from the validated JWT. Establishment and jurisdiction headers are added only by routes that work on one establishment, after the core has loaded it under RLS; the JWT carries neither. Header names and rules: `src/shared/contracts/internal-http.md`.
 - The Python service has no public ingress. FastAPI rejects any request without the internal token and reads the tenant only from the internal headers.
 - Chat answers stream over SSE through YARP.
 
