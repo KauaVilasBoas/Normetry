@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Normetry.Api\Normetry.Api.csproj" />
+    <ProjectReference Include="..\Normetry.Migrations\Normetry.Migrations.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Keycloak" />
