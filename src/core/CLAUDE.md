@@ -32,12 +32,22 @@ Bounded contexts: Tenancy & Identity, Establishments, Documents, Regulations (re
 - YARP strips any client-sent tenant or internal headers, then adds the internal token and tenant headers derived from the validated JWT.
 - Rate limiting and the per-tenant token budget live here, not in Python.
 
+## Authentication and authorization
+
+- JWT bearer against the Keycloak realm, with the plain `Microsoft.AspNetCore.Authentication.JwtBearer` package; setup in `Normetry.Api/Auth/AuthSetup.cs`. `Authentication:Schemes:Bearer` in `appsettings.json` holds `Authority` (`http://localhost:8180/realms/normetry`) and `ValidAudiences` (`normetry-api`). Override them per environment with `Authentication__Schemes__Bearer__Authority` and `Authentication__Schemes__Bearer__ValidAudiences__0`. The issuer and signing keys come from the authority's metadata.
+- Settings honor only `Authority` and `ValidAudiences`. The binder for `Authentication:Schemes:Bearer` also reads `ValidIssuer(s)`, `SigningKeys`, `MetadataAddress`, `Forward*` and the validation flags, so `AuthSetup` replaces or clears all of them after it runs. The issuer and signing keys come only from the authority's metadata. Issuer, audience, lifetime, expiry and signature checks are always on. `RequireHttpsMetadata` is false only in Development.
+- In Development the API refuses to start unless the authority is a loopback address: Development accepts `normetry-dev` tokens and plain-http metadata, so it must never run against a deployed identity provider.
+- Claims keep their JWT names (`MapInboundClaims = false`). Users are identified by `sub`, never by email. `OnTokenValidated` maps `realm_access.roles` to role claims, keeping only `Owner`, `Manager` and `Auditor`. Only listed clients (`azp`) are accepted: `normetry-web` everywhere and `normetry-dev` in Development only. Any other client, or a token without `azp`, gets 401. The list is a constant in `AuthSetup.cs`, not a setting.
+- Policies (`Policies` in `AuthSetup.cs`): the default policy needs an authenticated user with a `sub`. `Tenant` adds exactly one `tenant_id` claim holding a non-empty UUID in 8-4-4-4-12 form. `Owner`, `Manager` and `Auditor` each add their role on top of `Tenant`. Every tenant-scoped endpoint requires `Tenant` or a role policy, so a token without a valid tenant gets 403 before any handler runs. The fallback policy is `Tenant` too, so an endpoint that declares nothing is never anonymous. Anonymous endpoints say so with `.AllowAnonymous()` (today only `/health` and `/alive` in ServiceDefaults) and must be added to the allow-list in `AuthConfigurationTests`, which checks every mapped endpoint.
+- Handlers read the caller through `ICurrentUser` (user id, roles) and `ITenantContext` (tenant id) in `Normetry.Application/Abstractions`. `HttpCurrentUser` (Api) implements both from the validated principal only: the tenant never comes from the body, query string or headers. Reading `TenantId` without a valid tenant throws, which means the endpoint is missing its policy.
+
 ## Tests
 
 Test projects live in `src/core/tests/`: xUnit v3 on Microsoft.Testing.Platform (selected in the root `global.json`). A test project needs at least one test, because the platform fails a run with zero tests.
 
 - Domain and BuildingBlocks: unit tests (`Normetry.UnitTests`; it references Api for the ProblemDetails mapping).
-- Handlers and persistence: integration tests with Testcontainers PostgreSQL, RLS included (`Normetry.IntegrationTests`, added with the first persistence work).
+- Endpoints and auth: `Normetry.IntegrationTests` runs the API in memory with `WebApplicationFactory<Program>` (`ApiFactory`). The factory replaces the authority's metadata with a static configuration that trusts a test issuer and an RSA key generated per run, and `ApiFactory.CreateToken` builds Keycloak-shaped access tokens, so no Keycloak is needed. For environment-specific behavior use `factory.WithWebHostBuilder(b => b.UseEnvironment("Production"))`.
+- Handlers and persistence: integration tests with Testcontainers PostgreSQL, RLS included, in `Normetry.IntegrationTests` (from the first persistence work, #12).
 - Architecture: NetArchTest rules (`Normetry.ArchitectureTests`).
 
 ## Commands
@@ -51,6 +61,6 @@ From the repo root:
 ## Configuration
 
 - Secrets through `dotnet user-secrets`, Aspire parameters or environment variables. `appsettings*.json` holds no secrets.
-- The AppHost generates every secret parameter on the first run (`internal-token`, the five role passwords, the Postgres and Keycloak admin passwords) and keeps it in its user secrets. It passes the API `ConnectionStrings__core` (`app_core`), `Ai__InternalToken` and the Keycloak reference; the AI service gets `NORMETRY_INTERNAL_TOKEN` and `NORMETRY_DATABASE_URL` (`app_ai`). Owner credentials go only to the migration steps (#12, #13). Roles and schemas: `deploy/postgres/README.md`; realm, tenants and demo users: `deploy/keycloak/README.md`.
+- The AppHost generates every secret parameter on the first run (`internal-token`, the five role passwords, the Postgres and Keycloak admin passwords) and keeps it in its user secrets. It passes the API `ConnectionStrings__core` (`app_core`), `Ai__InternalToken` and the Keycloak reference (the API's JWT authority comes from `appsettings.json` instead, because the token issuer is the fixed `http://localhost:8180` URL); the AI service gets `NORMETRY_INTERNAL_TOKEN` and `NORMETRY_DATABASE_URL` (`app_ai`). Owner credentials go only to the migration steps (#12, #13). Roles and schemas: `deploy/postgres/README.md`; realm, tenants and demo users: `deploy/keycloak/README.md`.
 - The AI service answers 401 on every route without `X-Normetry-Internal-Token`, so its health check is a custom one in `AppHost.cs` that sends the token, not `WithHttpHealthCheck`.
 - Formatter: CSharpier as a local dotnet tool (`.config/dotnet-tools.json`); the hook runs it on every edited `.cs` file.
