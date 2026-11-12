@@ -28,8 +28,11 @@ class Settings(BaseSettings):
 
 
 class MigrationSettings(BaseSettings):
-    """Read only by migrations/env.py: the owner role that runs DDL, never the app role."""
+    """Read only by migrations/env.py: the owner role that runs DDL, never the app role.
 
-    model_config = _CONFIG
+    Environment only, never src/ai/.env: the owner password must not sit in the service's env file.
+    """
+
+    model_config = SettingsConfigDict({**_CONFIG, "env_file": None})
 
     migrations_database_url: SecretStr | None = None
