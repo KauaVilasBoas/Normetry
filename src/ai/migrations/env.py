@@ -1,9 +1,9 @@
 """Alembic environment for schema `ai`, the only schema this service writes.
 
-The `ai` schema and `ai.chunks` arrive in #13. Alembic does not create the schema that holds its
-version table, so the first migration run needs `ai` to exist (#13 decides who creates it).
-Migrations connect as the owner role (NORMETRY_MIGRATIONS_DATABASE_URL), never as app_ai.
-Tenant-owned tables follow the `rls-table` skill.
+Migrations connect as the owner role `ai_owner` (NORMETRY_MIGRATIONS_DATABASE_URL), never as
+app_ai. Schema `ai` comes from the database bootstrap (deploy/postgres/init/), so Alembic can
+create `ai.alembic_version` on the first run. Revisions live in `migrations/schema` (structure) and
+`migrations/data` (rows), one linear history. Tenant-owned tables follow the `rls-table` skill.
 """
 
 from logging.config import fileConfig
@@ -17,7 +17,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Models arrive with ai.chunks (#13); autogenerate needs their MetaData here.
+# Revisions are hand-written SQL (policies and grants do not autogenerate), so no MetaData and
+# no --autogenerate.
 target_metadata = None
 
 SCHEMA = "ai"
