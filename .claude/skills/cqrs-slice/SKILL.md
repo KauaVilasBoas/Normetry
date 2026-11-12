@@ -9,7 +9,17 @@ description: How to add a use case (command or query) to the Normetry .NET core 
 
 Find the most recent existing slice (search `src/core` for `Handler`) and mirror its file layout, naming, registration and test style. This skill states the rules; the existing code is the template.
 
-If no slice exists yet, this is the first one. Ask the user which dispatcher to use (a small in-house dispatcher, or MediatR, which has required a commercial license since 2025) and record the answer with the `adr` skill before writing code.
+## Dispatcher
+
+Normetry uses its own dispatcher in `Normetry.BuildingBlocks/Cqrs` ([ADR 009](../../../docs/adr/009-in-house-cqrs-dispatcher.md)). Do not add MediatR or another mediator.
+
+- A command implements `ICommand` (returns `Result`) or `ICommand<TValue>` (returns `Result<TValue>`); a query implements `IQuery<TValue>`. The handler implements `ICommandHandler<TCommand>`, `ICommandHandler<TCommand, TValue>` or `IQueryHandler<TQuery, TValue>`.
+- Registration is automatic: `AddDispatcher(...)` in `Program.cs` scans the Application assembly for handlers and FluentValidation validators. Do not register them by hand.
+- Endpoints inject `IDispatcher` and call `SendAsync` (commands) or `QueryAsync` (queries), passing the request's `CancellationToken`.
+- Expected failures are values: return a failed `Result` with an `Error` (`Validation`, `NotFound`, `Conflict`, `Forbidden`, `Unexpected`). Throw only for unexpected failures.
+- Input validation is an `AbstractValidator<TRequest>` next to the command. The validation behavior runs it and returns a 400 without calling the handler.
+- The endpoint maps a failure with `result.ToProblemDetails()` (`Normetry.Api`), which picks 400/404/409/403/500 and hides the message on a 500.
+- Cross-cutting steps are `IPipelineBehavior<TRequest, TResult>`. Behaviors run in registration order: logging, then validation (both registered by `AddDispatcher`), then anything registered after it. A behavior must never log the request payload.
 
 ## Placement
 
