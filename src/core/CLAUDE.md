@@ -2,13 +2,17 @@
 
 ## Projects
 
-- `Normetry.Domain` — entities, value objects, domain events. References nothing else: no EF Core, ASP.NET Core or dispatcher.
-- `Normetry.Application` — commands, queries, handlers and validators, one folder per bounded context. Depends on Domain and abstractions.
-- `Normetry.Infrastructure` — EF Core (Npgsql), outbox, messaging, blob storage; implements Application abstractions.
-- `Normetry.Api` — composition root: endpoints, OIDC/JWT auth, YARP `/ai/*`, SignalR hubs, rate limiting.
-- `Normetry.AppHost` — Aspire orchestration of every service and container.
+Solution: `Normetry.slnx` at the repo root. Shared build settings live in the root `Directory.Build.props` (net10.0, nullable, warnings as errors) and package versions in `Directory.Packages.props` (central package management: `PackageReference` items carry no `Version`).
 
-Layer dependencies are enforced by NetArchTest. When a rule fails, fix the dependency, not the rule.
+- `Normetry.BuildingBlocks` — shared primitives with no Normetry, EF Core or ASP.NET Core dependency.
+- `Normetry.Domain` — entities, value objects, domain events. References only BuildingBlocks: no EF Core, ASP.NET Core or dispatcher.
+- `Normetry.Application` — commands, queries, handlers and validators, one folder per bounded context. References Domain and BuildingBlocks.
+- `Normetry.Infrastructure` — EF Core (Npgsql), outbox, messaging, blob storage; implements Application abstractions. References Application.
+- `Normetry.Api` — composition root: endpoints, OIDC/JWT auth, YARP `/ai/*`, SignalR hubs, rate limiting. References Application, Infrastructure and ServiceDefaults.
+- `Normetry.ServiceDefaults` — Aspire service defaults: OpenTelemetry, health checks (`/health`, `/alive`, Development only), service discovery, HTTP resilience.
+- `Normetry.AppHost` — Aspire orchestration of every service and container. DCP and the dashboard come from NuGet (`AspireUseCliBundle=false`), so no Aspire CLI install is needed.
+
+Layer dependencies are enforced by NetArchTest (`tests/Normetry.ArchitectureTests`). When a rule fails, fix the dependency, not the rule. A reference pointing up the layers (for example Domain → Infrastructure) is already rejected by MSBuild as a circular reference; the tests catch leaks such as EF Core or ASP.NET Core types in Domain.
 
 Bounded contexts: Tenancy & Identity, Establishments, Documents, Regulations (read-only here), Assessments, Usage & Budget, Notifications.
 
@@ -28,11 +32,21 @@ Bounded contexts: Tenancy & Identity, Establishments, Documents, Regulations (re
 
 ## Tests
 
-- Domain: unit tests.
-- Handlers and persistence: integration tests with Testcontainers PostgreSQL, RLS included.
-- Architecture: NetArchTest rules.
+Test projects live in `src/core/tests/`: xUnit v3 on Microsoft.Testing.Platform (selected in the root `global.json`). A test project needs at least one test, because the platform fails a run with zero tests.
+
+- Domain: unit tests (`Normetry.UnitTests`, added with the first slice).
+- Handlers and persistence: integration tests with Testcontainers PostgreSQL, RLS included (`Normetry.IntegrationTests`, added with the first persistence work).
+- Architecture: NetArchTest rules (`Normetry.ArchitectureTests`).
+
+## Commands
+
+From the repo root:
+
+- `dotnet build` · `dotnet test`
+- `dotnet run --project src/core/Normetry.AppHost`: Aspire dashboard at `https://localhost:17081`, login link in the console. Trust the HTTPS dev certificate once with `dotnet dev-certs https --trust`.
+- `dotnet tool restore` then `dotnet csharpier check .` (or `format .`)
 
 ## Configuration
 
 - Secrets through `dotnet user-secrets`, Aspire parameters or environment variables. `appsettings*.json` holds no secrets.
-- Formatter: CSharpier as a local dotnet tool; the hook runs it on every edited `.cs` file once installed.
+- Formatter: CSharpier as a local dotnet tool (`.config/dotnet-tools.json`); the hook runs it on every edited `.cs` file.

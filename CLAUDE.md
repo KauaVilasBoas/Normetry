@@ -3,7 +3,7 @@
 Multi-tenant compliance copilot for regulated establishments (food service first: FDA Food Code, EU Regulation 852/2004, Anvisa RDC 216/2004). Public portfolio repository.
 
 - Product, architecture, ADR summary and roadmap: `README.md`. Full decisions: `docs/adr/`.
-- Status: phase 0 (foundation). Nothing is scaffolded yet: the commands below are the planned ones. Update this file when they become real.
+- Status: phase 0 (foundation). The .NET solution is scaffolded; `src/ai` and `src/web` are not yet. Update the commands below when they become real.
 
 ## Layout (monorepo)
 
@@ -26,11 +26,11 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 - The Python service is never public: only YARP (`/ai/*`) reaches it, with an internal token.
 - Nothing secret in the repo. Local: `.env` (git-ignored) and `dotnet user-secrets`. CI and deploy: GitHub Actions secrets. Never read, print or write secret values.
 
-## Commands (planned)
+## Commands
 
-- Run everything: `dotnet run --project src/core/Normetry.AppHost`
-- .NET: `dotnet build` · `dotnet test`
-- Python (from `src/ai`): `uv sync` · `uv run pytest` · `uv run ruff check`
+- Run everything: `dotnet run --project src/core/Normetry.AppHost` (Aspire dashboard at `https://localhost:17081`; the login link is printed in the console)
+- .NET (from the repo root): `dotnet build` · `dotnet test` · `dotnet tool restore` then `dotnet csharpier check .`
+- Python (from `src/ai`, planned): `uv sync` · `uv run pytest` · `uv run ruff check`
 - Claude hooks self-test: `node --test ".claude/hooks/*.test.mjs"`
 
 ## Workflow
