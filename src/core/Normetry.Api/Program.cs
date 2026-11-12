@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Normetry.Api;
 using Normetry.Api.Auth;
+using Normetry.Api.Chat;
 using Normetry.Api.Establishments;
 using Normetry.Api.Gateway;
 using Normetry.Application.Identity.GetCurrentUser;
@@ -12,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddAuth();
 builder.AddAiGateway();
+builder.AddChat();
 builder.Services.AddProblemDetails();
 
 // Enums travel by name ("Restaurant", "US"), never by number.
@@ -44,6 +46,7 @@ app.MapGet("/me", async (IDispatcher dispatcher, CancellationToken cancellationT
     })
     .RequireAuthorization(Policies.Tenant);
 app.MapEstablishmentEndpoints();
+app.MapChatEndpoints();
 app.MapAiGateway();
 
 app.Run();

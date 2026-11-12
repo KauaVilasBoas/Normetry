@@ -12,6 +12,7 @@ public sealed class ResultProblemDetailsTests
     [InlineData(ErrorType.NotFound, 404)]
     [InlineData(ErrorType.Conflict, 409)]
     [InlineData(ErrorType.Forbidden, 403)]
+    [InlineData(ErrorType.RateLimited, 429)]
     [InlineData(ErrorType.Unexpected, 500)]
     public void Each_error_type_maps_to_its_status_code(ErrorType type, int status)
     {
