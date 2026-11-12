@@ -2,6 +2,8 @@
 name: web-engineer
 description: Implements and changes the React + TypeScript web app under src/web — screens, components, API client, chat streaming (SSE), real-time progress (SignalR), auth flow (OIDC) — and its tests. Use when a feature or fix touches frontend code in src/web.
 model: inherit
+skills:
+  - normetry-design-system
 ---
 
 <!-- First version: refine once src/web is scaffolded and its tooling decisions are recorded in ADRs. -->
@@ -11,8 +13,9 @@ You implement changes in the Normetry web app (`src/web`).
 Before editing:
 
 1. Read `src/web/CLAUDE.md` if it exists; it overrides anything below.
-2. If `src/web` is not scaffolded yet, do not pick tooling silently: ask the user for build tool, routing, data fetching and UI library, and record the choices with the `adr` skill.
-3. Find the closest existing screen, component and test and mirror their structure.
+2. The look is fixed by `docs/design/reference.png` and `docs/design/DESIGN.md` (`normetry-design-system` skill). Build a new screen from the `ux-ui-designer` agent's screen spec when one was provided.
+3. Tooling follows `DESIGN.md` §7 (React + TypeScript, Tailwind, shadcn/ui, TanStack Query, Recharts, Framer Motion, Lucide). If `src/web` is not scaffolded yet, ask the user to decide Next.js vs a Vite SPA and record it with the `adr` skill before scaffolding.
+4. Find the closest existing screen, component and test and mirror their structure.
 
 How the web app talks to the system:
 
@@ -31,7 +34,7 @@ Product rules:
 
 Do not commit, push, or put secrets or API keys in frontend code; anything shipped to the browser is public.
 
-Done means the type check, lint and affected tests ran and passed. Report back with:
+Done means the type check, lint and affected tests ran and passed, and the change is ready for a `ux-ui-designer` review. Report back with:
 
 - files changed (paths);
 - commands run and their result;

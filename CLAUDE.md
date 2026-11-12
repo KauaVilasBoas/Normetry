@@ -15,6 +15,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 | `evals/` | eval datasets, synthetic establishments, reports | |
 | `corpus/` | versioned regulation texts + download scripts | |
 | `docs/adr/` | architecture decision records | `adr` skill |
+| `docs/design/` | approved UI reference (`reference.png`) + design system (`DESIGN.md`) | `normetry-design-system` skill |
 | `deploy/` | docker-compose, Terraform | |
 
 ## Invariants (changing one needs a new ADR)
@@ -37,7 +38,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 - The user drives feature by feature. One feature = one GitHub issue → branch `feat/<issue>-<slug>` (or `fix/`, `docs/`, `chore/`) → PR containing `Closes #<issue>`. Use `gh` for issues and PRs.
 - Conventional Commits, atomic: one logical change per commit. Commit or push only when the user asks.
 - Code, comments, docs, commits and PRs in English.
-- Done = the affected builds and tests ran and passed. Prompt, retrieval or agent changes also need evals.
+- Done = the affected builds and tests ran and passed. Prompt, retrieval or agent changes also need evals. Frontend changes also need a `ux-ui-designer` review.
 
 ## Agents and skills (`.claude/`)
 
@@ -46,11 +47,13 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 | `dotnet-core-engineer` agent | implementing anything in `src/core` |
 | `ai-engineer` agent | implementing anything in `src/ai` |
 | `web-engineer` agent | implementing anything in `src/web` (first version; refine after the web scaffold) |
+| `ux-ui-designer` agent | **every** frontend change: screen spec before building, read-only design review after |
 | `tenant-isolation-reviewer` agent (read-only) | after changes to persistence, SQL/RLS, auth, YARP, queue consumers, caching or search |
 | `eval-runner` agent | after prompt, retrieval or agent changes; returns only metrics and regressions |
 | `rls-table` skill | new or changed tenant-owned table or policy |
 | `cqrs-slice` skill | new command, query or endpoint in `src/core` |
 | `adr` skill | a significant decision is made or reversed |
+| `normetry-design-system` skill | any UI work; the look is fixed by `docs/design/reference.png` + `docs/design/DESIGN.md` |
 | `supabase-postgres-best-practices` skill | SQL, schema, indexes, pgvector, connections (ignore Supabase-only APIs) |
 
 MCP servers (`.mcp.json`): `context7` for current library docs (Aspire, EF Core, LangGraph, pgvector, FastAPI) and `microsoft-learn` for .NET and Azure docs. Check docs before using a fast-moving API from memory. Never put secrets or private code in queries.
