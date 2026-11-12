@@ -14,10 +14,15 @@ updates:
       prefix: ci(deps)
 
   # Central package management: versions live in Directory.Packages.props at the root.
+  # The core targets .NET 10 (LTS). A major bump usually means the next .NET release (11.x), which
+  # is a deliberate upgrade of the whole stack, not a weekly dependency update.
   - package-ecosystem: nuget
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
