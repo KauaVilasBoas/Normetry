@@ -25,8 +25,9 @@ CREATE POLICY <table>_tenant ON core.<table>
 ```
 
 - With no tenant set, `NULLIF(...)` is `NULL`: no rows are visible and writes are rejected (fail closed).
-- EF Core: `migrationBuilder.Sql(...)` in `Up`, and the matching `DROP POLICY` / `DISABLE ROW LEVEL SECURITY` in `Down`.
-- Alembic: `op.execute(...)` in `upgrade` / `downgrade`.
+- EF Core: a migration in `src/core/Normetry.Migrations/Schema/`, with `migrationBuilder.Sql(...)` in `Up` and the matching `DROP POLICY` / `DISABLE ROW LEVEL SECURITY` in `Down`.
+- Alembic: a revision in `src/ai/migrations/schema/` (`--version-path migrations/schema`), with `op.execute(...)` in `upgrade` / `downgrade`.
+- Table, policies and grants are schema work; seed rows for the table go in a separate migration under `data`.
 
 ## 3. Grants
 

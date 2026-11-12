@@ -35,6 +35,6 @@ From `src/ai`:
 
 - `uv sync` · `uv run pytest` · `uv run ruff check` · `uv run ruff format` (`--check` in CI). The hook runs Ruff format on every edited `.py` file once `src/ai/.venv` exists.
 - Run: `uv run uvicorn normetry_ai.api:create_app --factory` with `NORMETRY_INTERNAL_TOKEN` set. The AppHost (`dotnet run --project src/core/Normetry.AppHost` from the repo root) runs `uv sync`, then this command with `--reload`, and sets `NORMETRY_INTERNAL_TOKEN`, both database URLs and the `OTEL_*` variables; environment variables take precedence over `src/ai/.env`.
-- Migrations: `uv run alembic revision -m "..."` · `uv run alembic upgrade head`, with `NORMETRY_MIGRATIONS_DATABASE_URL` (owner role, `postgresql+psycopg://...`). New revisions are import-sorted and formatted by Ruff post-write hooks.
+- Migrations (layout set up in #13): `uv run alembic revision --version-path migrations/schema -m "..."` for structure, `--version-path migrations/data` for rows; `uv run alembic upgrade head`, with `NORMETRY_MIGRATIONS_DATABASE_URL` (owner role, `postgresql+psycopg://...`). New revisions are import-sorted and formatted by Ruff post-write hooks.
 - Tests stay offline: build the app with `create_app(Settings(..., _env_file=None))` and use FastAPI's `TestClient`.
 - Type hints on all public functions.

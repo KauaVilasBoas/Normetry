@@ -8,6 +8,7 @@ Solution: `Normetry.slnx` at the repo root. Shared build settings live in the ro
 - `Normetry.Domain` — entities, value objects, domain events. References only BuildingBlocks: no EF Core, ASP.NET Core or dispatcher.
 - `Normetry.Application` — commands, queries, handlers and validators, one folder per bounded context. References Domain and BuildingBlocks.
 - `Normetry.Infrastructure` — EF Core (Npgsql), outbox, messaging, blob storage; implements Application abstractions. References Application.
+- `Normetry.Migrations` (arrives with #12) — EF Core migrations only, in `Schema/` (structure, RLS, grants) and `Data/` (rows every environment needs). A console app the AppHost runs as `core_owner` before the API starts; see "Database migrations" in the root `CLAUDE.md`.
 - `Normetry.Api` — composition root: endpoints, OIDC/JWT auth, YARP `/ai/*`, SignalR hubs, rate limiting. References Application, Infrastructure and ServiceDefaults.
 - `Normetry.ServiceDefaults` — Aspire service defaults: OpenTelemetry, health checks (`/health`, `/alive`, Development only), service discovery, HTTP resilience.
 - `Normetry.AppHost` — Aspire orchestration of every service and container. DCP and the dashboard come from NuGet (`AspireUseCliBundle=false`), so no Aspire CLI install is needed.

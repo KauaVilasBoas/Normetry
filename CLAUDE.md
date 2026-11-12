@@ -26,6 +26,16 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 - The Python service is never public: only YARP (`/ai/*`) reaches it, with an internal token.
 - Nothing secret in the repo. Local: `.env` (git-ignored) and `dotnet user-secrets`. CI and deploy: GitHub Actions secrets. Never read, print or write secret values.
 
+## Database migrations
+
+- Each backend keeps its migrations in a separate area with two folders:
+  - `schema`: structure only (tables, columns, indexes, constraints, RLS policies, grants and revokes);
+  - `data`: rows a migration inserts, updates or deletes (reference data every environment needs).
+- A migration is either schema or data, never both. Demo data for local development is not a migration: it goes through a development-only seed step.
+- .NET: project `src/core/Normetry.Migrations` with `Schema/` and `Data/` folders (one EF Core history). It is a short-lived console app the AppHost runs as `core_owner` before the API starts (#12).
+- Python: `src/ai/migrations/schema/` and `src/ai/migrations/data/`, two Alembic version locations in one history; create with `uv run alembic revision --version-path migrations/schema -m "..."` (or `migrations/data`). A short-lived AppHost step runs `alembic upgrade head` as `ai_owner` before the AI service starts (#13).
+- Owner credentials exist only in those migration steps, never in a running service.
+
 ## Commands
 
 - Run everything: `dotnet run --project src/core/Normetry.AppHost` (needs Docker; starts PostgreSQL, Keycloak, the API and the AI service; Aspire dashboard at `https://localhost:17081`, the login link is printed in the console). Demo users: `deploy/keycloak/README.md`
