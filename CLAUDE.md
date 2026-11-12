@@ -38,7 +38,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 - The user drives feature by feature. One feature = one GitHub issue → branch `feat/<issue>-<slug>` (or `fix/`, `docs/`, `chore/`) → PR containing `Closes #<issue>`. Use `gh` for issues and PRs.
 - Issue lifecycle, every time:
   1. Starting an issue: `gh issue edit <n> --add-assignee @me --add-label "status: in progress"`, then create its branch.
-  2. The PR body contains `Closes #<n>`, so the merge closes the issue.
+  2. The PR body contains `Closes #<n>`, so the merge closes the issue. Merge with `gh pr merge <n> --rebase`: rebase is the only merge method enabled, so every atomic commit lands on `main` and release-please builds the changelog from them (a merge commit would repeat the PR title as an extra entry).
   3. After the PR merges into `main`: `gh issue edit <n> --remove-label "status: in progress"` and comment on the issue with the PR link and a short summary of what shipped (`gh issue comment <n> --body-file ...`).
 - Conventional Commits, atomic: one logical change per commit. Commit or push only when the user asks.
 - Every branch merged into `main` is deleted. GitHub deletes the remote branch on merge; locally run `git switch main && git pull --prune` and `git branch -d <branch>`.
