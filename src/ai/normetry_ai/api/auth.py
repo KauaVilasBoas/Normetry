@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.websockets import WebSocketClose
 
-# Contract with the core's YARP gateway (documented in src/shared/contracts/ by #14).
+# Contract with the core's YARP gateway: src/shared/contracts/internal-http.md.
 INTERNAL_TOKEN_HEADER = "X-Normetry-Internal-Token"  # noqa: S105 - header name, not a secret
 _HEADER_KEY = INTERNAL_TOKEN_HEADER.lower().encode()  # ASGI servers lowercase header names
 _DETAIL = "Missing or invalid internal token."
