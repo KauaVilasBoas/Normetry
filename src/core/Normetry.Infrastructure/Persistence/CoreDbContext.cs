@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Normetry.Domain.Establishments;
 using Normetry.Domain.Tenancy;
+using Normetry.Domain.Usage;
 
 namespace Normetry.Infrastructure.Persistence;
 
@@ -14,6 +15,8 @@ public sealed class CoreDbContext(DbContextOptions<CoreDbContext> options) : DbC
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
     public DbSet<Establishment> Establishments => Set<Establishment>();
+
+    public DbSet<ChatMessageCount> ChatMessageCounts => Set<ChatMessageCount>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -81,6 +81,31 @@ namespace Normetry.Migrations.Schema
                     b.ToTable("tenants", "core");
                 });
 
+            modelBuilder.Entity("Normetry.Domain.Usage.ChatMessageCount", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.HasKey("TenantId", "UserId", "Day")
+                        .HasName("pk_chat_message_counts");
+
+                    b.ToTable("chat_message_counts", "core");
+                });
+
             modelBuilder.Entity("Normetry.Domain.Establishments.Establishment", b =>
                 {
                     b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
@@ -89,6 +114,16 @@ namespace Normetry.Migrations.Schema
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_establishments_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Usage.ChatMessageCount", b =>
+                {
+                    b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_chat_message_counts_tenants_tenant_id");
                 });
 #pragma warning restore 612, 618
         }
