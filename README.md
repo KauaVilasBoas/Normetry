@@ -9,11 +9,9 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-phase_0_·_foundation-F2C744?labelColor=0B1220" alt="Status: phase 0"/>
-  <!-- TODO(fill later): CI badge once .github/workflows/ci.yml exists
   <a href="https://github.com/KauaVilasBoas/Normetry/actions/workflows/ci.yml">
-    <img src="https://github.com/KauaVilasBoas/Normetry/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+    <img src="https://github.com/KauaVilasBoas/Normetry/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/>
   </a>
-  -->
   <!-- TODO(fill later): latest release badge after v0.1.0 ships -->
   <!-- TODO(fill later): evals badge (retrieval recall@k / citation precision) once the eval suite runs in CI -->
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white&labelColor=0B1220" alt=".NET 10"/>
