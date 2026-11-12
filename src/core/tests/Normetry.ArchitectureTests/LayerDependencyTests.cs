@@ -49,6 +49,15 @@ public class LayerDependencyTests
     public void Infrastructure_does_not_depend_on_Api() =>
         AssertNoDependency(typeof(Infrastructure.AssemblyMarker).Assembly, "Normetry.Api");
 
+    // Migrations run as core_owner in their own short-lived process; the API never applies them.
+    [Fact]
+    public void Api_does_not_depend_on_the_migrations() =>
+        AssertNoDependency(typeof(Program).Assembly, "Normetry.Migrations");
+
+    [Fact]
+    public void Migrations_do_not_depend_on_Api() =>
+        AssertNoDependency(typeof(Migrations.CoreMigrator).Assembly, "Normetry.Api");
+
     private static void AssertNoDependency(Assembly assembly, params string[] forbidden)
     {
         var result = Types
