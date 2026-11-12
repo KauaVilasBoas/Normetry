@@ -8,12 +8,26 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Normetry.Api.Auth;
 using Normetry.Application.Identity.GetCurrentUser;
+using Normetry.IntegrationTests.Database;
 using Xunit;
 
 namespace Normetry.IntegrationTests.Auth;
 
-public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiFactory>
+/// <summary>
+/// Token validation and policies through <c>/me</c>, against the test database: <c>/me</c> reads
+/// the caller's tenant row, so a 200 needs the seeded demo tenants.
+/// </summary>
+[Collection(DatabaseCollection.Name)]
+public sealed class AuthenticationTests
 {
+    private readonly ApiFactory factory;
+
+    public AuthenticationTests(DatabaseFixture db)
+    {
+        db.SkipWithoutDocker();
+        factory = db.Api;
+    }
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
@@ -25,8 +39,23 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
 
         Assert.Equal(ApiFactory.UserId, me!.UserId);
         Assert.Equal(Guid.Parse(ApiFactory.TenantA), me.TenantId);
+        Assert.Equal("Demo Bistro", me.TenantName);
         // offline_access and default-roles-normetry are in the token but are not Normetry roles.
         Assert.Equal([NormetryRoles.Owner], me.Roles);
+    }
+
+    [Fact]
+    public async Task A_tenant_without_a_core_row_gets_no_name()
+    {
+        var tenant = Guid.NewGuid();
+        using var client = factory.CreateClient(
+            ApiFactory.CreateToken(token => token.Claims["tenant_id"] = tenant.ToString())
+        );
+
+        var me = await client.GetFromJsonAsync<CurrentUserResponse>("/me", Ct);
+
+        Assert.Equal(tenant, me!.TenantId);
+        Assert.Null(me.TenantName);
     }
 
     [Fact]
@@ -127,6 +156,7 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
         var response = await withoutTenant.GetAsync(Path, Ct);
 
         Assert.Equal(Guid.Parse(ApiFactory.TenantA), me!.TenantId);
+        Assert.Equal("Demo Bistro", me.TenantName);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
