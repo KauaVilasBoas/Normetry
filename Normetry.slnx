@@ -7,6 +7,7 @@
     <Project Path="src/core/Normetry.BuildingBlocks/Normetry.BuildingBlocks.csproj" />
     <Project Path="src/core/Normetry.Domain/Normetry.Domain.csproj" />
     <Project Path="src/core/Normetry.Infrastructure/Normetry.Infrastructure.csproj" />
+    <Project Path="src/core/Normetry.Migrations/Normetry.Migrations.csproj" />
     <Project Path="src/core/Normetry.ServiceDefaults/Normetry.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/src/core/tests/">

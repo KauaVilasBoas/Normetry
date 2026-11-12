@@ -11,5 +11,7 @@
     <ProjectReference Include="..\..\Normetry.Domain\Normetry.Domain.csproj" />
     <ProjectReference Include="..\..\Normetry.Application\Normetry.Application.csproj" />
     <ProjectReference Include="..\..\Normetry.Infrastructure\Normetry.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Normetry.Api\Normetry.Api.csproj" />
+    <ProjectReference Include="..\..\Normetry.Migrations\Normetry.Migrations.csproj" />
   </ItemGroup>
 </Project>
