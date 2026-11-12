@@ -297,19 +297,18 @@ stateDiagram-v2
 
 ## Engineering decisions
 
-Each row will get a full record in [`docs/adr/`](docs/adr/).
-<!-- TODO(fill later): link each ADR number to its file once docs/adr/ is written -->
+Full records are in [`docs/adr/`](docs/adr/).
 
 | ADR | Decision | Why | Trade-off |
 |---|---|---|---|
-| 001 | Core in .NET, AI in Python | .NET fits B2B domain modeling well; the RAG and eval ecosystem is more mature in Python | Two runtimes to maintain |
-| 002 | One PostgreSQL with a `core` schema (EF Core) and an `ai` schema (Alembic) | pgvector and full-text search live next to the business data, with no external vector DB to sync | At millions of chunks, Qdrant or Azure AI Search may be needed |
-| 003 | Tenant isolation with Row-Level Security | A query bug still cannot return another tenant's rows | The tenant must be set per transaction to stay safe with connection pooling |
-| 004 | .NET as the single entry point, with YARP in front of Python | Auth, rate limiting and the token budget live in one place, and Python is never exposed | One extra network hop on chat |
-| 005 | Outbox for long-running work, SSE for chat | Ingestion and inspection can take minutes, and the outbox keeps every event | The UI is eventually consistent; SignalR pushes the updates |
-| 006 | Retrieval written by hand, LangGraph only for agents | Full control over each step, and every step can be explained | More code to own |
-| 007 | Verifiable citations | Structured output plus a check that every cited passage was retrieved | One extra validation step |
-| 008 | Embedding model behind an interface, chosen by eval | Changing models becomes an experiment with a measured result | None so far |
+| [001](docs/adr/001-core-in-dotnet-ai-in-python.md) | Core in .NET, AI in Python | .NET fits B2B domain modeling well; the RAG and eval ecosystem is more mature in Python | Two runtimes and toolchains, and a network boundary between the services |
+| [002](docs/adr/002-one-postgresql-with-core-and-ai-schemas.md) | One PostgreSQL with a `core` schema (EF Core) and an `ai` schema (Alembic) | pgvector and full-text search live next to the business data, with no external vector DB to sync | At millions of chunks, Qdrant or Azure AI Search may be needed |
+| [003](docs/adr/003-tenant-isolation-with-rls.md) | Tenant isolation with Row-Level Security | A query bug still cannot return another tenant's rows | The tenant must be set per transaction to stay safe with connection pooling |
+| [004](docs/adr/004-dotnet-single-entry-point-with-yarp.md) | .NET as the single entry point, with YARP in front of Python | Auth, rate limiting and the token budget live in one place, and Python is never exposed | One extra network hop on chat |
+| [005](docs/adr/005-outbox-for-long-running-work-sse-for-chat.md) | Outbox for long-running work, SSE for chat | Ingestion and inspection can take minutes, and the outbox keeps every event | The UI is eventually consistent, and every consumer must be idempotent |
+| [006](docs/adr/006-hand-written-retrieval-langgraph-for-agents.md) | Retrieval written by hand, LangGraph only for agents | Each step can be measured by the evals and explained | More code to own |
+| [007](docs/adr/007-verifiable-citations.md) | Verifiable citations | Structured output plus a check that every cited passage was retrieved | One extra validation step, and some answers become refusals |
+| [008](docs/adr/008-embedding-model-chosen-by-evals.md) | Embedding model behind an interface, chosen by eval | Changing models becomes an experiment with a measured result | The vector dimension is tied to the model, so a switch means re-embedding the corpus |
 | [009](docs/adr/009-in-house-cqrs-dispatcher.md) | In-house CQRS dispatcher instead of MediatR | MediatR has required a commercial license since 2025, and a small dispatcher shows how the pattern works | We own and test the pipeline, and there are no ecosystem extensions |
 
 <details>
