@@ -36,7 +36,7 @@ Bounded contexts: Tenancy & Identity, Establishments, Documents, Regulations (re
 - Commands and queries follow the `cqrs-slice` skill. Errors are ProblemDetails. Endpoints live next to their bounded context in Api (`Establishments/EstablishmentEndpoints.cs`): `POST /establishments` (`OwnerOrManager`, 201 with `Location`), `GET /establishments` and `GET /establishments/{id}` (`Tenant`; another tenant's id is a 404, because RLS hides the row).
 - JSON enums travel by name (`"Restaurant"`, `"US"`); numbers are rejected. A body that does not bind is a 400 in every environment (`ThrowOnBadRequest = false`).
 - Long-running work returns `202 Accepted`; progress goes out through SignalR.
-- YARP strips any client-sent tenant or internal headers, then adds the internal token and tenant headers derived from the validated JWT.
+- YARP (`Normetry.Api/Gateway/AiGateway.cs`) forwards `/ai/{**catch-all}` to the AI service under the `Tenant` policy, through Aspire service discovery (`http://ai`; the AppHost passes `services__ai__http__0`). It strips every client-sent `X-Normetry-*` header (underscore spellings too) plus `Authorization`, `Cookie` and an `access_token` query parameter, then sets the internal token, tenant and user from the validated JWT, and removes `X-Normetry-*` headers from responses. Contract and rules for both sides: `src/shared/contracts/internal-http.md`. `Ai:InternalToken` (32+ characters) and `Services:ai:http:0` are required at startup; `ApiFactory` sets test values. Gateway tests (`Normetry.IntegrationTests/Gateway`) run a stub upstream on a loopback port and point `Services:ai:http:0` at it.
 - Rate limiting and the per-tenant token budget live here, not in Python.
 
 ## Authentication and authorization
