@@ -43,7 +43,7 @@ Values sampled from the rendered mock. The mock's palette card labels slightly d
 | `--teal-deep` | `#064C5E` | "NEW" badge background (mint text) |
 | `--text-primary` | `#FFFFFF` | titles, KPI values, table primary text |
 | `--text-secondary` | `#A9B8CC` | subtitles, card labels, legend labels |
-| `--text-muted` | `#6B7F99` | table headers, axis labels, captions, timestamps; only on `--bg-sidebar` and `--bg-inset` |
+| `--text-muted` | `#6B7F99` | table headers on `--bg-inset`, captions and timestamps on the sidebar; only on `--bg-sidebar` and `--bg-inset` |
 
 ### Status (only for compliance state and deltas)
 
@@ -83,9 +83,9 @@ Values sampled from the rendered mock. The mock's palette card labels slightly d
 }
 ```
 
-shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popover` = `--bg-elevated`, `--primary` = `--mint`, `--primary-foreground` = `--on-mint`, `--border` / `--input` = `--border`, `--ring` = `--mint`, `--muted-foreground` = `--text-muted`, `--destructive` = `--danger`. Dark theme only for now.
+shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popover` = `--bg-elevated`, `--primary` = `--mint`, `--primary-foreground` = `--on-mint`, `--border` / `--input` = `--border`, `--ring` = `--mint`, `--muted-foreground` = `--text-secondary`, `--destructive` = `--danger`. Dark theme only for now. `--text-muted` has no shadcn alias: components use it explicitly (`text-text-muted`), and only on `--bg-sidebar` and `--bg-inset`.
 
-**Hover (`--bg-hover` usage).** There is no separate hover color: nav items, list rows and buttons on `--bg-sidebar`, `--bg-app` or `--bg-card` hover to `--bg-elevated`; items inside an `--bg-elevated` popover or menu hover to `--bg-inset`.
+**Hover.** There is no `--bg-hover` token and no separate hover color: nav items, list rows and buttons on `--bg-sidebar`, `--bg-app` or `--bg-card` hover to `--bg-elevated`; items inside an `--bg-elevated` popover or menu hover to `--bg-inset`.
 
 **Radii.** `--radius-card` 12px for cards, `--radius-control` 10px for buttons, inputs, nav items and popovers, `--radius-sm` 8px for icon tiles, dropdowns and items inside popovers, `--radius-pill` for avatars, pills and rings.
 
@@ -106,7 +106,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 ## 4. Layout
 
 - **App frame:** sidebar 220px fixed + content, filling the viewport. Content padding 20px (16px below 640px); gap between cards 16px. Below 1024px the sidebar becomes a modal drawer from the left over `--scrim`, opened from a menu button in the top bar.
-- **Sidebar (top → bottom):** logo · organization switcher (building icon, name, chevron, bordered) · navigation · flexible space · AI Assistant card (sparkle icon, `--bg-elevated`) · user card (avatar, name, email, chevron).
+- **Sidebar (top → bottom):** logo · tenant label (building icon + name, static, no border) · establishment switcher (type icon, name, chevron; transparent, 1px `--border`, `--radius-control`) · navigation · flexible space · user card (avatar, name, email, chevron).
 - **Navigation:** icon (outline, 18px) + label. Active item = `--teal` filled, rounded 10px, white (`--text-primary`) label and icon. Items: Overview, Establishments, Compliance, Audit Management, Regulatory Library, Change Monitor, Reports, Settings, plus **Ask the Regulation** (Lucide `MessagesSquare`), which replaces the AI Assistant card: the card is not built. Items whose screen does not exist yet are hidden, not disabled.
 - **Top bar:** 56px tall, no border. Page title left; search field ("Search anything…", ⌘K hint) · notification bell · avatar right.
 - **Page header:** greeting + one-line subtitle on the left; secondary action ("Export Report", icon + text) then primary action ("+ Add Evidence") on the right.
@@ -121,7 +121,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | Component | Spec |
 |---|---|
 | **Card** | `--bg-card`, 1px `--border`, radius 12px, padding 16–20px. Title top-left (14–15px/600); optional control top-right (dropdown or outlined "View all →" button). No heavy shadows. |
-| **KPI card** | label (secondary) + icon in a 28px rounded-square tile top-right (mint/blue outline icon) · value · delta row (↑ `--success` / ↓ `--danger` + "vs last month" muted) · sparkline bottom-right **or** a progress bar. |
+| **KPI card** | label (secondary) + icon in a 28px rounded-square tile top-right (mint/blue outline icon) · value · delta row (↑ `--success` / ↓ `--danger` + "vs last month" in `--text-secondary`) · sparkline bottom-right **or** a progress bar. |
 | **Primary button** | `--mint` fill, `--on-mint` text 13px/600, radius 10px, height 36px, optional leading icon (+). One per view. |
 | **Secondary button** | transparent, 1px `--teal-border`, white text, radius 10px, optional leading icon. |
 | **Status pill** | fully rounded, 1px border in the status color, background = status color at ~10% opacity, text in the status color 11–12px/500, leading glyph: ◆ diamond for Compliant and Attention/Partially Compliant, ● dot for Non-Compliant, ⊘ for Not Applicable. |
@@ -131,12 +131,12 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | **Table** | header row in `--text-muted` 11px; rows 12px with 1px `--border` separators, no zebra; columns: ID · name · status pill · progress bar + % · count · date. |
 | **Progress bar** | 6px high, `--chart-track` track, `--chart-1` fill, rounded; percentage to the right in white. |
 | **Donut** | thick ring (~18% of radius), big centered value + caption; legend to the right: color dot · label · % · (count). |
-| **Area chart** | single series, `--chart-1` line 2px with dot markers, gradient fill, muted 0–100% axis, month labels. |
+| **Area chart** | single series, `--chart-1` line 2px with dot markers, gradient fill, 0–100% axis and month labels in `--text-secondary`. |
 | **Skeleton** | loading placeholder bars and tiles in `--bg-elevated`, `--radius-sm`, with a gentle opacity pulse (none under reduced motion); the container has `aria-busy="true"` and a visually hidden loading label. |
 | **Small ring** | indeterminate progress, 16px: 2px `--bg-elevated` track with a mint arc, spinning; static under reduced motion. Next to a status text, for example "Signing you in…". |
 | **Radial progress** | mint ring on `--chart-track`, centered % (white, 20px/700) + status text ("Evaluation In Progress…"). |
-| **Stepper** | numbered circles connected by a line: "1 Analysis — 2 Findings — 3 Action Plan"; current step mint, others muted. |
-| **Checklist** | mint filled check-circle for done, mint outlined circle for in progress, muted text. |
+| **Stepper** | numbered circles connected by a line: "1 Analysis — 2 Findings — 3 Action Plan"; current step mint, others `--text-secondary`. |
+| **Checklist** | mint filled check-circle for done, mint outlined circle for in progress, text in `--text-secondary`. |
 | **Chat** | user bubble right-aligned (`--chart-1`/blue tint fill, white text) with avatar; assistant bubble left with the N mark, `--bg-elevated`; citation action as an outlined mint chip "View source →"; input = rounded field on `--bg-inset` with a round mint send button. |
 | **Change alert card** | "NEW" badge, title (white 16px/600), description (secondary), outlined "View Details →", document illustration with an `--alert` "!" badge; footer row with icon + "Impact: N establishments" + chevron. |
 | **Icons** | Lucide, outline, 1.5px stroke, 16–20px, `--text-secondary` by default. Mint marks the active item only on the icon rail and on plain (unfilled) icons; on the filled active nav item the icon is white (`--text-primary`) on `--teal`. |
