@@ -84,6 +84,8 @@ export function ConversationPane({
   const scroller = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLOListElement>(null);
   const stick = useRef(true);
+  const composerFocused = useRef(false);
+  const startNew = useRef<HTMLButtonElement>(null);
 
   useEffect(() => () => inFlight.current?.abort(), []);
 
@@ -136,6 +138,14 @@ export function ConversationPane({
     });
     observer.observe(content);
     return () => observer.disconnect();
+  }, [view]);
+
+  // A 404 (on send, or on load while typing) replaces the composer that had focus: the way out
+  // takes it, so focus does not fall to the page.
+  useEffect(() => {
+    if (view !== "not-found" || !composerFocused.current) return;
+    if (document.activeElement === null || document.activeElement === document.body)
+      startNew.current?.focus();
   }, [view]);
 
   async function ask(key: string, question: string) {
@@ -358,14 +368,14 @@ export function ConversationPane({
         )}
 
         {view === "not-found" && (
-          <div className="mx-auto w-full max-w-180">
+          <div role="alert" className="mx-auto w-full max-w-180">
             <Message
               className="items-start"
               icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
               title={copy.chat.notFoundTitle}
               body={copy.chat.notFoundBody}
             />
-            <Button variant="secondary" className="mt-4" onClick={onNew}>
+            <Button ref={startNew} variant="secondary" className="mt-4" onClick={onNew}>
               {copy.chat.startNew}
             </Button>
           </div>
@@ -403,15 +413,23 @@ export function ConversationPane({
       </div>
 
       {view !== "not-found" && (
-        <Composer
-          value={draft}
-          onChange={setDraft}
-          onSubmit={submit}
-          regulation={regulation}
-          ready={(view === "new" || view === "ready") && !busy}
-          quota={quota}
-          inputRef={input}
-        />
+        <div
+          onFocus={() => (composerFocused.current = true)}
+          // Only a move to another element counts: removing a focused element may blur it too.
+          onBlur={(event) => {
+            if (event.relatedTarget) composerFocused.current = false;
+          }}
+        >
+          <Composer
+            value={draft}
+            onChange={setDraft}
+            onSubmit={submit}
+            regulation={regulation}
+            ready={(view === "new" || view === "ready") && !busy}
+            quota={quota}
+            inputRef={input}
+          />
+        </div>
       )}
     </section>
   );
