@@ -120,6 +120,7 @@ export function AppShell() {
               givenName={profile.givenName}
               onSelect={chooseInPicker}
               onRetry={retry}
+              fetching={me.isFetching || establishments.isFetching}
             />
           )}
         </main>

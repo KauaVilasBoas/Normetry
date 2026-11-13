@@ -14,7 +14,11 @@ export function listState(
   // 403: the token has no valid tenant, so every tenant-scoped endpoint refuses it.
   if ([me.error, list.error].some((error) => error instanceof ApiError && error.status === 403))
     return "forbidden";
-  if (me.isError || list.isError) return "error";
+  // A failed query goes back to pending when Try again refetches it; keep the error (and its
+  // button, which holds focus) until that request settles.
+  const failed = (query: UseQueryResult) =>
+    query.isError || (query.isPending && query.errorUpdateCount > 0);
+  if (failed(me) || failed(list)) return "error";
   if (!me.data || !list.data) return "loading";
   return list.data.length > 0 ? "list" : "empty";
 }
