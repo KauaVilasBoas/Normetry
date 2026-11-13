@@ -141,10 +141,12 @@ export function ChatScreen({
         onOpenChange={setListOpen}
         className="w-70 max-w-[85vw]"
         // After a choice, focus goes where it leads; otherwise back to Show conversations (Radix
-        // only returns focus to a Dialog.Trigger, and this sheet opens from the pane header).
+        // only returns focus to a Dialog.Trigger, and this sheet opens from the pane header). Show
+        // conversations is gone once the window widens past 768px: then the conversation heading.
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          focusById(focusAfterListSheet.current ?? SHOW_CONVERSATIONS_ID);
+          const target = focusAfterListSheet.current ?? SHOW_CONVERSATIONS_ID;
+          focusById(document.getElementById(target) ? target : TITLE_ID);
           focusAfterListSheet.current = undefined;
         }}
       >
