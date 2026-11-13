@@ -160,16 +160,21 @@ def open_turn(
 ) -> OpenTurn:
     """Store the question before the stream starts, so a conversation that is not the caller's
     (or not this establishment's) gets a plain 404 instead of an event stream."""
-    with tenant_transaction(engine, ctx.tenant_id) as connection:
-        history = store.start_turn(
-            connection,
-            conversation_id,
-            user_id=ctx.user_id,
-            establishment_id=ctx.establishment_id,
-            jurisdiction=ctx.jurisdiction,
-            question=message.text,
-            history_messages=2 * chat.conversation_settings.chat_history_turns,
-        )
+    try:
+        with tenant_transaction(engine, ctx.tenant_id) as connection:
+            history = store.start_turn(
+                connection,
+                conversation_id,
+                user_id=ctx.user_id,
+                establishment_id=ctx.establishment_id,
+                jurisdiction=ctx.jurisdiction,
+                question=message.text,
+                history_messages=2 * chat.conversation_settings.chat_history_turns,
+            )
+    except Exception as error:
+        # The type only: the message of a database error can carry the question.
+        logger.error("Storing the question failed: %s", type(error).__name__)
+        raise HTTPException(status_code=503, detail="The question could not be stored.") from None
     if history is None:
         raise HTTPException(status_code=404, detail=_NOT_FOUND)
     return OpenTurn(conversation_id, message.text, history)
@@ -247,11 +252,23 @@ async def answer_turn(
         kind, reason = _stored_as(ending, claims)
         # Shielded: a cancelled stream (the client went away) still stores what it sent.
         with anyio.CancelScope(shield=True):
-            await anyio.to_thread.run_sync(
-                partial(
-                    _store_answer, engine, ctx, turn.conversation_id, kind, reason, language, claims
+            try:
+                await anyio.to_thread.run_sync(
+                    partial(
+                        _store_answer,
+                        engine,
+                        ctx,
+                        turn.conversation_id,
+                        kind,
+                        reason,
+                        language,
+                        claims,
+                    )
                 )
-            )
+            except Exception as error:
+                # As above. The answer is lost, so the stream ends unavailable.
+                logger.error("Storing the answer failed: %s", type(error).__name__)
+                ending = Unavailable()
     match ending:
         case Answered():
             yield ServerSentEvent(event="done", data={})

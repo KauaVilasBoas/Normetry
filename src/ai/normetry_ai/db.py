@@ -14,7 +14,8 @@ def create_db_engine(settings: Settings) -> Engine:
     """Pooled engine for NORMETRY_DATABASE_URL (app_ai, DML only, subject to RLS)."""
     if settings.database_url is None:
         raise RuntimeError("Set NORMETRY_DATABASE_URL (app_ai role) to use the database.")
-    engine = create_engine(settings.database_url.get_secret_value())
+    # Errors never carry bound parameters (questions, claims with chunk text) into tracebacks.
+    engine = create_engine(settings.database_url.get_secret_value(), hide_parameters=True)
     event.listen(engine, "checkin", _reset_tenant)
     return engine
 
