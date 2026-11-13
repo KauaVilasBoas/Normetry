@@ -1,5 +1,5 @@
 import { ChevronRight, CircleAlert, Store } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import type { Establishment } from "../api/queries";
 import { copy, format } from "../copy";
 import { Button, Skeleton, TypeTile } from "../ui/primitives";
@@ -80,17 +80,21 @@ function EstablishmentRow({
   onSelect: (establishment: Establishment) => void;
 }) {
   const { meta, label } = describeEstablishment(establishment);
+  const metaId = useId();
   return (
     <button
       type="button"
       aria-label={label}
+      aria-describedby={metaId}
       onClick={() => onSelect(establishment)}
       className="flex min-h-15 w-full items-center gap-3 px-5 py-2 text-left hover:bg-elevated focus-visible:-outline-offset-2"
     >
       <TypeTile type={establishment.type} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-body font-medium">{establishment.name}</span>
-        <span className="block text-small text-text-secondary">{meta}</span>
+        <span id={metaId} className="block text-small text-text-secondary">
+          {meta}
+        </span>
       </span>
       <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-secondary" />
     </button>

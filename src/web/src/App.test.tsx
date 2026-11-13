@@ -75,7 +75,9 @@ describe("establishment picker", () => {
     const row = await screen.findByRole("button", {
       name: "Bistro Lisboa, Restaurant, European Union",
     });
-    expect(row).toHaveTextContent("Restaurant · European Union · Regulation (EC) 852/2004");
+    expect(row).toHaveAccessibleDescription(
+      "Restaurant · European Union · Regulation (EC) 852/2004",
+    );
     expect(
       screen.getByRole("button", { name: "Bistro São Paulo, Restaurant, Brazil" }),
     ).toHaveTextContent("Anvisa RDC 216/2004");
@@ -252,9 +254,10 @@ describe("shell", () => {
     await user.keyboard("{Enter}");
 
     const listbox = await screen.findByRole("listbox");
-    expect(within(listbox).getByRole("option", { name: "Bistro Lisboa" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    const current = within(listbox).getByRole("option", { name: "Bistro Lisboa" });
+    expect(current).toHaveAttribute("aria-selected", "true");
+    expect(current).toHaveAccessibleDescription(
+      "Restaurant · European Union · Regulation (EC) 852/2004",
     );
     await expectNoAxeViolations({ popoverOpen: true });
     await user.keyboard("{ArrowDown}{Enter}");
