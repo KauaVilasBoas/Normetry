@@ -334,15 +334,26 @@ Five layers of evals measure quality:
 
 | Layer | Metric | How it's measured |
 |---|---|---|
-| Retrieval | recall@k, MRR | 80 to 100 questions with annotated expected chunks |
+| Retrieval | recall@k, MRR | 59 questions with 83 literal quotes ([golden dataset](evals/datasets/regulation-qa/)); a hit is a retrieved chunk that contains a quote. Runs in CI on pull requests that touch retrieval ([`evals/README.md`](evals/README.md)) |
 | Generation | faithfulness, citation precision, relevance | LLM-as-judge (DeepEval or Ragas) plus a deterministic check of cited IDs |
 | Inspection | finding precision and recall | 3 to 5 synthetic establishments with planted non-conformities |
 | Security | cross-tenant leaks, successful injections | Adversarial prompts and malicious documents |
 | Operations | cost per question and per inspection, p95 latency | Langfuse and OpenTelemetry |
 
-The LLM-as-judge is checked against about 30 hand-labeled examples before it is trusted, and its agreement rate is reported. Planned experiments compare vector-only and hybrid retrieval, retrieval with and without the re-ranker, and local BGE-M3 against hosted embeddings.
+The LLM-as-judge is checked against about 30 hand-labeled examples before it is trusted, and its agreement rate is reported. Planned experiments compare vector-only and hybrid retrieval, retrieval with and without the re-ranker, and BGE-M3 against a second local embedding model (ADR 008).
 
-<!-- TODO(fill later): experiment results table (one row per experiment, with the measured numbers) -->
+First retrieval numbers, on the 44 answerable questions ([report](evals/reports/2026-11-13-retrieval-bge-m3.md)):
+
+| Retrieval step (BGE-M3) | recall@10 | MRR@10 |
+|---|---|---|
+| Vector search only | 0.943 | 0.842 |
+| Full-text search only | 0.714 | 0.524 |
+| Both, merged with Reciprocal Rank Fusion | 0.864 | 0.711 |
+| Fusion, then the bge-reranker-v2-m3 re-ranker | not measured yet | |
+
+The re-ranker's weights and the second embedding model could not be downloaded for this run; the CI eval job measures the re-ranked result.
+
+<!-- TODO(fill later): re-ranked row and the BGE-M3 vs Qwen3-Embedding-0.6B row once measured -->
 
 ## Stack
 
