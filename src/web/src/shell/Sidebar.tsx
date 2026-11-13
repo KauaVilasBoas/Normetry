@@ -99,7 +99,7 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
         aria-label={format(copy.shell.accountMenu, { name })}
-        className="flex w-full items-center gap-3 rounded-control p-2 text-left hover:bg-elevated"
+        className="group flex w-full items-center gap-3 rounded-control p-2 text-left hover:bg-elevated"
       >
         <span
           aria-hidden="true"
@@ -109,7 +109,10 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-body font-medium">{name}</span>
-          <span className="block truncate text-caption text-text-muted">{profile.email}</span>
+          {/* Muted only on the sidebar: on the hover surface (--bg-elevated) it would fail contrast. */}
+          <span className="block truncate text-caption text-text-muted group-hover:text-text-secondary">
+            {profile.email}
+          </span>
         </span>
         <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-text-secondary" />
       </DropdownMenu.Trigger>
