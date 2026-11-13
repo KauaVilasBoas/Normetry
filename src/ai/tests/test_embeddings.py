@@ -37,3 +37,16 @@ def test_bge_m3_puts_both_languages_of_a_provision_close_together() -> None:
     # Cross-language retrieval (ADR 008) needs a provision closer to its translation than to
     # unrelated text.
     assert cosine(en, pt) > cosine(en, unrelated) + 0.2
+
+
+def test_bge_m3_embeds_a_query_like_a_document() -> None:
+    # BGE-M3 has no query prompt, so questions and the stored chunks share one embedding space.
+    settings = EmbeddingSettings(_env_file=None)
+    embedder = SentenceTransformerEmbedder(
+        settings.embedding_model, settings.embedding_model_revision
+    )
+    question = "Can we keep the bleach in the kitchen?"
+
+    query, document = embedder.embed_query(question), embedder.embed_documents([question])[0]
+
+    assert sum(x * y for x, y in zip(query, document, strict=True)) > 0.9999

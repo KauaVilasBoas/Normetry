@@ -20,13 +20,17 @@ class Embedder(Protocol):
         """One unit-length vector per text, in order."""
         ...
 
+    def embed_query(self, text: str) -> list[float]:
+        """The unit-length vector of a search query (some models embed queries differently)."""
+        ...
+
 
 class SentenceTransformerEmbedder:
     """A local model run on CPU with sentence-transformers: BGE-M3 by default (settings).
 
     The weights come from the Hugging Face Hub on first use and stay in its cache (`HF_HOME`,
     by default ~/.cache/huggingface). The model loads on the first call, so a run with nothing to
-    embed never pays for it.
+    embed never pays for it. Query and document prompts are the model's own (BGE-M3 has none).
     """
 
     def __init__(self, model: str, revision: str, batch_size: int = 16) -> None:
@@ -43,7 +47,10 @@ class SentenceTransformerEmbedder:
         return SentenceTransformer(self.model, revision=self.revision, device="cpu")
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        vectors = self._model.encode(
+        vectors = self._model.encode_document(
             list(texts), batch_size=self.batch_size, normalize_embeddings=True
         )
         return vectors.tolist()
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._model.encode_query(text, normalize_embeddings=True).tolist()
