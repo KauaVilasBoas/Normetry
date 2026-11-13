@@ -1,10 +1,12 @@
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { Select } from "radix-ui";
 import { useId } from "react";
 import type { Establishment } from "../api/queries";
 import { copy } from "../copy";
 import { describeEstablishment, type ListState } from "../establishments/selection";
 import { Skeleton, TypeIcon } from "../ui/primitives";
+
+const scrollButton = "flex h-6 cursor-default items-center justify-center text-text-secondary";
 
 const trigger =
   "flex h-9 w-full items-center gap-2 rounded-control border border-border px-3 text-left text-body";
@@ -77,6 +79,9 @@ export function EstablishmentSwitcher({
           collisionPadding={16}
           className="z-50 max-h-80 min-w-65 max-w-[calc(100vw-2rem)] overflow-hidden rounded-control border border-border bg-elevated"
         >
+          <Select.ScrollUpButton className={scrollButton}>
+            <ChevronUp aria-hidden="true" className="size-4" />
+          </Select.ScrollUpButton>
           <Select.Viewport className="p-1">
             {establishments.map((establishment) => (
               <Select.Item
@@ -107,6 +112,9 @@ export function EstablishmentSwitcher({
               </Select.Item>
             ))}
           </Select.Viewport>
+          <Select.ScrollDownButton className={scrollButton}>
+            <ChevronDown aria-hidden="true" className="size-4" />
+          </Select.ScrollDownButton>
         </Select.Content>
       </Select.Portal>
     </Select.Root>
