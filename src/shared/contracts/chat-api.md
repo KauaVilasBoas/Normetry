@@ -103,7 +103,7 @@ Refusals and unavailable answers carry no display text: the web shows its own co
 
 | Event | `data` | When |
 |---|---|---|
-| `claim` | a [claim](#claim) | zero or more, in order, each already guarded |
+| `claim` | a [claim](#claim) plus `language` (the answer's, `pt` or `en`) | zero or more, in order, each already guarded |
 | `done` | `{}` | last event of an answer |
 | `refusal` | `{"reason": "low_score"}` or `{"reason": "no_supported_claims"}` | the only event of a refusal |
 | `unavailable` | `{}` | last event when the model failed (rate limit, credit, outage, no key) or something else broke; claims before it stand |

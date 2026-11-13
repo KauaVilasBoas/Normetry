@@ -244,7 +244,8 @@ async def answer_turn(
             async for event in events:
                 if isinstance(event, Claim):
                     claims.append(claim_json(event))
-                    yield ServerSentEvent(event="claim", data=claims[-1])
+                    # The stream also says the language, so a live claim gets its `lang`.
+                    yield ServerSentEvent(event="claim", data={**claims[-1], "language": language})
                 else:
                     ending = event
     except Exception as error:
