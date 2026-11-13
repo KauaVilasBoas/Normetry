@@ -1,0 +1,150 @@
+"""The chat model: Claude through the Anthropic SDK, answering in claims (structured outputs).
+
+The answer comes back as JSON constrained by CLAIMS_SCHEMA and is streamed: each claim object is
+handed on as soon as it is complete, so the citation guard can check it while the rest is still
+being generated. Any SDK error (rate limit, exhausted credit, outage, network) becomes
+ModelUnavailable, never an exception the client sees.
+"""
+
+import json
+import logging
+import re
+from collections.abc import AsyncGenerator
+from typing import Any
+
+import anthropic
+
+from normetry_ai.llm.usage import Usage
+from normetry_ai.settings import AnswerSettings
+
+logger = logging.getLogger(__name__)
+
+# What the model must return. The guard (answers/guard.py) checks every claim again anyway.
+CLAIMS_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "claims": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "citations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "excerpt_id": {"type": "string"},
+                                "quote": {"type": "string"},
+                            },
+                            "required": ["excerpt_id", "quote"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["text", "citations"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["claims"],
+    "additionalProperties": False,
+}
+
+
+class ModelUnavailable(Exception):
+    """The model could not answer: no API key, or the provider failed."""
+
+
+class ClaimParser:
+    """Pulls each complete claim object out of the streamed `{"claims": [...]}` text."""
+
+    _START = re.compile(r'\s*\{\s*"claims"\s*:\s*\[')
+
+    def __init__(self) -> None:
+        self._text = ""
+        self._position: int | None = None  # just after the last claim read, once inside the list
+        self._decoder = json.JSONDecoder()
+
+    def feed(self, delta: str) -> list[Any]:
+        self._text += delta
+        if self._position is None:
+            start = self._START.match(self._text)
+            if start is None:
+                return []
+            self._position = start.end()
+        claims = []
+        while True:
+            position = self._position
+            while position < len(self._text) and self._text[position] in " \t\r\n,":
+                position += 1
+            self._position = position
+            # Only an object can be a claim; a partial object never decodes, so nothing is
+            # handed on before its closing brace arrives.
+            if position >= len(self._text) or self._text[position] != "{":
+                return claims
+            try:
+                claim, self._position = self._decoder.raw_decode(self._text, position)
+            except json.JSONDecodeError:
+                return claims
+            claims.append(claim)
+
+
+class ClaudeClaimModel:
+    """Streams claims from the configured Claude model, then its Usage as the last item."""
+
+    def __init__(
+        self, settings: AnswerSettings, client: anthropic.AsyncAnthropic | None = None
+    ) -> None:
+        self._settings = settings
+        key = settings.anthropic_api_key
+        if client is None and key is not None:
+            # The key from settings only: never ANTHROPIC_API_KEY or a local CLI profile.
+            client = anthropic.AsyncAnthropic(api_key=key.get_secret_value())
+        self._client = client
+
+    async def stream_claims(self, system: str, user: str) -> AsyncGenerator[Any | Usage, None]:
+        """Raw claim objects (untrusted: the guard checks them), then one Usage.
+
+        Raises ModelUnavailable, possibly after some claims: those were complete, so they stand.
+        """
+        if self._client is None:
+            logger.error("NORMETRY_ANTHROPIC_API_KEY is not set: every answer is unavailable.")
+            raise ModelUnavailable("no Anthropic API key")
+        settings, parser = self._settings, ClaimParser()
+        try:
+            async with self._client.messages.stream(
+                model=settings.chat_model,
+                max_tokens=settings.chat_max_tokens,
+                output_config={
+                    "effort": settings.chat_effort,
+                    "format": {"type": "json_schema", "schema": CLAIMS_SCHEMA},
+                },
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            ) as stream:
+                async for delta in stream.text_stream:
+                    for claim in parser.feed(delta):
+                        yield claim
+                message = await stream.get_final_message()
+        except anthropic.AnthropicError as error:
+            # Status, error type and request id only: never the prompt or the documents.
+            logger.warning(
+                "Claude call failed: %s status=%s type=%s request_id=%s",
+                type(error).__name__,
+                getattr(error, "status_code", None),
+                getattr(error, "type", None),
+                getattr(error, "request_id", None),
+            )
+            raise ModelUnavailable(type(error).__name__) from error
+        if message.stop_reason != "end_turn":
+            # max_tokens cuts the last claim (never handed on); refusal ends the answer early.
+            logger.warning("Claude stopped with %s", message.stop_reason)
+        usage = message.usage
+        yield Usage(
+            model=settings.chat_model,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            cache_creation_input_tokens=usage.cache_creation_input_tokens or 0,
+            cache_read_input_tokens=usage.cache_read_input_tokens or 0,
+        )
