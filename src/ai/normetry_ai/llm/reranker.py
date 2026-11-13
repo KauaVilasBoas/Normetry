@@ -3,8 +3,8 @@
 The local adapter runs bge-reranker-v2-m3 (multilingual) on CPU with sentence-transformers.
 """
 
+import threading
 from collections.abc import Sequence
-from functools import cached_property
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -31,14 +31,19 @@ class CrossEncoderReranker:
         self.max_length = max_length
         self.batch_size = batch_size
         self.name = f"{model}@{revision}"
+        self._loaded: CrossEncoder | None = None
+        self._load_lock = threading.Lock()  # one load even when the first questions overlap
 
-    @cached_property
+    @property
     def _model(self) -> "CrossEncoder":
-        from sentence_transformers import CrossEncoder
+        with self._load_lock:
+            if self._loaded is None:
+                from sentence_transformers import CrossEncoder
 
-        return CrossEncoder(
-            self.model, revision=self.revision, device="cpu", max_length=self.max_length
-        )
+                self._loaded = CrossEncoder(
+                    self.model, revision=self.revision, device="cpu", max_length=self.max_length
+                )
+            return self._loaded
 
     def score(self, query: str, texts: Sequence[str]) -> list[float]:
         if not texts:
