@@ -33,6 +33,7 @@ from normetry_ai.conversations.rewrite import TextModel, Turn, standalone_questi
 from normetry_ai.db import tenant_transaction
 from normetry_ai.llm.usage import record_usage
 from normetry_ai.retrieval import hybrid
+from normetry_ai.retrieval.language import detect_language
 from normetry_ai.retrieval.models import RetrievedChunk
 from normetry_ai.retrieval.policy import jurisdictions_for
 from normetry_ai.settings import AnswerSettings, ConversationSettings
@@ -220,9 +221,10 @@ async def answer_turn(
             settings=chat.conversation_settings,
             record_usage=record,
         )
+        # The claims are written in the question's language, detected as retrieval detects it;
+        # a citation keeps its chunk's, which can differ (BR and US corpora have one language).
+        language = detect_language(question)
         chunks = await anyio.to_thread.run_sync(retrieve, question, ctx)
-        # Retrieval keeps to the question's language (#49), so the chunks' is the claims'.
-        language = chunks[0].language if chunks else None
         events = answer(
             question,
             chunks,

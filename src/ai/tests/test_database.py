@@ -1270,6 +1270,24 @@ def test_a_turn_retrieves_in_the_callers_tenant_over_the_policy_scope(chat_api: 
     ]
 
 
+def test_an_answer_takes_the_questions_language_and_each_citation_its_chunks(
+    chat_api: ChatApi,
+) -> None:
+    alice = person(jurisdiction="BR")
+    conversation = chat_api.create(alice)
+    chat_api.use(
+        model=FakeClaims(raw_claim("Keep it at 5 °C or below.", ("E1", RDC_QUOTE))),
+        retriever=FakeRetriever(RDC),
+    )
+
+    events = chat_api.events(alice, conversation, "How cold must prepared food be kept?")
+
+    assert [name for name, _ in events] == ["claim", "done"]
+    answer_ = chat_api.get(alice, conversation).json()["messages"][-1]
+    assert answer_["language"] == "en"
+    assert [c["language"] for claim in answer_["claims"] for c in claim["citations"]] == ["pt"]
+
+
 def test_a_conversation_keeps_its_establishments_jurisdiction_on_every_turn(
     chat_api: ChatApi,
 ) -> None:

@@ -65,7 +65,7 @@ An assistant message:
 |---|---|
 | `kind` | `answer`, `refusal` or `unavailable` |
 | `reason` | for a refusal only: `low_score` (nothing relevant enough was found; no model call) or `no_supported_claims` (no claim survived the citation guard); otherwise `null` |
-| `language` | `en` or `pt`, the language of the claims; `null` when nothing was retrieved |
+| `language` | `en` or `pt`, the language of the question, which the claims are written in. Each citation keeps its chunk's own `language`, which can differ: an English question for a BR establishment cites the Portuguese RDC. `null` only when the turn failed before retrieval (`unavailable`) |
 | `claims` | the [claims](#claim) as they were streamed; empty for a refusal, possibly some for `unavailable` |
 
 Refusals and unavailable answers carry no display text: the web shows its own copy.
