@@ -3,8 +3,9 @@ Rank Fusion, then the re-ranker. Every step's output and time is kept in a `Trac
 scored on its own by the retrieval evals.
 
 Runs on a connection from `tenant_transaction`, as app_ai. Queries follow "Retrieval under RLS"
-in src/ai/CLAUDE.md: `tenant_id IS NULL` so only the corpus indexes apply, the filter on
-`jurisdiction` and `language`, and the join to ai.sources on all three foreign key columns.
+in src/ai/CLAUDE.md: `tenant_id IS NULL` so only the corpus indexes apply, the filter on the
+(jurisdiction, language) pairs `policy.corpus_versions` gives, and the join to ai.sources on all
+three foreign key columns.
 """
 
 import logging
@@ -20,13 +21,10 @@ from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
 from normetry_ai.retrieval.language import detect_language
 from normetry_ai.retrieval.models import RetrievedChunk
-from normetry_ai.retrieval.policy import JurisdictionScope
+from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions
 from normetry_ai.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
-
-# Text search configuration of each chunk language, as in the generated ai.chunks.tsv column.
-_TEXT_SEARCH_CONFIG = {"pt": "portuguese", "en": "english"}
 
 # Transaction-local knobs for the vector search, and the check that a tenant is set. A filter that
 # keeps one source of four would leave most HNSW candidates filtered away without iterative scan.
@@ -45,7 +43,9 @@ _VECTOR_SEARCH = text(
         SELECT id, content, section_path, language, jurisdiction, source_id,
                embedding <=> CAST(:embedding AS public.vector) AS rank
         FROM ai.chunks
-        WHERE tenant_id IS NULL AND jurisdiction = ANY(:jurisdictions) AND language = :language
+        WHERE tenant_id IS NULL
+          AND (jurisdiction, language) IN (
+              SELECT * FROM unnest(CAST(:jurisdictions AS text[]), CAST(:languages AS text[])))
         ORDER BY rank
         LIMIT :k
     )
@@ -57,16 +57,22 @@ _VECTOR_SEARCH = text(
     ORDER BY h.rank
     """
 )
-# Any word of the question may match (OR); ts_rank orders by how often the words occur.
+# Any word of the question may match (OR); ts_rank orders by how often the words occur. The
+# question is parsed with each chunk's own configuration, as the generated tsv column is.
 _TEXT_SEARCH = text(
     """
-    WITH query AS (SELECT websearch_to_tsquery(CAST(:config AS regconfig), :terms) AS q),
+    WITH query AS (
+        SELECT websearch_to_tsquery('portuguese', :terms) AS pt,
+               websearch_to_tsquery('english', :terms) AS en
+    ),
     hits AS (
         SELECT id, content, section_path, language, jurisdiction, source_id,
-               -ts_rank(tsv, query.q) AS rank
+               -ts_rank(tsv, CASE language WHEN 'pt' THEN query.pt ELSE query.en END) AS rank
         FROM ai.chunks, query
-        WHERE tenant_id IS NULL AND jurisdiction = ANY(:jurisdictions) AND language = :language
-          AND tsv @@ query.q
+        WHERE tenant_id IS NULL
+          AND (jurisdiction, language) IN (
+              SELECT * FROM unnest(CAST(:jurisdictions AS text[]), CAST(:languages AS text[])))
+          AND tsv @@ CASE language WHEN 'pt' THEN query.pt ELSE query.en END
         ORDER BY rank
         LIMIT :k
     )
@@ -133,7 +139,11 @@ class Retriever:
         if not tenant:
             raise RuntimeError("retrieval runs inside tenant_transaction")
         language = detect_language(question)
-        params = {"jurisdictions": list(scope.jurisdictions), "language": language}
+        versions = corpus_versions(scope, language)
+        params = {
+            "jurisdictions": [jurisdiction for jurisdiction, _ in versions],
+            "languages": [version for _, version in versions],
+        }
 
         started = time.perf_counter()
         embedding = self.embedder.embed_query(question)
@@ -155,7 +165,6 @@ class Retriever:
             _TEXT_SEARCH,
             {
                 **params,
-                "config": _TEXT_SEARCH_CONFIG[language],
                 # websearch_to_tsquery never fails on user input; "or" makes every word optional.
                 "terms": " or ".join(re.findall(r"\w+", question)),
                 "k": settings.retrieval_text_k,
@@ -190,10 +199,10 @@ class Retriever:
         ]
         # Ids, counts and times only: never the question or chunk text.
         logger.info(
-            "retrieval language=%s jurisdictions=%s vector=%d text=%d fused=%d reranked=%d "
+            "retrieval language=%s versions=%s vector=%d text=%d fused=%d reranked=%d "
             "top_score=%.3f seconds=%s",
             language,
-            ",".join(scope.jurisdictions),
+            ",".join(f"{j}/{v}" for j, v in versions),
             len(vector),
             len(lexical),
             len(fused),
