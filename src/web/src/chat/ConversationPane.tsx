@@ -16,15 +16,12 @@ import {
 } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
-import { Avatar, Button, Message, Skeleton, Spinner, TypeTile } from "../ui/primitives";
+import { Avatar, Button, iconButton, Message, Skeleton, Spinner, TypeTile } from "../ui/primitives";
 import { Answer } from "./Answer";
 import { quotaAfter, quotaNoticeText, streamAnswer, toTurns, type Turn } from "./answers";
 import { Composer } from "./Composer";
 
 export const TITLE_ID = "conversation-title";
-
-const iconButton =
-  "inline-flex size-9 shrink-0 items-center justify-center rounded-control text-text-secondary hover:bg-elevated";
 
 /** Follow new content only while the reader is this close to the bottom. */
 const STICK_PX = 80;

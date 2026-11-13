@@ -8,10 +8,8 @@ import { ChatScreen } from "../chat/ChatScreen";
 import { copy, format } from "../copy";
 import { EstablishmentPicker } from "../establishments/EstablishmentPicker";
 import { listState, useEstablishmentSelection } from "../establishments/selection";
+import { iconButton } from "../ui/primitives";
 import { Sidebar } from "./Sidebar";
-
-const iconButton =
-  "inline-flex size-9 shrink-0 items-center justify-center rounded-control text-text-secondary hover:bg-elevated";
 
 /** The app frame: sidebar (a drawer below 1024px), top bar and main. */
 export function AppShell() {

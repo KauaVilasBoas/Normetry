@@ -3,6 +3,7 @@ import { Dialog } from "radix-ui";
 import { useEffect, useRef } from "react";
 import type { Citation } from "../api/queries";
 import { copy, format, locale } from "../copy";
+import { iconButton } from "../ui/primitives";
 import { SOURCE_PANEL_ID } from "./Answer";
 
 function languageName(code: string): string {
@@ -58,7 +59,7 @@ export function SourcePanel({
           type="button"
           aria-label={copy.source.close}
           onClick={onClose}
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-control text-text-secondary hover:bg-elevated"
+          className={iconButton}
         >
           <X aria-hidden="true" className="size-5" />
         </button>
