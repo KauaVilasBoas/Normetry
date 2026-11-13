@@ -101,6 +101,17 @@ var ai = builder
     .WaitFor(postgres)
     .WaitForCompletion(aiMigrate);
 
+// The chat model's API key, the only secret not generated: set it once with
+// `dotnet user-secrets set Parameters:anthropic-api-key <key> --project src/core/Normetry.AppHost`.
+// Without it the AI service still starts and every answer is "unavailable", so a fresh clone runs.
+if (!string.IsNullOrEmpty(builder.Configuration["Parameters:anthropic-api-key"]))
+{
+    ai.WithEnvironment(
+        "NORMETRY_ANTHROPIC_API_KEY",
+        builder.AddParameter("anthropic-api-key", secret: true)
+    );
+}
+
 // Probed over http so the API reports healthy even before the HTTPS dev certificate is trusted.
 var api = builder
     .AddProject<Projects.Normetry_Api>("api")
