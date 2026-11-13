@@ -5,27 +5,42 @@ behavior connect as the real roles, never as the superuser.
 """
 
 import hashlib
+import json
 import os
-from collections.abc import Iterator, Sequence
+from collections.abc import AsyncGenerator, Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 from uuid import UUID, uuid4
 
+import anyio
 import pytest
 from conftest import ROLES, TOKEN, engine_for, migrate
+from fastapi.sse import ServerSentEvent
 from fastapi.testclient import TestClient
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.exc import DBAPIError
 
 from normetry_ai.api import create_app
 from normetry_ai.api.auth import INTERNAL_TOKEN_HEADER
+from normetry_ai.api.context import (
+    ESTABLISHMENT_HEADER,
+    JURISDICTION_HEADER,
+    TENANT_HEADER,
+    USER_HEADER,
+    EstablishmentContext,
+)
+from normetry_ai.api.conversations import Chat, OpenTurn, answer_turn, get_chat, get_retriever
+from normetry_ai.conversations import store as conversation_store
 from normetry_ai.db import check_runtime_role, create_db_engine, tenant_transaction
 from normetry_ai.ingestion.chunking import chunk_sections, content_hash
 from normetry_ai.ingestion.corpus import Section, load_manifest, parse_source
 from normetry_ai.ingestion.ingest import ingest_source
+from normetry_ai.llm.claude import ModelUnavailable
 from normetry_ai.llm.usage import Usage, record_usage
-from normetry_ai.settings import AnswerSettings, Settings
+from normetry_ai.retrieval.models import RetrievedChunk
+from normetry_ai.settings import AnswerSettings, ConversationSettings, Settings
 
 pytestmark = pytest.mark.integration
 
@@ -970,3 +985,545 @@ def test_a_message_has_the_shape_of_its_role(app_ai: Engine, columns: str, value
 
     with fails("23514"), tenant_transaction(app_ai, tenant) as connection:
         connection.execute(insert, {"tenant_id": tenant, "conversation_id": conversation})
+
+
+# --- Chat API (conversations, messages over SSE) ---------------------------------------------
+
+CHAT_SETTINGS = AnswerSettings(
+    anthropic_api_key=None,
+    answer_min_rerank_score=0.5,
+    answer_min_quote_words=4,
+    _env_file=None,
+)
+HISTORY_SETTINGS = ConversationSettings(chat_history_turns=2, _env_file=None)
+STARTED = Usage("claude-opus-5-5", input_tokens=900, output_tokens=1)
+ANSWERED = Usage("claude-opus-5-5", input_tokens=900, output_tokens=120)
+REWRITTEN = Usage("claude-haiku-5-5", input_tokens=150, output_tokens=12)
+COLD_TEXT = "Time/temperature control for safety food shall be maintained at 5°C (41°F) or less."
+HOT_TEXT = "Hot food shall be maintained at 57°C (135°F) or above, except during preparation."
+COLD_QUOTE = "shall be maintained at 5°C (41°F) or less"
+HOT_QUOTE = "maintained at 57°C (135°F) or above"
+
+
+def retrieved(content: str, score: float = 0.9) -> RetrievedChunk:
+    return RetrievedChunk(
+        chunk_id=uuid4(),
+        content=content,
+        section_path="3-501.16",
+        language="en",
+        jurisdiction="US",
+        source_id=uuid4(),
+        source_title="FDA Food Code",
+        source_version="2026",
+        official_url="https://example.org/food-code",
+        score=score,
+    )
+
+
+COLD, HOT = retrieved(COLD_TEXT), retrieved(HOT_TEXT)
+
+
+def raw_claim(text_: str, *citations: tuple[str, str]) -> dict[str, object]:
+    return {
+        "text": text_,
+        "citations": [{"excerpt_id": excerpt, "quote": quote} for excerpt, quote in citations],
+    }
+
+
+COLD_CLAIM = raw_claim("Hold cold food at 5 °C or below.", ("E1", COLD_QUOTE))
+HOT_CLAIM = raw_claim("Hold hot food at 57 °C or above.", ("E2", HOT_QUOTE))
+INVENTED = raw_claim("Hold it at 30 °C.", ("E7", COLD_QUOTE))
+
+
+class FakeClaims:
+    """A ClaimModel: a usage snapshot, the given claims, then the final usage (or a failure)."""
+
+    def __init__(self, *claims: object, fail: bool = False, hang: bool = False) -> None:
+        self.claims, self.fail, self.hang = claims, fail, hang
+        self.questions: list[str] = []
+
+    async def stream_claims(self, system: str, user: str) -> AsyncGenerator[object, None]:
+        self.questions.append(user.rsplit("<question>\n", 1)[1].split("\n</question>")[0])
+        yield STARTED
+        for claim in self.claims:
+            yield claim
+        if self.hang:
+            await anyio.sleep_forever()  # still generating when the client goes away
+        if self.fail:
+            raise ModelUnavailable("overloaded")
+        yield ANSWERED
+
+
+class FakeRewrite:
+    def __init__(self, text_: str = "How long can cooked rice stay out of the fridge?") -> None:
+        self.text = text_
+        self.prompts: list[str] = []
+
+    async def complete(self, system: str, user: str) -> tuple[str, Usage]:
+        self.prompts.append(user)
+        return self.text, REWRITTEN
+
+
+class FakeRetriever:
+    """Records each (question, establishment, jurisdiction) it is called with."""
+
+    def __init__(self, *chunks: RetrievedChunk) -> None:
+        self.chunks = list(chunks)
+        self.calls: list[tuple[str, UUID, str]] = []
+
+    def __call__(self, question: str, ctx: EstablishmentContext) -> list[RetrievedChunk]:
+        self.calls.append((question, ctx.establishment_id, ctx.jurisdiction))
+        return self.chunks
+
+
+@dataclass(frozen=True)
+class Person:
+    """A caller: what the core's gateway would put in the internal headers."""
+
+    tenant: UUID
+    user: str
+    establishment: UUID
+    jurisdiction: str = "US"
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {
+            INTERNAL_TOKEN_HEADER: TOKEN,
+            TENANT_HEADER: str(self.tenant),
+            USER_HEADER: self.user,
+        }
+
+    @property
+    def establishment_headers(self) -> dict[str, str]:
+        return {
+            **self.headers,
+            ESTABLISHMENT_HEADER: str(self.establishment),
+            JURISDICTION_HEADER: self.jurisdiction,
+        }
+
+
+def person(tenant: UUID | None = None, user: str = "user-a", jurisdiction: str = "US") -> Person:
+    return Person(tenant or uuid4(), user, uuid4(), jurisdiction)
+
+
+class ChatApi:
+    """The service as app_ai, with fake models and retrieval."""
+
+    def __init__(self, client: TestClient) -> None:
+        self.client = client
+        self.use()
+
+    def use(
+        self,
+        model: FakeClaims | None = None,
+        retriever: FakeRetriever | None = None,
+        rewrite: FakeRewrite | None = None,
+    ) -> None:
+        self.model = model or FakeClaims(COLD_CLAIM)
+        self.retriever = retriever or FakeRetriever(COLD, HOT)
+        self.rewrite = rewrite or FakeRewrite()
+        chat = Chat(self.model, self.rewrite, CHAT_SETTINGS, HISTORY_SETTINGS)
+        overrides = self.client.app.dependency_overrides
+        overrides[get_chat] = lambda: chat
+        overrides[get_retriever] = lambda: self.retriever
+
+    def create(self, caller: Person) -> str:
+        response = self.client.post(
+            f"/establishments/{caller.establishment}/conversations",
+            headers=caller.establishment_headers,
+        )
+        assert response.status_code == 201, response.text
+        return response.json()["id"]
+
+    def ask(
+        self,
+        caller: Person,
+        conversation: str,
+        question: str = "How cold must food be held?",
+    ) -> Any:
+        return self.client.post(
+            f"/establishments/{caller.establishment}/conversations/{conversation}/messages",
+            json={"text": question},
+            headers=caller.establishment_headers,
+        )
+
+    def events(self, caller: Person, conversation: str, question: str = "How cold?") -> list:
+        response = self.ask(caller, conversation, question)
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"].startswith("text/event-stream")
+        return sse_events(response.text)
+
+    def conversations(self, caller: Person) -> list[dict]:
+        response = self.client.get("/conversations", headers=caller.headers)
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def get(self, caller: Person, conversation: str) -> Any:
+        return self.client.get(f"/conversations/{conversation}", headers=caller.headers)
+
+
+def sse_events(body: str) -> list[tuple[str, object]]:
+    events = []
+    for block in body.split("\n\n"):
+        lines = [line for line in block.splitlines() if line and not line.startswith(":")]
+        if lines:
+            fields = dict(line.split(": ", 1) for line in lines)
+            events.append((fields["event"], json.loads(fields["data"])))
+    return events
+
+
+@pytest.fixture
+def chat_api(urls: dict[str, str]) -> Iterator[ChatApi]:
+    settings = Settings(internal_token=TOKEN, database_url=urls["app_ai"], _env_file=None)
+    with TestClient(create_app(settings, answer_settings=CHAT_SETTINGS)) as client:
+        yield ChatApi(client)
+
+
+def usage_by_user(engine: Engine, tenant: UUID) -> list[tuple[str, str, int]]:
+    with tenant_transaction(engine, tenant) as connection:
+        rows = connection.execute(
+            text("SELECT user_id, model, output_tokens FROM ai.model_usage ORDER BY created_at")
+        )
+        return sorted(tuple(row) for row in rows)
+
+
+def test_a_user_lists_reads_and_deletes_only_their_own_conversations(
+    chat_api: ChatApi,
+) -> None:
+    alice = person()
+    bob = person(alice.tenant, user="user-b")  # same tenant, another user
+    carol = person(user=alice.user)  # another tenant, the same user id
+    mine, bobs, carols = (
+        chat_api.create(alice),
+        chat_api.create(bob),
+        chat_api.create(carol),
+    )
+
+    assert [c["id"] for c in chat_api.conversations(alice)] == [mine]
+    assert [c["id"] for c in chat_api.conversations(bob)] == [bobs]
+    assert [c["id"] for c in chat_api.conversations(carol)] == [carols]
+    for caller, conversation in (
+        (alice, bobs),
+        (alice, carols),
+        (carol, mine),
+        (bob, mine),
+    ):
+        assert chat_api.get(caller, conversation).status_code == 404
+        delete_url = f"/conversations/{conversation}"
+        assert chat_api.client.delete(delete_url, headers=caller.headers).status_code == 404
+        assert chat_api.ask(caller, conversation).status_code == 404
+    # Through the owner's own establishment route too: the conversation is still not theirs.
+    intruder = Person(alice.tenant, bob.user, alice.establishment)
+    assert chat_api.ask(intruder, mine).status_code == 404
+    assert chat_api.get(bob, bobs).json()["messages"] == []
+    assert chat_api.get(carol, carols).json()["messages"] == []
+    assert chat_api.get(alice, mine).json()["messages"] == []
+
+    response = chat_api.client.delete(f"/conversations/{mine}", headers=alice.headers)
+    assert (response.status_code, response.content) == (204, b"")
+    assert chat_api.conversations(alice) == []
+    assert chat_api.get(alice, mine).status_code == 404
+    assert [c["id"] for c in chat_api.conversations(bob)] == [bobs]
+
+
+def test_a_conversation_keeps_its_establishments_jurisdiction_on_every_turn(
+    chat_api: ChatApi,
+) -> None:
+    alice = person(jurisdiction="BR")
+    conversation = chat_api.create(alice)
+
+    chat_api.events(alice, conversation, "Qual a temperatura dos alimentos frios?")
+    chat_api.events(alice, conversation, "E dos quentes?")
+
+    assert [call[1:] for call in chat_api.retriever.calls] == [(alice.establishment, "BR")] * 2
+    # Another establishment of the same user, or other establishment headers: no such
+    # conversation there, and nothing is stored.
+    elsewhere = Person(alice.tenant, alice.user, uuid4(), "US")
+    other_jurisdiction = Person(alice.tenant, alice.user, alice.establishment, "US")
+    for caller in (elsewhere, other_jurisdiction):
+        assert chat_api.ask(caller, conversation).status_code == 404
+    stored = chat_api.get(alice, conversation).json()
+    assert stored["establishmentId"] == str(alice.establishment)
+    assert [m["role"] for m in stored["messages"]] == ["user", "assistant"] * 2
+    assert len(chat_api.retriever.calls) == 2
+
+
+def test_guarded_claims_stream_in_order_then_done_and_are_stored(
+    chat_api: ChatApi,
+) -> None:
+    alice = person()
+    conversation = chat_api.create(alice)
+    chat_api.use(model=FakeClaims(COLD_CLAIM, INVENTED, HOT_CLAIM))
+
+    events = chat_api.events(alice, conversation, "How must cold and hot food be held?")
+
+    assert [name for name, _ in events] == ["claim", "claim", "done"]
+    cold, hot = events[0][1], events[1][1]
+    assert [cold["text"], hot["text"]] == [COLD_CLAIM["text"], HOT_CLAIM["text"]]
+    [citation] = cold["citations"]
+    assert citation == {
+        "id": citation["id"],
+        "sourceTitle": "FDA Food Code",
+        "sourceVersion": "2026",
+        "language": "en",
+        "sectionPath": "3-501.16",
+        "text": COLD_TEXT,
+        "quote": COLD_QUOTE,
+        "quoteStart": COLD_TEXT.index(COLD_QUOTE),
+        "quoteEnd": COLD_TEXT.index(COLD_QUOTE) + len(COLD_QUOTE),
+        "officialUrl": "https://example.org/food-code",
+    }
+    assert events[2][1] == {}
+
+    stored = chat_api.get(alice, conversation).json()
+    assert stored["title"] == "How must cold and hot food be held?"
+    question, answer_ = stored["messages"]
+    assert question["role"] == "user" and question["text"] == stored["title"]
+    assert {key: answer_[key] for key in ("role", "kind", "reason", "language", "claims")} == {
+        "role": "assistant",
+        "kind": "answer",
+        "reason": None,
+        "language": "en",
+        "claims": [cold, hot],
+    }
+    [listed] = chat_api.conversations(alice)
+    assert listed == {
+        "id": conversation,
+        "establishmentId": str(alice.establishment),
+        "title": stored["title"],
+        "updatedAt": stored["updatedAt"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("model", "chunks", "reason"),
+    [
+        (FakeClaims(COLD_CLAIM), [retrieved(COLD_TEXT, score=0.1)], "low_score"),
+        (FakeClaims(INVENTED), [COLD, HOT], "no_supported_claims"),
+    ],
+    ids=["low-score", "no-supported-claims"],
+)
+def test_a_refusal_arrives_as_a_single_event(
+    chat_api: ChatApi, model: FakeClaims, chunks: list[RetrievedChunk], reason: str
+) -> None:
+    alice = person()
+    conversation = chat_api.create(alice)
+    chat_api.use(model=model, retriever=FakeRetriever(*chunks))
+
+    assert chat_api.events(alice, conversation) == [("refusal", {"reason": reason})]
+    stored = chat_api.get(alice, conversation).json()["messages"][-1]
+    assert (stored["kind"], stored["reason"], stored["claims"]) == (
+        "refusal",
+        reason,
+        [],
+    )
+
+
+def test_a_model_failure_arrives_as_unavailable_after_the_claims_so_far(
+    chat_api: ChatApi,
+) -> None:
+    alice = person()
+    conversation = chat_api.create(alice)
+    chat_api.use(model=FakeClaims(fail=True))
+    assert chat_api.events(alice, conversation) == [("unavailable", {})]
+
+    chat_api.use(model=FakeClaims(COLD_CLAIM, fail=True))
+    events = chat_api.events(alice, conversation)
+
+    assert [name for name, _ in events] == ["claim", "unavailable"]
+    stored = chat_api.get(alice, conversation).json()["messages"]
+    assert [(m["kind"], len(m["claims"])) for m in stored[1::2]] == [
+        ("unavailable", 0),
+        ("unavailable", 1),
+    ]
+
+
+def test_a_follow_up_is_rewritten_from_the_last_turns_before_retrieval(
+    chat_api: ChatApi, app_ai: Engine
+) -> None:
+    alice = person()
+    conversation = chat_api.create(alice)
+    chat_api.events(alice, conversation, "How long can cooked rice stay out?")
+
+    chat_api.events(alice, conversation, "And in the fridge?")
+
+    [prompt] = chat_api.rewrite.prompts  # the first question is used as asked
+    assert "How long can cooked rice stay out?" in prompt and COLD_CLAIM["text"] in prompt
+    standalone = chat_api.rewrite.text
+    assert [call[0] for call in chat_api.retriever.calls] == [
+        "How long can cooked rice stay out?",
+        standalone,
+    ]
+    assert chat_api.model.questions[-1] == standalone
+    # Two answers and one rewrite, each recorded for the caller.
+    assert usage_by_user(app_ai, alice.tenant) == sorted(
+        [("user-a", "claude-opus-5-5", 120)] * 2 + [("user-a", "claude-haiku-5-5", 12)]
+    )
+
+
+def test_usage_is_recorded_only_for_the_caller_of_the_internal_headers(
+    chat_api: ChatApi, app_ai: Engine
+) -> None:
+    alice = person()
+    eve = person(user="user-e")  # another tenant
+    alices = chat_api.create(alice)
+    chat_api.events(alice, alices)
+    before = usage_by_user(app_ai, alice.tenant)
+
+    # Eve aims at Alice's conversation, through her own establishment route or by naming Alice's
+    # tenant and user in the body: nothing runs and nothing is recorded.
+    assert chat_api.ask(eve, alices).status_code == 404
+    response = chat_api.client.post(
+        f"/establishments/{eve.establishment}/conversations/{alices}/messages",
+        json={"text": "How cold?", "tenantId": str(alice.tenant), "userId": alice.user},
+        headers=eve.establishment_headers,
+    )
+    assert response.status_code == 422
+    eves = chat_api.create(eve)
+    chat_api.events(eve, eves)
+
+    assert before == [("user-a", "claude-opus-5-5", 120)]
+    assert usage_by_user(app_ai, alice.tenant) == before
+    assert usage_by_user(app_ai, eve.tenant) == [("user-e", "claude-opus-5-5", 120)]
+    assert len(chat_api.retriever.calls) == 2  # Alice's and Eve's own questions only
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"text": "   "},
+        {"text": "x" * 2001},
+        {"text": "How cold?", "establishmentId": "x"},
+    ],
+    ids=["no-text", "blank", "too-long", "extra-field"],
+)
+def test_a_message_carries_only_a_question(chat_api: ChatApi, body: dict) -> None:
+    alice = person()
+    conversation = chat_api.create(alice)
+
+    response = chat_api.client.post(
+        f"/establishments/{alice.establishment}/conversations/{conversation}/messages",
+        json=body,
+        headers=alice.establishment_headers,
+    )
+
+    assert response.status_code == 422
+    assert chat_api.get(alice, conversation).json()["messages"] == []
+
+
+def test_an_old_citation_still_opens_after_its_source_is_replaced(
+    chat_api: ChatApi, corpus: Engine, app_ai: Engine
+) -> None:
+    v1 = manifest_source(version="2004-04-29")
+    old_wording = "Food business operators shall keep chilled food at 5 degrees or below."
+    ingest_source(corpus, v1, sections(v1, old_wording), FakeEmbedder())
+    with app_ai.begin() as connection:  # the corpus chunk as retrieval would return it
+        row = connection.execute(
+            text(
+                """
+                SELECT c.id, c.content, c.section_path, c.language, c.jurisdiction, s.id AS source,
+                       s.title, s.version, s.official_url
+                FROM ai.chunks c
+                JOIN ai.sources s ON (s.id, s.jurisdiction, s.language)
+                                   = (c.source_id, c.jurisdiction, c.language)
+                WHERE c.tenant_id IS NULL AND s.manifest_id = :manifest_id
+                """
+            ),
+            {"manifest_id": v1["id"]},
+        ).one()
+    chunk = RetrievedChunk(*row, score=0.9)
+    quote = "keep chilled food at 5 degrees or below"
+    alice = person(jurisdiction="EU")
+    conversation = chat_api.create(alice)
+    chat_api.use(
+        model=FakeClaims(raw_claim("Keep chilled food at 5 °C or below.", ("E1", quote))),
+        retriever=FakeRetriever(chunk),
+    )
+    chat_api.events(alice, conversation)
+
+    v2 = {**v1, "version": "2021-03-24"}
+    ingest_source(corpus, v2, sections(v2, "New wording of the same article."), FakeEmbedder())
+
+    with app_ai.begin() as connection:
+        gone = text("SELECT count(*) FROM ai.chunks WHERE id = :id")
+        assert connection.execute(gone, {"id": chunk.chunk_id}).scalar_one() == 0
+    [[citation]] = [
+        claim["citations"]
+        for claim in chat_api.get(alice, conversation).json()["messages"][1]["claims"]
+    ]
+    assert citation["text"] == old_wording
+    assert citation["text"][citation["quoteStart"] : citation["quoteEnd"]] == quote
+    assert (citation["sourceVersion"], citation["sectionPath"]) == (
+        "2004-04-29",
+        "Article 1",
+    )
+    assert citation["sourceTitle"] == v1["title"]
+    assert citation["officialUrl"] == v1["official_url"]
+
+
+def test_an_answer_cut_short_by_the_client_is_stored_with_its_usage(
+    app_ai: Engine,
+) -> None:
+    alice = person()
+    ctx = EstablishmentContext(alice.tenant, alice.user, alice.establishment, alice.jurisdiction)
+    with tenant_transaction(app_ai, alice.tenant) as connection:
+        conversation = UUID(
+            str(
+                conversation_store.create_conversation(
+                    connection,
+                    tenant_id=alice.tenant,
+                    user_id=alice.user,
+                    establishment_id=alice.establishment,
+                    jurisdiction=alice.jurisdiction,
+                )["id"]
+            )
+        )
+        conversation_store.start_turn(
+            connection,
+            conversation,
+            user_id=alice.user,
+            establishment_id=alice.establishment,
+            jurisdiction=alice.jurisdiction,
+            question="How cold?",
+            history_messages=4,
+        )
+    chat = Chat(
+        FakeClaims(COLD_CLAIM, hang=True),
+        FakeRewrite(),
+        CHAT_SETTINGS,
+        HISTORY_SETTINGS,
+    )
+    seen: list[ServerSentEvent] = []
+
+    async def client_goes_away() -> None:
+        # The SSE route iterates answer_turn in a task that is cancelled when the client leaves.
+        events = answer_turn(
+            OpenTurn(conversation, "How cold?", []),
+            ctx,
+            engine=app_ai,
+            chat=chat,
+            retrieve=FakeRetriever(COLD),
+        )
+
+        async def stream() -> None:
+            async for event in events:
+                seen.append(event)
+
+        async with anyio.create_task_group() as group:
+            group.start_soon(stream)
+            with anyio.fail_after(10):
+                while not seen:
+                    await anyio.sleep(0.01)
+            group.cancel_scope.cancel()
+
+    anyio.run(client_goes_away)
+
+    assert [event.event for event in seen] == ["claim"]
+    with tenant_transaction(app_ai, alice.tenant) as connection:
+        stored = conversation_store.get_conversation(connection, alice.user, conversation)
+    assert stored is not None
+    answer_ = stored["messages"][-1]
+    assert (answer_["kind"], answer_["claims"]) == ("answer", [seen[0].data])
+    # The call was cut short: its input tokens are recorded, output tokens are not known yet.
+    assert usage_by_user(app_ai, alice.tenant) == [("user-a", "claude-opus-5-5", 1)]
