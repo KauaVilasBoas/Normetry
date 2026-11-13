@@ -1,5 +1,6 @@
 import { Check, ChevronDown } from "lucide-react";
 import { Select } from "radix-ui";
+import { useId } from "react";
 import type { Establishment } from "../api/queries";
 import { copy, format } from "../copy";
 import { describeEstablishment, type ListState } from "../establishments/selection";
@@ -20,6 +21,7 @@ export function EstablishmentSwitcher({
   selected: Establishment | undefined;
   onSelect: (establishment: Establishment) => void;
 }) {
+  const metaId = useId();
   if (state === "loading") {
     return (
       <button
@@ -86,6 +88,7 @@ export function EstablishmentSwitcher({
                 textValue={establishment.name}
                 // Radix marks only the focused selected option; the spec wants the selected one.
                 aria-selected={establishment.id === selected?.id}
+                aria-describedby={`${metaId}-${establishment.id}`}
                 className="flex min-h-12 cursor-default items-center gap-3 rounded-sm px-3 py-1.5 select-none focus-visible:-outline-offset-2 data-highlighted:bg-inset"
               >
                 <span className="min-w-0 flex-1">
@@ -94,7 +97,10 @@ export function EstablishmentSwitcher({
                       {establishment.name}
                     </span>
                   </Select.ItemText>
-                  <span className="block text-small text-text-secondary">
+                  <span
+                    id={`${metaId}-${establishment.id}`}
+                    className="block text-small text-text-secondary"
+                  >
                     {describeEstablishment(establishment).meta}
                   </span>
                 </span>
