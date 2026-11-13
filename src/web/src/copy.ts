@@ -36,7 +36,7 @@ export const copy = {
   switcher: {
     placeholder: "Choose establishment",
     none: "No establishment",
-    label: "Establishment: {name}. Change establishment",
+    name: "Establishment",
     selected: "{name} selected",
     loading: "Loading establishments…",
   },
