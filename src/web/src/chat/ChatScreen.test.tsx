@@ -252,6 +252,7 @@ describe("a streamed answer", () => {
     await expectNoAxeViolations();
 
     await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+    expect(await composer()).toHaveFocus();
     second.send("claim", claim1);
     second.send("done", {});
 

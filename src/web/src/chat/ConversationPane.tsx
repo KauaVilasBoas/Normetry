@@ -243,6 +243,8 @@ export function ConversationPane({
       ),
     );
     void ask(turn.key, turn.question);
+    // The button goes away with the failure; focus goes where Send leaves it.
+    input.current?.focus();
   }
 
   async function deleteConversation(): Promise<boolean> {
