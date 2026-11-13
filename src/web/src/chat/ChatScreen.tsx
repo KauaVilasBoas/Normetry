@@ -7,7 +7,7 @@ import { Sheet } from "../ui/primitives";
 import { chipId } from "./answers";
 import { COMPOSER_ID } from "./Composer";
 import { ConversationList } from "./ConversationList";
-import { ConversationPane, TITLE_ID } from "./ConversationPane";
+import { ConversationPane, SHOW_CONVERSATIONS_ID, TITLE_ID } from "./ConversationPane";
 import { SourcePanel } from "./SourcePanel";
 
 const focusById = (id: string) => document.getElementById(id)?.focus();
@@ -138,12 +138,12 @@ export function ChatScreen({
         open={listSheetOpen}
         onOpenChange={setListOpen}
         className="w-70 max-w-[85vw]"
+        // After a choice, focus goes where it leads; otherwise back to Show conversations (Radix
+        // only returns focus to a Dialog.Trigger, and this sheet opens from the pane header).
         onCloseAutoFocus={(event) => {
-          const id = focusAfterListSheet.current;
-          if (!id) return;
-          focusAfterListSheet.current = undefined;
           event.preventDefault();
-          focusById(id);
+          focusById(focusAfterListSheet.current ?? SHOW_CONVERSATIONS_ID);
+          focusAfterListSheet.current = undefined;
         }}
       >
         {list(true)}

@@ -22,6 +22,7 @@ import { quotaAfter, quotaNoticeText, streamAnswer, toTurns, type Turn } from ".
 import { Composer } from "./Composer";
 
 export const TITLE_ID = "conversation-title";
+export const SHOW_CONVERSATIONS_ID = "show-conversations";
 
 /** Follow new content only while the reader is this close to the bottom. */
 const STICK_PX = 80;
@@ -273,6 +274,7 @@ export function ConversationPane({
         {compact && (
           <button
             type="button"
+            id={SHOW_CONVERSATIONS_ID}
             aria-label={copy.conversations.show}
             onClick={onShowConversations}
             className={`${iconButton} -ml-2`}

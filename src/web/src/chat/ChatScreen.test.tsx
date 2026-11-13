@@ -626,8 +626,16 @@ describe("conversation list", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Show conversations" }));
 
-    const sheet = await screen.findByRole("dialog", { name: "Conversations" });
+    let sheet = await screen.findByRole("dialog", { name: "Conversations" });
     await expectNoAxeViolations();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Close conversations" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Show conversations" })).toHaveFocus(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Show conversations" }));
+    sheet = await screen.findByRole("dialog", { name: "Conversations" });
     await userEvent.click(await within(sheet).findByRole("link", { name: /How cold/ }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

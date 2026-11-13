@@ -1,9 +1,9 @@
-import { CircleAlert, MessagesSquare, Plus } from "lucide-react";
+import { CircleAlert, MessagesSquare, Plus, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Link } from "react-router";
 import { useConversations, type Establishment } from "../api/queries";
 import { copy, format, locale } from "../copy";
-import { Button, Message, Skeleton, Spinner } from "../ui/primitives";
+import { Button, iconButton, Message, Skeleton, Spinner } from "../ui/primitives";
 
 /** The time today, "Nov 10" this year, "Nov 10, 2025" before. */
 function shortDate(iso: string, now: Date): string {
@@ -50,7 +50,19 @@ export function ConversationList({
       className={`flex min-h-0 w-full flex-col ${inSheet ? "flex-1" : "rounded-card border border-border bg-card"}`}
     >
       <div className="p-4">
-        {inSheet ? <Dialog.Title asChild>{heading}</Dialog.Title> : heading}
+        {inSheet ? (
+          <div className="flex items-center justify-between gap-2">
+            <Dialog.Title asChild>{heading}</Dialog.Title>
+            <Dialog.Close
+              aria-label={copy.conversations.close}
+              className={`${iconButton} -my-2 -mr-2`}
+            >
+              <X aria-hidden="true" className="size-5" />
+            </Dialog.Close>
+          </div>
+        ) : (
+          heading
+        )}
         <Button variant="secondary" className="mt-3 w-full" onClick={onNew}>
           <Plus aria-hidden="true" className="size-4" />
           {copy.conversations.newConversation}
