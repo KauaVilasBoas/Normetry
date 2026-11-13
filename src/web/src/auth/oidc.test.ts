@@ -15,6 +15,7 @@ describe("safeReturnPath", () => {
     ["absolute URL", "https://attacker.example/"],
     ["protocol-relative URL", "//attacker.example/path"],
     ["backslash trick", "/\\attacker.example"],
+    ["dot segment to a protocol-relative path", "/.//attacker.example/"],
     ["javascript URL", "javascript:alert(1)"],
     ["relative without slash", "settings"],
     ["the callback itself", "/auth/callback?code=x"],
