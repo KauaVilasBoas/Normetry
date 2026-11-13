@@ -36,6 +36,28 @@ class EmbeddingSettings(BaseSettings):
     embedding_model_revision: str = "5617a9f61b028005a4858fdac845db406aefb181"
 
 
+class RetrievalSettings(BaseSettings):
+    """Hybrid retrieval (ADR 006): candidate counts, fusion, and the re-ranker pinned like the
+    embedding model. Tuned with the retrieval evals (evals/README.md)."""
+
+    model_config = _CONFIG
+
+    # Candidates each search returns before fusion.
+    retrieval_vector_k: int = Field(default=50, ge=1)
+    retrieval_text_k: int = Field(default=50, ge=1)
+    # Reciprocal Rank Fusion constant: score = sum of 1 / (rrf_k + rank).
+    retrieval_rrf_k: int = Field(default=60, ge=0)
+    # Fused candidates the re-ranker scores (its cost grows with this), and chunks returned.
+    retrieval_rerank_candidates: int = Field(default=30, ge=1)
+    retrieval_top_k: int = Field(default=10, ge=1)
+    # HNSW candidate list per vector search (pgvector's hnsw.ef_search).
+    retrieval_hnsw_ef_search: int = Field(default=100, ge=1)
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_model_revision: str = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
+    # Tokens per (question, chunk) pair; the longest corpus chunk is about 535 tokens.
+    reranker_max_length: int = Field(default=1024, ge=1)
+
+
 class CorpusSettings(BaseSettings):
     """Read only by the corpus ingestion command, as corpus_ingestor: never by the service.
 
