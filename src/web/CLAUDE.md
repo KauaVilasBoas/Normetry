@@ -19,7 +19,7 @@ React 19 + TypeScript single-page app built with Vite (ADR 011), managed with np
 - `shell/`: the app frame (`AppShell`), sidebar, establishment switcher, account menu.
 - `establishments/`: picker, selection and labels (`selection.ts`).
 - `chat/`: Ask the Regulation (`/` new conversation, `/conversations/:id` a saved one). `ChatScreen` (list | conversation | source panel, sheets, focus, the polite live region), `ConversationList`, `ConversationPane` (one per conversation: leaving it aborts the stream), `Answer` (claim reveal, chips, system messages), `Composer` (field, send, quota), `SourcePanel`, and `answers.ts` (server data guards, stored messages to turns, the SSE reader, quota headers).
-- `ui/`: shared visual primitives (`Button`, `Spinner`, `Skeleton`, `TypeIcon`, `TypeTile`, `Avatar`, `Message`, `CitationChip`, `Sheet`, `Logo`, `LogoMark`) and `media.ts` (`useMediaQuery`, the chat breakpoints). New primitives go here, never inline in a screen.
+- `ui/`: shared visual primitives (`Button`, `iconButton` (36px icon-only button classes), `Spinner` (its `surface` prop picks a track that shows on card, elevated or mint), `Skeleton`, `TypeIcon`, `TypeTile`, `Avatar`, `Message`, `CitationChip`, `Sheet`, `Logo`, `LogoMark`) and `media.ts` (`useMediaQuery`, the chat breakpoints). New primitives go here, never inline in a screen.
 - `copy.ts`: every interface string, whole sentences with `{placeholders}` filled by `format()`. Never concatenate sentences. English only until the PT switch.
 - Tests sit next to the code (`*.test.ts(x)`); shared fakes in `src/test/`.
 
