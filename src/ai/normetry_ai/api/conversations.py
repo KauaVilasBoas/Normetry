@@ -303,7 +303,13 @@ def _store_answer(
 ) -> None:
     with tenant_transaction(engine, ctx.tenant_id) as connection:
         store.store_answer(
-            connection, conversation_id, kind=kind, reason=reason, language=language, claims=claims
+            connection,
+            conversation_id,
+            user_id=ctx.user_id,
+            kind=kind,
+            reason=reason,
+            language=language,
+            claims=claims,
         )
 
 

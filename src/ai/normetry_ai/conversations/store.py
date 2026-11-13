@@ -181,17 +181,19 @@ def store_answer(
     connection: Connection,
     conversation_id: UUID,
     *,
+    user_id: str,
     kind: str,
     reason: str | None,
     language: str | None,
     claims: Sequence[dict[str, Any]],
 ) -> None:
-    """Store an answer in its conversation; nothing when the conversation was deleted meanwhile."""
+    """Store an answer in the user's conversation; nothing when it was deleted meanwhile (or is
+    not the user's)."""
     connection.execute(
         text(
             """
             WITH turn AS (
-                UPDATE ai.conversations SET updated_at = now() WHERE id = :id
+                UPDATE ai.conversations SET updated_at = now() WHERE id = :id AND user_id = :user_id
                 RETURNING tenant_id, id
             )
             INSERT INTO ai.messages (tenant_id, conversation_id, role, kind, reason, language,
@@ -202,6 +204,7 @@ def store_answer(
         ),
         {
             "id": conversation_id,
+            "user_id": user_id,
             "kind": kind,
             "reason": reason,
             "language": language,
