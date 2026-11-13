@@ -6,7 +6,7 @@ import { NavLink } from "react-router";
 import type { Establishment, Me } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
-import type { ListState } from "../establishments/selection";
+import { forgetEstablishments, type ListState } from "../establishments/selection";
 import { Logo } from "../ui/Logo";
 import { Skeleton } from "../ui/primitives";
 import { EstablishmentSwitcher } from "./EstablishmentSwitcher";
@@ -129,7 +129,10 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
           </DropdownMenu.Label>
           <DropdownMenu.Separator className="-mx-2 my-1 h-px bg-border" />
           <DropdownMenu.Item
-            onSelect={() => void signOut()}
+            onSelect={() => {
+              forgetEstablishments();
+              void signOut();
+            }}
             className="flex h-9 cursor-default items-center gap-2 rounded-sm px-2 text-body select-none focus-visible:-outline-offset-2 data-highlighted:bg-inset"
           >
             <LogOut aria-hidden="true" className="size-4 shrink-0" />

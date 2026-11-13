@@ -292,7 +292,8 @@ describe("shell", () => {
     );
   });
 
-  it("signs out from the account menu", async () => {
+  it("signs out from the account menu and forgets the establishment", async () => {
+    localStorage.setItem(storageKey, "e-lisboa");
     const { oidc } = renderApp({
       "/me": { body: me },
       "/establishments": { body: establishments },
@@ -309,5 +310,6 @@ describe("shell", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Signing you out…");
     await waitFor(() => expect(oidc.signoutRedirect).toHaveBeenCalled());
     expect(oidc.removeUser).toHaveBeenCalled();
+    expect(localStorage.getItem(storageKey)).toBeNull();
   });
 });
