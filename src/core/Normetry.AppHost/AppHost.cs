@@ -67,6 +67,28 @@ var aiMigrate = builder
     .WithEnvironment("NORMETRY_MIGRATIONS_DATABASE_URL", Psycopg("ai_owner", aiOwnerPassword))
     .WaitFor(postgres);
 
+// On demand (start it from the dashboard): loads corpus/manifest.json into ai.sources and ai.chunks.
+// corpus_ingestor is the only role that writes the public corpus, so only this step gets its URL.
+// Fetch the corpus first (corpus/scripts/fetch_corpus.py); the first run also downloads the
+// embedding model (about 2.3 GB) into the Hugging Face cache.
+builder
+    .AddExecutable(
+        "corpus-ingest",
+        "uv",
+        "../../ai",
+        "run",
+        "python",
+        "-m",
+        "normetry_ai.ingestion.ingest"
+    )
+    .WithEnvironment(
+        "NORMETRY_CORPUS_DATABASE_URL",
+        Psycopg("corpus_ingestor", corpusIngestorPassword)
+    )
+    .WithExplicitStart()
+    .WaitFor(postgres)
+    .WaitForCompletion(aiMigrate);
+
 var ai = builder
     .AddUvicornApp("ai", "../../ai", "normetry_ai.api:create_app")
     .WithUv()
