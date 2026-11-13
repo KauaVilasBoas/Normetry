@@ -24,6 +24,8 @@ The AI service cuts each file into citable sections (`src/ai/normetry_ai/ingesti
 - Regulation (EC) No 852/2004, English and Portuguese: the articles (`Article 4`) and the annexes by part or chapter (`Annex I, Part A`, `Annex II, Chapter I`). The consolidated text has no recitals. Paths are the same in both languages.
 - RDC 216/2004: the Technical Regulation in the annex, one section per item (`4.8.15`). Its items run from 1 to 4.12; the resolution's own articles (the preamble) are left out.
 
+`uv run python -m normetry_ai.ingestion.ingest` from `src/ai` (or the AppHost's `corpus-ingest` resource) then loads every source into the database: one row per manifest entry in `ai.sources`, and the sections, cut into chunks with BGE-M3 embeddings, in `ai.chunks`. A changed file or a new manifest version replaces that source's chunks; running it again changes nothing. See "Corpus ingestion" in `src/ai/CLAUDE.md`.
+
 ## Sources
 
 Retrieved on 2026-11-12.
