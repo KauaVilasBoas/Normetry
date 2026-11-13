@@ -426,6 +426,7 @@ describe("a saved conversation", () => {
     await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByRole("list", { name: "Messages" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 2, name: question })).toHaveFocus();
   });
 
   it("shows not found, and starts a new conversation from there", async () => {
@@ -653,6 +654,7 @@ describe("conversation list", () => {
     await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByRole("link", { name: /How cold/ })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 2, name: "Conversations" })).toHaveFocus();
   });
 
   it("is a sheet below 768px; a row opens and focuses the conversation", async () => {
