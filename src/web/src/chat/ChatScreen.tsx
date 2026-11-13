@@ -62,9 +62,11 @@ export function ChatScreen({
     if (focusKey > 0) focusById(TITLE_ID);
   }, [focusKey]);
 
-  const [announcements, setAnnouncements] = useState<{ id: number; text: string }[]>([]);
-  const announce = (text: string) =>
-    setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text }]);
+  const [announcements, setAnnouncements] = useState<{ id: number; text: string; lang?: string }[]>(
+    [],
+  );
+  const announce = (text: string, lang?: string) =>
+    setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text, lang }]);
 
   /** Focus after a navigation; from the conversations sheet, once it has closed. */
   const focusNext = (id: string) => {
@@ -168,7 +170,9 @@ export function ChatScreen({
 
       <div aria-live="polite" className="sr-only">
         {announcements.map((item) => (
-          <p key={item.id}>{item.text}</p>
+          <p key={item.id} lang={item.lang}>
+            {item.text}
+          </p>
         ))}
       </div>
     </div>
