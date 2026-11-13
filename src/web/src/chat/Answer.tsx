@@ -62,7 +62,7 @@ export function Answer({
 
   const checking = (
     <p className="flex items-center gap-2 text-body text-text-secondary">
-      <Spinner />
+      <Spinner surface="elevated" />
       {format(copy.chat.checking, { regulation })}
     </p>
   );
@@ -78,7 +78,7 @@ export function Answer({
         <>
           {claims}
           <span className="mt-3 block">
-            <Spinner />
+            <Spinner surface="elevated" />
           </span>
         </>
       ) : (
@@ -100,7 +100,7 @@ export function Answer({
       body = claims ? (
         <>
           {claims}
-          <div className="mt-4 border-t border-border pt-4">{message}</div>
+          <div className="mt-4 border-t border-inset pt-4">{message}</div>
         </>
       ) : (
         message
