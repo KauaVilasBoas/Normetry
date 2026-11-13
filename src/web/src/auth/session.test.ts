@@ -12,8 +12,10 @@ describe("createAuth", () => {
 
     auth.start();
 
-    await vi.waitFor(() => expect(auth.getState().status).toBe("redirecting"));
-    expect(oidc.signinRedirect).toHaveBeenCalledWith({ state: "/somewhere?x=1#y" });
+    await vi.waitFor(() =>
+      expect(oidc.signinRedirect).toHaveBeenCalledWith({ state: "/somewhere?x=1#y" }),
+    );
+    expect(auth.getState().status).toBe("checking");
   });
 
   it("starts only once (StrictMode runs effects twice)", async () => {
