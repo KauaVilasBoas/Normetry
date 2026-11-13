@@ -46,8 +46,11 @@ ReferenceExpression Psycopg(string user, IResourceBuilder<ParameterResource> pas
     );
 
 // Fixed port so the token issuer (http://localhost:8180/realms/normetry) is stable across runs.
+// Plain http even when the dev certificate is trusted: Aspire would otherwise serve this endpoint
+// over https and change the issuer the API (appsettings.json) and the web app expect.
 var keycloak = builder
     .AddKeycloak("keycloak", port: 8180)
+    .WithoutHttpsCertificate()
     .WithRealmImport("../../../deploy/keycloak/normetry-realm.json");
 
 // Short-lived: applies the core migrations as core_owner and exits. Only this step gets the owner
@@ -67,6 +70,8 @@ var aiMigrate = builder
 var ai = builder
     .AddUvicornApp("ai", "../../ai", "normetry_ai.api:create_app")
     .WithUv()
+    // Plain http on loopback, so the API gets services__ai__http__0 even with a trusted dev cert.
+    .WithoutHttpsCertificate()
     // AddUvicornApp adds --reload; without --reload-dir it would poll every file under .venv too.
     .WithArgs("--factory", "--reload-dir", "normetry_ai")
     .WithEnvironment("NORMETRY_INTERNAL_TOKEN", internalToken)
@@ -93,6 +98,7 @@ var api = builder
 builder
     .AddViteApp("web", "../../web")
     .WithNpm()
+    .WithoutHttpsCertificate()
     .WithEndpoint("http", endpoint => endpoint.Port = 5173)
     .WithEnvironment("NORMETRY_API_URL", api.GetEndpoint("http"))
     .WithEnvironment(
