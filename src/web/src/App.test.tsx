@@ -170,6 +170,19 @@ describe("establishment picker", () => {
     ).toBeVisible();
   });
 
+  it("shows the error state when /me fails, even with a single establishment", async () => {
+    renderApp({
+      "/me": [{ status: 503 }, { status: 503 }, { body: me }],
+      "/establishments": { body: [establishments[0]] },
+    });
+
+    const alert = await screen.findByRole("alert", {}, { timeout: 3000 });
+    expect(screen.queryByRole("heading", { level: 2, name: "Bistro Lisboa" })).toBeNull();
+    await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Bistro Lisboa" })).toBeVisible();
+  });
+
   it("explains a missing organization on 403", async () => {
     renderApp({ "/me": { status: 403 }, "/establishments": { status: 403 } });
 

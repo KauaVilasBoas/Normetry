@@ -110,7 +110,8 @@ export function AppShell() {
           tabIndex={-1}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 sm:px-5 sm:pb-5"
         >
-          {selected ? (
+          {/* Any failure, /me included, shows the picker with its message and Try again. */}
+          {selected && state === "list" ? (
             <ChatPlaceholder establishment={selected} focusKey={focusKey} />
           ) : (
             <EstablishmentPicker
