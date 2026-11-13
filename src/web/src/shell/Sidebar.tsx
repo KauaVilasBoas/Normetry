@@ -8,7 +8,7 @@ import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { forgetEstablishments, type ListState } from "../establishments/selection";
 import { Logo } from "../ui/Logo";
-import { Skeleton } from "../ui/primitives";
+import { Avatar, Skeleton } from "../ui/primitives";
 import { EstablishmentSwitcher } from "./EstablishmentSwitcher";
 
 interface SidebarProps {
@@ -90,12 +90,6 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
   // Without a name the email takes its place and is not repeated below it.
   const name = profile.name ?? profile.email ?? "";
   const email = profile.name ? profile.email : undefined;
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
 
   return (
     <DropdownMenu.Root>
@@ -103,12 +97,7 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
         aria-label={name ? format(copy.shell.accountMenu, { name }) : copy.shell.accountMenuUnnamed}
         className="group flex w-full items-center gap-3 rounded-control p-2 text-left hover:bg-elevated"
       >
-        <span
-          aria-hidden="true"
-          className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-teal text-small font-semibold"
-        >
-          {initials}
-        </span>
+        <Avatar name={name} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-body font-medium">{name}</span>
           {/* Muted only on the sidebar: on the hover surface (--bg-elevated) it would fail contrast. */}
