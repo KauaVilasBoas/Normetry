@@ -155,9 +155,13 @@ describe("establishment picker", () => {
   });
 
   it("shows the error state and recovers with Try again", async () => {
+    let answer: (response: Response) => void = () => {};
+    const pending = new Promise<Response>((resolve) => {
+      answer = resolve;
+    });
     renderApp({
       "/me": { body: me },
-      "/establishments": [{ status: 503 }, { status: 503 }, { body: establishments }],
+      "/establishments": [{ status: 503 }, { status: 503 }, () => pending],
     });
 
     const alert = await screen.findByRole("alert", {}, { timeout: 3000 });
@@ -165,8 +169,13 @@ describe("establishment picker", () => {
     expect(switcherNone()).toBeDisabled();
     await expectNoAxeViolations();
 
-    await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+    const tryAgain = within(alert).getByRole("button", { name: "Try again" });
+    await userEvent.click(tryAgain);
 
+    await waitFor(() => expect(tryAgain).toHaveAttribute("aria-disabled", "true"));
+    expect(tryAgain).toHaveFocus();
+    expect(picker()).toHaveAttribute("aria-busy", "true");
+    answer(Response.json(establishments));
     expect(
       await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" }),
     ).toBeVisible();

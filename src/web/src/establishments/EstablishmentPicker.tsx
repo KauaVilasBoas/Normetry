@@ -2,7 +2,7 @@ import { ChevronRight, CircleAlert, Store } from "lucide-react";
 import { useId, type ReactNode } from "react";
 import type { Establishment } from "../api/queries";
 import { copy, format } from "../copy";
-import { Button, Skeleton, TypeTile } from "../ui/primitives";
+import { Button, Skeleton, Spinner, TypeTile } from "../ui/primitives";
 import { describeEstablishment, type ListState } from "./selection";
 
 interface PickerProps {
@@ -11,6 +11,8 @@ interface PickerProps {
   givenName: string | undefined;
   onSelect: (establishment: Establishment) => void;
   onRetry: () => void;
+  /** A request is in flight (after Try again). */
+  fetching: boolean;
 }
 
 /** Shown in main until an establishment is selected. */
@@ -20,7 +22,9 @@ export function EstablishmentPicker({
   givenName,
   onSelect,
   onRetry,
+  fetching,
 }: PickerProps) {
+  const retrying = state === "error" && fetching;
   return (
     <div className="flex flex-col">
       <p className="text-greeting font-semibold">
@@ -29,7 +33,7 @@ export function EstablishmentPicker({
       <p className="mt-1 text-body text-text-secondary">{copy.picker.subtitle}</p>
       <section
         aria-labelledby="establishments-title"
-        aria-busy={state === "loading"}
+        aria-busy={state === "loading" || retrying}
         className="mt-4 w-full max-w-160 overflow-hidden rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in"
       >
         <h2 id="establishments-title" className="text-title font-semibold">
@@ -59,7 +63,14 @@ export function EstablishmentPicker({
               title={copy.picker.errorTitle}
               body={copy.picker.errorBody}
             />
-            <Button variant="secondary" className="mt-4" onClick={onRetry}>
+            {/* aria-disabled, not disabled, while retrying: focus stays on the button. */}
+            <Button
+              variant="secondary"
+              className="mt-4"
+              aria-disabled={retrying}
+              onClick={retrying ? undefined : onRetry}
+            >
+              {retrying && <Spinner />}
               {copy.picker.tryAgain}
             </Button>
           </div>
