@@ -67,8 +67,35 @@ jobs:
       - name: Fetch corpus
         working-directory: .
         run: uv run corpus/scripts/fetch_corpus.py
+      # Tests marked `model` are left out here (pyproject.toml): the ai-model job runs them.
       - name: Test
         run: uv run pytest
+
+  ai-model:
+    name: ai (embedding model)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/ai
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.23"
+          working-directory: src/ai
+          enable-cache: true
+      - name: Sync
+        run: uv sync --locked
+      # BGE-M3 (about 2.3 GB) from the Hugging Face Hub. Its id and revision are pinned in
+      # settings.py, so a change there misses the cache and downloads the new weights.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/huggingface/hub
+          key: huggingface-${{ hashFiles('src/ai/normetry_ai/settings.py') }}
+      - name: Test
+        run: uv run pytest -m model
 
   web:
     name: web (React)
