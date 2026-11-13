@@ -10,7 +10,7 @@ The AI service's chat routes, as the web app calls them through the core's gatew
 | `GET /api/ai/conversations` | | `200` with an array of summaries, the caller's conversations in every establishment, latest `updatedAt` first | |
 | `GET /api/ai/conversations/{conversationId}` | | `200` with a [conversation](#conversation) | `404`: not the caller's conversation; `422`: not a UUID |
 | `DELETE /api/ai/conversations/{conversationId}` | | `204`, no body; the messages go too | `404`, `422` as above |
-| `POST /api/ai/establishments/{establishmentId}/conversations/{conversationId}/messages` | `{"text": "..."}` | `200`, `text/event-stream`: [events](#stream) | `404`: not the caller's conversation, or not this establishment's; `422`: invalid body; `429`: daily quota (core); `503`: the question could not be stored, so nothing is answered |
+| `POST /api/ai/establishments/{establishmentId}/conversations/{conversationId}/messages` | `{"text": "..."}` | `200`, `text/event-stream`: [events](#stream) | `404`: not the caller's conversation, or posted under another establishment or jurisdiction than the conversation's; `422`: invalid body; `429`: daily quota (core); `503`: the question could not be stored, so nothing is answered |
 
 - A conversation belongs to one user and one establishment. Other users of the same tenant, and other tenants, get `404` for it on every route.
 - No query parameter names the establishment, so the list holds every establishment's conversations; the web filters by `establishmentId`.
