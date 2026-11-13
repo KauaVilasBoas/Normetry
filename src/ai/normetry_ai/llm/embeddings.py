@@ -4,8 +4,8 @@ Each model, local or hosted, is an adapter. Chunks and queries must come from th
 `ai.chunks.embedding` is `vector(1024)`, the dimension of BGE-M3.
 """
 
+import threading
 from collections.abc import Sequence
-from functools import cached_property
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -38,13 +38,19 @@ class SentenceTransformerEmbedder:
         self.revision = revision
         self.batch_size = batch_size
         self.name = f"{model}@{revision}"
+        self._loaded: SentenceTransformer | None = None
+        # Two first questions at once would otherwise load the weights (gigabytes) twice.
+        self._load_lock = threading.Lock()
 
-    @cached_property
+    @property
     def _model(self) -> "SentenceTransformer":
-        # Imported here: torch takes seconds to import, and the API does not embed anything yet.
-        from sentence_transformers import SentenceTransformer
+        with self._load_lock:
+            if self._loaded is None:
+                # Imported here: torch takes seconds to import, and a run may embed nothing.
+                from sentence_transformers import SentenceTransformer
 
-        return SentenceTransformer(self.model, revision=self.revision, device="cpu")
+                self._loaded = SentenceTransformer(self.model, revision=self.revision, device="cpu")
+            return self._loaded
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         vectors = self._model.encode_document(
