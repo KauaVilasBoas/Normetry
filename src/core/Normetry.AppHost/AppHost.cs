@@ -75,7 +75,7 @@ var ai = builder
     .WaitForCompletion(aiMigrate);
 
 // Probed over http so the API reports healthy even before the HTTPS dev certificate is trusted.
-builder
+var api = builder
     .AddProject<Projects.Normetry_Api>("api")
     .WithHttpHealthCheck("/health", endpointName: "http")
     .WithEnvironment("ConnectionStrings__core", Npgsql("app_core", appCorePassword))
@@ -86,6 +86,20 @@ builder
     .WaitFor(keycloak)
     .WaitFor(postgres)
     .WaitForCompletion(coreMigrate);
+
+// The web app's Vite dev server. Fixed port: the normetry-web Keycloak client accepts only
+// http://localhost:5173. The browser calls the API through the dev server's /api proxy, so the
+// API needs no CORS; NORMETRY_API_URL is the proxy target (read by vite.config.ts).
+builder
+    .AddViteApp("web", "../../web")
+    .WithNpm()
+    .WithEndpoint("http", endpoint => endpoint.Port = 5173)
+    .WithEnvironment("NORMETRY_API_URL", api.GetEndpoint("http"))
+    .WithEnvironment(
+        "VITE_OIDC_AUTHORITY",
+        ReferenceExpression.Create($"{keycloak.GetEndpoint("http")}/realms/normetry")
+    )
+    .WaitFor(api);
 
 // Every AI route, /health included, answers 401 without the internal token, and
 // WithHttpHealthCheck cannot add headers, so this probe sends it.

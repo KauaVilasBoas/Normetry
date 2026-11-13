@@ -375,18 +375,18 @@ The LLM-as-judge is checked against about 30 hand-labeled examples before it is 
 
 ## Getting started
 
-Prerequisites: .NET 10 SDK, [uv](https://docs.astral.sh/uv/) (it installs Python 3.12+), Docker.
+Prerequisites: .NET 10 SDK, [uv](https://docs.astral.sh/uv/) (it installs Python 3.12+), Node.js 22.22+ with npm, Docker.
 
 ```bash
 git clone https://github.com/KauaVilasBoas/Normetry.git
 cd Normetry
 dotnet dev-certs https --trust                    # once, so services can send telemetry to the dashboard
-dotnet run --project src/core/Normetry.AppHost    # PostgreSQL, Keycloak, migrations, API and AI service
+dotnet run --project src/core/Normetry.AppHost    # PostgreSQL, Keycloak, migrations, API, AI service and web app
 ```
 
 The first run generates every password and the internal token and keeps them in the AppHost's user secrets, so there is nothing to configure. The console prints the Aspire dashboard login link (`https://localhost:17081`). If Docker cannot reach `mcr.microsoft.com`, set `ASPIRE_ENABLE_CONTAINER_TUNNEL=false` first.
 
-The local Keycloak realm has two demo tenants and three demo users ([`deploy/keycloak/README.md`](deploy/keycloak/README.md)). With the API on `http://localhost:5208`:
+The local Keycloak realm has two demo tenants and three demo users ([`deploy/keycloak/README.md`](deploy/keycloak/README.md)). Open the web app at `http://localhost:5173` and sign in as `bistro.owner` with the password `local-demo-only`. To call the API directly on `http://localhost:5208`:
 
 ```bash
 TOKEN=$(curl -s http://localhost:8180/realms/normetry/protocol/openid-connect/token \
@@ -404,7 +404,7 @@ With a `bakery.auditor` token the Bistro's establishment does not show up: RLS h
 
 ### Tests
 
-`dotnet test` from the repository root and `uv run pytest` from `src/ai`. Database tests need Docker; without it they are skipped locally and fail in CI.
+`dotnet test` from the repository root, `uv run pytest` from `src/ai` and `npm test` from `src/web`. Database tests need Docker; without it they are skipped locally and fail in CI.
 
 - Domain: unit tests.
 - Integration: Testcontainers with a real PostgreSQL, RLS included. Tenant A must never read tenant B's chunks.
