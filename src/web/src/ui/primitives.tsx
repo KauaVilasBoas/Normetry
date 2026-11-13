@@ -30,6 +30,10 @@ export function Button({
   );
 }
 
+/** 36px icon-only button (give it an aria-label); hovers to --bg-elevated. */
+export const iconButton =
+  "inline-flex size-9 shrink-0 items-center justify-center rounded-control text-text-secondary hover:bg-elevated";
+
 /** Indeterminate ring, 16px; static under reduced motion. */
 export function Spinner() {
   return (
