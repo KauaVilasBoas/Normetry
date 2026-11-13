@@ -42,7 +42,19 @@ export function describeEstablishment({ name, type, jurisdiction }: Establishmen
 
 // Only the id is remembered, per tenant and user, as a convenience: the core reloads it under RLS.
 // The jurisdiction is never stored or sent for use in requests.
-const storageKey = (me: Me) => `normetry.establishment.${me.tenantId}.${me.userId}`;
+const keyPrefix = "normetry.establishment.";
+const storageKey = (me: Me) => `${keyPrefix}${me.tenantId}.${me.userId}`;
+
+/** Sign-out forgets every remembered establishment in this browser. */
+export function forgetEstablishments() {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(keyPrefix))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // Storage blocked: nothing was remembered.
+  }
+}
 
 function readStored(key: string): string | null {
   try {
