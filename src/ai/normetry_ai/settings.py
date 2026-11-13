@@ -36,6 +36,18 @@ class EmbeddingSettings(BaseSettings):
     embedding_model_revision: str = "5617a9f61b028005a4858fdac845db406aefb181"
 
 
+class CorpusSettings(BaseSettings):
+    """Read only by the corpus ingestion command, as corpus_ingestor: never by the service.
+
+    corpus_ingestor writes the public corpus every tenant reads, so, like the owner URL, its URL
+    comes from the environment only, never from src/ai/.env.
+    """
+
+    model_config = SettingsConfigDict({**_CONFIG, "env_file": None})
+
+    corpus_database_url: SecretStr | None = None
+
+
 class MigrationSettings(BaseSettings):
     """Read only by migrations/env.py: the owner role that runs DDL, never the app role.
 

@@ -54,16 +54,20 @@ def check_runtime_role(connection: Connection) -> None:
     """Refuse a runtime role that can get around RLS.
 
     A superuser, a BYPASSRLS role, or the owner of schema ai or of anything in it (directly or by
-    membership) could read every tenant or switch RLS off. Raises RuntimeError naming the problem.
+    membership) could read every tenant or switch RLS off. corpus_ingestor (directly or by
+    membership) could write the public corpus every tenant reads. Raises RuntimeError naming the
+    problem.
     """
-    user, superuser, bypassrls, owner = connection.execute(
+    user, superuser, bypassrls, owner, ingestor = connection.execute(
         text(
             """
             SELECT current_user, rolsuper, rolbypassrls,
                    EXISTS (SELECT FROM pg_namespace
                            WHERE nspname = 'ai' AND pg_has_role(nspowner, 'MEMBER'))
                    OR EXISTS (SELECT FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-                              WHERE n.nspname = 'ai' AND pg_has_role(c.relowner, 'MEMBER'))
+                              WHERE n.nspname = 'ai' AND pg_has_role(c.relowner, 'MEMBER')),
+                   EXISTS (SELECT FROM pg_roles r
+                           WHERE r.rolname = 'corpus_ingestor' AND pg_has_role(r.oid, 'MEMBER'))
             FROM pg_roles WHERE rolname = current_user
             """
         )
@@ -74,6 +78,7 @@ def check_runtime_role(connection: Connection) -> None:
             ("is a superuser", superuser),
             ("has BYPASSRLS", bypassrls),
             ("owns schema ai or objects in it", owner),
+            ("is or inherits corpus_ingestor", ingestor),
         )
         if found
     ]
