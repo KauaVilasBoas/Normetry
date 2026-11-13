@@ -39,7 +39,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 
 ## Commands
 
-- Run everything: `dotnet run --project src/core/Normetry.AppHost` (needs Docker; starts PostgreSQL, Keycloak, the API and the AI service; Aspire dashboard at `https://localhost:17081`, the login link is printed in the console). Demo users: `deploy/keycloak/README.md`
+- Run everything: `dotnet run --project src/core/Normetry.AppHost` (needs Docker and Node.js; starts PostgreSQL, Keycloak, the API, the AI service and the web app at `http://localhost:5173`; Aspire dashboard at `https://localhost:17081`, the login link is printed in the console). Demo users: `deploy/keycloak/README.md`
 - .NET (from the repo root): `dotnet build` · `dotnet test` · `dotnet tool restore` then `dotnet csharpier check .`
 - Web (from `src/web`): `npm ci` · `npm run lint` · `npm run format:check` · `npm run typecheck` · `npm test` · `npm run build` · run alone with `npm run dev`
 - Python (from `src/ai`): `uv sync` · `uv run pytest` · `uv run ruff check` · `uv run ruff format --check` · run with `uv run uvicorn normetry_ai.api:create_app --factory` (needs `NORMETRY_INTERNAL_TOKEN`, see `src/ai/.env.example`)
