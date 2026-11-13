@@ -6,6 +6,7 @@ behavior connect as the real roles, never as the superuser.
 
 import hashlib
 import json
+import logging
 import os
 from collections.abc import AsyncGenerator, Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
@@ -1379,6 +1380,59 @@ def test_a_refusal_arrives_as_a_single_event(
         reason,
         [],
     )
+
+
+LEAK = "the secret recipe of tenant A"
+
+
+def logged(caplog: pytest.LogCaptureFixture) -> str:
+    return "\n".join(f"{r.getMessage()} {r.exc_text or ''}" for r in caplog.records)
+
+
+def test_an_answer_that_cannot_be_stored_ends_unavailable_and_logs_no_text(
+    chat_api: ChatApi, caplog: pytest.LogCaptureFixture
+) -> None:
+    alice = person()
+    conversation = chat_api.create(alice)
+    # jsonb rejects \u0000: the database refuses the claims, with their text bound.
+    chat_api.use(model=FakeClaims(raw_claim(f"Hold it cold.\x00 {LEAK}", ("E1", COLD_QUOTE))))
+
+    with caplog.at_level(logging.INFO):
+        events = chat_api.events(alice, conversation)
+
+    assert [name for name, _ in events] == ["claim", "unavailable"]
+    assert "Storing the answer failed: DataError" in logged(caplog)
+    assert LEAK not in logged(caplog)
+    assert [m["role"] for m in chat_api.get(alice, conversation).json()["messages"]] == ["user"]
+
+
+def test_a_question_that_cannot_be_stored_gets_503_and_logs_no_text(
+    chat_api: ChatApi, caplog: pytest.LogCaptureFixture
+) -> None:
+    alice = person()
+    conversation = chat_api.create(alice)
+
+    with caplog.at_level(logging.INFO):
+        response = chat_api.ask(alice, conversation, f"How cold?\x00 {LEAK}")
+
+    assert response.status_code == 503
+    assert "Storing the question failed: DataError" in logged(caplog)
+    assert LEAK not in logged(caplog) + response.text
+    assert chat_api.retriever.calls == []
+    assert chat_api.get(alice, conversation).json()["messages"] == []
+
+
+def test_database_errors_carry_no_bound_parameters(urls: dict[str, str]) -> None:
+    settings = Settings(internal_token=TOKEN, database_url=urls["app_ai"], _env_file=None)
+    engine = create_db_engine(settings)
+    try:
+        with pytest.raises(DBAPIError) as error, engine.begin() as connection:
+            connection.execute(text("SELECT 1 / 0 WHERE CAST(:q AS text) IS NOT NULL"), {"q": LEAK})
+    finally:
+        engine.dispose()
+
+    assert "division by zero" in str(error.value)
+    assert LEAK not in str(error.value)
 
 
 def test_a_model_failure_arrives_as_unavailable_after_the_claims_so_far(

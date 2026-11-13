@@ -10,7 +10,7 @@ The AI service's chat routes, as the web app calls them through the core's gatew
 | `GET /api/ai/conversations` | | `200` with an array of summaries, the caller's conversations in every establishment, latest `updatedAt` first | |
 | `GET /api/ai/conversations/{conversationId}` | | `200` with a [conversation](#conversation) | `404`: not the caller's conversation; `422`: not a UUID |
 | `DELETE /api/ai/conversations/{conversationId}` | | `204`, no body; the messages go too | `404`, `422` as above |
-| `POST /api/ai/establishments/{establishmentId}/conversations/{conversationId}/messages` | `{"text": "..."}` | `200`, `text/event-stream`: [events](#stream) | `404`: not the caller's conversation, or not this establishment's; `422`: invalid body; `429`: daily quota (core) |
+| `POST /api/ai/establishments/{establishmentId}/conversations/{conversationId}/messages` | `{"text": "..."}` | `200`, `text/event-stream`: [events](#stream) | `404`: not the caller's conversation, or not this establishment's; `422`: invalid body; `429`: daily quota (core); `503`: the question could not be stored, so nothing is answered |
 
 - A conversation belongs to one user and one establishment. Other users of the same tenant, and other tenants, get `404` for it on every route.
 - No query parameter names the establishment, so the list holds every establishment's conversations; the web filters by `establishmentId`.
@@ -110,6 +110,6 @@ Refusals and unavailable answers carry no display text: the web shows its own co
 
 Every stream ends with exactly one of `done`, `refusal` or `unavailable`. A refusal is a single event with no claims before it. A claim already sent is never taken back. Comment lines (`: ping`) keep an idle stream open; ignore them.
 
-The question is stored before the stream starts, and the answer just before the final event. If the client goes away mid-stream, the answer is stored with the claims sent so far, as `kind: "answer"` (or `unavailable` if none came), so reopening the conversation shows what was stored.
+The question is stored before the stream starts, and the answer just before the final event. If the client goes away mid-stream, the answer is stored with the claims sent so far, as `kind: "answer"` (or `unavailable` if none came), so reopening the conversation shows what was stored. If the answer itself cannot be stored, the stream ends with `unavailable`: the claims sent before it stand, but the conversation will not show them.
 
 A follow-up is rewritten into a standalone question from the last turns before retrieval. The rewrite is not shown or stored.
