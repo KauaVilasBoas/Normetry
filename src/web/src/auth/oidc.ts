@@ -53,6 +53,8 @@ export function safeReturnPath(value: unknown): string {
     return "/";
   }
   if (url.origin !== window.location.origin) return "/";
+  // Dot segments can resolve to "//host", which the browser would read as another origin.
+  if (url.pathname.startsWith("//")) return "/";
   if (url.pathname === CALLBACK_PATH || url.pathname === SIGNED_OUT_PATH) return "/";
   return `${url.pathname}${url.search}${url.hash}`;
 }
