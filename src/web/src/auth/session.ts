@@ -52,7 +52,8 @@ export function createAuth(oidc: OidcClient) {
     listeners.forEach((listener) => listener());
   };
 
-  async function signIn(returnPath: string, status: "redirecting" | "expired" = "redirecting") {
+  // "checking" ("Signing you in…") for a plain sign-in or reload, "redirecting" after Try again.
+  async function signIn(returnPath: string, status: "checking" | "redirecting" | "expired") {
     retryPath = safeReturnPath(returnPath);
     set({ status });
     try {
@@ -137,7 +138,7 @@ export function createAuth(oidc: OidcClient) {
 
     void oidc.getUser().then((user) => {
       if (user && !user.expired) authenticated(user);
-      else void signIn(currentPath());
+      else void signIn(currentPath(), "checking");
     });
   }
 
@@ -148,8 +149,8 @@ export function createAuth(oidc: OidcClient) {
       return () => listeners.delete(listener);
     },
     start,
-    retry: () => void signIn(retryPath),
-    signIn: () => void signIn("/"),
+    retry: () => void signIn(retryPath, "redirecting"),
+    signIn: () => void signIn("/", "checking"),
   };
 }
 

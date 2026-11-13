@@ -19,10 +19,12 @@ const picker = () => screen.getByRole("region", { name: "Establishments" });
 const switcherNone = () => screen.getAllByRole("button", { name: "No establishment" })[0];
 
 describe("auth screens", () => {
-  it("shows a status row while redirecting to sign in", async () => {
-    renderApp({}, fakeOidc(null));
+  it("shows a status row while signing in on load", async () => {
+    const user = fakeOidc(null);
+    renderApp({}, user);
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Redirecting to sign in…");
+    await waitFor(() => expect(user.oidc.signinRedirect).toHaveBeenCalled());
+    expect(screen.getByRole("status")).toHaveTextContent("Signing you in…");
     expect(document.title).toBe("Signing in · Normetry");
     await expectNoAxeViolations();
   });
@@ -37,6 +39,7 @@ describe("auth screens", () => {
     await expectNoAxeViolations();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
 
+    expect(screen.getByRole("status")).toHaveTextContent("Redirecting to sign in…");
     expect(user.oidc.signinRedirect).toHaveBeenCalledWith({ state: "/" });
   });
 
