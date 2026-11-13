@@ -355,7 +355,8 @@ export function ConversationPane({
           </div>
         )}
 
-        {view === "loading" && <LoadingTurns />}
+        {/* Said once: by the heading while the title is unknown, else here. */}
+        {view === "loading" && <LoadingTurns label={title !== undefined} />}
 
         {view === "error" && (
           <div role="alert" className="mx-auto w-full max-w-180">
@@ -446,10 +447,10 @@ export function ConversationPane({
 }
 
 /** Two skeleton turns: a question bar, then an answer with three lines and a chip. */
-function LoadingTurns() {
+function LoadingTurns({ label }: { label: boolean }) {
   return (
     <>
-      <span className="sr-only">{copy.chat.loading}</span>
+      {label && <span className="sr-only">{copy.chat.loading}</span>}
       <div aria-hidden="true" className="mx-auto flex w-full max-w-180 flex-col gap-4">
         <div className="flex justify-end">
           <Skeleton className="h-9 w-1/2" />
