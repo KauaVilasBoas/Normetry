@@ -1,4 +1,5 @@
-"""The chat model: Claude through the Anthropic SDK, answering in claims (structured outputs).
+"""Claude through the Anthropic SDK: the chat model, answering in claims (structured outputs),
+and a plain-text model for short tasks such as rewriting a follow-up.
 
 The answer comes back as JSON constrained by CLAIMS_SCHEMA and is streamed: each claim object is
 handed on as soon as it is complete, so the citation guard can check it while the rest is still
@@ -135,6 +136,41 @@ class ClaudeClaimModel:
             # max_tokens cuts the last claim (never handed on); refusal ends the answer early.
             logger.warning("Claude stopped with %s", message.stop_reason)
         yield _usage(settings.chat_model, message.usage)
+
+
+class ClaudeTextModel:
+    """One short plain-text completion (the follow-up rewrite) from a configured Claude model."""
+
+    def __init__(
+        self,
+        settings: AnswerSettings,
+        model: str,
+        max_tokens: int,
+        client: anthropic.AsyncAnthropic | None = None,
+    ) -> None:
+        # Refused at startup, before any call is paid for without a price to record it at.
+        if model not in settings.model_prices:
+            raise ValueError(f"NORMETRY_MODEL_PRICES has no price for {model!r}")
+        self._model, self._max_tokens = model, max_tokens
+        self._client = client or _client(settings)
+
+    async def complete(self, system: str, user: str) -> tuple[str, Usage]:
+        """The model's text, stripped, and the call's Usage. Raises ModelUnavailable."""
+        if self._client is None:
+            raise ModelUnavailable("no Anthropic API key")
+        try:
+            message = await self._client.messages.create(
+                model=self._model,
+                max_tokens=self._max_tokens,
+                # A rewrite needs little thought; low effort keeps it fast and cheap.
+                output_config={"effort": "low"},
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+        except anthropic.AnthropicError as error:
+            raise _unavailable(error) from error
+        text = "".join(block.text for block in message.content if block.type == "text")
+        return text.strip(), _usage(self._model, message.usage)
 
 
 def _client(settings: AnswerSettings) -> anthropic.AsyncAnthropic | None:
