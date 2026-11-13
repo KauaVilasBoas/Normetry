@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
 
 
+class EmbeddingSettings(BaseSettings):
+    """The embedding model (ADR 008), pinned to a Hub commit so every run embeds the same way."""
+
+    model_config = _CONFIG
+
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_model_revision: str = "5617a9f61b028005a4858fdac845db406aefb181"
+
+
 class MigrationSettings(BaseSettings):
     """Read only by migrations/env.py: the owner role that runs DDL, never the app role.
 

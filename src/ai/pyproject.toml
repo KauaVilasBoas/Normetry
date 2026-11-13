@@ -13,7 +13,9 @@ dependencies = [
     "psycopg[binary]>=3.3.8",
     "pydantic-settings>=2.16.2",
     "pypdfium2>=5.15.2",
+    "sentence-transformers>=6.3.0",
     "sqlalchemy>=2.1.8",
+    "torch>=2.15.0",
     "uvicorn>=0.54.0",
 ]
 
@@ -38,8 +40,14 @@ select = ["E", "F", "I", "B", "UP", "S"]
 
 [tool.pytest]
 testpaths = ["tests"]
-# Needs Docker (Testcontainers). Skip locally with -m "not integration"; CI runs everything.
-markers = ["integration: runs against a PostgreSQL container"]
+# `model` tests load the real embedding model (2.3 GB download on first use): left out unless asked
+# for with `-m model` (a later -m replaces this one). CI runs them in a job of their own.
+addopts = ["-m", "not model"]
+markers = [
+    # Needs Docker (Testcontainers). Skip locally with -m "not integration"; CI runs them.
+    "integration: runs against a PostgreSQL container",
+    "model: loads the real embedding model on CPU",
+]
 
 [dependency-groups]
 dev = [
@@ -48,3 +56,13 @@ dev = [
     "ruff>=0.17.4",
     "testcontainers>=4.15.0",
 ]
+
+# CPU-only PyTorch on every platform: the local models run on CPU, and CI must not pull CUDA wheels.
+# A source applies to direct dependencies only, hence torch in the list above.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
