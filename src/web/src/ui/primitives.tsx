@@ -1,5 +1,5 @@
 import { Pill, Stethoscope, Store, UtensilsCrossed } from "lucide-react";
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 const buttonVariants = {
   primary: "bg-mint text-on-mint font-semibold hover:bg-mint-hover",
@@ -59,5 +59,44 @@ export function TypeTile({ type }: { type: string }) {
     <span className="flex size-7 shrink-0 items-center justify-center rounded-sm border border-border bg-inset">
       <TypeIcon type={type} className="size-4 text-chart-2" />
     </span>
+  );
+}
+
+/** 32px initials avatar on --teal; decorative, the name is given in text elsewhere. */
+export function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-teal text-small font-semibold"
+    >
+      {initials}
+    </span>
+  );
+}
+
+/** Empty and error block: optional icon, title and body. */
+export function Message({
+  icon,
+  title,
+  body,
+  className = "mt-4 items-start",
+}: {
+  icon?: ReactNode;
+  title: string;
+  body: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col gap-2 ${className}`}>
+      {icon}
+      <h3 className="text-title font-semibold">{title}</h3>
+      <p className="text-body text-text-secondary">{body}</p>
+    </div>
   );
 }

@@ -1,8 +1,8 @@
 import { ChevronRight, CircleAlert, Store } from "lucide-react";
-import { useId, type ReactNode } from "react";
+import { useId } from "react";
 import type { Establishment } from "../api/queries";
 import { copy, format } from "../copy";
-import { Button, Skeleton, Spinner, TypeTile } from "../ui/primitives";
+import { Button, Message, Skeleton, Spinner, TypeTile } from "../ui/primitives";
 import { describeEstablishment, type ListState } from "./selection";
 
 interface PickerProps {
@@ -131,15 +131,5 @@ function LoadingRows() {
         ))}
       </ul>
     </>
-  );
-}
-
-function Message({ icon, title, body }: { icon?: ReactNode; title: string; body: string }) {
-  return (
-    <div className="mt-4 flex flex-col items-start gap-2">
-      {icon}
-      <h3 className="text-title font-semibold">{title}</h3>
-      <p className="text-body text-text-secondary">{body}</p>
-    </div>
   );
 }
