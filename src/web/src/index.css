@@ -10,6 +10,7 @@
   --bg-inset: #041425;
   --bg-elevated: #0c203b;
   --border: #0e233c;
+  --bubble-user: #024265;
   --canvas-glow: #001427;
   --scrim: rgb(1 10 24 / 0.7);
 
@@ -18,6 +19,7 @@
   --on-mint: #06283a;
   --teal: #005e7a;
   --teal-border: #2e7d99;
+  --teal-deep: #064c5e;
 
   --text-primary: #ffffff;
   --text-secondary: #a9b8cc;
@@ -47,6 +49,9 @@
   --text-title--line-height: 20px;
   --text-greeting: 22px;
   --text-greeting--line-height: 28px;
+  /* Form fields below 640px: iOS zooms into smaller text on focus. */
+  --text-field: 16px;
+  --text-field--line-height: 24px;
 
   --radius-sm: 8px;
   --radius-control: 10px;
@@ -55,6 +60,7 @@
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-drawer-in: drawer-in 180ms ease-out;
+  --animate-sheet-in: sheet-in 180ms ease-out;
 
   @keyframes fade-in {
     from {
@@ -64,6 +70,11 @@
   @keyframes drawer-in {
     from {
       transform: translateX(-100%);
+    }
+  }
+  @keyframes sheet-in {
+    from {
+      transform: translateX(100%);
     }
   }
 }
@@ -76,12 +87,14 @@
   --color-inset: var(--bg-inset);
   --color-elevated: var(--bg-elevated);
   --color-border: var(--border);
+  --color-bubble-user: var(--bubble-user);
   --color-scrim: var(--scrim);
   --color-mint: var(--mint);
   --color-mint-hover: var(--mint-hover);
   --color-on-mint: var(--on-mint);
   --color-teal: var(--teal);
   --color-teal-border: var(--teal-border);
+  --color-teal-deep: var(--teal-deep);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);

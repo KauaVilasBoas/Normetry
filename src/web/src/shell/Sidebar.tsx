@@ -2,7 +2,7 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { Building2, ChevronDown, LogOut, MessagesSquare } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
-import { NavLink } from "react-router";
+import { Link, useMatch } from "react-router";
 import type { Establishment, Me } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
@@ -32,6 +32,10 @@ export function Sidebar({
   onNavigate,
   closeButton,
 }: SidebarProps) {
+  // A new conversation and a saved one are both Ask the Regulation.
+  const atNew = useMatch("/") !== null;
+  const atConversation = useMatch("/conversations/:conversationId") !== null;
+  const chatActive = atNew || atConversation;
   return (
     <>
       <div className="flex items-center justify-between">
@@ -50,19 +54,17 @@ export function Sidebar({
       <nav aria-label={copy.shell.navLabel} className="mt-5">
         <ul>
           <li>
-            <NavLink
+            <Link
               to="/"
-              end
               onClick={onNavigate}
-              className={({ isActive }) =>
-                `flex h-9 items-center gap-3 rounded-control px-3 text-body font-medium ${
-                  isActive ? "bg-teal text-text-primary" : "text-text-secondary hover:bg-elevated"
-                }`
-              }
+              aria-current={chatActive ? "page" : undefined}
+              className={`flex h-9 items-center gap-3 rounded-control px-3 text-body font-medium ${
+                chatActive ? "bg-teal text-text-primary" : "text-text-secondary hover:bg-elevated"
+              }`}
             >
               <MessagesSquare aria-hidden="true" className="size-4.5 shrink-0" />
               {copy.shell.askTheRegulation}
-            </NavLink>
+            </Link>
           </li>
         </ul>
       </nav>

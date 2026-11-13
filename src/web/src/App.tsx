@@ -22,9 +22,12 @@ export function App({ auth }: { auth: Auth }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionContext value={state.session}>
-        <BrowserRouter>
+        {/* Navigation commits with the click, not as a transition, so focus moved after it lands
+            on the new view (the chat's conversation heading or composer). */}
+        <BrowserRouter useTransitions={false}>
           <Routes>
             <Route path="/" element={<AppShell />} />
+            <Route path="/conversations/:conversationId" element={<AppShell />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
