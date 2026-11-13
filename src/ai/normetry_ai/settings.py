@@ -120,6 +120,23 @@ class AnswerSettings(BaseSettings):
         return self
 
 
+class ConversationSettings(BaseSettings):
+    """Conversations: how many earlier turns a follow-up sees and how it becomes standalone."""
+
+    model_config = _CONFIG
+
+    # The last N turns (a question and its answer) that go to the model with a follow-up.
+    chat_history_turns: int = Field(default=4, ge=0)
+    # How a follow-up becomes the standalone question that retrieval and the answer see:
+    # "model" rewrites it with rewrite_model; "baseline" joins the last user turns and the
+    # follow-up into one query, with no model call. The evals compare the two (#55).
+    followup_rewrite: Literal["model", "baseline"] = "model"
+    # Needs a price in NORMETRY_MODEL_PRICES (AnswerSettings), checked at startup.
+    rewrite_model: str = "claude-haiku-5-5"
+    # Thinking counts toward it.
+    rewrite_max_tokens: int = Field(default=1024, gt=0)
+
+
 class CorpusSettings(BaseSettings):
     """Read only by the corpus ingestion command, as corpus_ingestor: never by the service.
 
