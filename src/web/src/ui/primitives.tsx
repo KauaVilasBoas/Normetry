@@ -34,12 +34,20 @@ export function Button({
 export const iconButton =
   "inline-flex size-9 shrink-0 items-center justify-center rounded-control text-text-secondary hover:bg-elevated";
 
-/** Indeterminate ring, 16px; static under reduced motion. */
-export function Spinner() {
+// Track and arc per surface: an --bg-elevated track vanishes inside an elevated surface, and a
+// mint arc on a mint button.
+const spinnerSurfaces = {
+  card: "border-elevated border-t-mint",
+  elevated: "border-inset border-t-mint",
+  mint: "border-mint-hover border-t-on-mint",
+};
+
+/** Indeterminate ring, 16px; static under reduced motion. `surface`: what it sits on. */
+export function Spinner({ surface = "card" }: { surface?: keyof typeof spinnerSurfaces }) {
   return (
     <span
       aria-hidden="true"
-      className="inline-block size-4 shrink-0 rounded-pill border-2 border-elevated border-t-mint motion-safe:animate-spin"
+      className={`inline-block size-4 shrink-0 rounded-pill border-2 ${spinnerSurfaces[surface]} motion-safe:animate-spin`}
     />
   );
 }

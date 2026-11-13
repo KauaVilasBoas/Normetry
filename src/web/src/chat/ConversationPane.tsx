@@ -537,7 +537,7 @@ function DeleteConversation({
               aria-disabled={deleting}
               onClick={deleting ? undefined : () => void confirm()}
             >
-              {deleting && <Spinner />}
+              {deleting && <Spinner surface="mint" />}
               {copy.chat.deleteConfirm}
             </Button>
           </div>
