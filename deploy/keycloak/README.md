@@ -31,6 +31,12 @@ their own tenant from the account console.
 ## Clients
 
 - `normetry-api`: the API's audience. No login flow is enabled.
+- `normetry-web`: public client for the web app (`src/web`). Authorization code flow with PKCE
+  (S256 required), no password grant. Redirect URI `http://localhost:5173/auth/callback`,
+  post-logout redirect `http://localhost:5173/signed-out` and web origin `http://localhost:5173`,
+  the dev server's fixed address and nothing else. Scopes `profile` and `email` (plus the
+  built-in `basic`, `roles`, `web-origins` and `acr`); no optional scopes, so it cannot ask for
+  `offline_access`. Its access tokens carry the same claims as `normetry-dev` (same two mappers).
 - `normetry-dev`: public client with only the password grant, for manual testing with curl. Its
   access tokens carry `aud: normetry-api`, `tenant_id` and the roles in `realm_access.roles`.
 
