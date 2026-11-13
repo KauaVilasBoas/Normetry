@@ -10,6 +10,7 @@ from functools import cache
 
 import pytest
 
+from normetry_ai.ingestion.chunking import CHUNK_LIMIT, chunk_sections
 from normetry_ai.ingestion.corpus import Section, load_manifest, parse_source
 from normetry_ai.ingestion.normalize import normalize_text
 
@@ -191,6 +192,22 @@ def test_parsing_twice_gives_the_same_sections(source_id: str) -> None:
     source = next(source for source in load_manifest() if source["id"] == source_id)
 
     assert tuple(parse_source(source)) == first
+
+
+@pytest.mark.parametrize("source_id", [FDA, EU_EN, EU_PT, RDC])
+def test_chunks_fit_the_limit_and_join_back_into_their_sections(source_id: str) -> None:
+    sections = _parse(source_id)
+    chunks = chunk_sections(sections)
+    by_path: dict[str, list[str]] = {}
+    for chunk in chunks:
+        by_path.setdefault(chunk.section_path, []).append(chunk.content)
+
+    assert all(len(chunk.content) <= CHUNK_LIMIT for chunk in chunks)
+    assert {path: " ".join(parts) for path, parts in by_path.items()} == {
+        section.section_path: section.text for section in sections
+    }
+    # No chunk is a stray FDA priority tag cut off from its provision.
+    assert not [chunk for chunk in chunks if chunk.content in ("P", "Pf", "C")]
 
 
 def test_a_file_that_does_not_match_the_manifest_is_refused() -> None:
