@@ -125,11 +125,9 @@ describe("establishment picker", () => {
     expect(
       await screen.findByRole("heading", { level: 2, name: "Bistro São Paulo" }),
     ).not.toHaveFocus();
-    expect(
-      screen.getByRole("combobox", {
-        name: "Establishment: Bistro São Paulo. Change establishment",
-      }),
-    ).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Establishment" })).toHaveTextContent(
+      "Bistro São Paulo",
+    );
   });
 
   it("clears a remembered id that is no longer in the list", async () => {
@@ -255,9 +253,8 @@ describe("shell", () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
     const user = userEvent.setup();
 
-    const switcher = await screen.findByRole("combobox", {
-      name: "Establishment: Bistro Lisboa. Change establishment",
-    });
+    const switcher = await screen.findByRole("combobox", { name: "Establishment" });
+    await waitFor(() => expect(switcher).toHaveTextContent("Bistro Lisboa"));
     expect(switcher).toHaveAttribute("aria-haspopup", "listbox");
     switcher.focus();
     await user.keyboard("{Enter}");
@@ -273,11 +270,8 @@ describe("shell", () => {
 
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
     expect(screen.getByText("Bistro São Paulo selected")).toHaveAttribute("aria-live", "polite");
-    expect(
-      screen.getByRole("combobox", {
-        name: "Establishment: Bistro São Paulo. Change establishment",
-      }),
-    ).toHaveFocus();
+    expect(switcher).toHaveFocus();
+    expect(switcher).toHaveTextContent("Bistro São Paulo");
     expect(screen.getByRole("heading", { level: 2, name: "Bistro São Paulo" })).toBeVisible();
     expect(localStorage.getItem(storageKey)).toBe("e-sao-paulo");
   });
@@ -291,7 +285,9 @@ describe("shell", () => {
     const drawer = await screen.findByRole("dialog", { name: "Navigation" });
     expect(within(drawer).getByRole("button", { name: "Close navigation" })).toBeVisible();
     await expectNoAxeViolations();
-    within(drawer).getByRole("combobox", { name: "Choose establishment" }).focus();
+    const drawerSwitcher = within(drawer).getByRole("combobox", { name: "Establishment" });
+    expect(drawerSwitcher).toHaveTextContent("Choose establishment");
+    drawerSwitcher.focus();
     await user.keyboard("{Enter}");
     await screen.findByRole("listbox");
     await user.keyboard("{Enter}");

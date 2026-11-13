@@ -2,7 +2,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { Select } from "radix-ui";
 import { useId } from "react";
 import type { Establishment } from "../api/queries";
-import { copy, format } from "../copy";
+import { copy } from "../copy";
 import { describeEstablishment, type ListState } from "../establishments/selection";
 import { Skeleton, TypeIcon } from "../ui/primitives";
 
@@ -54,11 +54,8 @@ export function EstablishmentSwitcher({
     >
       <Select.Trigger
         aria-haspopup="listbox"
-        aria-label={
-          selected
-            ? format(copy.switcher.label, { name: selected.name })
-            : copy.switcher.placeholder
-        }
+        // The name stays fixed; the selected establishment (or the placeholder) is its value.
+        aria-label={copy.switcher.name}
         className={`${trigger} hover:bg-elevated`}
       >
         {selected && (
