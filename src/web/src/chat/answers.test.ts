@@ -62,19 +62,25 @@ describe("streamAnswer", () => {
 
   it("passes valid claims in order and ends with the final event", async () => {
     const claims: string[] = [];
+    const languages: (string | undefined)[] = [];
+    const first = { text: "First.", citations: [citation], language: "pt" };
     const end = await streamAnswer(
       response(
-        `event: claim\ndata: ${JSON.stringify({ text: "First.", citations: [citation] })}\n\n` +
+        `event: claim\ndata: ${JSON.stringify(first)}\n\n` +
           `event: note\ndata: ${JSON.stringify({ text: "Free text." })}\n\n` +
           `event: claim\ndata: ${JSON.stringify({ text: "No source.", citations: [] })}\n\n` +
           `event: claim\ndata: not json\n\n` +
           `event: claim\ndata: ${JSON.stringify({ text: "Second.", citations: [citation] })}\n\n` +
           "event: done\ndata: {}\n\n",
       ),
-      (claim) => claims.push(claim.text),
+      (claim, language) => {
+        claims.push(claim.text);
+        languages.push(language);
+      },
     );
 
     expect(claims).toEqual(["First.", "Second."]);
+    expect(languages).toEqual(["pt", undefined]);
     expect(end).toBe("done");
   });
 

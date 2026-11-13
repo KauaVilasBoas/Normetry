@@ -195,6 +195,25 @@ describe("a streamed answer", () => {
     await expectNoAxeViolations();
   });
 
+  it("marks a Portuguese answer in the English interface as Portuguese", async () => {
+    const { stream, routes } = newConversation();
+    renderChat(routes);
+    await ask("Qual a temperatura para matérias-primas?");
+    const claim = {
+      text: "Mantenha as matérias-primas fora de temperaturas de risco.",
+      citations: [citation("cit-pt", "Anexo II, Capítulo IX", { language: "pt" })],
+      language: "pt",
+    };
+
+    stream.send("claim", claim);
+    stream.send("done", {});
+
+    await within(messages()).findByRole("button", { name: "View source · Anexo II, Capítulo IX" });
+    expect(within(messages()).getByText(claim.text)).toHaveAttribute("lang", "pt");
+    expect(within(liveRegion()).getByText(claim.text)).toHaveAttribute("lang", "pt");
+    expect(await within(liveRegion()).findByText("Answer complete.")).not.toHaveAttribute("lang");
+  });
+
   it("renders a refusal as one message", async () => {
     const { stream, routes } = newConversation();
     renderChat(routes);

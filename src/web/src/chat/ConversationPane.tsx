@@ -44,7 +44,8 @@ interface PaneProps {
   onDeleted: () => void;
   onNew: () => void;
   onShowConversations: () => void;
-  announce: (text: string) => void;
+  /** Says it in the polite live region; `lang` when it is not in the interface language. */
+  announce: (text: string, lang?: string) => void;
 }
 
 const path = (id: string) => encodeURIComponent(id);
@@ -209,11 +210,15 @@ export function ConversationPane({
 
       update(() => ({ status: "streaming" }));
       let shown = 0;
-      const end = await streamAnswer(response, (claim) => {
+      const end = await streamAnswer(response, (claim, language) => {
         if (signal.aborted) return;
         shown += 1;
-        update((turn) => ({ claims: [...turn.claims, claim] }));
-        announce(claim.text);
+        update((turn) => ({
+          claims: [...turn.claims, claim],
+          language: turn.language ?? language,
+        }));
+        // A Portuguese claim in the English interface is read with a Portuguese voice.
+        announce(claim.text, language);
       });
       if (signal.aborted) return;
       update(() => ({ status: end }));

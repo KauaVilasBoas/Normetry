@@ -12,7 +12,7 @@ export interface Turn {
   status?: AnswerStatus;
   /** Only claims that passed `toClaim`: each has text and at least one citation. */
   claims: Claim[];
-  /** The claims' language, when the server gave it (stored answers only). */
+  /** The claims' language (`pt` or `en`): the stored answer's, or the streamed claims'. */
   language?: string;
   /** Asked in the open view: its claims reveal, its failures alert and may be retried. */
   live: boolean;
@@ -159,21 +159,24 @@ function parse(data: string): unknown {
 }
 
 /**
- * Reads an answer stream: each valid claim goes to `onClaim` in order. Resolves to the final event,
- * or "network" when the stream failed, went idle or ended without one. Unknown events are ignored,
- * so nothing but claim text and citations from the server reaches the screen.
+ * Reads an answer stream: each valid claim goes to `onClaim` in order, with the answer's language
+ * that every claim event carries. Resolves to the final event, or "network" when the stream
+ * failed, went idle or ended without one. Unknown events are ignored, so nothing but claim text
+ * and citations from the server reaches the screen.
  */
 export async function streamAnswer(
   response: Response,
-  onClaim: (claim: Claim) => void,
+  onClaim: (claim: Claim, language: string | undefined) => void,
   idleMs = IDLE_TIMEOUT_MS,
 ): Promise<StreamEnd> {
   if (!response.body) return "network";
   try {
     for await (const { event, data } of readEvents(response.body, idleMs)) {
       if (event === "claim") {
-        const claim = toClaim(parse(data));
-        if (claim) onClaim(claim);
+        const value = parse(data);
+        const claim = toClaim(value);
+        const language = (value as { language?: unknown } | null)?.language;
+        if (claim) onClaim(claim, isString(language) ? language : undefined);
       } else if (event === "done" || event === "refusal" || event === "unavailable") {
         return event;
       }
