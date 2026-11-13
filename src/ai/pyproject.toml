@@ -6,6 +6,7 @@ description = "Normetry AI service: ingestion, hybrid retrieval and agents behin
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
+    "anthropic>=2.8.0",
     "fastapi>=0.162.5",
     "opentelemetry-exporter-otlp-proto-grpc>=1.45.2",
     "opentelemetry-instrumentation-fastapi>=0.66b2",
