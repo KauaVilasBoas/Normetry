@@ -1394,8 +1394,8 @@ def test_an_answer_that_cannot_be_stored_ends_unavailable_and_logs_no_text(
 ) -> None:
     alice = person()
     conversation = chat_api.create(alice)
-    # jsonb rejects \u0000: the database refuses the claims, with their text bound.
-    chat_api.use(model=FakeClaims(raw_claim(f"Hold it cold.\x00 {LEAK}", ("E1", COLD_QUOTE))))
+    # jsonb rejects \u0000, and its error CONTEXT quotes the text before it: LEAK included.
+    chat_api.use(model=FakeClaims(raw_claim(f"Hold it cold. {LEAK}\x00", ("E1", COLD_QUOTE))))
 
     with caplog.at_level(logging.INFO):
         events = chat_api.events(alice, conversation)
