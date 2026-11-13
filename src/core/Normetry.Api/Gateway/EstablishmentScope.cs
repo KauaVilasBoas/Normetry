@@ -20,17 +20,34 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
     /// <summary>The path after <c>/ai/establishments/</c>, starting with the establishment id.</summary>
     public const string RouteValue = "rest";
 
+    /// <summary>The path after <c>/ai/</c> on the catch-all route.</summary>
+    public const string CatchAllRouteValue = "catch-all";
+
     /// <summary>
     /// Proxy pipeline step for the establishment route. A path the AI service could read
     /// differently (an encoded slash or percent, an empty segment) and an establishment id that is
     /// malformed, unknown or another tenant's (RLS hides it) get 404. A chat message is then counted
     /// against the daily quota: over the limit the answer is 429 with <c>Retry-After</c>. Either
-    /// way nothing reaches the AI service. Other routes pass through untouched.
+    /// way nothing reaches the AI service. On the catch-all route, an establishment path in
+    /// disguise gets 404; anything else passes through untouched.
     /// </summary>
     public static async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
         if (context.GetReverseProxyFeature().Route.Config.RouteId != RouteId)
         {
+            var path = context.Request.RouteValues[CatchAllRouteValue] as string ?? "";
+            // Establishment paths are forwarded only by the establishment route, with its checks,
+            // count and headers. Through the catch-all (/ai//establishments/..., or a slash
+            // hidden as %2F or %252F) the AI service could still route them.
+            if (
+                path.Contains('%')
+                || path.Split('/', StringSplitOptions.RemoveEmptyEntries) is [var first, ..]
+                    && first.Equals("establishments", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                await NotFoundAsync(context);
+                return;
+            }
             await next(context);
             return;
         }
@@ -45,7 +62,7 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
             || segments[0] != id.ToString()
         )
         {
-            await Results.Problem(statusCode: StatusCodes.Status404NotFound).ExecuteAsync(context);
+            await NotFoundAsync(context);
             return;
         }
 
@@ -130,6 +147,9 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
         }
         return true;
     }
+
+    private static Task NotFoundAsync(HttpContext context) =>
+        Results.Problem(statusCode: StatusCodes.Status404NotFound).ExecuteAsync(context);
 
     private static string Seconds(TimeSpan span) =>
         ((long)Math.Ceiling(span.TotalSeconds)).ToString(CultureInfo.InvariantCulture);

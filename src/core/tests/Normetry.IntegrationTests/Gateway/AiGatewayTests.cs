@@ -118,6 +118,30 @@ public sealed class AiGatewayTests : IAsyncLifetime
         );
     }
 
+    [Theory]
+    [InlineData("/ai//establishments/{other}/conversations/c1/messages")]
+    [InlineData("/ai///establishments/{other}/conversations")]
+    [InlineData("/ai//Establishments/{other}/conversations/c1/messages")]
+    [InlineData("/ai/%2Festablishments/{other}/conversations/c1/messages")]
+    [InlineData("/ai/%2festablishments/{other}/conversations")]
+    [InlineData("/ai/%252Festablishments/{other}/conversations/c1/messages")]
+    [InlineData("/ai/conversations%2Fc1")]
+    public async Task An_establishment_path_through_the_catch_all_route_gets_404_and_never_reaches_the_AI_service(
+        string path
+    )
+    {
+        using var client = Api.CreateClient(ApiFactory.CreateToken());
+
+        using var response = await client.PostAsync(
+            path.Replace("{other}", Guid.NewGuid().ToString()),
+            null,
+            Ct
+        );
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(0, hits);
+    }
+
     [Fact]
     public async Task A_request_without_a_token_gets_401_and_never_reaches_the_AI_service()
     {
