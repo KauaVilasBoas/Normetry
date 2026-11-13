@@ -355,6 +355,12 @@ def test_app_ai_cannot_touch_the_migration_history(app_ai: Engine, statement: st
         ),
         # Append-only: app_ai records usage and reads its own tenant's; corpus_ingestor nothing.
         ("ai.model_usage", {("app_ai", "SELECT"), ("app_ai", "INSERT")}),
+        (
+            "ai.conversations",
+            {("app_ai", privilege) for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE")},
+        ),
+        # Written once; deleted only with the conversation, by the cascade.
+        ("ai.messages", {("app_ai", "SELECT"), ("app_ai", "INSERT")}),
     ],
 )
 def test_grants_are_exactly_what_the_roles_need(
@@ -390,6 +396,9 @@ def test_policies_are_scoped_to_roles_never_public(owner: Engine) -> None:
         ("sources", "sources_corpus_write", "ALL", ("corpus_ingestor",)),
         ("model_usage", "model_usage_read", "SELECT", ("app_ai",)),
         ("model_usage", "model_usage_insert", "INSERT", ("app_ai",)),
+        ("conversations", "conversations_tenant", "ALL", ("app_ai",)),
+        ("messages", "messages_read", "SELECT", ("app_ai",)),
+        ("messages", "messages_insert", "INSERT", ("app_ai",)),
     }
 
 
@@ -408,7 +417,8 @@ def test_every_ai_table_the_app_roles_can_use_forces_rls(owner: Engine) -> None:
     with owner.begin() as connection:
         forced = dict(connection.execute(tables).all())
 
-    assert {"chunks", "sources", "model_usage"} <= forced.keys()  # the check is not vacuous
+    # The check is not vacuous.
+    assert {"chunks", "sources", "model_usage", "conversations", "messages"} <= forced.keys()
     assert all(forced.values()), forced
 
 
@@ -487,18 +497,16 @@ def test_app_starts_as_app_ai_and_refuses_the_owner(urls: dict[str, str]) -> Non
 
 
 def test_downgrade_to_base_and_upgrade_again(urls: dict[str, str], owner: Engine) -> None:
-    tables = text(
-        "SELECT to_regclass('ai.chunks') IS NOT NULL, to_regclass('ai.sources') IS NOT NULL,"
-        " to_regclass('ai.model_usage') IS NOT NULL"
-    )
+    names = ("chunks", "sources", "model_usage", "conversations", "messages")
+    tables = text("SELECT " + ", ".join(f"to_regclass('ai.{name}') IS NOT NULL" for name in names))
 
     migrate(urls["ai_owner"], "downgrade", "base")
     with owner.begin() as connection:
-        assert tuple(connection.execute(tables).one()) == (False, False, False)
+        assert set(connection.execute(tables).one()) == {False}
 
     migrate(urls["ai_owner"], "upgrade", "head")
     with owner.begin() as connection:
-        assert tuple(connection.execute(tables).one()) == (True, True, True)
+        assert set(connection.execute(tables).one()) == {True}
 
 
 @pytest.mark.parametrize(
@@ -839,3 +847,126 @@ def test_a_corpus_chunk_must_match_a_registered_source(corpus: Engine, app_ai: E
     tenant_row = {**base, "tenant_id": tenant, "source_type": "tenant_document"}
     with fails("23514"), tenant_transaction(app_ai, tenant) as connection:
         connection.execute(INSERT_CHUNK, tenant_row)
+
+
+# --- Conversations (ai.conversations, ai.messages) -------------------------------------------
+
+INSERT_CONVERSATION = text(
+    """
+    INSERT INTO ai.conversations (tenant_id, user_id, establishment_id, jurisdiction)
+    VALUES (:tenant_id, 'user-a', :establishment_id, 'BR')
+    RETURNING id
+    """
+)
+INSERT_MESSAGE = text(
+    """
+    INSERT INTO ai.messages (tenant_id, conversation_id, role, text)
+    VALUES (:tenant_id, :conversation_id, 'user', 'How cold?')
+    """
+)
+CHAT_ROWS = text(
+    "SELECT (SELECT count(*) FROM ai.conversations), (SELECT count(*) FROM ai.messages)"
+)
+
+
+def new_conversation(engine: Engine, tenant: UUID) -> UUID:
+    """A conversation with one question, written by app_ai for `tenant`."""
+    with tenant_transaction(engine, tenant) as connection:
+        params = {"tenant_id": tenant, "establishment_id": uuid4()}
+        conversation = connection.execute(INSERT_CONVERSATION, params).scalar_one()
+        connection.execute(INSERT_MESSAGE, {"tenant_id": tenant, "conversation_id": conversation})
+    return conversation
+
+
+def chat_rows(engine: Engine, tenant: UUID) -> tuple[int, int]:
+    with tenant_transaction(engine, tenant) as connection:
+        return tuple(connection.execute(CHAT_ROWS).one())
+
+
+def test_another_tenant_cannot_read_change_delete_or_join_conversations(
+    app_ai: Engine,
+) -> None:
+    tenant_a, tenant_b = uuid4(), uuid4()
+    conversation = new_conversation(app_ai, tenant_a)
+
+    assert chat_rows(app_ai, tenant_b) == (0, 0)
+    with tenant_transaction(app_ai, tenant_b) as connection:
+        for statement in (
+            "UPDATE ai.conversations SET title = 'changed'",
+            "DELETE FROM ai.conversations",
+        ):
+            assert connection.execute(text(statement)).rowcount == 0
+    with denied(), tenant_transaction(app_ai, tenant_b) as connection:
+        connection.execute(
+            INSERT_CONVERSATION, {"tenant_id": tenant_a, "establishment_id": uuid4()}
+        )
+    with denied(), tenant_transaction(app_ai, tenant_b) as connection:
+        connection.execute(INSERT_MESSAGE, {"tenant_id": tenant_a, "conversation_id": conversation})
+    # With its own tenant id, B's message cannot point at A's conversation: the key has the tenant.
+    with fails("23503"), tenant_transaction(app_ai, tenant_b) as connection:
+        connection.execute(INSERT_MESSAGE, {"tenant_id": tenant_b, "conversation_id": conversation})
+    assert chat_rows(app_ai, tenant_a) == (1, 1)
+
+
+def test_without_a_tenant_no_conversation_is_visible_and_none_can_be_written(
+    app_ai: Engine,
+) -> None:
+    tenant = uuid4()
+    conversation = new_conversation(app_ai, tenant)
+
+    with app_ai.begin() as connection:
+        assert tuple(connection.execute(CHAT_ROWS).one()) == (0, 0)
+    with denied(), app_ai.begin() as connection:
+        connection.execute(INSERT_CONVERSATION, {"tenant_id": tenant, "establishment_id": uuid4()})
+    with denied(), app_ai.begin() as connection:
+        connection.execute(INSERT_MESSAGE, {"tenant_id": tenant, "conversation_id": conversation})
+
+
+def test_messages_never_change_and_go_with_their_conversation(app_ai: Engine) -> None:
+    tenant = uuid4()
+    conversation = new_conversation(app_ai, tenant)
+
+    for statement in (
+        "UPDATE ai.messages SET text = 'changed'",
+        "DELETE FROM ai.messages",
+    ):
+        with denied(), tenant_transaction(app_ai, tenant) as connection:
+            connection.execute(text(statement))
+    with tenant_transaction(app_ai, tenant) as connection:
+        delete_conversation = text("DELETE FROM ai.conversations WHERE id = :id")
+        assert connection.execute(delete_conversation, {"id": conversation}).rowcount == 1
+    # The cascade runs as the owner, so FORCE ROW LEVEL SECURITY does not stop it.
+    assert chat_rows(app_ai, tenant) == (0, 0)
+
+
+def test_only_app_ai_sees_conversations(owner: Engine, corpus: Engine, app_ai: Engine) -> None:
+    tenant = uuid4()
+    new_conversation(app_ai, tenant)
+
+    assert chat_rows(owner, tenant) == (0, 0)
+    for table in ("ai.conversations", "ai.messages"):
+        with denied(), tenant_transaction(corpus, tenant) as connection:
+            connection.execute(text(f"SELECT count(*) FROM {table}"))  # noqa: S608 (fixed names)
+
+
+@pytest.mark.parametrize(
+    ("columns", "values"),
+    [
+        ("role", "'user'"),  # a question without its text
+        ("role, text, kind", "'user', 'Hi', 'answer'"),
+        ("role", "'assistant'"),  # an answer without its kind
+        ("role, kind", "'assistant', 'refusal'"),  # a refusal without its reason
+        ("role, kind, reason", "'assistant', 'answer', 'low_score'"),
+        ("role, kind, claims", "'assistant', 'answer', '{}'"),
+    ],
+)
+def test_a_message_has_the_shape_of_its_role(app_ai: Engine, columns: str, values: str) -> None:
+    tenant = uuid4()
+    conversation = new_conversation(app_ai, tenant)
+    insert = text(
+        f"INSERT INTO ai.messages (tenant_id, conversation_id, {columns})"  # noqa: S608
+        f" VALUES (:tenant_id, :conversation_id, {values})"
+    )
+
+    with fails("23514"), tenant_transaction(app_ai, tenant) as connection:
+        connection.execute(insert, {"tenant_id": tenant, "conversation_id": conversation})
