@@ -8,7 +8,16 @@ from starlette.websockets import WebSocketDisconnect
 
 from normetry_ai.api import create_app
 from normetry_ai.api.auth import INTERNAL_TOKEN_HEADER
-from normetry_ai.api.context import TENANT_HEADER, USER_HEADER, RequestContext, request_context
+from normetry_ai.api.context import (
+    ESTABLISHMENT_HEADER,
+    JURISDICTION_HEADER,
+    TENANT_HEADER,
+    USER_HEADER,
+    EstablishmentContext,
+    RequestContext,
+    establishment_context,
+    request_context,
+)
 from normetry_ai.settings import MigrationSettings, Settings
 
 TOKEN = "test-internal-token-0123456789abcdef"
@@ -155,3 +164,104 @@ def test_context_without_exactly_one_valid_value_each_gets_400(
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Missing or invalid internal context headers."}
+
+
+ESTABLISHMENT = "2b9c1d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e"
+OTHER_ESTABLISHMENT = "33333333-3333-4333-8333-333333333333"
+CALLER = [*AUTH.items(), (TENANT_HEADER, TENANT), (USER_HEADER, USER)]
+
+
+def _establishment_client() -> TestClient:
+    app = create_app(Settings(internal_token=TOKEN, _env_file=None))
+
+    # Test-only route, shaped like the chat routes under /establishments/{establishment_id}/.
+    @app.get("/establishments/{establishment_id}/context")
+    def context(
+        ctx: Annotated[EstablishmentContext, Depends(establishment_context)],
+    ) -> dict[str, str]:
+        return {"establishment_id": str(ctx.establishment_id), "jurisdiction": ctx.jurisdiction}
+
+    return TestClient(app)
+
+
+def test_establishment_context_carries_the_establishment_headers() -> None:
+    response = _establishment_client().get(
+        f"/establishments/{ESTABLISHMENT}/context",
+        headers=[*CALLER, (ESTABLISHMENT_HEADER, ESTABLISHMENT), (JURISDICTION_HEADER, "BR")],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"establishment_id": ESTABLISHMENT, "jurisdiction": "BR"}
+
+
+@pytest.mark.parametrize(
+    ("path", "headers"),
+    [
+        (ESTABLISHMENT, [(JURISDICTION_HEADER, "BR")]),
+        (ESTABLISHMENT, [(ESTABLISHMENT_HEADER, ESTABLISHMENT)]),
+        (
+            ESTABLISHMENT,
+            [
+                (ESTABLISHMENT_HEADER, ESTABLISHMENT),
+                (ESTABLISHMENT_HEADER, ESTABLISHMENT),
+                (JURISDICTION_HEADER, "BR"),
+            ],
+        ),
+        (
+            ESTABLISHMENT,
+            [
+                (ESTABLISHMENT_HEADER, ESTABLISHMENT),
+                (JURISDICTION_HEADER, "BR"),
+                (JURISDICTION_HEADER, "BR"),
+            ],
+        ),
+        (ESTABLISHMENT, [(ESTABLISHMENT_HEADER, OTHER_ESTABLISHMENT), (JURISDICTION_HEADER, "BR")]),
+        (
+            ESTABLISHMENT.upper(),
+            [(ESTABLISHMENT_HEADER, ESTABLISHMENT.upper()), (JURISDICTION_HEADER, "BR")],
+        ),
+        (
+            "00000000-0000-0000-0000-000000000000",
+            [
+                (ESTABLISHMENT_HEADER, "00000000-0000-0000-0000-000000000000"),
+                (JURISDICTION_HEADER, "BR"),
+            ],
+        ),
+        ("not-a-uuid", [(ESTABLISHMENT_HEADER, "not-a-uuid"), (JURISDICTION_HEADER, "BR")]),
+        (ESTABLISHMENT, [(ESTABLISHMENT_HEADER, ESTABLISHMENT), (JURISDICTION_HEADER, "br")]),
+        (ESTABLISHMENT, [(ESTABLISHMENT_HEADER, ESTABLISHMENT), (JURISDICTION_HEADER, "AR")]),
+        (ESTABLISHMENT, [(ESTABLISHMENT_HEADER, ESTABLISHMENT), (JURISDICTION_HEADER, "")]),
+    ],
+    ids=[
+        "no-establishment",
+        "no-jurisdiction",
+        "two-establishments",
+        "two-jurisdictions",
+        "not-the-path",
+        "upper-case",
+        "nil",
+        "bad-uuid",
+        "lower-case-jurisdiction",
+        "unknown-jurisdiction",
+        "empty-jurisdiction",
+    ],
+)
+def test_establishment_routes_without_valid_matching_headers_get_400(
+    path: str, headers: list[tuple[str, str]]
+) -> None:
+    response = _establishment_client().get(
+        f"/establishments/{path}/context", headers=[*CALLER, *headers]
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Missing or invalid internal context headers."}
+
+
+def test_establishment_routes_still_need_the_caller_headers() -> None:
+    headers = [*AUTH.items(), (ESTABLISHMENT_HEADER, ESTABLISHMENT), (JURISDICTION_HEADER, "BR")]
+
+    response = _establishment_client().get(
+        f"/establishments/{ESTABLISHMENT}/context", headers=headers
+    )
+
+    assert response.status_code == 400
