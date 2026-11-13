@@ -1,6 +1,6 @@
 # src/web: React web app
 
-React 19 + TypeScript single-page app built with Vite (ADR 010), managed with npm (`package.json` + `package-lock.json`). The look is fixed by `docs/design/reference.png` and `docs/design/DESIGN.md` (`normetry-design-system` skill); every UI change gets a `ux-ui-designer` screen spec before and a review after.
+React 19 + TypeScript single-page app built with Vite (ADR 011), managed with npm (`package.json` + `package-lock.json`). The look is fixed by `docs/design/reference.png` and `docs/design/DESIGN.md` (`normetry-design-system` skill); every UI change gets a `ux-ui-designer` screen spec before and a review after.
 
 ## Stack
 
