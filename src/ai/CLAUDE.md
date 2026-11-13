@@ -13,7 +13,9 @@ Flat layout: `normetry_ai/` and `tests/` sit next to `pyproject.toml`. A subpack
   - `tenant_transaction(engine, tenant_id)` opens a transaction, runs `SELECT set_config('app.tenant_id', :tenant, true)` and yields the connection; it commits on success and rolls back on error. It is the only code that sets `app.tenant_id`. The tenant must be a `uuid.UUID` other than the nil UUID (parse header or message values first). Every query on tenant data runs inside it. Outside it no tenant is set, so `app_ai` sees only the public corpus and every write fails.
   - `check_runtime_role(connection)` raises when the connected role is a superuser, has BYPASSRLS, or owns schema `ai` or anything in it. The FastAPI lifespan runs it once at startup when `NORMETRY_DATABASE_URL` is set; without it the app starts with no database (health only).
 - `api/`: FastAPI app factory `create_app`, the internal-token ASGI middleware (`auth.py`), the `request_context` dependency (`context.py`) and routes: `/health` now; chat over SSE and search later.
-- `ingestion/`: parse (Docling) → structural chunking → enrichment → embedding + `tsvector` → idempotent upsert by content hash.
+- `ingestion/`: parse into sections → structural chunking → enrichment → embedding + `tsvector` → idempotent upsert by content hash. Built so far: the parse step (see "Corpus parsing").
+  - `normalize.py`: `normalize_text` (NFC, line-break hyphenation joined, whitespace collapsed). The golden dataset's quote check uses the same function, so keep it standard-library only and importable on its own.
+  - `corpus.py`: `parse_corpus()` / `parse_source(source)` read `corpus/manifest.json`, refuse a file whose SHA-256 does not match, and return `Section`s (source id, jurisdiction, language, version, `section_path`, normalized text) in document order. `uv run python -m normetry_ai.ingestion.corpus` writes them all to `.data/corpus-sections.jsonl` (git-ignored) for inspection.
 - `retrieval/`: hand-written hybrid search: pgvector top-k + full-text top-k → Reciprocal Rank Fusion → multilingual re-ranker. No framework retrievers.
 - `agents/`: LangGraph graphs (simulated inspection, change monitor) with Postgres checkpoints.
 - `llm/`: the only place that calls model providers: routing (cheap vs strong model), token and cost accounting per tenant, budget enforcement.
@@ -37,6 +39,18 @@ Notes for the retrieval work; none of this exists yet.
 - Check `EXPLAIN` as `app_ai` (not as the owner or a superuser) for the GIN `@@` path on `tsv` as well as the vector path.
 - Never fix RLS performance with SECURITY DEFINER functions or BYPASSRLS.
 - The LangGraph checkpoint tables (agents) are tenant data: they need `tenant_id` and RLS like `ai.chunks`.
+
+## Corpus parsing
+
+- Extraction: PDFium (`pypdfium2`) reads the PDFs' text layer and the standard library's `html.parser` reads the AnvisaLegis page. No OCR, no layout model. The whole corpus parses in under 2 seconds (the 732-page FDA PDF in 1.1 s) and the dependency adds about 10 MB.
+- Why not Docling, the original plan: Docling 2.150.0 was measured on the FDA PDF on a CPU-only developer machine (20 threads). One conversion took 1,214 s, about 20 minutes, for the 732 pages, with OCR and table structure off, models already downloaded and about 2.4 GB of RAM in use. Its environment is about 1 GB (torch 2.15 alone is over 450 MB), and the layout model weights come from Hugging Face on first use. That is far too slow for tests that parse the corpus on every CI run. The three PDFs have a clean text layer, and every cut follows numbering printed in the text, so a layout model adds nothing the parser uses. Reconsider Docling for tenant uploads (scans, tables) in phase 2.
+- How each source is cut:
+  - FDA Food Code: only pages whose running header reads `FDA Food Code 2026 Chapter 1` to `8`. A line `N-NNN.NN Title` starts a section (part 4-10 has `4-1001.11`); chapter, part and subpart headings close it. The PDF is set without hyphenation, so a hyphen at a line end (U+FFFE from PDFium) stays a hyphen ("self-service").
+  - Regulation 852/2004: page headers, consolidation markers (`►M2 ... ◄`, `▼C1`) and footnotes (a marker line, then `(1) ...` to the end of the page) are removed. `Article N` / `Artigo N.o` starts an article; inside an annex, `PART X:` and `CHAPTER N` start a section. Paths use English labels in both languages.
+  - RDC 216/2004: the page declares UTF-8 but is Latin-1. The `<p>` paragraphs from `ANEXO` to `PUB D.O.U.` are kept, minus the site's "Redações Anteriores" links; a numbered paragraph starts an item. The annex numbers its items 1 to 4.12 (the phase 1 design says "1 to 5").
+  - A section whose text is only an uppercase heading (RDC `4.1 EDIFICAÇÃO, ...`, EU `ANNEX I PRIMARY PRODUCTION`) is dropped.
+- Known noise, kept as extracted or as published: some FDA sections end with the subheading of the next group (5-402.11 ends with "Location and placement"), and the margin labels of the date-marking figure land at the end of 3-501.16 and inside 3-501.17 ("Prepare and hold cold"); FDA defined terms keep their `*`; an EU compound broken at a line end loses its hyphen ("corrosionresistant"); RDC words the page itself runs together stay so ("higiênicosanitária").
+- On the pinned files: FDA 366 sections, 852/2004 35 per language, RDC 128. `tests/test_corpus.py` parses the real files: without them it is skipped locally and fails in CI (`CI` set). CI fetches them with `corpus/scripts/fetch_corpus.py`, cached by manifest hash.
 
 ## Migrations
 

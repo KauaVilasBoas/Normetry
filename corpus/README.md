@@ -14,6 +14,16 @@ uv run corpus/scripts/fetch_corpus.py --update-manifest  # record sha256, size_b
 
 Files go to `corpus/<jurisdiction>/<code>/<version>/<file>`. A file whose hash already matches is skipped, so a second run downloads nothing. If a download does not match the manifest, the script keeps the old file, prints both hashes and exits with code 1. That usually means the publisher changed the file. Check what changed, then accept the new version with `--update-manifest` (or add a new version directory for a new edition).
 
+CI runs the same script before the AI service's tests (`.github/workflows/ci.yml`, job `ai`), so those tests parse the real files. The fetched files are cached under a key derived from `manifest.json`, so most runs download nothing.
+
+## What is parsed
+
+The AI service cuts each file into citable sections (`src/ai/normetry_ai/ingestion/corpus.py`; `uv run python -m normetry_ai.ingestion.corpus` from `src/ai` writes them to `src/ai/.data/corpus-sections.jsonl`). Only these parts are kept:
+
+- FDA Food Code: chapters 1 to 8, one section per code section (`3-501.16`). The preface and the annexes are left out.
+- Regulation (EC) No 852/2004, English and Portuguese: the articles (`Article 4`) and the annexes by part or chapter (`Annex I, Part A`, `Annex II, Chapter I`). The consolidated text has no recitals. Paths are the same in both languages.
+- RDC 216/2004: the Technical Regulation in the annex, one section per item (`4.8.15`). Its items run from 1 to 4.12; the resolution's own articles (the preamble) are left out.
+
 ## Sources
 
 Retrieved on 2026-11-12.
@@ -52,5 +62,5 @@ In [AnvisaLegis](https://anvisalegis.datalegis.net/), Anvisa's legislation datab
 - Anvisa's thematic library of food norms (Biblioteca de Alimentos), which lists the acts in force, returns 404 on gov.br. The status above therefore rests on AnvisaLegis and on Anvisa's 2025 news item about the revision, not on that list. Public consultations CP 1.362 to 1.368 of 2025 would revise good practice requirements for the food production chain ([Anvisa news, 2026-01-16](https://www.gov.br/anvisa/pt-br/assuntos/noticias-anvisa/2026/anvisa-promove-dialogos-setoriais-para-discutir-revisao-das-boas-praticas-na-producao-de-alimentos)). Whether the final text also affects RDC 216/2004 is unconfirmed.
 - The authentic Brazilian texts are the DOU editions of 2004-09-16 and 2014-10-01 on the Imprensa Nacional site (`pesquisa.in.gov.br`). Its PDF links carry a captcha parameter, and the site closed the connection when tested, so the script does not download them and the corpus uses the AnvisaLegis compiled text.
 - The AnvisaLegis file is a web page, so a change to the site's layout changes its hash even when the act stays the same. In that case the script fails on purpose. Compare the act text, then run `--update-manifest`.
-- Phase 1 should decide whether the third-party table in the FDA Food Code (Annex 4, Table 3) is left out of ingestion or out of quoted answers.
+- The third-party table in the FDA Food Code (Annex 4, Table 3) stays out of phase 1: no annex is parsed (see "What is parsed"). It needs a decision again if the annexes are ever ingested.
 - FDA gives no single effective date for the model code, because each jurisdiction adopts it on its own schedule. The manifest records the release date instead.
