@@ -88,14 +88,91 @@ jobs:
           enable-cache: true
       - name: Sync
         run: uv sync --locked
-      # BGE-M3 (about 2.3 GB) from the Hugging Face Hub. Its id and revision are pinned in
-      # settings.py, so a change there misses the cache and downloads the new weights.
+      # BGE-M3 and bge-reranker-v2-m3 (about 2.3 GB each) from the Hugging Face Hub. Their ids
+      # and revisions are pinned in settings.py, so a change there misses the cache and downloads
+      # the new weights. The ai-eval job loads the same two models and shares this cache.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/huggingface/hub
           key: huggingface-${{ hashFiles('src/ai/normetry_ai/settings.py') }}
+      # The retrieval eval is a model test too; it runs in the ai-eval job.
       - name: Test
-        run: uv run pytest -m model
+        run: uv run pytest -m "model and not eval"
+
+  # The retrieval eval runs on pull requests whose changes can move its numbers.
+  retrieval-changes:
+    name: retrieval changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      # A pull request checks out its merge commit, whose first parent is the base branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: diff
+        env:
+          PATHS: >-
+            src/ai/normetry_ai/ingestion src/ai/normetry_ai/retrieval src/ai/normetry_ai/llm
+            src/ai/normetry_ai/evals src/ai/normetry_ai/settings.py src/ai/uv.lock
+            src/ai/tests/conftest.py src/ai/tests/test_retrieval_eval.py
+            evals/datasets corpus/manifest.json .github/workflows/ci.yml
+        # $PATHS is split into words on purpose: one pathspec each.
+        run: |
+          if ! git diff --quiet HEAD^1 HEAD -- $PATHS; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  ai-eval:
+    name: ai (retrieval eval)
+    needs: retrieval-changes
+    if: needs.retrieval-changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/ai
+    env:
+      NORMETRY_EVAL_REPORT: ${{ github.workspace }}/retrieval-eval.md
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.23"
+          working-directory: src/ai
+          enable-cache: true
+      - name: Sync
+        run: uv sync --locked
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            corpus/us/food-code
+            corpus/br/rdc-216-2004
+          key: corpus-${{ hashFiles('corpus/manifest.json') }}
+      - name: Fetch corpus
+        working-directory: .
+        run: uv run corpus/scripts/fetch_corpus.py
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/huggingface/hub
+          key: huggingface-${{ hashFiles('src/ai/normetry_ai/settings.py') }}
+      # Corpus vectors by chunk text: a run embeds only the chunks it has not seen. The previous
+      # cache is restored and topped up, so a changed chunk does not re-embed the whole corpus.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: src/ai/.data/embeddings
+          key: embeddings-${{ hashFiles('corpus/manifest.json', 'src/ai/normetry_ai/ingestion/**', 'src/ai/normetry_ai/settings.py') }}
+          restore-keys: embeddings-
+      # Local models and a PostgreSQL container only: no paid API call.
+      - name: Eval
+        run: uv run pytest -m eval
+      - name: Report
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$NORMETRY_EVAL_REPORT" ]; then cat "$NORMETRY_EVAL_REPORT" >> "$GITHUB_STEP_SUMMARY"; fi
 
   web:
     name: web (React)
