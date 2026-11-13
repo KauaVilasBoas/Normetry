@@ -309,6 +309,7 @@ Full records are in [`docs/adr/`](docs/adr/).
 | [008](docs/adr/008-embedding-model-chosen-by-evals.md) | Embedding model behind an interface, chosen by eval | Changing models becomes an experiment with a measured result | The vector dimension is tied to the model, so a switch means re-embedding the corpus |
 | [009](docs/adr/009-in-house-cqrs-dispatcher.md) | In-house CQRS dispatcher instead of MediatR | MediatR has required a commercial license since 2025, and a small dispatcher shows how the pattern works | We own and test the pipeline, and there are no ecosystem extensions |
 | [010](docs/adr/010-daily-chat-quota-by-plan.md) | Daily chat quota per user by plan, counted in PostgreSQL | Model calls cost money, and the limit must survive restarts and hold across API instances | One database write per chat message, and old count rows need a cleanup job |
+| [011](docs/adr/011-web-app-is-a-vite-spa.md) | The web app is a Vite single-page app with in-memory tokens, calling only the core API | All data and rules already sit behind the .NET API, so a second server would have nothing to do; no token is kept in web storage | No server rendering, and a reload goes back through Keycloak |
 
 <details>
 <summary>Why PostgreSQL and not SQL Server?</summary>

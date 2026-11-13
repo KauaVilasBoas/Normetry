@@ -147,7 +147,7 @@ Subtle and functional (Framer Motion): cards fade/slide in 150–200ms on load, 
 
 ## 7. Implementation stack (recommended by the reference)
 
-React + TypeScript · Tailwind CSS · shadcn/ui · TanStack Query · Recharts · Framer Motion · Lucide React. The reference names Next.js; whether the web app is Next.js or a Vite SPA in front of the .NET API is decided by an ADR when `src/web` is scaffolded.
+React + TypeScript · Tailwind CSS · shadcn/ui · TanStack Query · Recharts · Framer Motion · Lucide React. The reference names Next.js; the web app is a Vite SPA in front of the .NET API instead ([ADR 011](../adr/011-web-app-is-a-vite-spa.md)). What is installed today: `src/web/CLAUDE.md`.
 
 ## 8. Normetry screen inventory
 
