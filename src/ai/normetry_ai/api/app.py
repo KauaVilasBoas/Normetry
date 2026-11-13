@@ -8,7 +8,16 @@ from normetry_ai.api import conversations, health
 from normetry_ai.api.auth import InternalTokenMiddleware
 from normetry_ai.db import check_runtime_role, create_db_engine
 from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeTextModel
-from normetry_ai.settings import AnswerSettings, ConversationSettings, Settings
+from normetry_ai.llm.embeddings import SentenceTransformerEmbedder
+from normetry_ai.llm.reranker import CrossEncoderReranker
+from normetry_ai.retrieval import hybrid
+from normetry_ai.settings import (
+    AnswerSettings,
+    ConversationSettings,
+    EmbeddingSettings,
+    RetrievalSettings,
+    Settings,
+)
 
 
 def create_app(
@@ -50,6 +59,20 @@ def create_app(
                 engine.dispose()
                 raise
         app.state.engine = engine
+        # One retriever per process. Its models load on the first question (#49), so the app starts
+        # without their weights; a turn that cannot load them answers unavailable.
+        embedding, retrieval = EmbeddingSettings(), RetrievalSettings()
+        app.state.retriever = hybrid.Retriever(
+            SentenceTransformerEmbedder(
+                embedding.embedding_model, embedding.embedding_model_revision
+            ),
+            CrossEncoderReranker(
+                retrieval.reranker_model,
+                retrieval.reranker_model_revision,
+                retrieval.reranker_max_length,
+            ),
+            retrieval,
+        )
         try:
             yield
         finally:

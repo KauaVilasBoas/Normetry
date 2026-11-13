@@ -9,7 +9,7 @@ import json
 import os
 from collections.abc import AsyncGenerator, Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
@@ -40,6 +40,7 @@ from normetry_ai.ingestion.ingest import ingest_source
 from normetry_ai.llm.claude import ModelUnavailable
 from normetry_ai.llm.usage import Usage, record_usage
 from normetry_ai.retrieval.models import RetrievedChunk
+from normetry_ai.retrieval.policy import JurisdictionScope, jurisdictions_for
 from normetry_ai.settings import AnswerSettings, ConversationSettings, Settings
 
 pytestmark = pytest.mark.integration
@@ -1021,6 +1022,16 @@ def retrieved(content: str, score: float = 0.9) -> RetrievedChunk:
 
 
 COLD, HOT = retrieved(COLD_TEXT), retrieved(HOT_TEXT)
+RDC_TEXT = "Os alimentos preparados e conservados sob refrigeração devem estar a 5ºC ou menos."
+RDC_QUOTE = "devem estar a 5ºC ou menos"
+RDC = replace(
+    retrieved(RDC_TEXT),
+    language="pt",
+    jurisdiction="BR",
+    section_path="4.8.15",
+    source_title="RDC 216/2004",
+    source_version="2014-10-01",
+)
 
 
 def raw_claim(text_: str, *citations: tuple[str, str]) -> dict[str, object]:
@@ -1073,6 +1084,22 @@ class FakeRetriever:
 
     def __call__(self, question: str, ctx: EstablishmentContext) -> list[RetrievedChunk]:
         self.calls.append((question, ctx.establishment_id, ctx.jurisdiction))
+        return self.chunks
+
+
+class RecordingRetriever:
+    """Stands in for hybrid.Retriever on app.state: records the question, the tenant set on the
+    connection it is given and the scope, then returns its chunks."""
+
+    def __init__(self, *chunks: RetrievedChunk) -> None:
+        self.chunks = list(chunks)
+        self.calls: list[tuple[str, str, JurisdictionScope]] = []
+
+    def retrieve(
+        self, connection: Connection, question: str, scope: JurisdictionScope
+    ) -> list[RetrievedChunk]:
+        setting = text("SELECT current_setting('app.tenant_id', true)")
+        self.calls.append((question, connection.execute(setting).scalar_one(), scope))
         return self.chunks
 
 
@@ -1224,6 +1251,23 @@ def test_a_user_lists_reads_and_deletes_only_their_own_conversations(
     assert chat_api.conversations(alice) == []
     assert chat_api.get(alice, mine).status_code == 404
     assert [c["id"] for c in chat_api.conversations(bob)] == [bobs]
+
+
+def test_a_turn_retrieves_in_the_callers_tenant_over_the_policy_scope(chat_api: ChatApi) -> None:
+    alice = person(jurisdiction="BR")
+    conversation = chat_api.create(alice)
+    recorder = RecordingRetriever(RDC)
+    chat_api.use(model=FakeClaims(raw_claim("Keep it at 5 °C or below.", ("E1", RDC_QUOTE))))
+    # The real dependency, with the process's retriever replaced: no model weights needed.
+    del chat_api.client.app.dependency_overrides[get_retriever]
+    chat_api.client.app.state.retriever = recorder
+
+    events = chat_api.events(alice, conversation, "Qual a temperatura dos alimentos frios?")
+
+    assert [name for name, _ in events] == ["claim", "done"]
+    assert recorder.calls == [
+        ("Qual a temperatura dos alimentos frios?", str(alice.tenant), jurisdictions_for("BR"))
+    ]
 
 
 def test_a_conversation_keeps_its_establishments_jurisdiction_on_every_turn(

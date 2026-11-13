@@ -32,7 +32,9 @@ from normetry_ai.conversations import store
 from normetry_ai.conversations.rewrite import TextModel, Turn, standalone_question
 from normetry_ai.db import tenant_transaction
 from normetry_ai.llm.usage import record_usage
+from normetry_ai.retrieval import hybrid
 from normetry_ai.retrieval.models import RetrievedChunk
+from normetry_ai.retrieval.policy import jurisdictions_for
 from normetry_ai.settings import AnswerSettings, ConversationSettings
 
 logger = logging.getLogger(__name__)
@@ -66,21 +68,26 @@ def get_chat(request: Request) -> Chat:
     return request.app.state.chat
 
 
-def _no_retrieval(question: str, ctx: EstablishmentContext) -> list[RetrievedChunk]:
-    return []
-
-
-def get_retriever() -> Retriever:
-    """Where retrieval plugs in (#49): the one dependency that returns it; tests override it.
-
-    ponytail: no retriever yet, so every answer is refused before any model call (low_score).
-    """
-    return _no_retrieval
-
-
 Caller = Annotated[RequestContext, Depends(request_context)]
 EstablishmentCaller = Annotated[EstablishmentContext, Depends(establishment_context)]
 Database = Annotated[Engine, Depends(get_engine)]
+
+
+def get_retriever(request: Request, engine: Database) -> Retriever:
+    """Hybrid retrieval (#49) for a turn: the one dependency that returns it; tests override it.
+
+    It runs inside the caller's tenant transaction, over the jurisdictions `jurisdictions_for`
+    gives the establishment, which `open_turn` checked is the conversation's.
+    """
+    retriever: hybrid.Retriever = request.app.state.retriever
+
+    def retrieve(question: str, ctx: EstablishmentContext) -> list[RetrievedChunk]:
+        with tenant_transaction(engine, ctx.tenant_id) as connection:
+            return retriever.retrieve(connection, question, jurisdictions_for(ctx.jurisdiction))
+
+    return retrieve
+
+
 Models = Annotated[Chat, Depends(get_chat)]
 
 router = APIRouter()
