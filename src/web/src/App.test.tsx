@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { createAuth } from "./auth/session";
 import { establishments, expectNoAxeViolations, fakeOidc, me, stubApi } from "./test/fakes";
@@ -299,6 +299,29 @@ describe("shell", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
     );
+  });
+
+  it("closes the drawer when the window widens to the desktop layout", async () => {
+    const desktop = { matches: false, listener: () => {} };
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      () =>
+        ({
+          get matches() {
+            return desktop.matches;
+          },
+          addEventListener: (_type: string, listener: () => void) => (desktop.listener = listener),
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList,
+    );
+    renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
+    await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" });
+    await userEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    await screen.findByRole("dialog", { name: "Navigation" });
+
+    desktop.matches = true;
+    act(() => desktop.listener());
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("returns focus to the menu button when the drawer is dismissed", async () => {

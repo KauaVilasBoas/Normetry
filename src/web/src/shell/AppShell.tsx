@@ -1,6 +1,6 @@
 import { Menu, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEstablishments, useMe, type Establishment } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
@@ -24,6 +24,16 @@ export function AppShell() {
   const [announcement, setAnnouncement] = useState("");
   const [focusKey, setFocusKey] = useState(0);
   const focusRegionAfterDrawer = useRef(false);
+
+  // From 1024px the sidebar is persistent, so an open drawer closes when the window widens.
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) setDrawerOpen(false);
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   const chooseInPicker = (establishment: Establishment) => {
     select(establishment);

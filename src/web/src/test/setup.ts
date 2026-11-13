@@ -9,6 +9,15 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
 });
 
+// jsdom has no media queries: nothing matches until a test says so.
+window.matchMedia = (query: string) =>
+  ({
+    matches: false,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }) as unknown as MediaQueryList;
+
 // jsdom lacks what Radix popovers measure and scroll with.
 globalThis.ResizeObserver ??= class {
   observe() {}
