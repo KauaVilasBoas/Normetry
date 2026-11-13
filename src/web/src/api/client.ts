@@ -20,6 +20,14 @@ export interface ApiClientOptions {
   baseUrl?: string;
 }
 
+export interface RequestOptions {
+  method?: "GET" | "POST" | "DELETE";
+  /** Sent as JSON. */
+  json?: unknown;
+  accept?: string;
+  signal?: AbortSignal;
+}
+
 export type ApiClient = ReturnType<typeof createApiClient>;
 
 export function createApiClient({
@@ -28,25 +36,40 @@ export function createApiClient({
   onSessionExpired,
   baseUrl = API_BASE_URL,
 }: ApiClientOptions) {
-  const send = (path: string, token: string | undefined) =>
+  const send = (
+    path: string,
+    token: string | undefined,
+    { method = "GET", json, accept = "application/json", signal }: RequestOptions,
+  ) =>
     fetch(`${baseUrl}${path}`, {
+      method,
+      signal,
+      body: json === undefined ? undefined : JSON.stringify(json),
       headers: {
-        Accept: "application/json",
+        Accept: accept,
+        ...(json === undefined ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
 
-  return {
-    async get<T>(path: string): Promise<T> {
-      let response = await send(path, await getAccessToken());
-      if (response.status === 401) {
-        const token = await renewSession();
-        if (token) response = await send(path, token);
-        if (!token || response.status === 401) {
-          onSessionExpired();
-          throw new ApiError(401);
-        }
+  /** Any status but 401 comes back as the response; the caller reads it (or its stream). */
+  async function request(path: string, options: RequestOptions = {}): Promise<Response> {
+    let response = await send(path, await getAccessToken(), options);
+    if (response.status === 401) {
+      const token = await renewSession();
+      if (token) response = await send(path, token, options);
+      if (!token || response.status === 401) {
+        onSessionExpired();
+        throw new ApiError(401);
       }
+    }
+    return response;
+  }
+
+  return {
+    request,
+    async get<T>(path: string): Promise<T> {
+      const response = await request(path);
       if (!response.ok) throw new ApiError(response.status);
       return (await response.json()) as T;
     },
