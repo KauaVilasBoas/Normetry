@@ -16,8 +16,14 @@ import {
 const storageKey = `normetry.establishment.${me.tenantId}.${me.userId}`;
 const never = () => new Promise<Response>(() => {});
 
+// The chat screen's own requests; its states are tested in chat/ChatScreen.test.tsx.
+const chatRoutes = {
+  "/ai/conversations": { body: [] },
+  "/chat/quota": { body: { limit: null, remaining: null, resetsAt: "2026-11-14T00:00:00Z" } },
+};
+
 function renderApp(routes: Parameters<typeof stubApi>[0], user = fakeOidc()) {
-  const fetch = stubApi(routes);
+  const fetch = stubApi({ ...chatRoutes, ...routes });
   const auth = createAuth(user.oidc);
   render(<App auth={auth} />);
   return { fetch, auth, oidc: user.oidc };
@@ -113,17 +119,17 @@ describe("establishment picker", () => {
     );
   });
 
-  it("selects on activation, remembers the id and moves focus to the chat region", async () => {
+  it("selects on activation, remembers the id and opens a new conversation", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
 
     await userEvent.click(
       await screen.findByRole("button", { name: "Bistro São Paulo, Restaurant, Brazil" }),
     );
 
-    const heading = screen.getByRole("heading", { level: 2, name: "Bistro São Paulo" });
+    const heading = screen.getByRole("heading", { level: 2, name: "New conversation" });
     expect(heading).toHaveFocus();
-    expect(screen.getByRole("region", { name: "Bistro São Paulo" })).toHaveTextContent(
-      "Questions about this establishment's regulation will appear here.",
+    expect(screen.getByRole("region", { name: "New conversation" })).toHaveTextContent(
+      "Bistro São Paulo · Anvisa RDC 216/2004",
     );
     expect(localStorage.getItem(storageKey)).toBe("e-sao-paulo");
     await expectNoAxeViolations();
@@ -133,9 +139,8 @@ describe("establishment picker", () => {
     localStorage.setItem(storageKey, "e-sao-paulo");
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
 
-    expect(
-      await screen.findByRole("heading", { level: 2, name: "Bistro São Paulo" }),
-    ).not.toHaveFocus();
+    expect(await screen.findByText("Bistro São Paulo · Anvisa RDC 216/2004")).toBeVisible();
+    expect(screen.getByRole("heading", { level: 2, name: "New conversation" })).not.toHaveFocus();
     expect(screen.getByRole("combobox", { name: "Establishment" })).toHaveTextContent(
       "Bistro São Paulo",
     );
@@ -152,7 +157,7 @@ describe("establishment picker", () => {
   it("selects the only establishment automatically", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: [establishments[0]] } });
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Bistro Lisboa" })).toBeVisible();
+    expect(await screen.findByText("Bistro Lisboa · Regulation (EC) 852/2004")).toBeVisible();
   });
 
   it("shows the empty state", async () => {
@@ -197,10 +202,10 @@ describe("establishment picker", () => {
     });
 
     const alert = await screen.findByRole("alert", {}, { timeout: 3000 });
-    expect(screen.queryByRole("heading", { level: 2, name: "Bistro Lisboa" })).toBeNull();
+    expect(screen.queryByText("Bistro Lisboa · Regulation (EC) 852/2004")).toBeNull();
     await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Bistro Lisboa" })).toBeVisible();
+    expect(await screen.findByText("Bistro Lisboa · Regulation (EC) 852/2004")).toBeVisible();
   });
 
   it("explains a missing organization on 403", async () => {
@@ -283,11 +288,11 @@ describe("shell", () => {
     expect(screen.getByText("Bistro São Paulo selected")).toHaveAttribute("aria-live", "polite");
     expect(switcher).toHaveFocus();
     expect(switcher).toHaveTextContent("Bistro São Paulo");
-    expect(screen.getByRole("heading", { level: 2, name: "Bistro São Paulo" })).toBeVisible();
+    expect(screen.getByText("Bistro São Paulo · Anvisa RDC 216/2004")).toBeVisible();
     expect(localStorage.getItem(storageKey)).toBe("e-sao-paulo");
   });
 
-  it("closes the drawer after a choice in it and focuses the chat region", async () => {
+  it("closes the drawer after a choice in it and focuses the conversation", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
     const user = userEvent.setup();
     await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" });
@@ -305,8 +310,9 @@ describe("shell", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() =>
-      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
+      expect(screen.getByRole("heading", { level: 2, name: "New conversation" })).toHaveFocus(),
     );
+    expect(screen.getByText("Bistro Lisboa · Regulation (EC) 852/2004")).toBeVisible();
   });
 
   it("closes the drawer when the window widens to the desktop layout", async () => {

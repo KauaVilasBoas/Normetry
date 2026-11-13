@@ -45,19 +45,23 @@ export function fakeOidc(user: User | null = fakeUser()) {
   };
 }
 
-type Route = { status?: number; body?: unknown } | (() => Promise<Response>);
+type Route =
+  { status?: number; body?: unknown; headers?: Record<string, string> } | (() => Promise<Response>);
 
-/** Stubs fetch for API paths (without the /api prefix); unknown paths answer 404. */
+/**
+ * Stubs fetch for API paths (without the /api prefix). A key may name the method
+ * ("DELETE /ai/conversations/c-1"), which wins over the bare path. Unknown paths answer 404.
+ */
 export function stubApi(routes: Record<string, Route | Route[]>) {
-  const fetch = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>((input) => {
+  const fetch = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>((input, init) => {
     const path = input.replace(/^\/api/, "");
-    const entry = routes[path];
+    const entry = routes[`${init?.method ?? "GET"} ${path}`] ?? routes[path];
     const route = Array.isArray(entry) ? (entry.length > 1 ? entry.shift() : entry[0]) : entry;
     if (typeof route === "function") return route();
     return Promise.resolve(
       new Response(route?.body === undefined ? null : JSON.stringify(route.body), {
         status: route?.status ?? (route ? 200 : 404),
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...route?.headers },
       }),
     );
   });
@@ -88,4 +92,36 @@ export async function expectNoAxeViolations({ popoverOpen = false } = {}) {
   expect(
     violations.map(({ id, nodes }) => `${id}: ${nodes.map((n) => n.html).join(", ")}`),
   ).toEqual([]);
+}
+
+/** An answer stream the test writes to, event by event. */
+export function sseResponse(headers: Record<string, string> = {}) {
+  const encoder = new TextEncoder();
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({
+    start: (streamController) => {
+      controller = streamController;
+    },
+  });
+  return {
+    response: new Response(body, {
+      headers: { "Content-Type": "text/event-stream", ...headers },
+    }),
+    send: (event: string, data: unknown) =>
+      controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)),
+    close: () => controller.close(),
+  };
+}
+
+/** Media queries for a window this wide; reduced motion only when asked. */
+export function mockViewport(width: number, { reducedMotion = false } = {}) {
+  vi.spyOn(window, "matchMedia").mockImplementation((query: string) => {
+    const minWidth = /\(min-width: (\d+)px\)/.exec(query);
+    return {
+      matches: minWidth ? width >= Number(minWidth[1]) : reducedMotion && query.includes("reduce"),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    } as unknown as MediaQueryList;
+  });
 }

@@ -1,10 +1,11 @@
 import { Menu, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
-import { useEstablishments, useMe, type Establishment } from "../api/queries";
+import { useNavigate, useParams } from "react-router";
+import { useConversations, useEstablishments, useMe, type Establishment } from "../api/queries";
 import { useSession } from "../auth/session";
+import { ChatScreen } from "../chat/ChatScreen";
 import { copy, format } from "../copy";
-import { ChatPlaceholder } from "../establishments/ChatPlaceholder";
 import { EstablishmentPicker } from "../establishments/EstablishmentPicker";
 import { listState, useEstablishmentSelection } from "../establishments/selection";
 import { Sidebar } from "./Sidebar";
@@ -19,6 +20,9 @@ export function AppShell() {
   const establishments = useEstablishments();
   const state = listState(me, establishments);
   const { selected, select } = useEstablishmentSelection(me.data, establishments.data);
+  const { conversationId } = useParams();
+  const navigate = useNavigate();
+  const conversations = useConversations();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -35,13 +39,31 @@ export function AppShell() {
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
 
+  // A conversation opened by URL selects its establishment when it is one of the user's, even before
+  // one is selected (the chat does the same from the loaded conversation). Once per conversation,
+  // so a later choice in the switcher wins. Anyone else's shows as not found.
+  const conversationEstablishment = conversations.data?.find(
+    (conversation) => conversation.id === conversationId,
+  )?.establishmentId;
+  const owner = establishments.data?.find((item) => item.id === conversationEstablishment);
+  const syncedConversation = useRef<string>(undefined);
+  useEffect(() => {
+    if (conversationId === undefined) syncedConversation.current = undefined;
+    if (!owner || syncedConversation.current === conversationId) return;
+    syncedConversation.current = conversationId;
+    if (owner.id !== selected?.id) select(owner);
+  }, [conversationId, owner, selected, select]);
+
+  // Choosing an establishment opens a new conversation for it.
   const chooseInPicker = (establishment: Establishment) => {
     select(establishment);
+    void navigate("/");
     setFocusKey((key) => key + 1);
   };
 
   const chooseInSwitcher = (establishment: Establishment) => {
     select(establishment);
+    void navigate("/");
     if (drawerOpen) {
       focusRegionAfterDrawer.current = true;
       setDrawerOpen(false);
@@ -122,7 +144,12 @@ export function AppShell() {
         >
           {/* Any failure, /me included, shows the picker with its message and Try again. */}
           {selected && state === "list" ? (
-            <ChatPlaceholder establishment={selected} focusKey={focusKey} />
+            <ChatScreen
+              establishment={selected}
+              conversationId={conversationId}
+              focusKey={focusKey}
+              onEstablishment={select}
+            />
           ) : (
             <EstablishmentPicker
               state={state}

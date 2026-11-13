@@ -1,5 +1,9 @@
 // Every interface string, in English for now (PT comes with the language switch). Whole sentences
 // only, with {placeholders}; never build a sentence by concatenation.
+
+/** The interface locale, for every `Intl` formatter (dates, relative times, language names). */
+export const locale = "en";
+
 export const copy = {
   tagline: "Understand Regulations. Stay Ahead.",
   titles: {
@@ -59,8 +63,73 @@ export const copy = {
       "Ask your administrator to add you to an organization in Normetry, then sign in again.",
     tryAgain: "Try again",
   },
+  conversations: {
+    title: "Conversations",
+    newConversation: "New conversation",
+    show: "Show conversations",
+    close: "Close conversations",
+    loading: "Loading conversations…",
+    emptyTitle: "No conversations yet",
+    emptyBody: "Questions you ask about {establishment} are kept here.",
+    errorTitle: "Couldn't load conversations",
+    errorBody: "Check your connection and try again.",
+    tryAgain: "Try again",
+    untitled: "Untitled conversation",
+  },
   chat: {
-    placeholder: "Questions about this establishment's regulation will appear here.",
+    newTitle: "New conversation",
+    meta: "{establishment} · {regulation}",
+    emptyTitle: "Ask about {regulation}",
+    emptyBody: "Every statement in an answer links to the passage it comes from.",
+    inputLabel: "Your question",
+    inputPlaceholder: "Ask a question about {regulation}…",
+    send: "Send",
+    messages: "Messages",
+    you: "You:",
+    assistant: "Normetry:",
+    checking: "Checking {regulation}…",
+    answerComplete: "Answer complete.",
+    viewSource: "View source · {section}",
+    refusal: "There isn't enough basis in {regulation} to answer this question.",
+    refusalHint: "Try rephrasing it or asking about a specific requirement.",
+    unavailable: "The assistant is unavailable right now.",
+    unavailableHint: "Try again in a few minutes.",
+    networkError: "Couldn't reach Normetry. Check your connection and try again.",
+    genericError: "Couldn't get an answer. Try again.",
+    interrupted: "The connection dropped before the answer finished.",
+    tryAgain: "Try again",
+    retryCost: "Trying again uses one of today's messages.",
+    loading: "Loading conversation…",
+    loadErrorTitle: "Couldn't load this conversation",
+    loadErrorBody: "Check your connection and try again.",
+    notFoundTitle: "This conversation isn't available",
+    notFoundBody: "It may have been deleted.",
+    startNew: "Start a new conversation",
+    deleteConversation: "Delete conversation",
+    deleteTitle: "Delete this conversation?",
+    deleteBody: "“{title}” and its answers will be deleted. This can't be undone.",
+    deleteConfirm: "Delete",
+    deleteCancel: "Cancel",
+    deleteError: "Couldn't delete the conversation. Try again.",
+    deleted: "Conversation deleted.",
+  },
+  quota: {
+    remaining: "{remaining} of {limit} messages left today",
+    reachedTitle: "You've used all of today's messages",
+    reachedBody: "Your plan includes {limit} messages a day. You can ask again {when}.",
+    reachedBodyNoLimit: "You can ask again {when}.",
+  },
+  source: {
+    title: "Source",
+    close: "Close source",
+    meta: "Version {version} · {language}",
+    quoteStart: "Quoted passage:",
+    quoteEnd: "End of quoted passage.",
+    quoteLabel: "Quoted passage",
+    officialPage: "Open the official page",
+    newTab: "(opens in a new tab)",
+    storedCopy:
+      "This is the copy stored with the answer. The official publication is the authoritative text.",
   },
   establishmentTypes: {
     Restaurant: "Restaurant",
@@ -68,10 +137,22 @@ export const copy = {
     Clinic: "Clinic",
   } as Record<string, string | undefined>,
   jurisdictions: {
-    US: { name: "United States", regulation: "FDA Food Code 2026" },
-    EU: { name: "European Union", regulation: "Regulation (EC) 852/2004" },
-    BR: { name: "Brazil", regulation: "Anvisa RDC 216/2004" },
-  } as Record<string, { name: string; regulation: string } | undefined>,
+    US: {
+      name: "United States",
+      regulation: "FDA Food Code 2026",
+      askLanguage: "Ask in English. Sources are quoted in English.",
+    },
+    EU: {
+      name: "European Union",
+      regulation: "Regulation (EC) 852/2004",
+      askLanguage: "Ask in English or Portuguese. Sources are quoted in the language you ask in.",
+    },
+    BR: {
+      name: "Brazil",
+      regulation: "Anvisa RDC 216/2004",
+      askLanguage: "Ask in Portuguese. Sources are quoted in Portuguese.",
+    },
+  } as Record<string, { name: string; regulation: string; askLanguage: string } | undefined>,
 };
 
 export function format(template: string, values: Record<string, string>): string {

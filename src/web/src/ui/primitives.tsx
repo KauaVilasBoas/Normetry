@@ -1,21 +1,30 @@
-import { Pill, Stethoscope, Store, UtensilsCrossed } from "lucide-react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { ArrowRight, Pill, Stethoscope, Store, UtensilsCrossed } from "lucide-react";
+import { Dialog } from "radix-ui";
+import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
 
 const buttonVariants = {
   primary: "bg-mint text-on-mint font-semibold hover:bg-mint-hover",
-  secondary: "border border-teal-border text-text-primary font-medium hover:bg-elevated",
+  secondary: "border border-teal-border text-text-primary font-medium",
 };
 
-/** DESIGN.md buttons: one primary per view; text on mint is always --on-mint. */
+/**
+ * DESIGN.md buttons: one primary per view; text on mint is always --on-mint. A secondary button
+ * hovers to --bg-elevated, or to --bg-inset when it sits on --bg-elevated (`onElevated`).
+ */
 export function Button({
   variant,
+  onElevated = false,
   className = "",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant: keyof typeof buttonVariants }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant: keyof typeof buttonVariants;
+  onElevated?: boolean;
+}) {
+  const hover = variant === "primary" ? "" : onElevated ? "hover:bg-inset" : "hover:bg-elevated";
   return (
     <button
       type="button"
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-control px-4 text-body ${buttonVariants[variant]} ${className}`}
+      className={`inline-flex h-9 items-center justify-center gap-2 rounded-control px-4 text-body ${buttonVariants[variant]} ${hover} ${className}`}
       {...props}
     />
   );
@@ -98,5 +107,64 @@ export function Message({
       <h3 className="text-title font-semibold">{title}</h3>
       <p className="text-body text-text-secondary">{body}</p>
     </div>
+  );
+}
+
+/** Opens a citation's source; `aria-expanded` while its passage is the one shown. */
+export function CitationChip({
+  label,
+  expanded,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; expanded: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      className={`inline-flex h-7 max-w-full items-center gap-1.5 rounded-sm border border-teal-border px-2.5 text-small font-medium text-mint focus-visible:-outline-offset-2 ${
+        expanded ? "bg-teal-deep" : "hover:bg-inset"
+      }`}
+      {...props}
+    >
+      <span className="truncate">{label}</span>
+      <ArrowRight aria-hidden="true" className="size-3.5 shrink-0" />
+    </button>
+  );
+}
+
+/**
+ * Modal sheet from the left or right edge over the scrim. Its content names it with a
+ * `Dialog.Title` (usually its visible heading, through `asChild`).
+ */
+export function Sheet({
+  side,
+  open,
+  onOpenChange,
+  className = "",
+  children,
+  ...content
+}: {
+  side: "left" | "right";
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  className?: string;
+  children: ReactNode;
+} & Pick<ComponentProps<typeof Dialog.Content>, "onOpenAutoFocus" | "onCloseAutoFocus">) {
+  const edge =
+    side === "left"
+      ? "left-0 border-r motion-safe:animate-drawer-in"
+      : "right-0 border-l motion-safe:animate-sheet-in";
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-scrim" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          className={`fixed inset-y-0 z-40 flex flex-col border-border bg-card ${edge} ${className}`}
+          {...content}
+        >
+          {children}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
