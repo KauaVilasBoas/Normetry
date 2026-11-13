@@ -83,6 +83,9 @@ def get_retriever(request: Request, engine: Database) -> Retriever:
     retriever: hybrid.Retriever = request.app.state.retriever
 
     def retrieve(question: str, ctx: EstablishmentContext) -> list[RetrievedChunk]:
+        # ponytail: the pooled connection stays checked out while the query is embedded and
+        # re-ranked (seconds on CPU, longer while the weights first load), so a burst of turns
+        # can drain the pool; split retrieval so only the two searches hold it if that shows up.
         with tenant_transaction(engine, ctx.tenant_id) as connection:
             return retriever.retrieve(connection, question, jurisdictions_for(ctx.jurisdiction))
 
