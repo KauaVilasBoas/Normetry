@@ -9,8 +9,8 @@ The AI service has no public ingress (ADR 004). Every HTTP request it receives c
 | `X-Normetry-Internal-Token` | Shared secret, 32 characters or more | Aspire parameter `internal-token`: `Ai:InternalToken` in the core, `NORMETRY_INTERNAL_TOKEN` in the AI service | `InternalTokenMiddleware` (`api/auth.py`) |
 | `X-Normetry-Tenant-Id` | Non-nil UUID, lower-case 8-4-4-4-12 form | `tenant_id` claim | `request_context` (`api/context.py`) |
 | `X-Normetry-User-Id` | Keycloak user id | `sub` claim | `request_context` |
-| `X-Normetry-Establishment-Id` | Non-nil UUID, lower-case 8-4-4-4-12 form; only on establishment routes | the establishment the core loaded under RLS from the path | establishment routes (#51) |
-| `X-Normetry-Jurisdiction` | `US`, `EU` or `BR`; only on establishment routes | that establishment's `jurisdiction` column | establishment routes (#51) |
+| `X-Normetry-Establishment-Id` | Non-nil UUID, lower-case 8-4-4-4-12 form; only on establishment routes | the establishment the core loaded under RLS from the path | `establishment_context` (`api/context.py`) |
+| `X-Normetry-Jurisdiction` | `US`, `EU` or `BR`; only on establishment routes | that establishment's `jurisdiction` column | `establishment_context` |
 
 Each header appears exactly once on a forwarded request; the last two only on establishment routes, and never on any other route. The JWT carries neither establishment nor jurisdiction: the core reads them from `core.establishments` under RLS, which proves the establishment belongs to the caller's tenant.
 
@@ -23,7 +23,7 @@ Each header appears exactly once on a forwarded request; the last two only on es
 | anything else under `/ai/establishments/{establishment_id}/` | the same path without `/ai` | yes |
 | `GET /ai/conversations`, `GET /ai/conversations/{conversation_id}`, `DELETE /ai/conversations/{conversation_id}` | the same path without `/ai` | no |
 
-Any other `/ai/*` path is forwarded the same way, without establishment headers.
+Any other `/ai/*` path is forwarded the same way, without establishment headers. Bodies, shapes and server-sent events of the chat routes: `chat-api.md`.
 
 `POST /establishments/{establishment_id}/conversations/{conversation_id}/messages` is the only route that generates an answer (and so calls a model). The core counts exactly that route against the daily quota. A new route that generates an answer, or makes the AI service call a model, needs a core change in the same pull request so that it is counted too; until then it would bypass the quota.
 
@@ -47,6 +47,6 @@ Any other `/ai/*` path is forwarded the same way, without establishment headers.
 - Routes read the caller only through the `request_context` dependency. It requires exactly one tenant header holding a non-nil UUID in lower-case 8-4-4-4-12 form and exactly one non-empty user header, and answers 400 otherwise: a malformed value is a gateway bug, never something to guess around.
 - Database work for the request goes through `tenant_transaction(engine, ctx.tenant_id)`. The first route that reads or writes tenant data adds a test proving one tenant cannot see another's rows through it.
 - Routes under `/establishments/{establishment_id}/` take the establishment and its jurisdiction only from `X-Normetry-Establishment-Id` and `X-Normetry-Jurisdiction`, which are authoritative: the core checked the establishment belongs to the tenant. Any `/establishments/...` request whose establishment or jurisdiction header is missing, repeated, malformed (a non-nil lower-case UUID and one of `US`, `EU`, `BR` are expected) or whose establishment id does not match the path's `establishment_id` gets 400. Such a request did not come through the establishment route and must not be served.
-- Routes outside `/establishments/` must not read the establishment headers.
+- Routes under `/establishments/{establishment_id}/` depend on `establishment_context` at router level, so the 400 comes before anything else runs. Routes outside `/establishments/` must not read the establishment headers.
 - The AI service does not count or limit chat messages; the core does, before forwarding.
 - No other header, body field or query parameter identifies the tenant, the user, the establishment or the jurisdiction.
