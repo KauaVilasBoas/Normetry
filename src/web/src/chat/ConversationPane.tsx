@@ -262,6 +262,11 @@ export function ConversationPane({
     input.current?.focus();
   }
 
+  // Try again after a failed load: once it works the button goes away, so focus moves to the heading.
+  async function reload() {
+    if ((await conversation.refetch()).isSuccess) document.getElementById(TITLE_ID)?.focus();
+  }
+
   async function deleteConversation(): Promise<boolean> {
     if (savedId === undefined) return false;
     try {
@@ -364,7 +369,7 @@ export function ConversationPane({
               variant="secondary"
               className="mt-4"
               aria-disabled={retryingLoad}
-              onClick={retryingLoad ? undefined : () => void conversation.refetch()}
+              onClick={retryingLoad ? undefined : () => void reload()}
             >
               {retryingLoad && <Spinner />}
               {copy.chat.tryAgain}

@@ -1,5 +1,6 @@
 import { CircleAlert, MessagesSquare, Plus, X } from "lucide-react";
 import { Dialog } from "radix-ui";
+import { useRef } from "react";
 import { Link } from "react-router";
 import { useConversations, type Establishment } from "../api/queries";
 import { copy, format, locale } from "../copy";
@@ -33,6 +34,7 @@ export function ConversationList({
   inSheet: boolean;
 }) {
   const conversations = useConversations();
+  const title = useRef<HTMLHeadingElement>(null);
   // Try again sends a failed query back to pending: keep the error (and its focused button) until
   // that request settles.
   const failed =
@@ -43,7 +45,16 @@ export function ConversationList({
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
   const now = new Date();
 
-  const heading = <h2 className="text-title font-semibold">{copy.conversations.title}</h2>;
+  const heading = (
+    <h2 ref={title} tabIndex={-1} className="text-title font-semibold">
+      {copy.conversations.title}
+    </h2>
+  );
+
+  // Try again: once the list loads the button goes away, so focus moves to the heading.
+  const reload = async () => {
+    if ((await conversations.refetch()).isSuccess) title.current?.focus();
+  };
 
   return (
     <div
@@ -85,7 +96,7 @@ export function ConversationList({
               variant="secondary"
               className="mt-4"
               aria-disabled={retrying}
-              onClick={retrying ? undefined : () => void conversations.refetch()}
+              onClick={retrying ? undefined : () => void reload()}
             >
               {retrying && <Spinner />}
               {copy.conversations.tryAgain}
