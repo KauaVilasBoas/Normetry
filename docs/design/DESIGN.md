@@ -88,6 +88,8 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 
 **Hover.** There is no `--bg-hover` token and no separate hover color: nav items, list rows and buttons on `--bg-sidebar`, `--bg-app` or `--bg-card` hover to `--bg-elevated`; items inside an `--bg-elevated` popover or menu hover to `--bg-inset`.
 
+**Inside `--bg-elevated`.** `--border` and `--bg-elevated` are nearly the same color, so inside an elevated surface (assistant bubble, dialog, popover) dividers and the small ring's track use `--bg-inset` instead.
+
 **Radii.** `--radius-card` 12px for cards, `--radius-control` 10px for buttons, inputs, nav items and popovers, `--radius-sm` 8px for icon tiles, dropdowns and items inside popovers, `--radius-pill` for avatars, pills and rings.
 
 ## 3. Typography
@@ -130,6 +132,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | **KPI card** | label (secondary) + icon in a 28px rounded-square tile top-right (mint/blue outline icon) · value · delta row (↑ `--success` / ↓ `--danger` + "vs last month" in `--text-secondary`) · sparkline bottom-right **or** a progress bar. |
 | **Primary button** | `--mint` fill, `--on-mint` text 13px/600, radius 10px, height 36px, optional leading icon (+). One per view. |
 | **Secondary button** | transparent, 1px `--teal-border`, white text, radius 10px, optional leading icon. |
+| **Disabled control** | a control that is unavailable stays focusable (`aria-disabled`, not `disabled`), shows at 50% opacity and does not change on hover. Contrast rules exempt it. |
 | **Status pill** | fully rounded, 1px border in the status color, background = status color at ~10% opacity, text in the status color 11–12px/500, leading glyph: ◆ diamond for Compliant and Attention/Partially Compliant, ● dot for Non-Compliant, ⊘ for Not Applicable. |
 | **Time badge** | `--info-bg` fill, `--info` text, radius 6px, 11px ("In 14 days"). |
 | **"NEW" badge** | `--teal-deep` fill, mint text, uppercase 10px/700, radius 4px. |
@@ -139,12 +142,12 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | **Donut** | thick ring (~18% of radius), big centered value + caption; legend to the right: color dot · label · % · (count). |
 | **Area chart** | single series, `--chart-1` line 2px with dot markers, gradient fill, 0–100% axis and month labels in `--text-secondary`. |
 | **Skeleton** | loading placeholder bars and tiles in `--bg-elevated`, `--radius-sm`, with a gentle opacity pulse (none under reduced motion); the container has `aria-busy="true"` and a visually hidden loading label. |
-| **Small ring** | indeterminate progress, 16px: 2px `--bg-elevated` track with a mint arc, spinning; static under reduced motion. Next to a status text, for example "Signing you in…". |
+| **Small ring** | indeterminate progress, 16px: 2px `--bg-elevated` track with a mint arc, spinning; static under reduced motion. Next to a status text, for example "Signing you in…". Inside `--bg-elevated` the track is `--bg-inset`; on a mint button the track is `--mint-hover` and the arc `--on-mint`. |
 | **Radial progress** | mint ring on `--chart-track`, centered % (white, 20px/700) + status text ("Evaluation In Progress…"). |
 | **Stepper** | numbered circles connected by a line: "1 Analysis — 2 Findings — 3 Action Plan"; current step mint, others `--text-secondary`. |
 | **Checklist** | mint filled check-circle for done, mint outlined circle for in progress, text in `--text-secondary`. |
 | **Chat** | user bubble right-aligned, `--bubble-user` fill, white 13/20 text, `--radius-control`, padding 10/14, max 85% of the column, with a 32px initials avatar on `--teal` to its right. Assistant bubble left after a 32px N-mark avatar (`--bg-elevated` circle): `--bg-elevated`, 1px `--border`, `--radius-card`, padding 16; each claim a paragraph followed by its citation chips. Input: auto-growing textarea (1–6 lines, min 44px) on `--bg-inset`, 1px `--border`, `--radius-control`, with a 32px round `--mint` send button and an `--on-mint` icon inside it at the bottom right (the mock draws it blue with a white arrow; one accent wins). |
-| **Citation chip** | button, 28px tall, padding 0/10, `--radius-sm`, 1px `--teal-border`, transparent; mint 12px/500 label "View source · {section}" and a 14px arrow. Hover `--bg-inset` (inside an elevated bubble). Open (`aria-expanded`): `--teal-deep` fill, mint text. A long label truncates at the chip width. |
+| **Citation chip** | button, 28px tall, padding 0/10, `--radius-sm`, 1px `--teal-border`, transparent; mint 12px/500 label "View source · {section}" and a 14px arrow. Hover `--bg-inset` (inside an elevated bubble). Open (`aria-expanded`): `--teal-deep` fill, 1px `--mint` border (the fill alone is only 1.7:1 against the bubble), mint text. A long label truncates at the chip width. |
 | **System message** | refusal, unavailable and connection messages inside the assistant bubble: 16px Lucide icon in `--text-secondary`, a 13px/500 white line, a 12px `--text-secondary` hint, optionally a secondary button ("Try again"). No status colors: these are not compliance states. |
 | **Conversation list row** | min 48px, `--radius-control`; title 13px/500 white, one line; date 11px `--text-secondary`, tabular. Hover `--bg-elevated`. Selected = the nav-active style (`--teal` fill) with every line in `--text-primary` (`--text-secondary` on `--teal` is only 3.6:1). |
 | **Source panel** | card (or sheet) with a sticky header ("Source" 15px/600 + close button), a scrolling body (source title 12px secondary · section 15px/600 · "Version · language" 11px secondary · the stored passage in an inset block, 13/20, in its original language) and a footer (mint "Open the official page" link with an external-link icon, 11px stored-copy caption). |
