@@ -9,6 +9,7 @@ import os
 from collections.abc import Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
@@ -23,7 +24,8 @@ from normetry_ai.db import check_runtime_role, create_db_engine, tenant_transact
 from normetry_ai.ingestion.chunking import chunk_sections, content_hash
 from normetry_ai.ingestion.corpus import Section, load_manifest, parse_source
 from normetry_ai.ingestion.ingest import ingest_source
-from normetry_ai.settings import Settings
+from normetry_ai.llm.usage import Usage, record_usage
+from normetry_ai.settings import AnswerSettings, Settings
 
 pytestmark = pytest.mark.integration
 
@@ -351,6 +353,8 @@ def test_app_ai_cannot_touch_the_migration_history(app_ai: Engine, statement: st
                 *(("corpus_ingestor", privilege) for privilege in ("SELECT", "INSERT", "UPDATE")),
             },
         ),
+        # Append-only: app_ai records usage and reads its own tenant's; corpus_ingestor nothing.
+        ("ai.model_usage", {("app_ai", "SELECT"), ("app_ai", "INSERT")}),
     ],
 )
 def test_grants_are_exactly_what_the_roles_need(
@@ -384,6 +388,8 @@ def test_policies_are_scoped_to_roles_never_public(owner: Engine) -> None:
         ("chunks", "chunks_corpus_write", "ALL", ("corpus_ingestor",)),
         ("sources", "sources_read", "SELECT", ("app_ai",)),
         ("sources", "sources_corpus_write", "ALL", ("corpus_ingestor",)),
+        ("model_usage", "model_usage_read", "SELECT", ("app_ai",)),
+        ("model_usage", "model_usage_insert", "INSERT", ("app_ai",)),
     }
 
 
@@ -402,7 +408,7 @@ def test_every_ai_table_the_app_roles_can_use_forces_rls(owner: Engine) -> None:
     with owner.begin() as connection:
         forced = dict(connection.execute(tables).all())
 
-    assert {"chunks", "sources"} <= forced.keys()  # the check is not vacuous
+    assert {"chunks", "sources", "model_usage"} <= forced.keys()  # the check is not vacuous
     assert all(forced.values()), forced
 
 
@@ -482,16 +488,17 @@ def test_app_starts_as_app_ai_and_refuses_the_owner(urls: dict[str, str]) -> Non
 
 def test_downgrade_to_base_and_upgrade_again(urls: dict[str, str], owner: Engine) -> None:
     tables = text(
-        "SELECT to_regclass('ai.chunks') IS NOT NULL, to_regclass('ai.sources') IS NOT NULL"
+        "SELECT to_regclass('ai.chunks') IS NOT NULL, to_regclass('ai.sources') IS NOT NULL,"
+        " to_regclass('ai.model_usage') IS NOT NULL"
     )
 
     migrate(urls["ai_owner"], "downgrade", "base")
     with owner.begin() as connection:
-        assert tuple(connection.execute(tables).one()) == (False, False)
+        assert tuple(connection.execute(tables).one()) == (False, False, False)
 
     migrate(urls["ai_owner"], "upgrade", "head")
     with owner.begin() as connection:
-        assert tuple(connection.execute(tables).one()) == (True, True)
+        assert tuple(connection.execute(tables).one()) == (True, True, True)
 
 
 @pytest.mark.parametrize(
@@ -505,6 +512,76 @@ def test_tenant_transaction_rejects_an_invalid_tenant(
     engine = create_engine("postgresql+psycopg://")  # never connects
     with pytest.raises(error), tenant_transaction(engine, tenant_id):
         pass
+
+
+# --- Model usage (ai.model_usage) ------------------------------------------------------------
+
+USAGE = Usage("claude-opus-5-5", input_tokens=1200, output_tokens=300, cache_read_input_tokens=50)
+PRICES = AnswerSettings(_env_file=None).model_prices
+USAGE_ROWS = text("SELECT tenant_id, user_id, model, input_tokens, cost_usd FROM ai.model_usage")
+INSERT_USAGE = text(
+    """
+    INSERT INTO ai.model_usage (tenant_id, user_id, model, input_tokens, output_tokens,
+                                cache_creation_input_tokens, cache_read_input_tokens, cost_usd)
+    VALUES (:tenant_id, 'user-b', 'claude-opus-5-5', 1, 1, 0, 0, 0)
+    """
+)
+
+
+def usage_rows(engine: Engine, tenant_id: UUID) -> list[tuple]:
+    with tenant_transaction(engine, tenant_id) as connection:
+        return [tuple(row) for row in connection.execute(USAGE_ROWS)]
+
+
+def test_usage_is_recorded_for_the_tenant_and_user_with_its_cost(app_ai: Engine) -> None:
+    tenant = uuid4()
+
+    record_usage(app_ai, USAGE, tenant_id=tenant, user_id="user-a", prices=PRICES)
+
+    # 1200 x $4 + 300 x $20 + 50 x $0.20 per million tokens
+    assert usage_rows(app_ai, tenant) == [
+        (tenant, "user-a", "claude-opus-5-5", 1200, Decimal("0.01081"))
+    ]
+
+
+def test_another_tenant_cannot_read_change_or_forge_usage(app_ai: Engine) -> None:
+    tenant_a, tenant_b = uuid4(), uuid4()
+    record_usage(app_ai, USAGE, tenant_id=tenant_a, user_id="user-a", prices=PRICES)
+
+    assert usage_rows(app_ai, tenant_b) == []
+    # Append-only: no tenant can change or delete a usage row, its own included.
+    for tenant, statement in [
+        (tenant_b, "UPDATE ai.model_usage SET cost_usd = 0"),
+        (tenant_b, "DELETE FROM ai.model_usage"),
+        (tenant_a, "UPDATE ai.model_usage SET cost_usd = 0"),
+        (tenant_a, "DELETE FROM ai.model_usage"),
+    ]:
+        with denied(), tenant_transaction(app_ai, tenant) as connection:
+            connection.execute(text(statement))
+    with denied(), tenant_transaction(app_ai, tenant_b) as connection:
+        connection.execute(INSERT_USAGE, {"tenant_id": tenant_a})
+    assert len(usage_rows(app_ai, tenant_a)) == 1
+
+
+def test_without_a_tenant_no_usage_is_visible_and_none_can_be_recorded(app_ai: Engine) -> None:
+    tenant = uuid4()
+    record_usage(app_ai, USAGE, tenant_id=tenant, user_id="user-a", prices=PRICES)
+
+    with app_ai.begin() as connection:
+        assert connection.execute(USAGE_ROWS).all() == []
+    with denied(), app_ai.begin() as connection:
+        connection.execute(INSERT_USAGE, {"tenant_id": tenant})
+
+
+def test_only_app_ai_sees_usage(owner: Engine, corpus: Engine, app_ai: Engine) -> None:
+    tenant = uuid4()
+    record_usage(app_ai, USAGE, tenant_id=tenant, user_id="user-a", prices=PRICES)
+
+    # FORCE ROW LEVEL SECURITY with no policy for the owner: nothing, even with the tenant set.
+    with tenant_transaction(owner, tenant) as connection:
+        assert connection.execute(USAGE_ROWS).all() == []
+    with denied(), tenant_transaction(corpus, tenant) as connection:
+        connection.execute(USAGE_ROWS)
 
 
 # --- Corpus sources and ingestion ------------------------------------------------------------
