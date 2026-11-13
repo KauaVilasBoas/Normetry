@@ -1284,6 +1284,7 @@ def test_an_answer_takes_the_questions_language_and_each_citation_its_chunks(
     events = chat_api.events(alice, conversation, "How cold must prepared food be kept?")
 
     assert [name for name, _ in events] == ["claim", "done"]
+    assert events[0][1]["language"] == "en"
     answer_ = chat_api.get(alice, conversation).json()["messages"][-1]
     assert answer_["language"] == "en"
     assert [c["language"] for claim in answer_["claims"] for c in claim["citations"]] == ["pt"]
@@ -1321,6 +1322,8 @@ def test_guarded_claims_stream_in_order_then_done_and_are_stored(
     events = chat_api.events(alice, conversation, "How must cold and hot food be held?")
 
     assert [name for name, _ in events] == ["claim", "claim", "done"]
+    # Each streamed claim also carries the answer language; the stored claims do not.
+    assert [events[0][1].pop("language"), events[1][1].pop("language")] == ["en", "en"]
     cold, hot = events[0][1], events[1][1]
     assert [cold["text"], hot["text"]] == [COLD_CLAIM["text"], HOT_CLAIM["text"]]
     [citation] = cold["citations"]
@@ -1667,6 +1670,7 @@ def test_an_answer_cut_short_by_the_client_is_stored_with_its_usage(
         stored = conversation_store.get_conversation(connection, alice.user, conversation)
     assert stored is not None
     answer_ = stored["messages"][-1]
-    assert (answer_["kind"], answer_["claims"]) == ("answer", [seen[0].data])
+    streamed = {key: value for key, value in seen[0].data.items() if key != "language"}
+    assert (answer_["kind"], answer_["claims"]) == ("answer", [streamed])
     # The call was cut short: its input tokens are recorded, output tokens are not known yet.
     assert usage_by_user(app_ai, alice.tenant) == [("user-a", "claude-opus-5-5", 1)]
