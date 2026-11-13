@@ -1,8 +1,10 @@
 """Service configuration, read from `NORMETRY_*` environment variables (or `src/ai/.env`)."""
 
+from decimal import Decimal
 from pathlib import Path
+from typing import Literal, Self
 
-from pydantic import Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _CONFIG = SettingsConfigDict(
@@ -56,6 +58,66 @@ class RetrievalSettings(BaseSettings):
     reranker_model_revision: str = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
     # Tokens per (question, chunk) pair; the longest corpus chunk is about 535 tokens.
     reranker_max_length: int = Field(default=1024, ge=1)
+
+
+class ModelPrice(BaseModel):
+    """US dollars per million tokens of one model."""
+
+    input: Decimal
+    output: Decimal
+    cache_write: Decimal  # 5-minute cache writes
+    cache_read: Decimal
+
+
+class AnswerSettings(BaseSettings):
+    """The chat model and the citation guard (ADR 007).
+
+    Environment only, never src/ai/.env: the Anthropic API key comes from the AppHost parameter
+    `anthropic-api-key` (AppHost user secrets) or from the shell, never from a file.
+    """
+
+    model_config = SettingsConfigDict({**_CONFIG, "env_file": None})
+
+    # Without it the service still starts, and every answer is "unavailable".
+    anthropic_api_key: SecretStr | None = None
+    chat_model: str = "claude-opus-5-5"
+    # Thinking counts toward it.
+    chat_max_tokens: int = Field(default=16000, gt=0)
+    chat_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    # Below this best re-ranker score the answer is refused before any model call. Tuned with the
+    # generation evals, on the scale of RetrievedChunk.score.
+    answer_min_rerank_score: float = 0.1
+    # A shorter quote proves nothing: a word like "food" is in most chunks.
+    answer_min_quote_words: int = Field(default=4, ge=1)
+    # Anthropic list prices (November 2026). A model call with no price here is refused at startup.
+    # Set NORMETRY_MODEL_PRICES as JSON to change them.
+    model_prices: dict[str, ModelPrice] = {
+        "claude-opus-5-5": ModelPrice(
+            input=Decimal("4"),
+            output=Decimal("20"),
+            cache_write=Decimal("5"),
+            cache_read=Decimal("0.2"),
+        ),
+        "claude-sonnet-5-5": ModelPrice(
+            input=Decimal("2"),
+            output=Decimal("10"),
+            cache_write=Decimal("2.5"),
+            cache_read=Decimal("0.1"),
+        ),
+        # Prompts up to 100K tokens; answers stay far below that.
+        "claude-haiku-5-5": ModelPrice(
+            input=Decimal("0.1"),
+            output=Decimal("0.5"),
+            cache_write=Decimal("0.125"),
+            cache_read=Decimal("0.01"),
+        ),
+    }
+
+    @model_validator(mode="after")
+    def _chat_model_has_a_price(self) -> Self:
+        if self.chat_model not in self.model_prices:
+            raise ValueError(f"NORMETRY_MODEL_PRICES has no price for {self.chat_model!r}")
+        return self
 
 
 class CorpusSettings(BaseSettings):
