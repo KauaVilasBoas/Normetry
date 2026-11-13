@@ -1,6 +1,6 @@
 import { ErrorTimeout, InMemoryWebStorage } from "oidc-client-ts";
-import { describe, expect, it } from "vitest";
-import { createUserManager, isUnreachable, safeReturnPath } from "./oidc";
+import { describe, expect, it, vi } from "vitest";
+import { createUserManager, isUnreachable, oidcAuthority, safeReturnPath } from "./oidc";
 
 describe("safeReturnPath", () => {
   it.each([
@@ -32,6 +32,23 @@ describe("isUnreachable", () => {
     expect(isUnreachable(new TypeError("Failed to fetch"))).toBe(true);
     expect(isUnreachable(new ErrorTimeout("Network timed out"))).toBe(true);
     expect(isUnreachable(new Error("invalid_grant"))).toBe(false);
+  });
+});
+
+describe("oidcAuthority", () => {
+  it("uses VITE_OIDC_AUTHORITY when it is set", () => {
+    vi.stubEnv("VITE_OIDC_AUTHORITY", "https://id.normetry.example/realms/normetry");
+    vi.stubEnv("DEV", false);
+
+    expect(oidcAuthority()).toBe("https://id.normetry.example/realms/normetry");
+  });
+
+  it("falls back to the local dev realm in development only", () => {
+    vi.stubEnv("VITE_OIDC_AUTHORITY", "");
+
+    expect(oidcAuthority()).toBe("http://localhost:8180/realms/normetry");
+    vi.stubEnv("DEV", false);
+    expect(() => oidcAuthority()).toThrow("VITE_OIDC_AUTHORITY");
   });
 });
 

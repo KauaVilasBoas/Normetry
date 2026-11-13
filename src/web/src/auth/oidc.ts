@@ -20,10 +20,15 @@ export type OidcClient = Pick<
   | "events"
 >;
 
-export function createUserManager(
-  authority: string = import.meta.env.VITE_OIDC_AUTHORITY ??
-    "http://localhost:8180/realms/normetry",
-): UserManager {
+/** The Keycloak realm URL. The local dev realm is a fallback in development only. */
+export function oidcAuthority(): string {
+  const authority = import.meta.env.VITE_OIDC_AUTHORITY;
+  if (authority) return authority;
+  if (import.meta.env.DEV) return "http://localhost:8180/realms/normetry";
+  throw new Error("VITE_OIDC_AUTHORITY is not set: build the web app with the Keycloak realm URL.");
+}
+
+export function createUserManager(authority: string = oidcAuthority()): UserManager {
   const origin = window.location.origin;
   return new UserManager({
     authority,
