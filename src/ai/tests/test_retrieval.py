@@ -19,7 +19,7 @@ from normetry_ai.ingestion.corpus import Section
 from normetry_ai.ingestion.ingest import ingest_source
 from normetry_ai.retrieval.hybrid import Retriever, reciprocal_rank_fusion
 from normetry_ai.retrieval.language import detect_language
-from normetry_ai.retrieval.policy import JurisdictionScope, jurisdictions_for
+from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions, jurisdictions_for
 from normetry_ai.settings import RetrievalSettings
 
 PACKAGE = Path(__file__).resolve().parents[1] / "normetry_ai"
@@ -38,6 +38,22 @@ def test_the_policy_returns_the_establishment_jurisdiction_only() -> None:
     assert jurisdictions_for("BR") == JurisdictionScope(("BR",))
     with pytest.raises(ValueError, match="unknown jurisdiction"):
         jurisdictions_for("br")
+
+
+@pytest.mark.parametrize(
+    ("jurisdiction", "language", "versions"),
+    [
+        ("EU", "pt", [("EU", "pt")]),
+        ("EU", "en", [("EU", "en")]),
+        ("BR", "pt", [("BR", "pt")]),
+        ("BR", "en", [("BR", "pt")]),
+        ("US", "pt", [("US", "en")]),
+    ],
+)
+def test_one_language_version_is_searched_only_where_there_are_several(
+    jurisdiction: str, language: str, versions: list[tuple[str, str]]
+) -> None:
+    assert corpus_versions(jurisdictions_for(jurisdiction), language) == versions
 
 
 def test_only_the_policy_builds_a_jurisdiction_scope() -> None:
@@ -159,9 +175,12 @@ def corpus_source_id(engine: Engine, manifest_id: str) -> UUID:
         (EU_PT_QUESTION, "EU", "pt"),
         (EU_EN_QUESTION, "EU", "en"),
         (US_QUESTION, "US", "en"),
+        # One language version only: searched whatever the question's language.
+        (US_QUESTION, "BR", "pt"),
+        (BR_QUESTION, "US", "en"),
     ],
 )
-def test_retrieval_returns_only_the_scope_jurisdiction_in_the_question_language(
+def test_retrieval_returns_only_the_scope_jurisdiction_and_version(
     app_ai: Engine,
     sources: dict[tuple[str, str], dict],
     retriever: Retriever,
@@ -190,13 +209,14 @@ def test_retrieval_returns_only_the_scope_jurisdiction_in_the_question_language(
 def test_a_br_question_never_returns_fda_or_eu_chunks(
     app_ai: Engine, sources: dict[tuple[str, str], dict], retriever: Retriever
 ) -> None:
-    # Even one asked in English: the BR corpus has no English text, so nothing comes back.
+    # Asked in English, it still gets the Portuguese RDC text, never the English FDA or EU text.
     with tenant_transaction(app_ai, uuid4()) as connection:
         portuguese = retriever.retrieve(connection, BR_QUESTION, jurisdictions_for("BR"))
         english = retriever.retrieve(connection, US_QUESTION, jurisdictions_for("BR"))
 
-    assert portuguese and {chunk.jurisdiction for chunk in portuguese} == {"BR"}
-    assert english == []
+    for chunks in (portuguese, english):
+        assert chunks and {(c.jurisdiction, c.language) for c in chunks} == {("BR", "pt")}
+    assert english[0].content == US_QUESTION
 
 
 @pytest.mark.integration
