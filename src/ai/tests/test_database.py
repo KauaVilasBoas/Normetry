@@ -1578,6 +1578,33 @@ def test_an_old_citation_still_opens_after_its_source_is_replaced(
     assert citation["officialUrl"] == v1["official_url"]
 
 
+def test_an_answer_is_stored_only_in_the_users_own_conversation(app_ai: Engine) -> None:
+    alice = person()
+    with tenant_transaction(app_ai, alice.tenant) as connection:
+        conversation = conversation_store.create_conversation(
+            connection,
+            tenant_id=alice.tenant,
+            user_id=alice.user,
+            establishment_id=alice.establishment,
+            jurisdiction=alice.jurisdiction,
+        )
+        # Another user of the same tenant: RLS lets the row through, the user filter does not.
+        conversation_store.store_answer(
+            connection,
+            UUID(str(conversation["id"])),
+            user_id="user-b",
+            kind="unavailable",
+            reason=None,
+            language="en",
+            claims=[],
+        )
+        stored = conversation_store.get_conversation(
+            connection, alice.user, UUID(str(conversation["id"]))
+        )
+
+    assert stored is not None and stored["messages"] == []
+
+
 def test_an_answer_cut_short_by_the_client_is_stored_with_its_usage(
     app_ai: Engine,
 ) -> None:
