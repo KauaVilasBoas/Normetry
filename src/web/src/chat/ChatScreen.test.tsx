@@ -392,6 +392,14 @@ describe("a saved conversation", () => {
     await expectNoAxeViolations();
   });
 
+  it("says it is loading once when the title is not known yet", async () => {
+    renderChat({ "/ai/conversations/c-1": never }, { path: "/conversations/c-1" });
+
+    const heading = await screen.findByRole("heading", { level: 2, name: "Loading conversation…" });
+    expect(screen.getAllByText("Loading conversation…")).toEqual([heading.lastElementChild]);
+    await expectNoAxeViolations();
+  });
+
   it("shows stored answers whole, with their chips", async () => {
     renderChat(
       { "/ai/conversations": { body: [summary("c-1")] }, "/ai/conversations/c-1": { body: saved } },
