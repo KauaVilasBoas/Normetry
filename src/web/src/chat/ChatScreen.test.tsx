@@ -421,6 +421,27 @@ describe("a saved conversation", () => {
     expect(await composer()).toHaveFocus();
   });
 
+  it("says so when the conversation is gone on send, and focuses the way out", async () => {
+    renderChat(
+      {
+        "/ai/conversations": { body: [summary("c-1")] },
+        "/ai/conversations/c-1": { body: saved },
+        [messagesRoute("c-1")]: { status: 404 },
+      },
+      { path: "/conversations/c-1" },
+    );
+    await screen.findByRole("list", { name: "Messages" });
+
+    await ask("And frozen food?");
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("This conversation isn't available");
+    await waitFor(() =>
+      expect(within(alert).getByRole("button", { name: "Start a new conversation" })).toHaveFocus(),
+    );
+    await expectNoAxeViolations();
+  });
+
   it.each([
     ["from the list", { body: [summary("c-sp", "e-sao-paulo")] }],
     ["from the conversation when the list fails", { status: 404 }],

@@ -16,7 +16,7 @@ export function Button({
   onElevated = false,
   className = "",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
+}: ComponentProps<"button"> & {
   variant: keyof typeof buttonVariants;
   onElevated?: boolean;
 }) {
