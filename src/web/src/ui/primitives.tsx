@@ -124,8 +124,9 @@ export function CitationChip({
     <button
       type="button"
       aria-expanded={expanded}
-      className={`inline-flex h-7 max-w-full items-center gap-1.5 rounded-sm border border-teal-border px-2.5 text-small font-medium text-mint focus-visible:-outline-offset-2 ${
-        expanded ? "bg-teal-deep" : "hover:bg-inset"
+      // Open: the mint border marks it; the fill alone is 1.7:1 against the bubble.
+      className={`inline-flex h-7 max-w-full items-center gap-1.5 rounded-sm border px-2.5 text-small font-medium text-mint focus-visible:-outline-offset-2 ${
+        expanded ? "border-mint bg-teal-deep" : "border-teal-border hover:bg-inset"
       }`}
       {...props}
     >
