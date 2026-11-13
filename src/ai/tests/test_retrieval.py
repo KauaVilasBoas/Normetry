@@ -11,12 +11,13 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, TextClause, text
 
 from normetry_ai.db import tenant_transaction
 from normetry_ai.evals.dataset import load_items
 from normetry_ai.ingestion.corpus import Section
 from normetry_ai.ingestion.ingest import ingest_source
+from normetry_ai.retrieval import hybrid
 from normetry_ai.retrieval.hybrid import Retriever, reciprocal_rank_fusion
 from normetry_ai.retrieval.language import detect_language
 from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions, jurisdictions_for
@@ -251,6 +252,26 @@ def test_a_tenant_chunk_is_never_returned_as_regulation_text(
 
     assert tenant_chunk not in {*trace.vector, *trace.text}
     assert trace.chunks[0].jurisdiction == "BR"
+
+
+@pytest.mark.parametrize("query", [hybrid._VECTOR_SEARCH, hybrid._TEXT_SEARCH])
+def test_each_search_reads_the_corpus_only_and_joins_sources_on_three_columns(
+    query: TextClause,
+) -> None:
+    """The behavioural test above cannot catch either rule being dropped yet.
+
+    A tenant row's jurisdiction is NULL (chunks_corpus_jurisdiction_check), so the jurisdiction
+    filter alone keeps it out, and no tenant row can pass the join either way. Until tenant rows
+    carry a jurisdiction (phase 2 uploads), only the query text shows `tenant_id IS NULL` and the
+    (source_id, jurisdiction, language) join of src/ai/CLAUDE.md, "Retrieval under RLS".
+    """
+    sql = " ".join(query.text.split())
+
+    assert "WHERE tenant_id IS NULL" in sql
+    assert (
+        "JOIN ai.sources s ON s.id = h.source_id AND s.jurisdiction = h.jurisdiction"
+        " AND s.language = h.language" in sql
+    )
 
 
 @pytest.mark.integration
