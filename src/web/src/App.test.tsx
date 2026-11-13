@@ -1,9 +1,17 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { User } from "oidc-client-ts";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { createAuth } from "./auth/session";
-import { establishments, expectNoAxeViolations, fakeOidc, me, stubApi } from "./test/fakes";
+import {
+  establishments,
+  expectNoAxeViolations,
+  fakeOidc,
+  fakeUser,
+  me,
+  stubApi,
+} from "./test/fakes";
 
 const storageKey = `normetry.establishment.${me.tenantId}.${me.userId}`;
 const never = () => new Promise<Response>(() => {});
@@ -337,6 +345,24 @@ describe("shell", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus(),
     );
+  });
+
+  it.each([
+    [
+      "only an email",
+      { sub: "user-1", email: "owner@bistro.example" },
+      "Account menu, owner@bistro.example",
+      1,
+    ],
+    ["neither name nor email", { sub: "user-1" }, "Account menu", 0],
+  ])("labels the account menu for a profile with %s", async (_case, profile, label, emails) => {
+    renderApp(
+      { "/me": { body: me }, "/establishments": { body: establishments } },
+      fakeOidc(fakeUser({ profile: profile as User["profile"] })),
+    );
+
+    const card = await screen.findByRole("button", { name: label });
+    expect(within(card).queryAllByText("owner@bistro.example")).toHaveLength(emails);
   });
 
   it("signs out from the account menu and forgets the establishment", async () => {

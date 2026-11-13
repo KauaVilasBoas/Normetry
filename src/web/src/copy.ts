@@ -31,6 +31,7 @@ export const copy = {
     closeNavigation: "Close navigation",
     organization: "Organization:",
     accountMenu: "Account menu, {name}",
+    accountMenuUnnamed: "Account menu",
     signOut: "Sign out",
   },
   switcher: {

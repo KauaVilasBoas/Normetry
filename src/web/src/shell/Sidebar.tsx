@@ -87,7 +87,9 @@ function TenantLabel({ me }: { me: UseQueryResult<Me> }) {
 
 function UserMenu({ roles }: { roles: string[] | undefined }) {
   const { profile, signOut } = useSession();
+  // Without a name the email takes its place and is not repeated below it.
   const name = profile.name ?? profile.email ?? "";
+  const email = profile.name ? profile.email : undefined;
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -98,7 +100,7 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
-        aria-label={format(copy.shell.accountMenu, { name })}
+        aria-label={name ? format(copy.shell.accountMenu, { name }) : copy.shell.accountMenuUnnamed}
         className="group flex w-full items-center gap-3 rounded-control p-2 text-left hover:bg-elevated"
       >
         <span
@@ -110,9 +112,11 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-body font-medium">{name}</span>
           {/* Muted only on the sidebar: on the hover surface (--bg-elevated) it would fail contrast. */}
-          <span className="block truncate text-caption text-text-muted group-hover:text-text-secondary">
-            {profile.email}
-          </span>
+          {email && (
+            <span className="block truncate text-caption text-text-muted group-hover:text-text-secondary">
+              {email}
+            </span>
+          )}
         </span>
         <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-text-secondary" />
       </DropdownMenu.Trigger>
@@ -125,7 +129,9 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
         >
           <DropdownMenu.Label className="px-2 pb-2">
             <span className="block truncate text-body font-medium">{name}</span>
-            <span className="block truncate text-small text-text-secondary">{profile.email}</span>
+            {email && (
+              <span className="block truncate text-small text-text-secondary">{email}</span>
+            )}
             {roles && roles.length > 0 && (
               <span className="block text-small text-text-secondary">{roles.join(", ")}</span>
             )}
