@@ -300,6 +300,35 @@ def test_a_model_failure_after_some_claims_ends_unavailable() -> None:
     assert recorded == []
 
 
+STARTED = Usage(model="claude-opus-5-5", input_tokens=1200, output_tokens=1)
+
+
+def test_a_call_cut_short_records_the_usage_so_far_once() -> None:
+    # The last snapshot before the failure is recorded, once.
+    events, recorded = run(FakeModel(STARTED, COLD_CLAIM, fail=True))
+
+    assert events == [SHOWN_COLD_CLAIM, Unavailable()]
+    assert recorded == [STARTED]
+
+
+def stop_after_first_claim(model: Any) -> list[Usage]:
+    recorded: list[Usage] = []
+
+    async def first_event() -> None:
+        events = answer(
+            QUESTION, CHUNKS, model=model, settings=SETTINGS, record_usage=recorded.append
+        )
+        assert await anext(events) == SHOWN_COLD_CLAIM
+        await events.aclose()  # the client went away
+
+    asyncio.run(first_event())
+    return recorded
+
+
+def test_a_caller_that_stops_early_records_the_usage_so_far() -> None:
+    assert stop_after_first_claim(FakeModel(STARTED, COLD_CLAIM, COLD_CLAIM)) == [STARTED]
+
+
 def sse(*events: dict[str, Any]) -> bytes:
     return "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events).encode()
 
@@ -314,47 +343,61 @@ def claude(handler: Callable[[httpx2.Request], httpx2.Response]) -> ClaudeClaimM
     return ClaudeClaimModel(SETTINGS, client=client)
 
 
+def claude_stream(body: str) -> bytes:
+    """The SSE body of a streamed Claude message whose text is `body`."""
+    message = {
+        "id": "msg_test",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-opus-5-5",
+        "content": [],
+        "stop_reason": None,
+        "stop_sequence": None,
+        "usage": {"input_tokens": 1200, "output_tokens": 1},
+    }
+    return sse(
+        {"type": "message_start", "message": message},
+        {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+        # Small pieces, so claims and strings are cut mid-way.
+        *(
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {"type": "text_delta", "text": body[i : i + 7]},
+            }
+            for i in range(0, len(body), 7)
+        ),
+        {"type": "content_block_stop", "index": 0},
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+            "usage": {"output_tokens": 300},
+        },
+        {"type": "message_stop"},
+    )
+
+
+def test_claude_closed_after_the_first_claim_records_the_input_tokens() -> None:
+    body = json.dumps({"claims": [COLD_CLAIM, COLD_CLAIM]})
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200, headers={"content-type": "text/event-stream"}, content=claude_stream(body)
+        )
+
+    # Output tokens arrive only with the final message_delta.
+    assert stop_after_first_claim(claude(handler)) == [STARTED]
+
+
 def test_claude_streams_each_claim_as_soon_as_it_is_complete() -> None:
     body = json.dumps({"claims": [COLD_CLAIM, raw_claim("Invented.", ("E5", COLD_QUOTE))]})
     requests: list[dict[str, Any]] = []
 
     def handler(request: httpx2.Request) -> httpx2.Response:
         requests.append(json.loads(request.content))
-        message = {
-            "id": "msg_test",
-            "type": "message",
-            "role": "assistant",
-            "model": "claude-opus-5-5",
-            "content": [],
-            "stop_reason": None,
-            "stop_sequence": None,
-            "usage": {"input_tokens": 1200, "output_tokens": 1},
-        }
-        events = sse(
-            {"type": "message_start", "message": message},
-            {
-                "type": "content_block_start",
-                "index": 0,
-                "content_block": {"type": "text", "text": ""},
-            },
-            # Small pieces, so claims and strings are cut mid-way.
-            *(
-                {
-                    "type": "content_block_delta",
-                    "index": 0,
-                    "delta": {"type": "text_delta", "text": body[i : i + 7]},
-                }
-                for i in range(0, len(body), 7)
-            ),
-            {"type": "content_block_stop", "index": 0},
-            {
-                "type": "message_delta",
-                "delta": {"stop_reason": "end_turn", "stop_sequence": None},
-                "usage": {"output_tokens": 300},
-            },
-            {"type": "message_stop"},
+        return httpx2.Response(
+            200, headers={"content-type": "text/event-stream"}, content=claude_stream(body)
         )
-        return httpx2.Response(200, headers={"content-type": "text/event-stream"}, content=events)
 
     events, recorded = run(claude(handler))
 
