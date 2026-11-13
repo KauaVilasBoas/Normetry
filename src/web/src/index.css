@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+/* Tokens from docs/design/DESIGN.md. Components use them only through the theme below. */
+:root {
+  --bg-canvas: #010a18;
+  --bg-sidebar: #010d1b;
+  --bg-app: #04192e;
+  --bg-card: #06182e;
+  --bg-inset: #041425;
+  --bg-elevated: #0c203b;
+  --border: #0e233c;
+  --canvas-glow: #001427;
+  --scrim: rgb(1 10 24 / 0.7);
+
+  --mint: #0dc6ce;
+  --mint-hover: #09b9b8;
+  --on-mint: #06283a;
+  --teal: #005e7a;
+  --teal-border: #2e7d99;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a9b8cc;
+  --text-muted: #6b7f99;
+
+  --neutral: #5b6b82;
+  --chart-2: #23b6fd;
+
+  color-scheme: dark;
+}
+
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* DESIGN.md §3 type scale */
+  --text-caption: 11px;
+  --text-caption--line-height: 16px;
+  --text-small: 12px;
+  --text-small--line-height: 16px;
+  --text-body: 13px;
+  --text-body--line-height: 20px;
+  --text-title: 15px;
+  --text-title--line-height: 20px;
+  --text-greeting: 22px;
+  --text-greeting--line-height: 28px;
+
+  --radius-sm: 8px;
+  --radius-control: 10px;
+  --radius-card: 12px;
+  --radius-pill: 9999px;
+
+  --animate-fade-in: fade-in 180ms ease-out;
+  --animate-drawer-in: drawer-in 180ms ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-sidebar: var(--bg-sidebar);
+  --color-app: var(--bg-app);
+  --color-card: var(--bg-card);
+  --color-inset: var(--bg-inset);
+  --color-elevated: var(--bg-elevated);
+  --color-border: var(--border);
+  --color-scrim: var(--scrim);
+  --color-mint: var(--mint);
+  --color-mint-hover: var(--mint-hover);
+  --color-on-mint: var(--on-mint);
+  --color-teal: var(--teal);
+  --color-teal-border: var(--teal-border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-neutral: var(--neutral);
+  --color-chart-2: var(--chart-2);
+}
+
+/* Auth screens: canvas with the subtle glow toward the bottom right. */
+@utility bg-canvas-glow {
+  background:
+    radial-gradient(ellipse at 100% 100%, var(--canvas-glow), transparent 60%), var(--bg-canvas);
+}
+
+@layer base {
+  body {
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  /* Lucide outline icons at 1.5px (DESIGN.md §5). */
+  .lucide {
+    stroke-width: 1.5;
+  }
+
+  /* Focus ring on every interactive element; popovers and rows inset it. */
+  :focus-visible {
+    outline: 2px solid var(--mint);
+    outline-offset: 2px;
+  }
+}
