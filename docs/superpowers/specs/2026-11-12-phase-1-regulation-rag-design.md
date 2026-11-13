@@ -87,11 +87,11 @@ The phase fails, even if every feature works, if any of these happens:
 ### Ingestion
 
 - A command in the AI service that the developer runs, also available as an AppHost resource started on demand. It runs as `corpus_ingestor`.
-- Sources: the files listed in `corpus/manifest.json`, fetched and verified by `corpus/scripts/fetch_corpus.py`. PDFs and the RDC HTML page are parsed with Docling (already the plan in `src/ai/CLAUDE.md`).
+- Sources: the files listed in `corpus/manifest.json`, fetched and verified by `corpus/scripts/fetch_corpus.py`. The PDFs are read from their text layer with pypdfium2 and the RDC page with the standard HTML parser (#46). Docling, the original plan, took about 20 minutes on the FDA PDF on a CPU-only machine against about 1 second for the text layer, and the cuts follow numbering printed in the text; it stays an option for tenant uploads in phase 2 (scans, tables).
 - What is ingested, and therefore citable (author's call):
   - FDA Food Code: chapters 1 to 8, the code provisions. No annexes in phase 1: Annex 3 repeats the section numbers to explain them and binds nothing, and Annex 4 holds the third-party table.
   - Regulation 852/2004: the articles and the annexes (Annex II holds most of the hygiene requirements). No recitals.
-  - RDC 216/2004: the Technical Regulation, items 1 to 5 of the annex. The resolution's preamble articles stay out.
+  - RDC 216/2004: the Technical Regulation, items 1 to 4.12 of the annex (it has no item 5). The resolution's preamble articles stay out.
   - A "not covered" item in the dataset means not covered by these parts.
 - Chunks follow the structure of each text: FDA sections (for example `3-501.16`), EU articles and annex chapters, RDC items (for example `4.8.15`). `section_path` holds that location; the source, version and language come from the manifest.
 - Idempotent: running it twice changes nothing, and a new version of a source replaces its chunks (content hash, as `ai.chunks` already supports).
