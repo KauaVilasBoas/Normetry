@@ -191,6 +191,52 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     }
 
     [Theory]
+    [InlineData("/ai/establishments/{id}%2Fconversations/c1/messages")]
+    [InlineData("/ai/establishments/{id}%2fconversations/c1/messages")]
+    [InlineData("/ai/establishments/{id}%252Fconversations/c1/messages")]
+    [InlineData("/ai/establishments/{id}/conversations%2Fc1%2Fmessages")]
+    [InlineData("/ai/establishments/{id}/conversations/c1%2fmessages")]
+    [InlineData("/ai/establishments/{id}/conversations/c1%252Fmessages")]
+    [InlineData("/ai/establishments/{id}//conversations/c1/messages")]
+    [InlineData("/ai/establishments/{id}/conversations/c1/messages//")]
+    public async Task A_path_with_an_encoded_slash_or_an_empty_segment_gets_404_and_is_not_counted(
+        string path
+    )
+    {
+        var tenant = await NewTenantAsync();
+        var establishment = await NewEstablishmentAsync(tenant);
+        using var client = Client(tenant);
+
+        using var response = await client.PostAsync(
+            path.Replace("{id}", establishment.ToString()),
+            null,
+            Ct
+        );
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(0, hits);
+        Assert.Equal(DemoLimit, (await QuotaAsync(client)).Remaining);
+    }
+
+    [Fact]
+    public async Task A_message_with_one_trailing_slash_is_counted_and_forwarded()
+    {
+        var tenant = await NewTenantAsync();
+        var establishment = await NewEstablishmentAsync(tenant);
+        using var client = Client(tenant);
+
+        using var response = await client.PostAsync(
+            $"/ai/establishments/{establishment}/conversations/c1/messages/",
+            null,
+            Ct
+        );
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, hits);
+        Assert.Equal(DemoLimit - 1, Header(response, "RateLimit-Remaining"));
+    }
+
+    [Theory]
     [InlineData("GET", "/ai/conversations", "/conversations")]
     [InlineData("GET", "/ai/conversations/c1", "/conversations/c1")]
     [InlineData("DELETE", "/ai/conversations/c1", "/conversations/c1")]

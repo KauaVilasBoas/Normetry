@@ -21,8 +21,9 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
     public const string RouteValue = "rest";
 
     /// <summary>
-    /// Proxy pipeline step for the establishment route. An establishment id that is malformed,
-    /// unknown or another tenant's (RLS hides it) gets 404. A chat message is then counted
+    /// Proxy pipeline step for the establishment route. A path the AI service could read
+    /// differently (an encoded slash or percent, an empty segment) and an establishment id that is
+    /// malformed, unknown or another tenant's (RLS hides it) get 404. A chat message is then counted
     /// against the daily quota: over the limit the answer is 429 with <c>Retry-After</c>. Either
     /// way nothing reaches the AI service. Other routes pass through untouched.
     /// </summary>
@@ -34,9 +35,15 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
             return;
         }
 
-        var segments = (context.Request.RouteValues[RouteValue] as string ?? "").Split('/');
-        // Only the canonical lower-case form, so the forwarded path holds exactly the header value.
-        if (!Guid.TryParseExact(segments[0], "D", out var id) || segments[0] != id.ToString())
+        var rest = context.Request.RouteValues[RouteValue] as string ?? "";
+        var segments = rest.Split('/');
+        if (
+            !IsPlainPath(rest, segments)
+            // Only the canonical lower-case form, so the forwarded path holds exactly the header
+            // value.
+            || !Guid.TryParseExact(segments[0], "D", out var id)
+            || segments[0] != id.ToString()
+        )
         {
             await Results.Problem(statusCode: StatusCodes.Status404NotFound).ExecuteAsync(context);
             return;
@@ -64,6 +71,13 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
         context.Features.Set(new EstablishmentScope(id, establishment.Value.Jurisdiction));
         await next(context);
     }
+
+    // Kestrel decodes the path except %2F, so a '%' left in it comes from %2F or %25: the AI
+    // service may decode it into a slash and route a path the core did not see, such as a message
+    // the quota never counted. An empty segment (//) is refused for the same reason; one trailing
+    // slash is fine.
+    private static bool IsPlainPath(string rest, string[] segments) =>
+        !rest.Contains('%') && !segments[..^1].Contains("");
 
     // POST {id}/conversations/{conversationId}/messages, in any case and with a trailing slash
     // too: counting a spelling the AI service rejects costs the caller one message, while missing
