@@ -501,7 +501,7 @@ function DeleteConversation({
         onClick={(event) => {
           if (busy) event.preventDefault();
         }}
-        className={`${iconButton} -mr-2`}
+        className={`${iconButton} -mr-2 aria-disabled:opacity-50 aria-disabled:hover:bg-transparent`}
       >
         <Trash2 aria-hidden="true" className="size-5" />
       </AlertDialog.Trigger>
