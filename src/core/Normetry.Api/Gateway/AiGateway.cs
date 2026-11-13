@@ -72,7 +72,7 @@ internal static class AiGateway
         // not fall through to the catch-all route without establishment headers.
         RouteConfig[] routes =
         [
-            Route("ai", "/ai/{**catch-all}"),
+            Route("ai", $"/ai/{{**{EstablishmentScope.CatchAllRouteValue}}}"),
             Route(
                 EstablishmentScope.RouteId,
                 $"/ai/establishments/{{**{EstablishmentScope.RouteValue}}}"
