@@ -97,14 +97,11 @@ class ClaudeClaimModel:
         self, settings: AnswerSettings, client: anthropic.AsyncAnthropic | None = None
     ) -> None:
         self._settings = settings
-        key = settings.anthropic_api_key
-        if client is None and key is not None:
-            # The key from settings only: never ANTHROPIC_API_KEY or a local CLI profile.
-            client = anthropic.AsyncAnthropic(api_key=key.get_secret_value())
-        self._client = client
+        self._client = client or _client(settings)
 
     async def stream_claims(self, system: str, user: str) -> AsyncGenerator[Any | Usage, None]:
-        """Raw claim objects (untrusted: the guard checks them), then one Usage.
+        """A first Usage (input tokens), raw claim objects (untrusted: the guard checks them), then
+        the final Usage.
 
         Raises ModelUnavailable, possibly after some claims: those were complete, so they stand.
         """
@@ -123,28 +120,46 @@ class ClaudeClaimModel:
                 system=system,
                 messages=[{"role": "user", "content": user}],
             ) as stream:
-                async for delta in stream.text_stream:
-                    for claim in parser.feed(delta):
-                        yield claim
+                async for event in stream:
+                    if event.type == "message_start":
+                        # Input tokens are known from the start, output tokens only at the end:
+                        # handed on now, so a call cut short still records what it read.
+                        yield _usage(settings.chat_model, event.message.usage)
+                    elif event.type == "text":
+                        for claim in parser.feed(event.text):
+                            yield claim
                 message = await stream.get_final_message()
         except anthropic.AnthropicError as error:
-            # Status, error type and request id only: never the prompt or the documents.
-            logger.warning(
-                "Claude call failed: %s status=%s type=%s request_id=%s",
-                type(error).__name__,
-                getattr(error, "status_code", None),
-                getattr(error, "type", None),
-                getattr(error, "request_id", None),
-            )
-            raise ModelUnavailable(type(error).__name__) from error
+            raise _unavailable(error) from error
         if message.stop_reason != "end_turn":
             # max_tokens cuts the last claim (never handed on); refusal ends the answer early.
             logger.warning("Claude stopped with %s", message.stop_reason)
-        usage = message.usage
-        yield Usage(
-            model=settings.chat_model,
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
-            cache_creation_input_tokens=usage.cache_creation_input_tokens or 0,
-            cache_read_input_tokens=usage.cache_read_input_tokens or 0,
-        )
+        yield _usage(settings.chat_model, message.usage)
+
+
+def _client(settings: AnswerSettings) -> anthropic.AsyncAnthropic | None:
+    key = settings.anthropic_api_key
+    # The key from settings only: never ANTHROPIC_API_KEY or a local CLI profile.
+    return None if key is None else anthropic.AsyncAnthropic(api_key=key.get_secret_value())
+
+
+def _unavailable(error: anthropic.AnthropicError) -> ModelUnavailable:
+    # Status, error type and request id only: never the prompt or the documents.
+    logger.warning(
+        "Claude call failed: %s status=%s type=%s request_id=%s",
+        type(error).__name__,
+        getattr(error, "status_code", None),
+        getattr(error, "type", None),
+        getattr(error, "request_id", None),
+    )
+    return ModelUnavailable(type(error).__name__)
+
+
+def _usage(model: str, usage: anthropic.types.Usage) -> Usage:
+    return Usage(
+        model=model,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        cache_creation_input_tokens=usage.cache_creation_input_tokens or 0,
+        cache_read_input_tokens=usage.cache_read_input_tokens or 0,
+    )
