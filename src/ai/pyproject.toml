@@ -47,6 +47,8 @@ markers = [
     # Needs Docker (Testcontainers). Skip locally with -m "not integration"; CI runs them.
     "integration: runs against a PostgreSQL container",
     "model: loads the real embedding model on CPU",
+    # Also marked model and integration. CI runs it in its own job: `uv run pytest -m eval`.
+    "eval: the retrieval eval on the real corpus and models (evals/README.md)",
 ]
 
 [dependency-groups]
