@@ -51,3 +51,4 @@ To try another embedding model, set `NORMETRY_EMBEDDING_MODEL` and `NORMETRY_EMB
 | Report | What |
 |---|---|
 | [2026-11-13-retrieval-bge-m3.md](reports/2026-11-13-retrieval-bge-m3.md) | Retrieval baseline with BGE-M3: vector, full-text and fusion measured; the re-ranker could not be downloaded for that run |
+| [2026-11-14-retrieval-bge-m3-reranked.md](reports/2026-11-14-retrieval-bge-m3-reranked.md) | Retrieval baseline with BGE-M3 and the bge-reranker-v2-m3 re-ranker: every step measured, best re-ranker scores for the refusal threshold, time per step |

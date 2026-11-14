@@ -342,18 +342,18 @@ Five layers of evals measure quality:
 
 The LLM-as-judge is checked against about 30 hand-labeled examples before it is trusted, and its agreement rate is reported. Planned experiments compare vector-only and hybrid retrieval, retrieval with and without the re-ranker, and BGE-M3 against a second local embedding model (ADR 008).
 
-First retrieval numbers, on the 44 answerable questions ([report](evals/reports/2026-11-13-retrieval-bge-m3.md)):
+Retrieval numbers, on the 44 answerable questions ([report](evals/reports/2026-11-14-retrieval-bge-m3-reranked.md)):
 
 | Retrieval step (BGE-M3) | recall@10 | MRR@10 |
 |---|---|---|
 | Vector search only | 0.943 | 0.842 |
 | Full-text search only | 0.714 | 0.524 |
 | Both, merged with Reciprocal Rank Fusion | 0.864 | 0.711 |
-| Fusion, then the bge-reranker-v2-m3 re-ranker | not measured yet | |
+| Fusion, then the bge-reranker-v2-m3 re-ranker | 0.934 | 0.883 |
 
-The re-ranker's weights and the second embedding model could not be downloaded for this run; the CI eval job measures the re-ranked result.
+No chunk came back from another jurisdiction. On CPU the re-ranker takes 15.4 s per question on average (30 candidates, up to 1024 tokens each), against under 0.2 s for embedding and both searches; halving candidates and length cut it to 9.3 s but dropped recall@10 to 0.900 and the Portuguese 852/2004 items to 0.714.
 
-<!-- TODO(fill later): re-ranked row and the BGE-M3 vs Qwen3-Embedding-0.6B row once measured -->
+<!-- TODO(fill later): the BGE-M3 vs Qwen3-Embedding-0.6B row once measured -->
 
 ## Stack
 
