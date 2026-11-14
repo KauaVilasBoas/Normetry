@@ -134,7 +134,8 @@ class ClaudeClaimModel:
             raise _unavailable(error) from error
         if message.stop_reason != "end_turn":
             # max_tokens cuts the last claim (never handed on); refusal ends the answer early.
-            logger.warning("Claude stopped with %s", message.stop_reason)
+            # The model name lets the generation eval tell concurrent models' stops apart.
+            logger.warning("Claude %s stopped with %s", settings.chat_model, message.stop_reason)
         yield _usage(settings.chat_model, message.usage)
 
 
