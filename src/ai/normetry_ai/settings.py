@@ -84,9 +84,12 @@ class AnswerSettings(BaseSettings):
     # Thinking counts toward it.
     chat_max_tokens: int = Field(default=16000, gt=0)
     chat_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
-    # Below this best re-ranker score the answer is refused before any model call. Tuned with the
-    # generation evals, on the scale of RetrievedChunk.score.
-    answer_min_rerank_score: float = 0.1
+    # Below this best re-ranker score the answer is refused before any model call, on the scale of
+    # RetrievedChunk.score. 0 refuses only when retrieval returns nothing: in the 2026-11-14 eval
+    # the best scores of answerable items (median 0.12, lowest 0.0001) and of refusals (median
+    # 0.002, highest 0.72) overlap, and 0.1 would refuse 19 of 44 answerable items. The citation
+    # guard does the refusing instead, at the cost of one model call per question it refuses.
+    answer_min_rerank_score: float = Field(default=0.0, ge=0)
     # A shorter quote proves nothing: a word like "food" is in most chunks.
     answer_min_quote_words: int = Field(default=4, ge=1)
     # Anthropic list prices (November 2026). A model call with no price here is refused at startup.
