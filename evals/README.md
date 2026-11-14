@@ -6,8 +6,9 @@ No eval makes a paid API call in CI (phase 1 design, "Evals").
 |---|---|---|---|
 | Golden dataset check | every item follows the schema, every quote is in its section | `uv run python -m normetry_ai.evals.dataset` | every pull request (job `ai`, `tests/test_dataset.py`) |
 | Retrieval | recall@k and MRR of each retrieval step against the golden dataset | `uv run pytest -m eval` | pull requests that touch ingestion, retrieval, models, settings or the dataset (job `ai (retrieval eval)`) |
+| Generation | answers, refusals, citations, time and cost of the real pipeline per chat model | `uv run pytest -m generation` | never: paid, run on demand |
 
-Generation, inspection and security evals come with the features they measure.
+Inspection and security evals come with the features they measure.
 
 ## Dataset
 
@@ -44,9 +45,38 @@ Run it alone (`-m eval`): other integration tests in the same session add source
 
 To try another embedding model, set `NORMETRY_EMBEDDING_MODEL` and `NORMETRY_EMBEDDING_MODEL_REVISION`. The column is `vector(1024)`, so the model must output 1024 dimensions. Retrieval knobs are `NORMETRY_RETRIEVAL_*` and `NORMETRY_RERANKER_*` (`RetrievalSettings` in `src/ai/normetry_ai/settings.py`).
 
+## Generation eval
+
+`src/ai/tests/test_generation_eval.py` ingests the corpus as the retrieval eval does (same container setup, same vector cache), then runs the chat pipeline on every item:
+
+- the last turn is the question and the earlier turns are its history. The dataset has no assistant turns, so a follow-up's history holds the user's turns only;
+- a follow-up runs twice: rewritten by the rewrite model (`followup_rewrite = "model"`, the default, which the main metrics use) and by the free baseline. A one-turn item runs once;
+- retrieval runs once per pass as `app_ai`, inside `tenant_transaction`, in the scope `jurisdictions_for(item jurisdiction)`;
+- `answers.answer` then runs for every model in `NORMETRY_EVAL_MODELS` at once, with the default effort and `max_tokens`.
+
+Each model gets a Markdown report and a JSONL in the report directory, named `<date>-generation-<model>`. The report has answerable items answered, expected refusals refused (also per type: `not_covered`, `wrong_jurisdiction`, the follow-up), wrong-jurisdiction citations, claims shown and dropped by the guard, model refusals (`stop_reason` `refusal`), unavailable answers, how many gold quotes the cited chunks hold, p50 and p95 of time to first claim and total time, tokens and cost, and the rewrite comparison: retrieval recall@10 of the gold quotes, correct outcomes and rewrite cost, model against baseline. The JSONL holds one line per item and pass, with the question, the standalone question, the expected answer, the gold quotes and every shown claim with its citations.
+
+Faithfulness (does each quote support its claim?) is not scored by code. It is judged from the JSONL in a Claude Code session, and the verdict goes in the report's `## Review` section.
+
+### Running it
+
+It calls the Anthropic API, so it costs money: cents per model with Haiku, more with Opus (phase 1 design, "Evals"). It runs only on demand, never in CI, and is skipped (before any container starts) when `NORMETRY_ANTHROPIC_API_KEY` is not set. Set the key in the shell for the run, never in a file. Same needs as the retrieval eval: Docker, the fetched corpus and the local models.
+
+```powershell
+cd src/ai
+# $env:NORMETRY_ANTHROPIC_API_KEY set in this shell
+uv run pytest -m generation                                                # reports: src/ai/.data/generation-eval/
+$env:NORMETRY_EVAL_REPORT_DIR = "../../evals/reports"; uv run pytest -m generation   # a new baseline
+```
+
+- `NORMETRY_EVAL_MODELS`: comma-separated chat models, default `claude-haiku-5-5,claude-sonnet-5-5,claude-opus-5-5`. Each needs a price in `NORMETRY_MODEL_PRICES`.
+- `NORMETRY_EVAL_BUDGET_USD`: default 5. Once the cost of every model call so far (answers of all models, both rewrite modes, rewrites) reaches it, no new call starts and the reports are written and marked "stopped at budget after item X". The models of one pass run at once, so the last pass can go past the budget by its own calls.
+
+Run it alone, as the retrieval eval.
+
 ## Reports
 
-`reports/`: one Markdown file per baseline run, named `<date>-<suite>-<variant>.md`. The newest file of a suite is its baseline. CI writes its run to the job summary and does not commit it.
+`reports/`: one Markdown file per baseline run, named `<date>-<suite>-<variant>.md` (the generation eval adds a `.jsonl` of the same name). The newest file of a suite is its baseline. CI writes its run to the job summary and does not commit it.
 
 | Report | What |
 |---|---|
