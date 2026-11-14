@@ -51,6 +51,9 @@ markers = [
     "model: loads the real embedding model on CPU",
     # Also marked model and integration. CI runs it in its own job: `uv run pytest -m eval`.
     "eval: the retrieval eval on the real corpus and models (evals/README.md)",
+    # Paid (Anthropic API): also model and integration, never eval. Skipped without
+    # NORMETRY_ANTHROPIC_API_KEY and never run in CI: `uv run pytest -m generation`.
+    "generation: the generation eval with the real chat models (evals/README.md)",
 ]
 
 [dependency-groups]
