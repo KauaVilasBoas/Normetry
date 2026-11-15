@@ -74,7 +74,8 @@ a {
   text-underline-offset: 4px;
 }
 
-a:hover {
+a:hover,
+.instruction a {
   text-decoration: underline;
 }
 
