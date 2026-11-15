@@ -330,12 +330,14 @@ input[type="button"],
   cursor: pointer;
 }
 
-button:hover,
-.pf-c-button:hover {
+button:not(:disabled, [aria-disabled="true"]):hover,
+.pf-c-button:not(:disabled, [aria-disabled="true"]):hover {
   background: var(--bg-elevated);
 }
 
-input[type="submit"],
+/* Only the primary action: inherited pages may add a secondary submit (Cancel, Decline).
+   input.pf-m-primary outranks the base input[type="submit"]. */
+input.pf-m-primary,
 .pf-m-primary {
   width: 100%;
   border-color: transparent;
@@ -343,8 +345,7 @@ input[type="submit"],
   color: var(--on-mint);
 }
 
-input[type="submit"]:hover,
-.pf-m-primary:hover {
+.pf-m-primary:not(:disabled, [aria-disabled="true"]):hover {
   background: var(--mint-hover);
 }
 
