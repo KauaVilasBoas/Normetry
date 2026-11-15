@@ -29,7 +29,7 @@ Values sampled from the rendered mock. The mock's palette card labels slightly d
 | `--bg-inset` | `#041425` | table body, inner panels, inputs |
 | `--bg-elevated` | `#0C203B` | AI Assistant card, assistant chat bubble, dropdowns, popovers, dialogs |
 | `--bubble-user` | `#024265` | user chat bubble (white text, 10.6:1), sampled from the mock |
-| `--border` | `#0E233C` | 1px borders of cards, inputs, dividers |
+| `--border` | `#0E233C` | 1px borders of cards and dividers (only 1.1:1 against `--bg-card`, so never the only edge of a form field) |
 | `--scrim` | `--bg-canvas` at 70% (`rgb(1 10 24 / 0.7)`) | behind a modal drawer or dialog |
 
 ### Brand and text
@@ -40,7 +40,7 @@ Values sampled from the rendered mock. The mock's palette card labels slightly d
 | `--mint-hover` | `#09B9B8` | hover / pressed of mint elements |
 | `--on-mint` | `#06283A` | text and icons on mint (dark, never white) |
 | `--teal` | `#005E7A` | active sidebar item background |
-| `--teal-border` | `#2E7D99` | secondary button and outlined action borders |
+| `--teal-border` | `#2E7D99` | secondary button and outlined action borders; 1px border of inputs, textareas and selects (3.8:1 against `--bg-card`) |
 | `--teal-deep` | `#064C5E` | "NEW" badge background and open citation chip (mint text, 4.5:1); quote highlight (white text) |
 | `--text-primary` | `#FFFFFF` | titles, KPI values, table primary text |
 | `--text-secondary` | `#A9B8CC` | subtitles, card labels, legend labels |
@@ -84,7 +84,7 @@ Values sampled from the rendered mock. The mock's palette card labels slightly d
 }
 ```
 
-shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popover` = `--bg-elevated`, `--primary` = `--mint`, `--primary-foreground` = `--on-mint`, `--border` / `--input` = `--border`, `--ring` = `--mint`, `--muted-foreground` = `--text-secondary`. No `--destructive`: red is for status only, so there are no red buttons. A destructive action is confirmed in an alert dialog whose primary button names the verb ("Delete"). Dark theme only for now. `--text-muted` has no shadcn alias: components use it explicitly (`text-text-muted`), and only on `--bg-sidebar` and `--bg-inset`.
+shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popover` = `--bg-elevated`, `--primary` = `--mint`, `--primary-foreground` = `--on-mint`, `--border` = `--border`, `--input` = `--teal-border`, `--ring` = `--mint`, `--muted-foreground` = `--text-secondary`. No `--destructive`: red is for status only, so there are no red buttons. A destructive action is confirmed in an alert dialog whose primary button names the verb ("Delete"). Dark theme only for now. `--text-muted` has no shadcn alias: components use it explicitly (`text-text-muted`), and only on `--bg-sidebar` and `--bg-inset`.
 
 **Hover.** There is no `--bg-hover` token and no separate hover color: nav items, list rows and buttons on `--bg-sidebar`, `--bg-app` or `--bg-card` hover to `--bg-elevated`; items inside an `--bg-elevated` popover or menu hover to `--bg-inset`.
 
@@ -111,7 +111,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 ## 4. Layout
 
 - **App frame:** sidebar 220px fixed + content, filling the viewport. Content padding 20px (16px below 640px); gap between cards 16px. Below 1024px the sidebar becomes a modal drawer from the left over `--scrim`, opened from a menu button in the top bar.
-- **Sidebar (top → bottom):** logo · tenant label (building icon + name, static, no border) · establishment switcher (type icon, name, chevron; transparent, 1px `--border`, `--radius-control`) · navigation · flexible space · user card (avatar, name, email, chevron).
+- **Sidebar (top → bottom):** logo · tenant label (building icon + name, static, no border) · establishment switcher (type icon, name, chevron; transparent, 1px `--teal-border`, `--radius-control`) · navigation · flexible space · user card (avatar, name, email, chevron).
 - **Navigation:** icon (outline, 18px) + label. Active item = `--teal` filled, rounded 10px, white (`--text-primary`) label and icon. Items: Overview, Establishments, Compliance, Audit Management, Regulatory Library, Change Monitor, Reports, Settings, plus **Ask the Regulation** (Lucide `MessagesSquare`), which replaces the AI Assistant card: the card is not built. Items whose screen does not exist yet are hidden, not disabled.
 - **Top bar:** 56px tall, no border. Page title left; search field ("Search anything…", ⌘K hint) · notification bell · avatar right.
 - **Page header:** greeting + one-line subtitle on the left; secondary action ("Export Report", icon + text) then primary action ("+ Add Evidence") on the right.
@@ -137,7 +137,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | **Status pill** | fully rounded, 1px border in the status color, background = status color at ~10% opacity, text in the status color 11–12px/500, leading glyph: ◆ diamond for Compliant and Attention/Partially Compliant, ● dot for Non-Compliant, ⊘ for Not Applicable. |
 | **Time badge** | `--info-bg` fill, `--info` text, radius 6px, 11px ("In 14 days"). |
 | **"NEW" badge** | `--teal-deep` fill, mint text, uppercase 10px/700, radius 4px. |
-| **Dropdown / select** | `--bg-inset`, 1px `--border`, radius 8px, chevron right ("ISO 27001:2022 ⌄", "6 Months ⌄"). |
+| **Dropdown / select** | `--bg-inset`, 1px `--teal-border`, radius 8px, chevron right ("ISO 27001:2022 ⌄", "6 Months ⌄"). |
 | **Table** | header row in `--text-muted` 11px; rows 12px with 1px `--border` separators, no zebra; columns: ID · name · status pill · progress bar + % · count · date. |
 | **Progress bar** | 6px high, `--chart-track` track, `--chart-1` fill, rounded; percentage to the right in white. |
 | **Donut** | thick ring (~18% of radius), big centered value + caption; legend to the right: color dot · label · % · (count). |
@@ -147,7 +147,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | **Radial progress** | mint ring on `--chart-track`, centered % (white, 20px/700) + status text ("Evaluation In Progress…"). |
 | **Stepper** | numbered circles connected by a line: "1 Analysis — 2 Findings — 3 Action Plan"; current step mint, others `--text-secondary`. |
 | **Checklist** | mint filled check-circle for done, mint outlined circle for in progress, text in `--text-secondary`. |
-| **Chat** | user bubble right-aligned, `--bubble-user` fill, white 13/20 text, `--radius-control`, padding 10/14, max 85% of the column, with a 32px initials avatar on `--teal` to its right. Assistant bubble left after a 32px N-mark avatar (`--bg-elevated` circle): `--bg-elevated`, 1px `--border`, `--radius-card`, padding 16; each claim a paragraph followed by its citation chips. Input: auto-growing textarea (1–6 lines, min 44px) on `--bg-inset`, 1px `--border`, `--radius-control`, with a 32px round `--mint` send button and an `--on-mint` icon inside it at the bottom right (the mock draws it blue with a white arrow; one accent wins). |
+| **Chat** | user bubble right-aligned, `--bubble-user` fill, white 13/20 text, `--radius-control`, padding 10/14, max 85% of the column, with a 32px initials avatar on `--teal` to its right. Assistant bubble left after a 32px N-mark avatar (`--bg-elevated` circle): `--bg-elevated`, 1px `--border`, `--radius-card`, padding 16; each claim a paragraph followed by its citation chips. Input: auto-growing textarea (1–6 lines, min 44px) on `--bg-inset`, 1px `--teal-border`, `--radius-control`, with a 32px round `--mint` send button and an `--on-mint` icon inside it at the bottom right (the mock draws it blue with a white arrow; one accent wins). |
 | **Citation chip** | button, 28px tall, padding 0/10, `--radius-sm`, 1px `--teal-border`, transparent; mint 12px/500 label "View source · {section}" and a 14px arrow. Hover `--bg-inset` (inside an elevated bubble). Open (`aria-expanded`): `--teal-deep` fill, 1px `--mint` border (the fill alone is only 1.7:1 against the bubble), mint text. A long label truncates at the chip width. |
 | **System message** | refusal, unavailable and connection messages inside the assistant bubble: 16px Lucide icon in `--text-secondary`, a 13px/500 white line, a 12px `--text-secondary` hint, optionally a secondary button ("Try again"). No status colors: these are not compliance states. |
 | **Conversation list row** | min 48px, `--radius-control`; title 13px/500 white, one line; date 11px `--text-secondary`, tabular. Hover `--bg-elevated`. Selected = the nav-active style (`--teal` fill) with every line in `--text-primary` (`--text-secondary` on `--teal` is only 3.6:1). |
