@@ -19,7 +19,6 @@
   --on-mint: #06283a;
   --teal: #005e7a;
   --teal-border: #2e7d99;
-  --teal-deep: #064c5e;
   --text-primary: #ffffff;
   --text-secondary: #a9b8cc;
   --text-caption: 11px;
@@ -28,7 +27,6 @@
   --text-small--line-height: 16px;
   --text-body: 13px;
   --text-body--line-height: 20px;
-  --text-title: 15px;
   --text-greeting: 22px;
   --text-greeting--line-height: 28px;
   --text-field: 16px;
@@ -231,7 +229,7 @@ a:hover,
   width: 40px;
   height: 40px;
   margin-block-end: 24px;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-sm);
   background: var(--bg-inset);
   color: var(--text-secondary);
 }
