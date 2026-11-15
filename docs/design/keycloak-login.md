@@ -60,7 +60,7 @@ Recovery, remember-me, registration and identity-provider controls appear only
 when enabled by the realm; this change does not enable them.
 
 Native labels, autocomplete and keyboard submission remain available. Every
-interactive element has a 2px mint focus ring with a 2px offset. Controls,
+interactive element has a 2px mint focus ring with a 2px offset (drawn inside the button on the password toggle). Controls,
 locale menu items and checkbox labels are at least 44px tall. There is no skip
 link: the username field takes autofocus.
 
