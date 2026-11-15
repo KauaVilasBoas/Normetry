@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.3.0...v0.4.0) (2026-11-15)
+
+
+### Features
+
+* **ai:** run and score the generation eval per chat model ([9c54272](https://github.com/KauaVilasBoas/Normetry/commit/9c54272b66f6b0da60c1195d7eda18f62e521024))
+
+
+### Bug Fixes
+
+* **ai:** answer claims keep their conditions and never describe what the excerpts lack ([10f1da4](https://github.com/KauaVilasBoas/Normetry/commit/10f1da479996bb22ef11cfe48f4eb23b0c62875d))
+* **ai:** rewrite follow-ups through structured output ([e0889df](https://github.com/KauaVilasBoas/Normetry/commit/e0889df65e0b78d9eade719326ebe0d2ffbc4327))
+
 ## [0.3.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.2.0...v0.3.0) (2026-11-14)
 
 
