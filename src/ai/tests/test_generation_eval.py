@@ -37,7 +37,7 @@ from normetry_ai.evals.dataset import load_items
 from normetry_ai.evals.generation import ModelAnswer, PassResult, jsonl, render
 from normetry_ai.ingestion.corpus import load_manifest, parse_source
 from normetry_ai.ingestion.ingest import ingest_source
-from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeTextModel
+from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeRewriteModel
 from normetry_ai.llm.embeddings import SentenceTransformerEmbedder
 from normetry_ai.llm.reranker import CrossEncoderReranker
 from normetry_ai.llm.usage import Usage
@@ -142,7 +142,7 @@ def test_generation_eval(app_ai: Engine, corpus: Engine) -> None:
     answer_settings = {model: AnswerSettings(chat_model=model) for model in models}
     claim_models = {model: ClaudeClaimModel(answer_settings[model]) for model in models}
     conversation = ConversationSettings(_env_file=None)
-    rewrite_model = ClaudeTextModel(
+    rewrite_model = ClaudeRewriteModel(
         base, conversation.rewrite_model, conversation.rewrite_max_tokens
     )
     rewrite_settings = {

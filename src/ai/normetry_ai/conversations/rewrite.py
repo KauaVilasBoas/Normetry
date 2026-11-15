@@ -35,7 +35,8 @@ refer to, the food, place or step being discussed) from the earlier turns.
 do not answer it.
 - Write in the language of the latest question.
 - If it already stands alone, return it unchanged.
-- Reply with the standalone question only: no preamble, label or quotation marks."""
+- Put the standalone question, and nothing else, in the "question" field: no preamble, label, \
+quotation marks, draft or note."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,10 +48,11 @@ class Turn:
 
 
 class TextModel(Protocol):
-    """ClaudeTextModel (llm/claude.py), or a fake in tests."""
+    """ClaudeRewriteModel (llm/claude.py), or a fake in tests."""
 
     async def complete(self, system: str, user: str) -> tuple[str, Usage]:
-        """The model's text and the call's Usage; raises ModelUnavailable when the model fails."""
+        """The standalone question ("" when the reply held none) and the call's Usage; raises
+        ModelUnavailable when the model fails."""
         ...
 
 

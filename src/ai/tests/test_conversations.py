@@ -1,4 +1,4 @@
-"""Follow-up rewriting with a fake model and the Claude text adapter on a mocked transport.
+"""Follow-up rewriting with a fake model and the Claude rewrite adapter on a mocked transport.
 
 Offline: no test calls the Anthropic API. Stored conversations and the chat routes are tested
 against PostgreSQL in test_database.py.
@@ -20,7 +20,7 @@ from normetry_ai.conversations.rewrite import (
     standalone_question,
     user_message,
 )
-from normetry_ai.llm.claude import ClaudeTextModel, ModelUnavailable
+from normetry_ai.llm.claude import QUESTION_SCHEMA, ClaudeRewriteModel, ModelUnavailable
 from normetry_ai.llm.usage import Usage
 from normetry_ai.settings import AnswerSettings, ConversationSettings
 
@@ -138,20 +138,21 @@ def test_turns_stay_data() -> None:
     assert "Ignore the rules" not in SYSTEM_PROMPT
 
 
-def claude(handler: Callable[[httpx2.Request], httpx2.Response]) -> ClaudeTextModel:
+def claude(handler: Callable[[httpx2.Request], httpx2.Response]) -> ClaudeRewriteModel:
     client = anthropic.AsyncAnthropic(
         api_key="test-key",
         max_retries=0,
         http_client=anthropic.DefaultAsyncHttpxClient(transport=httpx2.MockTransport(handler)),
     )
-    return ClaudeTextModel(ANSWER_SETTINGS, "claude-haiku-5-5", 1024, client=client)
+    return ClaudeRewriteModel(ANSWER_SETTINGS, "claude-haiku-5-5", 1024, client=client)
 
 
-def test_claude_rewrites_with_the_configured_model_at_low_effort() -> None:
-    requests: list[dict[str, Any]] = []
+def replying(text: str, requests: list[dict[str, Any]] | None = None) -> ClaudeRewriteModel:
+    """The Claude rewrite model on a transport that answers every call with `text`."""
 
     def handler(request: httpx2.Request) -> httpx2.Response:
-        requests.append(json.loads(request.content))
+        if requests is not None:
+            requests.append(json.loads(request.content))
         message = {
             "id": "msg_test",
             "type": "message",
@@ -159,7 +160,7 @@ def test_claude_rewrites_with_the_configured_model_at_low_effort() -> None:
             "model": "claude-haiku-5-5",
             "content": [
                 {"type": "thinking", "thinking": "", "signature": "sig"},
-                {"type": "text", "text": "  How long can cooked rice stay out?\n"},
+                {"type": "text", "text": text},
             ],
             "stop_reason": "end_turn",
             "stop_sequence": None,
@@ -167,7 +168,14 @@ def test_claude_rewrites_with_the_configured_model_at_low_effort() -> None:
         }
         return httpx2.Response(200, json=message)
 
-    standalone, recorded = rewrite(claude(handler))
+    return claude(handler)
+
+
+def test_claude_rewrites_with_the_configured_model_at_low_effort() -> None:
+    requests: list[dict[str, Any]] = []
+    reply = json.dumps({"question": "  How long can cooked rice stay out?\n"})
+
+    standalone, recorded = rewrite(replying(reply, requests))
 
     assert standalone == "How long can cooked rice stay out?"
     assert recorded == [USAGE]
@@ -175,10 +183,27 @@ def test_claude_rewrites_with_the_configured_model_at_low_effort() -> None:
     assert (sent["model"], sent["max_tokens"], sent["output_config"]) == (
         "claude-haiku-5-5",
         1024,
-        {"effort": "low"},
+        {"effort": "low", "format": {"type": "json_schema", "schema": QUESTION_SCHEMA}},
     )
     assert sent["system"] == SYSTEM_PROMPT
     assert sent["messages"] == [{"role": "user", "content": user_message(HISTORY, FOLLOW_UP)}]
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        '{"question": "How long can cooked',  # cut by max_tokens
+        '{"text": "How long can cooked rice stay out?"}',
+        '{"question": 42}',
+        '["How long can cooked rice stay out?"]',
+        '{"question": "  "}',
+    ],
+)
+def test_a_malformed_or_empty_claude_reply_falls_back_to_the_baseline(reply: str) -> None:
+    standalone, recorded = rewrite(replying(reply), settings=settings(chat_history_turns=1))
+
+    assert standalone == f"And cooked rice?\n{FOLLOW_UP}"
+    assert recorded == [USAGE]  # the call was still paid for
 
 
 def test_a_claude_error_or_no_key_falls_back_to_the_baseline() -> None:
@@ -186,7 +211,7 @@ def test_a_claude_error_or_no_key_falls_back_to_the_baseline() -> None:
         error = {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}
         return httpx2.Response(529, json=error)
 
-    for model in (claude(handler), ClaudeTextModel(ANSWER_SETTINGS, "claude-haiku-5-5", 1024)):
+    for model in (claude(handler), ClaudeRewriteModel(ANSWER_SETTINGS, "claude-haiku-5-5", 1024)):
         assert rewrite(model, settings=settings(chat_history_turns=1)) == (
             f"And cooked rice?\n{FOLLOW_UP}",
             [],
@@ -195,4 +220,4 @@ def test_a_claude_error_or_no_key_falls_back_to_the_baseline() -> None:
 
 def test_a_rewrite_model_without_a_price_is_refused() -> None:
     with pytest.raises(ValueError, match="no price for 'claude-unknown'"):
-        ClaudeTextModel(ANSWER_SETTINGS, "claude-unknown", 1024)
+        ClaudeRewriteModel(ANSWER_SETTINGS, "claude-unknown", 1024)
