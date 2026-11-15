@@ -69,9 +69,18 @@
 <body class="normetry-auth ${bodyClass}" data-page-id="login-${pageId}" data-signing-in="${msg('normetrySigningIn')}">
     <main class="normetry-layout">
         <div class="normetry-brand">
+            <#-- The SPA's Logo (src/web/src/ui/Logo.tsx) at its 40px auth-screen height. -->
             <div class="normetry-wordmark">
-                <img src="${url.resourcesPath}/img/favicon.svg" alt="" width="36" height="36">
-                <span>Normetry</span>
+                <svg viewBox="0 0 132 32" width="165" height="40" role="img" aria-label="Normetry">
+                    <defs>
+                        <linearGradient id="normetry-mark" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" style="stop-color: var(--mint)" />
+                            <stop offset="1" style="stop-color: var(--teal)" />
+                        </linearGradient>
+                    </defs>
+                    <path fill="url(#normetry-mark)" d="M4 28V4h6l12 15.5V4h6v24h-6L10 12.5V28z" />
+                    <text x="36" y="23" font-size="20" font-weight="600" fill="currentColor">Normetry</text>
+                </svg>
             </div>
             <p class="normetry-mobile-tagline">${msg("normetryTagline")}</p>
         </div>
