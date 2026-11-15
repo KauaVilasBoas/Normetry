@@ -103,11 +103,6 @@ a:hover,
 
 .normetry-wordmark {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--text-greeting);
-  font-weight: 600;
-  letter-spacing: -0.04em;
 }
 
 .normetry-mobile-tagline {
