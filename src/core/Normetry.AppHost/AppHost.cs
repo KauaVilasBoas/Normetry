@@ -51,6 +51,16 @@ ReferenceExpression Psycopg(string user, IResourceBuilder<ParameterResource> pas
 var keycloak = builder
     .AddKeycloak("keycloak", port: 8180)
     .WithoutHttpsCertificate()
+    .WithBindMount(
+        "../../../deploy/keycloak/themes/normetry",
+        "/opt/keycloak/themes/normetry",
+        isReadOnly: true
+    )
+    .WithArgs(
+        "--spi-theme--static-max-age=-1",
+        "--spi-theme--cache-themes=false",
+        "--spi-theme--cache-templates=false"
+    )
     .WithRealmImport("../../../deploy/keycloak/normetry-realm.json");
 
 // Short-lived: applies the core migrations as core_owner and exits. Only this step gets the owner
