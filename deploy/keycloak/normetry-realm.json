@@ -1,6 +1,7 @@
 {
   "realm": "normetry",
   "displayName": "Normetry (local development)",
+  "loginTheme": "normetry",
   "enabled": true,
   "registrationAllowed": false,
   "roles": {
