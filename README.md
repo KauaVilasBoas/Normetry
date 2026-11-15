@@ -67,21 +67,21 @@ The data model already supports other establishment types such as pharmacies and
 
 ### Highlights
 
-- Every claim cites a retrieved chunk. The model answers in structured JSON, and each claim carries the IDs of the chunks that support it. A deterministic guard drops any claim whose cited ID was not retrieved; if too little survives, the answer becomes "not enough basis in the regulation". When the re-ranker's best score falls below a threshold, the system declines to answer.
+- Every claim cites a retrieved chunk with a literal quote. The model answers in structured JSON: each claim carries the IDs of the chunks that support it and, for each one, a passage copied from that chunk. A deterministic guard drops any claim whose ID was not retrieved or whose quote is not in its chunk. Only checked claims reach the user, streamed one at a time; if none survives, the answer is "not enough basis in the regulation".
 - Retrieval is written by hand: pgvector top-k and PostgreSQL full-text top-k, fused with Reciprocal Rank Fusion, then a multilingual re-ranker. Each step can be inspected and measured on its own.
 - PostgreSQL Row-Level Security isolates tenants on every tenant-owned table, so even a buggy query cannot return another tenant's rows. The tenant is set per transaction, which keeps pooled connections from carrying it into the next request. A session with no tenant set sees only the public corpus and cannot write.
 - Only a dedicated `corpus_ingestor` role can write the public regulation corpus (`tenant_id IS NULL`), so no tenant can inject text into the shared regulations.
 - The simulated inspection is a LangGraph agent with Postgres checkpoints. If a worker dies mid-inspection, the run resumes where it stopped. Findings stay pending until a person accepts, rejects or edits them, and each rejection becomes a new eval example.
-- Every pull request that touches prompts, retrieval or agents runs a reduced eval suite. The PR fails if a metric drops below its threshold, and the results table is posted as a PR comment.
+- Pull requests that touch ingestion, retrieval or the golden dataset run the retrieval eval in CI, on local models and a throwaway PostgreSQL. It fails below its recall and MRR floors and writes its table to the job summary. Generation evals call a paid model, so they run on demand, never in CI, and every claim they produce is judged against its quotes in a review session.
 - OpenTelemetry runs in both services and propagates W3C `traceparent` over HTTP and through the message queue, so a single trace follows a request from the click to the LLM call. Langfuse records prompts, tokens and cost.
 
 ## Capabilities
 
-| Capability | What it does | Core technique |
-|---|---|---|
-| Ask the regulation | Answers regulatory questions in a chat and cites the exact article | Hybrid RAG with verifiable citations |
-| Simulated inspection | Checks the establishment's documents against the applicable requirements and produces findings and an action plan | LangGraph agent with checkpoints and human review |
-| Change monitor | Detects when a regulation changes and warns the tenants whose documents are affected | Structural diff plus semantic search over tenant documents |
+| Capability | What it does | Core technique | Status |
+|---|---|---|---|
+| Ask the regulation | Answers regulatory questions in a chat and cites the exact article | Hybrid RAG with verifiable citations | Working (phase 1) |
+| Simulated inspection | Checks the establishment's documents against the applicable requirements and produces findings and an action plan | LangGraph agent with checkpoints and human review | Phase 2 |
+| Change monitor | Detects when a regulation changes and warns the tenants whose documents are affected | Structural diff plus semantic search over tenant documents | Phase 3 |
 
 <!-- TODO(fill later): screenshots / GIF of the three capabilities
 ## Screenshots
@@ -335,12 +335,12 @@ Five layers of evals measure quality:
 | Layer | Metric | How it's measured |
 |---|---|---|
 | Retrieval | recall@k, MRR | 59 questions with 83 literal quotes ([golden dataset](evals/datasets/regulation-qa/)); a hit is a retrieved chunk that contains a quote. Runs in CI on pull requests that touch retrieval ([`evals/README.md`](evals/README.md)) |
-| Generation | faithfulness, citation precision, relevance | LLM-as-judge (DeepEval or Ragas) plus a deterministic check of cited IDs |
+| Generation | faithfulness, citation correctness, refusals, cost per answer, time to first claim | The real pipeline answers the golden dataset with a chosen Claude model, on demand and never in CI. The guard checks every quote at runtime, and each claim is then judged against its quotes in review sessions ([`evals/README.md`](evals/README.md)) |
 | Inspection | finding precision and recall | 3 to 5 synthetic establishments with planted non-conformities |
 | Security | cross-tenant leaks, successful injections | Adversarial prompts and malicious documents |
 | Operations | cost per question and per inspection, p95 latency | Langfuse and OpenTelemetry |
 
-The LLM-as-judge is checked against about 30 hand-labeled examples before it is trusted, and its agreement rate is reported. Planned experiments compare vector-only and hybrid retrieval, retrieval with and without the re-ranker, and BGE-M3 against a second local embedding model (ADR 008).
+Planned experiments: BGE-M3 against a second local embedding model (ADR 008), and Claude Haiku, Sonnet and Opus on the final prompt before the demo is deployed ([#73](https://github.com/KauaVilasBoas/Normetry/issues/73)).
 
 Retrieval numbers, on the 44 answerable questions ([report](evals/reports/2026-11-14-retrieval-bge-m3-reranked.md)):
 
@@ -352,6 +352,20 @@ Retrieval numbers, on the 44 answerable questions ([report](evals/reports/2026-1
 | Fusion, then the bge-reranker-v2-m3 re-ranker | 0.934 | 0.883 |
 
 No chunk came back from another jurisdiction. On CPU the re-ranker takes 15.4 s per question on average (30 candidates, up to 1024 tokens each), against under 0.2 s for embedding and both searches; halving candidates and length cut it to 9.3 s but dropped recall@10 to 0.900 and the Portuguese 852/2004 items to 0.714.
+
+Generation numbers come from Claude Haiku 5.5 answering all 59 questions through the real pipeline ([report](evals/reports/2026-11-15-generation-claude-haiku-5-5.md)). The guard checks every quote at runtime. A review session then judged each claim against its quotes and the section around them:
+
+| Generation (Claude Haiku 5.5) | Result | Target |
+|---|---|---|
+| Claims whose quotes state them in full | 87 of 109 (80%); 21 partial, 1 unsupported | no unsupported claim |
+| Answerable questions answered completely | 38 of 44; 4 partial, 1 wrong, 1 refused | |
+| Not-covered questions refused | 9 of 9 | ≥ 90% |
+| Expected refusals refused, all types | 14 of 15 | |
+| Citations outside the establishment's jurisdiction | 0 | 0 |
+| Cost per answer | US$ 0.0009 | |
+| Time to first claim, p95 | 27.7 s (retrieval about 15 s, the model about 4 s) | < 6 s |
+
+A partial claim restates its own section but stops one step short: the quote ends before a condition the claim states, or a rule written for a category of food is applied to the dish the question names. The first run ([report](evals/reports/2026-11-15-generation-claude-haiku-5-5-first-prompt.md)) also showed the model writing claims about what the excerpts leave out, and the follow-up rewrite once returned its own scratch work. Both were fixed: the prompt now forbids those claims and makes quotes carry their conditions, and the rewrite now goes through structured output. The second run confirmed the rewrite fix. The prompt fix added one correct refusal, but its effect on faithfulness was within the run-to-run variation of the model. The p95 target fails on the CPU re-ranker, not on the model ([#72](https://github.com/KauaVilasBoas/Normetry/issues/72)).
 
 <!-- TODO(fill later): the BGE-M3 vs Qwen3-Embedding-0.6B row once measured -->
 
@@ -467,8 +481,8 @@ normetry/
 | Phase | Delivery | Status |
 |---|---|---|
 | 0 · Foundation | Monorepo, Aspire, auth, tenants and establishments, PostgreSQL with RLS and isolation tests, CI | Done |
-| 1 · Regulation RAG | Ingestion of the 3 regulations, hybrid search with re-ranker, cited chat, retrieval and generation evals in CI | Next |
-| 2 · Simulated inspection | Async upload and ingestion, LangGraph agent, human review, planted scenarios | Planned |
+| 1 · Regulation RAG | Ingestion of the 3 regulations, hybrid search with re-ranker, cited chat with conversations and daily quotas, retrieval eval in CI, generation eval on demand | Done |
+| 2 · Simulated inspection | Async upload and ingestion, LangGraph agent, human review, planted scenarios | Next |
 | 3 · Polish | Change monitor, MCP server, Langfuse, Azure deploy, demo video | Planned |
 
 Phase 3 also adds an MCP server: the .NET core exposes read-only tools (establishments, expiring documents, latest findings) through the official C# MCP SDK, so Claude Desktop can connect straight to the product. A second retrieval adapter, Azure AI Search behind the same interface, will be compared against pgvector by the evals.
