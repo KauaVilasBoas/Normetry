@@ -429,8 +429,29 @@ input[type="radio"] {
   padding: 12px;
   background: var(--bg-inset);
   color: var(--text-primary);
-  font-size: var(--text-small);
+  font-weight: 500;
   overflow-wrap: anywhere;
+}
+
+/* Errors get the System message icon; status colors stay for compliance states. */
+.normetry-message[role="alert"],
+#input-error,
+.pf-m-error {
+  position: relative;
+  padding-inline-start: 36px;
+}
+
+.normetry-message[role="alert"]::before,
+#input-error::before,
+.pf-m-error::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 14px;
+  inset-inline-start: 12px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-secondary);
+  mask: url("../img/circle-alert.svg") center / contain no-repeat;
 }
 
 #kc-info,
