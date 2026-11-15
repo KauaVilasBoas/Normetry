@@ -396,7 +396,7 @@ input.pf-m-primary,
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 32px;
+  min-height: 44px;
   margin: 0;
   color: var(--text-secondary);
 }
@@ -563,7 +563,9 @@ hr {
 }
 
 .normetry-locale a {
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   color: var(--text-primary);
