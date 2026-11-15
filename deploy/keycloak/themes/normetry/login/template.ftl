@@ -67,7 +67,6 @@
     </#if>
 </head>
 <body class="normetry-auth ${bodyClass}" data-page-id="login-${pageId}" data-signing-in="${msg('normetrySigningIn')}">
-    <a class="normetry-skip" href="#kc-content">${msg("normetrySkipToForm")}</a>
     <main class="normetry-layout">
         <div class="normetry-brand">
             <div class="normetry-wordmark">
@@ -75,6 +74,61 @@
                 <span>Normetry</span>
             </div>
             <p class="normetry-mobile-tagline">${msg("normetryTagline")}</p>
+        </div>
+
+        <div class="normetry-form-column">
+            <section class="normetry-card" aria-labelledby="kc-page-title">
+                <header class="normetry-form-header">
+                    <#if pageId == "login"><div class="normetry-sign-in-icon"><@icon name="log-in" /></div></#if>
+                    <#if realm.internationalizationEnabled && locale.supported?size gt 1>
+                        <div id="kc-locale" class="normetry-locale">
+                            <div class="menu-button-links">
+                                <button id="kc-current-locale-link" aria-haspopup="true" aria-expanded="false" aria-controls="language-switch1"><span class="sr-only">${msg("normetryLanguage")} </span>${locale.current}</button>
+                                <ul role="menu" tabindex="-1" aria-labelledby="kc-current-locale-link" aria-activedescendant="" id="language-switch1">
+                                    <#list locale.supported as language>
+                                        <li role="none"><a role="menuitem" id="language-${language?index + 1}" href="${language.url}">${language.label}</a></li>
+                                    </#list>
+                                </ul>
+                            </div>
+                        </div>
+                    </#if>
+                    <h1 id="kc-page-title"><#nested "header"></h1>
+                    <#if pageId == "login"><p class="normetry-form-description">${msg("normetrySignInBody")}</p></#if>
+                    <#if displayRequiredFields><p class="subtitle"><span aria-hidden="true">*</span> ${msg("requiredFields")}</p></#if>
+                    <#if auth?has_content && auth.showUsername() && !auth.showResetCredentials()>
+                        <#nested "show-username">
+                        <div id="kc-username">
+                            <span id="kc-attempted-username">${auth.attemptedUsername}</span>
+                            <a id="reset-login" href="${url.loginRestartFlowUrl}">${msg("restartLoginTooltip")}</a>
+                        </div>
+                    </#if>
+                </header>
+                <div id="kc-content">
+                    <div id="kc-content-wrapper">
+                        <#if displayMessage && message?has_content && (message.type != 'warning' || !isAppInitiatedAction??)>
+                            <div class="normetry-message" role="<#if message.type == 'error'>alert<#else>status</#if>">
+                                ${kcSanitize(message.summary)?no_esc}
+                            </div>
+                        </#if>
+                        <#nested "form">
+                        <#if auth?has_content && auth.showTryAnotherWayLink()>
+                            <form id="kc-select-try-another-way-form" action="${url.loginAction}" method="post">
+                                <input type="hidden" name="tryAnotherWay" value="on">
+                                <a href="#" id="try-another-way" onclick="document.forms['kc-select-try-another-way-form'].requestSubmit();return false;">${msg("doTryAnotherWay")}</a>
+                            </form>
+                        </#if>
+                        <#nested "socialProviders">
+                        <#if displayInfo><div id="kc-info"><#nested "info"></div></#if>
+                    </div>
+                </div>
+                <@loginFooter.content/>
+            </section>
+            <#if pageId == "login" && !realm.registrationAllowed>
+                <div class="normetry-access">
+                    <p>${msg("normetryAccessTitle")}</p>
+                    <p>${msg("normetryAccessBody")}</p>
+                </div>
+            </#if>
         </div>
 
         <section class="normetry-introduction" aria-labelledby="normetry-headline">
@@ -96,61 +150,6 @@
                 <ul><li>FDA Food Code</li><li>EU 852/2004</li><li>Anvisa RDC 216/2004</li></ul>
             </div>
         </section>
-
-        <div class="normetry-form-column">
-            <section class="normetry-card" aria-labelledby="kc-page-title">
-                <header class="normetry-form-header">
-                    <div class="normetry-sign-in-icon"><@icon name="log-in" /></div>
-                    <#if realm.internationalizationEnabled && locale.supported?size gt 1>
-                        <div id="kc-locale" class="normetry-locale">
-                            <div class="menu-button-links">
-                                <button id="kc-current-locale-link" aria-label="${msg('languages')}" aria-haspopup="true" aria-expanded="false" aria-controls="language-switch1">${locale.current}</button>
-                                <ul role="menu" tabindex="-1" aria-labelledby="kc-current-locale-link" aria-activedescendant="" id="language-switch1">
-                                    <#list locale.supported as language>
-                                        <li role="none"><a role="menuitem" id="language-${language?index + 1}" href="${language.url}">${language.label}</a></li>
-                                    </#list>
-                                </ul>
-                            </div>
-                        </div>
-                    </#if>
-                    <h1 id="kc-page-title"><#nested "header"></h1>
-                    <#if pageId == "login"><p class="normetry-form-description">${msg("normetrySignInBody")}</p></#if>
-                    <#if displayRequiredFields><p class="subtitle"><span aria-hidden="true">*</span> ${msg("requiredFields")}</p></#if>
-                    <#if auth?has_content && auth.showUsername() && !auth.showResetCredentials()>
-                        <#nested "show-username">
-                        <div id="kc-username">
-                            <span id="kc-attempted-username">${auth.attemptedUsername}</span>
-                            <a id="reset-login" href="${url.loginRestartFlowUrl}">${msg("restartLoginTooltip")}</a>
-                        </div>
-                    </#if>
-                </header>
-                <div id="kc-content" tabindex="-1">
-                    <div id="kc-content-wrapper">
-                        <#if displayMessage && message?has_content && (message.type != 'warning' || !isAppInitiatedAction??)>
-                            <div class="normetry-message" role="<#if message.type == 'error'>alert<#else>status</#if>">
-                                ${kcSanitize(message.summary)?no_esc}
-                            </div>
-                        </#if>
-                        <#nested "form">
-                        <#if auth?has_content && auth.showTryAnotherWayLink()>
-                            <form id="kc-select-try-another-way-form" action="${url.loginAction}" method="post">
-                                <input type="hidden" name="tryAnotherWay" value="on">
-                                <a href="#" id="try-another-way" onclick="document.forms['kc-select-try-another-way-form'].requestSubmit();return false;">${msg("doTryAnotherWay")}</a>
-                            </form>
-                        </#if>
-                        <#nested "socialProviders">
-                        <#if displayInfo><div id="kc-info"><#nested "info"></div></#if>
-                    </div>
-                </div>
-                <@loginFooter.content/>
-            </section>
-            <#if pageId == "login" && !realm.registrationAllowed>
-                <aside class="normetry-access">
-                    <p>${msg("normetryAccessTitle")}</p>
-                    <p>${msg("normetryAccessBody")}</p>
-                </aside>
-            </#if>
-        </div>
 
         <footer class="normetry-footer"><span>Normetry</span><span>${msg("normetryFooter")}</span></footer>
     </main>

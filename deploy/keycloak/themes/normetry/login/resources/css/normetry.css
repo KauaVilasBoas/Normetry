@@ -84,21 +84,6 @@ a:hover,
   outline-offset: 3px;
 }
 
-.normetry-skip {
-  position: fixed;
-  z-index: 10;
-  inset-block-start: 12px;
-  inset-inline-start: 12px;
-  transform: translateY(-200%);
-  border-radius: var(--radius-sm);
-  padding: 10px 16px;
-  background: var(--bg-elevated);
-}
-
-.normetry-skip:focus {
-  transform: translateY(0);
-}
-
 .normetry-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
@@ -134,6 +119,15 @@ a:hover,
   align-self: center;
   min-width: 0;
   padding-block: 20px;
+}
+
+/* The form comes first in the DOM, so its h1 is read before the introduction. */
+.normetry-introduction {
+  grid-area: 2 / 1;
+}
+
+.normetry-form-column {
+  grid-area: 2 / 2;
 }
 
 .normetry-eyebrow {
@@ -536,6 +530,13 @@ hr {
   inset-inline-end: 0;
 }
 
+/* Without the log-in icon beside it, the button takes its own row above the title. */
+.normetry-locale:first-child {
+  position: static;
+  margin-block-end: 16px;
+  text-align: end;
+}
+
 .normetry-locale button {
   font-size: var(--text-small);
   font-weight: 400;
@@ -622,6 +623,7 @@ hr {
   }
 
   .normetry-form-column {
+    grid-column: 1;
     padding: 0;
   }
 
