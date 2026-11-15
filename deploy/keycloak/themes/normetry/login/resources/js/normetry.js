@@ -9,9 +9,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const error = document.getElementById("input-error");
   if (error) {
-    document.querySelectorAll('input[aria-invalid="true"]').forEach((input) => {
+    const invalid = document.querySelectorAll('input[aria-invalid="true"]');
+    invalid.forEach((input) => {
       input.setAttribute("aria-describedby", error.id);
     });
+    // Autofocus ran before the description existed; focus again so it is announced.
+    invalid[0]?.blur();
+    invalid[0]?.focus();
   }
 
   const form = document.getElementById("kc-form-login");
@@ -21,9 +25,16 @@ document.addEventListener("DOMContentLoaded", () => {
     input.required = true;
   });
 
+  // The live region must exist before its text changes.
+  const status = document.createElement("p");
+  status.className = "sr-only";
+  status.setAttribute("role", "status");
+  form.after(status);
+
   form.addEventListener("submit", (event) => {
     if (event.defaultPrevented) return;
     form.setAttribute("aria-busy", "true");
+    status.textContent = document.body.dataset.signingIn;
     const submit = document.getElementById("kc-login");
     if (submit) {
       submit.setAttribute("aria-disabled", "true");
