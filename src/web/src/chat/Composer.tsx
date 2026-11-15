@@ -71,7 +71,7 @@ export function Composer({
               event.preventDefault();
               submit();
             }}
-            className="block min-h-11 w-full resize-none rounded-control border border-border bg-inset py-2.5 pr-12 pl-3.5 text-field placeholder:text-text-muted sm:text-body"
+            className="block min-h-11 w-full resize-none rounded-control border border-teal-border bg-inset py-2.5 pr-12 pl-3.5 text-field placeholder:text-text-muted sm:text-body"
           />
           {/* aria-disabled, not disabled: it stays focusable and can point at the notice. */}
           <button
