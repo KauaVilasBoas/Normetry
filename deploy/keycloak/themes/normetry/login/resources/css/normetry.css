@@ -433,6 +433,14 @@ input[type="radio"] {
   overflow-wrap: anywhere;
 }
 
+#kc-info-message:not(:has(*)) {
+  display: none;
+}
+
+#kc-content p + p {
+  margin-block-start: 12px;
+}
+
 /* Errors get the System message icon; status colors stay for compliance states. */
 .normetry-message[role="alert"],
 #input-error,
