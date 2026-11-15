@@ -355,14 +355,16 @@ input.pf-m-primary,
   cursor: default;
 }
 
+/* Inside the field's border at every field height, so the hover fill never covers it. */
 .pf-c-input-group button {
   position: absolute;
-  inset-block-start: 0;
-  inset-inline-end: 0;
+  inset-block: 1px;
+  inset-inline-end: 1px;
   width: 44px;
+  min-height: 0;
   border: 0;
-  border-radius: var(--radius-control);
-  padding: 12px;
+  border-radius: calc(var(--radius-control) - 1px);
+  padding: 0;
   color: var(--text-secondary);
 }
 
