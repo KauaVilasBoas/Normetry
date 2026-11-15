@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.5.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.4.0...v0.5.0) (2026-11-15)
+
+
+### Features
+
+* **core:** serve the login theme from the AppHost's Keycloak ([8e418fa](https://github.com/KauaVilasBoas/Normetry/commit/8e418fa0779c44cbd362b0e1151a3100c2408ac8))
+* **infra:** add the Normetry login theme for Keycloak ([53d53bd](https://github.com/KauaVilasBoas/Normetry/commit/53d53bd3e0b0262b0aff11ed97e6eb8f27987444))
+
+
+### Bug Fixes
+
+* **infra:** announce login field errors and the signing-in state ([00e28e5](https://github.com/KauaVilasBoas/Normetry/commit/00e28e5f04b8ddca76cac474498a401def3a7767))
+* **infra:** draw the login wordmark with the SPA's Logo geometry ([635ce21](https://github.com/KauaVilasBoas/Normetry/commit/635ce211f517217f0e236bf3f8fba0a7343c9b1a))
+* **infra:** drop the uppercase eyebrow from the login introduction ([3ee1b46](https://github.com/KauaVilasBoas/Normetry/commit/3ee1b469b5331492d3c13f903dddb45b575410ae))
+* **infra:** fit the password toggle inside its field ([a15d9a6](https://github.com/KauaVilasBoas/Normetry/commit/a15d9a621f6c45acc5af50c56d017e7ccb490aa3))
+* **infra:** fix login landmarks, reading order and the locale label ([0c5e949](https://github.com/KauaVilasBoas/Normetry/commit/0c5e94937187f8de7c6f61e680a8b424298270fa))
+* **infra:** give locale menu items and checkbox labels 44px targets ([6116b4d](https://github.com/KauaVilasBoas/Normetry/commit/6116b4d5f16101c8d2d818f7ac9138d3e9981af3))
+* **infra:** keep secondary and disabled login buttons out of the primary style ([7ab99db](https://github.com/KauaVilasBoas/Normetry/commit/7ab99db99e908017a5cbae04afd7d99f86445584))
+* **infra:** mark login errors with an alert icon at body size ([7ff89ad](https://github.com/KauaVilasBoas/Normetry/commit/7ff89ad9e386669fab64ae46a04a7e303c1f960f))
+* **infra:** match the login title and hero type to the design tokens ([3c5c89a](https://github.com/KauaVilasBoas/Normetry/commit/3c5c89a3faa6d722ecf1326532f8d48250d9cbdb))
+* **infra:** show the login tagline in one casing and at body size ([97db669](https://github.com/KauaVilasBoas/Normetry/commit/97db6694efd12f86c3ea411fe9320a4baa264b5c))
+* **infra:** space paragraphs and hide the empty info box on login pages ([c575a40](https://github.com/KauaVilasBoas/Normetry/commit/c575a403929d2a951cc3c96b79c51dab0913fa8a))
+* **infra:** underline links in login instruction text ([90c06b6](https://github.com/KauaVilasBoas/Normetry/commit/90c06b6ca5e30ec57fe5bfb845957abb33d3e697))
+* **infra:** use the icon-tile radius and drop unused login theme tokens ([72a5517](https://github.com/KauaVilasBoas/Normetry/commit/72a55172b219e99096ca3c1c4c05fd4df8f5e72b))
+* **infra:** use the SPA's line heights and focus offset in the login theme ([89ff552](https://github.com/KauaVilasBoas/Normetry/commit/89ff552628bb3d6b643521fd57fc83ba1130eda2))
+* **web:** give the chat input and establishment switcher a teal border ([ab39618](https://github.com/KauaVilasBoas/Normetry/commit/ab39618bc35bee44160b7b52361d1f828234713d))
+
 ## [0.4.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.3.0...v0.4.0) (2026-11-15)
 
 
