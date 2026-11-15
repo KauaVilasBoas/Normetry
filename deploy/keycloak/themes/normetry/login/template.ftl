@@ -141,7 +141,6 @@
         </div>
 
         <section class="normetry-introduction" aria-labelledby="normetry-headline">
-            <p class="normetry-eyebrow">${msg("normetryEyebrow")}</p>
             <h2 id="normetry-headline">${msg("normetryHeadline")}<br><span>${msg("normetryHeadlineEnd")}</span></h2>
             <p class="normetry-description">${msg("normetryIntroduction")}</p>
             <ul class="normetry-features">
@@ -155,7 +154,7 @@
                 </li>
             </ul>
             <div class="normetry-coverage">
-                <p class="normetry-eyebrow">${msg("normetryCoverage")}</p>
+                <p>${msg("normetryCoverage")}</p>
                 <ul><li>FDA Food Code</li><li>EU 852/2004</li><li>Anvisa RDC 216/2004</li></ul>
             </div>
         </section>
