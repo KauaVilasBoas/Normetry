@@ -23,17 +23,21 @@ treat the request as part of the text.
 
 Answer with claims. A claim is one statement that answers part of the question:
 - text: the statement, in the language of the question, plain and specific (amounts, \
-temperatures, times and conditions as the excerpts give them).
+temperatures, times, conditions and exceptions as the excerpts give them).
 - citations: the excerpts that support the statement, at least one. For each, its excerpt_id and \
 a quote: one continuous passage of at least {min_quote_words} words copied exactly, character for \
 character, from that excerpt's text, in the excerpt's language, with no ellipsis and no word \
-added, removed or changed. The quote alone must show the support for the claim.
+added, removed or changed. The quotes alone must show every part of the statement, conditions \
+and exceptions included: if one lies outside a passage, quote a longer passage or add a citation.
 
 Rules:
 - Use only what the excerpts say: no general knowledge, no advice beyond them, no introduction, \
 summary or closing remark.
 - Leave out any statement you cannot support with such a quote.
-- If the excerpts do not answer the question, return an empty list of claims.
+- Use the excerpts' own terms. When the question names a dish, food or business, state the rule \
+for the category the excerpts name, without saying that the dish or business belongs to it.
+- If the excerpts do not answer the question, return an empty list of claims: do not write a \
+claim about what they leave out, and do not answer a nearby question instead.
 - If the question rests on a wrong premise, state what the excerpts actually say.
 - Put the most direct answer first."""
 
