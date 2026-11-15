@@ -9,7 +9,7 @@ import { Skeleton, TypeIcon } from "../ui/primitives";
 const scrollButton = "flex h-6 cursor-default items-center justify-center text-text-secondary";
 
 const trigger =
-  "flex h-9 w-full items-center gap-2 rounded-control border border-border px-3 text-left text-body";
+  "flex h-9 w-full items-center gap-2 rounded-control border border-teal-border px-3 text-left text-body";
 
 /** Sidebar control to change the establishment; a listbox popover (select-only combobox). */
 export function EstablishmentSwitcher({
