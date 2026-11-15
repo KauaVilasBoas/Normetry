@@ -76,9 +76,11 @@ Run it alone, as the retrieval eval.
 
 ## Reports
 
-`reports/`: one Markdown file per baseline run, named `<date>-<suite>-<variant>.md` (the generation eval adds a `.jsonl` of the same name). The newest file of a suite is its baseline. CI writes its run to the job summary and does not commit it.
+`reports/`: one Markdown file per baseline run, named `<date>-<suite>-<variant>.md`. The generation eval also writes a `.jsonl` with the same name, and its review adds a `.review.json` holding the verdict on every claim and answer. A suite's newest file is its baseline. CI writes its run to the job summary and does not commit it.
 
 | Report | What |
 |---|---|
 | [2026-11-13-retrieval-bge-m3.md](reports/2026-11-13-retrieval-bge-m3.md) | Retrieval baseline with BGE-M3: vector, full-text and fusion measured; the re-ranker could not be downloaded for that run |
 | [2026-11-14-retrieval-bge-m3-reranked.md](reports/2026-11-14-retrieval-bge-m3-reranked.md) | Retrieval baseline with BGE-M3 and the bge-reranker-v2-m3 re-ranker: every step measured, best re-ranker scores for the refusal threshold, time per step |
+| [2026-11-15-generation-claude-haiku-5-5-first-prompt.md](reports/2026-11-15-generation-claude-haiku-5-5-first-prompt.md) | First generation run, Claude Haiku 5.5, with its review. The review found claims about what the excerpts leave out, quotes that stop before a condition, and a rewrite that leaked its scratch work |
+| [2026-11-15-generation-claude-haiku-5-5.md](reports/2026-11-15-generation-claude-haiku-5-5.md) | Generation baseline, Claude Haiku 5.5, after the prompt and rewrite fixes: review, comparison with the first run, phase 1 success measures |
