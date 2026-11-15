@@ -1,5 +1,5 @@
-"""Claude through the Anthropic SDK: the chat model, answering in claims (structured outputs),
-and a plain-text model for short tasks such as rewriting a follow-up.
+"""Claude through the Anthropic SDK: the chat model, answering in claims, and the rewrite model,
+turning a follow-up into a standalone question. Both use structured outputs.
 
 The answer comes back as JSON constrained by CLAIMS_SCHEMA and is streamed: each claim object is
 handed on as soon as it is complete, so the citation guard can check it while the rest is still
@@ -49,6 +49,14 @@ CLAIMS_SCHEMA: dict[str, object] = {
         }
     },
     "required": ["claims"],
+    "additionalProperties": False,
+}
+
+# What the rewrite model must return: the question alone, so no draft or note reaches retrieval.
+QUESTION_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {"question": {"type": "string"}},
+    "required": ["question"],
     "additionalProperties": False,
 }
 
@@ -139,8 +147,8 @@ class ClaudeClaimModel:
         yield _usage(settings.chat_model, message.usage)
 
 
-class ClaudeTextModel:
-    """One short plain-text completion (the follow-up rewrite) from a configured Claude model."""
+class ClaudeRewriteModel:
+    """The standalone question for a follow-up, from a configured Claude model (QUESTION_SCHEMA)."""
 
     def __init__(
         self,
@@ -156,22 +164,34 @@ class ClaudeTextModel:
         self._client = client or _client(settings)
 
     async def complete(self, system: str, user: str) -> tuple[str, Usage]:
-        """The model's text, stripped, and the call's Usage. Raises ModelUnavailable."""
+        """The question, stripped, and the call's Usage. Raises ModelUnavailable.
+
+        The question is "" when the reply does not hold one (cut by max_tokens, a refusal): the
+        call was still paid for, so its Usage comes back with it.
+        """
         if self._client is None:
             raise ModelUnavailable("no Anthropic API key")
         try:
             message = await self._client.messages.create(
                 model=self._model,
                 max_tokens=self._max_tokens,
-                # A rewrite needs little thought; low effort keeps it fast and cheap.
-                output_config={"effort": "low"},
+                output_config={
+                    # A rewrite needs little thought; low effort keeps it fast and cheap.
+                    "effort": "low",
+                    "format": {"type": "json_schema", "schema": QUESTION_SCHEMA},
+                },
                 system=system,
                 messages=[{"role": "user", "content": user}],
             )
         except anthropic.AnthropicError as error:
             raise _unavailable(error) from error
         text = "".join(block.text for block in message.content if block.type == "text")
-        return text.strip(), _usage(self._model, message.usage)
+        try:
+            question = json.loads(text)["question"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            question = None
+        question = question.strip() if isinstance(question, str) else ""
+        return question, _usage(self._model, message.usage)
 
 
 def _client(settings: AnswerSettings) -> anthropic.AsyncAnthropic | None:

@@ -7,7 +7,7 @@ from normetry_ai import telemetry
 from normetry_ai.api import conversations, health
 from normetry_ai.api.auth import InternalTokenMiddleware
 from normetry_ai.db import check_runtime_role, create_db_engine
-from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeTextModel
+from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeRewriteModel
 from normetry_ai.llm.embeddings import SentenceTransformerEmbedder
 from normetry_ai.llm.reranker import CrossEncoderReranker
 from normetry_ai.retrieval import hybrid
@@ -37,7 +37,7 @@ def create_app(
     conversation_settings = conversation_settings or ConversationSettings()
     chat = conversations.Chat(
         claim_model=ClaudeClaimModel(answer_settings),
-        rewrite_model=ClaudeTextModel(
+        rewrite_model=ClaudeRewriteModel(
             answer_settings,
             conversation_settings.rewrite_model,
             conversation_settings.rewrite_max_tokens,
