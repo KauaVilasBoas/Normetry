@@ -106,7 +106,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | Body / nav / table | 12–13px / 400–500 | nav items, table rows |
 | Caption / delta / axis | 11px / 400–500 | "12% vs last month" |
 | Form field below 640px | 16px (`--text-field`) | text typed into an input or textarea on a phone; iOS zooms into smaller fields on focus. From 640px fields use the body size. |
-| Auth introduction | 40px / 600, 48px line height (`--text-auth-hero`) | the brand tagline beside the Keycloak sign-in card, from 1024px; compact auth screens use the existing 22px greeting size |
+| Auth introduction | 40px / 600, 48px line height, no letter-spacing (`--text-auth-hero`) | the brand tagline beside the Keycloak sign-in card, from 1024px. Below 1024px the introduction is hidden, and the wordmark and tagline (13px, `--text-secondary`) sit above the card |
 
 ## 4. Layout
 
