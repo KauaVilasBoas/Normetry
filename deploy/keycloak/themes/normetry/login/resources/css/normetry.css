@@ -134,7 +134,6 @@ a:hover,
   margin-block: 0 20px;
   font-size: var(--text-auth-hero);
   font-weight: 600;
-  letter-spacing: -0.045em;
   line-height: 1.2;
 }
 
@@ -618,8 +617,6 @@ hr {
     display: block;
     margin-block-start: 8px;
     color: var(--text-secondary);
-    font-size: var(--text-small);
-    line-height: var(--text-small--line-height);
   }
 
   .normetry-introduction {
