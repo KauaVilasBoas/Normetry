@@ -1,0 +1,1296 @@
+[
+ {
+  "id": "us-001",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Applies the cooked TCS food cooling rule to chili; the text names only the category."
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Applies the cooked TCS food cooling rule to chili; the text names only the category."
+   }
+  ]
+ },
+ {
+  "id": "us-002",
+  "rewrite": "none",
+  "answer": "partial",
+  "note": "Misses the 3-501.17(C) rule that a salad made from earlier-prepared RTE TCS ingredients keeps the earliest ingredient's date, so it can have fewer than seven days.",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-003",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-004",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "'Alternatively' presents the 2-102.11 knowledge-demonstration options as alternatives to the 2-102.12 certification requirement. 2-102.12 still requires a certified PIC."
+   }
+  ]
+ },
+ {
+  "id": "us-005",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-006",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-007",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Applies the TCS reheating rule to soup; the text names only the category."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Applies the TCS hot-holding rule to soup; the text names only the category."
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Asserts that soup is a homogenous liquid. 3-501.16(C) covers TCS food 'in a homogenous liquid form', which not every soup is."
+   }
+  ]
+ },
+ {
+  "id": "us-008",
+  "rewrite": "none",
+  "answer": "partial",
+  "note": "Answers only the consumer-advisory part. Says nothing about keeping shellstock tags attached until the container is empty, recording the last sale date, or keeping tags 90 days (3-203.12). Claim 5 also suggests raw oysters may be banned.",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Drops the 3-801.11 condition that the ban applies only to establishments serving a highly susceptible population, so it misleadingly suggests raw oysters may be prohibited for an ordinary restaurant."
+   }
+  ]
+ },
+ {
+  "id": "us-009",
+  "rewrite": "none",
+  "answer": "partial",
+  "note": "Misses the first question: eating and drinking are allowed only in designated areas, and the closed-beverage-container exception (2-401.11) is left out.",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Drops the 2-301.14(D) exception for drinking from a closed beverage container per 2-401.11(B)."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-010",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "us-011",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "us-012",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "us-013",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "us-014",
+  "rewrite": "none",
+  "answer": "stretch",
+  "note": "The Code text has no food safety culture requirement (no 'culture' anywhere in it), and the answer says so. It then answers a nearby question: the written FSMS of 8-201.15 and the PIC knowledge demonstration of 2-102.11.",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": false,
+    "note": "Covers the PIC knowledge demonstration, which is not about food safety culture or evidence of it."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": false,
+    "note": "Covers the PIC knowledge demonstration, which is not about food safety culture or evidence of it."
+   }
+  ]
+ },
+ {
+  "id": "us-015",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "Premise corrected: it says no, sanitizer does not replace washing, lists the required wash times and places antiseptic after handwashing. It does not cite 2-301.16(A)(3).",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "'Listed only' overstates, since 2-301.16 also governs antiseptics. The two-or-more measures apply only within the approved bare-hand-contact procedure of 3-301.11(E), and the claim drops that approval condition."
+   }
+  ]
+ },
+ {
+  "id": "us-016",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "Premise corrected: it says no and lists the only permitted thawing methods.",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": false,
+    "note": "Sidesteps the premise. 165°F is also the poultry cooking temperature (3-401.11(A)(3)), so pointing to reheating does not explain why cooking does not excuse counter thawing."
+   }
+  ]
+ },
+ {
+  "id": "us-017",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-017",
+  "rewrite": "baseline",
+  "answer": "partial",
+  "note": "Answers only the fish turn. Nothing on chicken (poultry 165°F instantaneous), which is the whole expected answer.",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Drops the stuffed-fish exception, which is 165°F under 3-401.11(A)(3). 'Whole or intact' is a gloss, since the text uses 'intact' for meat."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-018",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-018",
+  "rewrite": "baseline",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-019",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-019",
+  "rewrite": "baseline",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "us-020",
+  "rewrite": "model",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "us-020",
+  "rewrite": "baseline",
+  "answer": "stretch",
+  "note": "It answers only the earlier turn (a sign is required, 6-301.14) and says nothing on the language, which the Code does not address.",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-001",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-002",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: 'and if possible their causes' is in the same sentence of the section but outside the cited span."
+   }
+  ]
+ },
+ {
+  "id": "eu-003",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-004",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-005",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Category to instance: 'which would include a restaurant' is the model's inference; Article 5(3) names no business type."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-006",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-007",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "eu-008",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "eu-009",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "Premise corrected: says no small-business exemption, every food business operator must notify each establishment for registration.",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: the quote stops at 'notify the appropriate competent authority'; 'registration' and 'each establishment under its control' come from the rest of the sentence. Also applies the rule to the café, which the text doesn't name."
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: 'for registration' ('with a view to the registration') is just after the cited span."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-010",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: the quote stops at 'any substance', so 'hazard to health or likely to contaminate' is uncited; the leading 'No' (not the same requirement as ice) is an inference from absence. The reading is defensible."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-010",
+  "rewrite": "baseline",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-011",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-012",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: the 'a menos que ... limpos e controlados' exception is outside this claim's quote (the next claim cites it)."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": false,
+    "note": "Generic duty to protect food from contamination; doesn't address shared allergen equipment."
+   }
+  ]
+ },
+ {
+  "id": "eu-013",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-014",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: the condition 'se houver probabilidades de contaminação directa ou indirecta' is in the claim but outside the quote, which reads as an unconditional ban."
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: 'se possível, das suas causas' is outside the cited span; also drops the condition 'que possa entrar em contacto com géneros alimentícios'."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-015",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "eu-016",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "eu-017",
+  "rewrite": "none",
+  "answer": "stretch",
+  "note": "Annex II, Chapter IX sets cooling and temperature rules but no storage period, so the answer cites the rapid-cooling rule to back a non-answer ('the excerpts give no number of days') when it should have refused.",
+  "claims": [
+   {
+    "faithfulness": "unsupported",
+    "relevant": true,
+    "note": "The quote is about cooling quickly after heat treatment; it doesn't state that no day limit exists. The claim is true but its quote doesn't back it."
+   }
+  ]
+ },
+ {
+  "id": "eu-018",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "Premise corrected: waste is to be removed as quickly as possible to avoid accumulation, not only at the end of the day.",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: the quote stops at 'possam provar'; 'à autoridade competente que outros contentores ... são adequados' is outside the cited span."
+   }
+  ]
+ },
+ {
+  "id": "eu-019",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": false,
+    "note": "Thawing temperature repeats the first turn; doesn't address the liquid the follow-up asks about."
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": false,
+    "note": "Beyond quote: 'ou a formação de toxinas' is outside the cited span. Post-thaw handling doesn't address the liquid either."
+   }
+  ]
+ },
+ {
+  "id": "eu-019",
+  "rewrite": "baseline",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: 'ou a formação de toxinas' is outside the cited span."
+   }
+  ]
+ },
+ {
+  "id": "eu-020",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Drops the condition: states the materials rule without the 'a não ser que' exception (the next claim states it)."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "eu-020",
+  "rewrite": "baseline",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: the 'salvo se ... provar à autoridade competente' exception for walls is in neither quote."
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Beyond quote: the quote stops at 'a não ser que os operadores'; the rest of the exception is outside the cited span."
+   }
+  ]
+ },
+ {
+  "id": "br-001",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-002",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-003",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-004",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Adds 'separados do uniforme'; 4.6.3 only says personal clothes and objects go in a specific reserved place."
+   }
+  ]
+ },
+ {
+  "id": "br-005",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-006",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-007",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Flat 'Não' decides the case; 4.6.2 removes the handler only if the lesion may compromise food safety (the condition is restated, so the overreach is small)."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-008",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-009",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-010",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "Drops the 4.12.1 carve-out 'sem prejuízo dos casos onde há previsão legal para responsabilidade técnica'."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-011",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "br-012",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "br-013",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "br-014",
+  "rewrite": "none",
+  "answer": "correct_refusal",
+  "note": "",
+  "claims": []
+ },
+ {
+  "id": "br-016",
+  "rewrite": "none",
+  "answer": "partial",
+  "note": "Corrects the premise (no monthly frequency) but misses the key rules: 4.3.1 continuous pest-control actions and 4.3.2 chemical control by a specialized company when prevention fails; argues from the no-animals (4.1.7) and cleaning-frequency (4.2.1) items instead.",
+  "claims": [
+   {
+    "faithfulness": "partial",
+    "relevant": true,
+    "note": "4.1.7 does say no animals in internal and external areas, but it is about animals and objects, not pest control; the claim treats it as the dedetização rule."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": false,
+    "note": "Cleaning frequency (4.2.1) is not pest control and doesn't answer the dedetização question."
+   }
+  ]
+ },
+ {
+  "id": "br-017",
+  "rewrite": "none",
+  "answer": "complete",
+  "note": "Corrects the premise: the 180ºC cap applies whether or not the oil smokes.",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-018",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-018",
+  "rewrite": "baseline",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-019",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-019",
+  "rewrite": "baseline",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-020",
+  "rewrite": "model",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ },
+ {
+  "id": "br-020",
+  "rewrite": "baseline",
+  "answer": "complete",
+  "note": "",
+  "claims": [
+   {
+    "faithfulness": "supported",
+    "relevant": false,
+    "note": "Answers the first turn (how to thaw), not the follow-up about refreezing."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": false,
+    "note": "Answers the first turn (how to thaw), not the follow-up about refreezing."
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   },
+   {
+    "faithfulness": "supported",
+    "relevant": true,
+    "note": ""
+   }
+  ]
+ }
+]
