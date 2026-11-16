@@ -59,7 +59,9 @@ export function ProfileEditor({
   announce: (text: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const send = useSend();
+  const { send } = useSend();
+  // Rename and Delete happen inside their dialogs (one open at a time).
+  const inDialog = useSend({ inside: true });
   const readable = can(me, "profiles.read");
   const canManage = can(me, "profiles.manage");
   const profile = useProfile(id, readable);
@@ -119,7 +121,7 @@ export function ProfileEditor({
   };
 
   const rename = async (next: string) => {
-    const result = await send(path, { method: "PATCH", json: { name: next } });
+    const result = await inDialog.send(path, { method: "PATCH", json: { name: next } });
     if (result.ok && id !== undefined) {
       queryClient.setQueryData<Profile>(profileKey(id), (old) => old && { ...old, name: next });
       refresh();
@@ -130,7 +132,7 @@ export function ProfileEditor({
 
   /** Resolves to the refusal to show, or undefined once the profile is gone. */
   const remove = async () => {
-    const result = await send(path, { method: "DELETE" });
+    const result = await inDialog.send(path, { method: "DELETE" });
     // 404: it is already gone, which is what the user asked for.
     if (!result.ok && result.status !== 404)
       return result.status === 403 ? copy.settings.denied : copy.profiles.deleteError;
@@ -189,8 +191,9 @@ export function ProfileEditor({
               submittingLabel={copy.profiles.renameSaving}
               initialName={name}
               onSubmit={rename}
+              onClosed={inDialog.closed}
             />
-            <DeleteProfile name={name} onDelete={remove} />
+            <DeleteProfile name={name} onDelete={remove} onClosed={inDialog.closed} />
           </>
         )}
       </div>
@@ -322,10 +325,13 @@ function EditorSkeleton({ label }: { label: boolean }) {
 function DeleteProfile({
   name,
   onDelete,
+  onClosed,
 }: {
   name: string;
   /** Resolves to the refusal to show, or undefined once deleted (the editor then goes away). */
   onDelete: () => Promise<string | undefined>;
+  /** Cancelled: a refusal it showed may now take its trigger away. */
+  onClosed: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -348,6 +354,7 @@ function DeleteProfile({
         if (deleting) return;
         setOpen(next);
         setError(undefined);
+        if (!next) onClosed();
       }}
     >
       <AlertDialog.Trigger

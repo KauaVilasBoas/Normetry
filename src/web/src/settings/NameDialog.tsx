@@ -18,6 +18,7 @@ export function NameDialog({
   submittingLabel,
   initialName = "",
   onSubmit,
+  onClosed,
   onClosedAfterSave,
 }: {
   trigger: ReactNode;
@@ -26,6 +27,8 @@ export function NameDialog({
   submittingLabel: string;
   initialName?: string;
   onSubmit: (name: string) => Promise<Sent>;
+  /** Dismissed (Cancel, Esc, outside): a refusal it showed may now take its trigger away. */
+  onClosed?: () => void;
   onClosedAfterSave?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -68,7 +71,10 @@ export function NameDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) return;
+        if (!next) {
+          onClosed?.();
+          return;
+        }
         setName(initialName);
         setFieldError(undefined);
         setError(undefined);

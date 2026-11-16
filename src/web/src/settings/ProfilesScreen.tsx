@@ -34,7 +34,8 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
   const { profileId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const send = useSend();
+  // Create happens inside its dialog.
+  const { send, closed } = useSend({ inside: true });
   const wide = useMediaQuery(media.list);
   const canManage = can(me.data, "profiles.manage");
   const profiles = useProfiles(can(me.data, "profiles.read"));
@@ -148,6 +149,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
                   submitLabel={copy.profiles.create}
                   submittingLabel={copy.profiles.creating}
                   onSubmit={create}
+                  onClosed={closed}
                   onClosedAfterSave={openCreated}
                 />
               )}
