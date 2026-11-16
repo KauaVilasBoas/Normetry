@@ -87,6 +87,23 @@ internal sealed class UserRepository(CoreDbContext db) : IUserRepository
     public Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken) =>
         db.Users.AnyAsync(user => user.Id == id, cancellationToken);
 
+    public async Task<Guid?> FindIdAsync(string sub, CancellationToken cancellationToken) =>
+        await db
+            .Users.Where(user => user.Sub == sub)
+            .Select(user => (Guid?)user.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, string?>> GetDisplayNamesAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken
+    )
+    {
+        var wanted = ids.ToArray();
+        return await db
+            .Users.Where(user => wanted.Contains(user.Id))
+            .ToDictionaryAsync(user => user.Id, user => user.DisplayName, cancellationToken);
+    }
+
     public Task AssignAsync(
         Guid tenantId,
         Guid userId,

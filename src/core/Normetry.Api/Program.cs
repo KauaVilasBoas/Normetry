@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Normetry.Api.Auth;
 using Normetry.Api.Chat;
+using Normetry.Api.Documents;
 using Normetry.Api.Gateway;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.Infrastructure;
@@ -11,6 +12,7 @@ builder.AddServiceDefaults();
 builder.AddAuth();
 builder.AddAiGateway();
 builder.AddChat();
+builder.AddDocuments();
 builder.Services.AddProblemDetails();
 builder
     .Services.AddControllers(options =>

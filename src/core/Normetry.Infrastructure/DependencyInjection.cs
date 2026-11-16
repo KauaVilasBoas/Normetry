@@ -1,6 +1,8 @@
+using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Application.Abstractions;
+using Normetry.Application.Documents;
 using Normetry.Application.Establishments;
 using Normetry.Application.Identity;
 using Normetry.Application.Tenancy;
@@ -8,6 +10,7 @@ using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.Infrastructure.Messaging;
 using Normetry.Infrastructure.Persistence;
+using Normetry.Infrastructure.Storage;
 
 namespace Normetry.Infrastructure;
 
@@ -17,7 +20,8 @@ public static class DependencyInjection
     /// The core database as <c>app_core</c> (<c>ConnectionStrings:core</c>, required), scoped to
     /// the request's <see cref="ITenantContext"/>, plus the repositories, the transaction
     /// behavior, a startup check that the role cannot get around RLS, the outbox and its
-    /// dispatcher to RabbitMQ (<c>ConnectionStrings:rabbitmq</c>, required). Call it after
+    /// dispatcher to RabbitMQ (<c>ConnectionStrings:rabbitmq</c>, required) and the document blob
+    /// store (<c>ConnectionStrings:blobs</c>, required). Call it after
     /// <c>AddDispatcher</c>: the behavior then runs inside logging and validation, so an invalid
     /// request opens no transaction.
     /// </summary>
@@ -41,6 +45,17 @@ public static class DependencyInjection
         services.AddScoped<IChatMessageCounter, ChatMessageCounter>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IProfileRepository, ProfileRepository>();
+        services.AddScoped<IDocumentRepository, DocumentRepository>();
+        var blobConnectionString = configuration.GetConnectionString(
+            BlobDocumentStore.ConnectionStringName
+        )
+            ?? throw new InvalidOperationException(
+                $"Set ConnectionStrings:{BlobDocumentStore.ConnectionStringName} (the blob storage account)."
+            );
+        var blobContainer = configuration["Documents:BlobContainer"] ?? "documents";
+        services.AddSingleton<IDocumentBlobStore>(_ => new BlobDocumentStore(
+            new BlobContainerClient(blobConnectionString, blobContainer)
+        ));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
 
         // Background services open one scope per tenant and set its tenant here first.

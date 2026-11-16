@@ -23,6 +23,159 @@ namespace Normetry.Migrations.Schema
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Normetry.Domain.Documents.Document", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EstablishmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("establishment_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
+
+                    b.HasKey("TenantId", "Id")
+                        .HasName("pk_documents");
+
+                    b.HasIndex("TenantId", "EstablishmentId")
+                        .HasDatabaseName("ix_documents_tenant_id_establishment_id");
+
+                    b.ToTable("documents", "core", t =>
+                        {
+                            t.HasCheckConstraint("ck_documents_type", "type IN ('Sop', 'License', 'Log', 'Report', 'Other')");
+                        });
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Documents.DocumentVersion", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BlobPath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("blob_path");
+
+                    b.Property<int?>("ChunkCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("chunk_count");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("content_type");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_id");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("failure_code");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("failure_reason");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("language");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("page_count");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sha256");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("StatusChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("status_changed_at");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.Property<Guid>("UploadedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("TenantId", "Id")
+                        .HasName("pk_document_versions");
+
+                    b.HasIndex("TenantId", "StatusChangedAt")
+                        .HasDatabaseName("ix_document_versions_tenant_id_status_changed_at")
+                        .HasFilter("status = 'Processing'");
+
+                    b.HasIndex("TenantId", "UploadedBy")
+                        .HasDatabaseName("ix_document_versions_tenant_id_uploaded_by");
+
+                    b.HasIndex("TenantId", "DocumentId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_document_versions_tenant_id_document_id_number");
+
+                    b.ToTable("document_versions", "core", t =>
+                        {
+                            t.HasCheckConstraint("ck_document_versions_status", "status IN ('Uploaded', 'Processing', 'Indexed', 'Failed')");
+                        });
+                });
+
             modelBuilder.Entity("Normetry.Domain.Establishments.Establishment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -51,6 +204,9 @@ namespace Normetry.Migrations.Schema
 
                     b.HasKey("Id")
                         .HasName("pk_establishments");
+
+                    b.HasAlternateKey("TenantId", "Id")
+                        .HasName("ak_establishments_tenant_id_id");
 
                     b.HasIndex("TenantId", "Name")
                         .HasDatabaseName("ix_establishments_tenant_id_name");
@@ -338,6 +494,34 @@ namespace Normetry.Migrations.Schema
                     b.ToTable("outbox_tenants", "core");
                 });
 
+            modelBuilder.Entity("Normetry.Domain.Documents.Document", b =>
+                {
+                    b.HasOne("Normetry.Domain.Establishments.Establishment", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "EstablishmentId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_documents_establishments_tenant_id_establishment_id");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Documents.DocumentVersion", b =>
+                {
+                    b.HasOne("Normetry.Domain.Documents.Document", null)
+                        .WithMany("Versions")
+                        .HasForeignKey("TenantId", "DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_versions_documents_tenant_id_document_id");
+
+                    b.HasOne("Normetry.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "UploadedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_versions_users_tenant_id_uploaded_by");
+                });
+
             modelBuilder.Entity("Normetry.Domain.Establishments.Establishment", b =>
                 {
                     b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
@@ -430,6 +614,11 @@ namespace Normetry.Migrations.Schema
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_outbox_tenants_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Documents.Document", b =>
+                {
+                    b.Navigation("Versions");
                 });
 
             modelBuilder.Entity("Normetry.Domain.Identity.Profile", b =>

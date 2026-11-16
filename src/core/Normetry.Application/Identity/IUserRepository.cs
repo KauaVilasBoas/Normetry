@@ -45,6 +45,15 @@ public interface IUserRepository
 
     Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>The <c>core.users</c> id of the user with <paramref name="sub"/>, or none.</summary>
+    Task<Guid?> FindIdAsync(string sub, CancellationToken cancellationToken);
+
+    /// <summary>The display name of each of <paramref name="ids"/> that exists.</summary>
+    Task<IReadOnlyDictionary<Guid, string?>> GetDisplayNamesAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken
+    );
+
     /// <summary>Gives the user the profile; nothing changes when they already hold it.</summary>
     Task AssignAsync(
         Guid tenantId,

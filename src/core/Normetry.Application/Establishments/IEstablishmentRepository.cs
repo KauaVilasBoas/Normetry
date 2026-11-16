@@ -13,6 +13,12 @@ public interface IEstablishmentRepository
 
     Task<Establishment?> GetAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Locks the establishment's row until the transaction ends, so that changes counted per
+    /// establishment (its documents) run one at a time. False when it does not exist here.
+    /// </summary>
+    Task<bool> LockAsync(Guid id, CancellationToken cancellationToken);
+
     /// <summary>Ordered by name.</summary>
     Task<IReadOnlyList<Establishment>> ListAsync(CancellationToken cancellationToken);
 }

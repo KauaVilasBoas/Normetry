@@ -77,6 +77,23 @@ public static class TestTenants
         return profile;
     }
 
+    /// <summary>A new establishment of <paramref name="tenant"/>. Returns its id.</summary>
+    public static async Task<Guid> CreateEstablishmentAsync(DatabaseFixture db, Guid tenant)
+    {
+        var establishment = Guid.CreateVersion7();
+        await using var session = await Session.BeginAsync(db.ConnectionString("app_core"), tenant);
+        await session.ExecuteAsync(
+            """
+            INSERT INTO core.establishments (id, tenant_id, name, type, jurisdiction)
+            VALUES ($1, $2, 'Kitchen', 'Restaurant', 'US')
+            """,
+            establishment,
+            tenant
+        );
+        await session.CommitAsync();
+        return establishment;
+    }
+
     private static async Task AssignAsync(Session session, Guid tenant, string sub, Guid profile)
     {
         await session.ExecuteAsync(
