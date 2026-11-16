@@ -165,6 +165,98 @@ public sealed class TenantTransactionTests
     }
 
     [Fact]
+    public async Task The_demo_seed_gives_each_tenant_its_system_profiles_and_demo_users_once()
+    {
+        var seed = db.Api.Services.GetServices<IHostedService>().OfType<DemoTenantSeed>().Single();
+
+        await seed.StartAsync(Ct);
+
+        foreach (
+            var (tenant, users) in new[]
+            {
+                (
+                    ApiFactory.TenantA,
+                    new[]
+                    {
+                        $"{ApiFactory.BistroOwner} Owner",
+                        $"{ApiFactory.BistroManager} Manager",
+                    }
+                ),
+                (
+                    ApiFactory.TenantB,
+                    new[]
+                    {
+                        $"{ApiFactory.BakeryOwner} Owner",
+                        $"{ApiFactory.BakeryAuditor} Auditor",
+                    }
+                ),
+            }
+        )
+        {
+            await using var session = await Session.BeginAsync(
+                db.ConnectionString("app_core"),
+                Guid.Parse(tenant)
+            );
+            Assert.Equal(
+                ["auditor Auditor false", "manager Manager false", "owner Owner true"],
+                await session.ColumnAsync<string>(
+                    """
+                    SELECT system_key || ' ' || name || ' ' || grants_all FROM core.profiles
+                    WHERE system_key IS NOT NULL ORDER BY system_key
+                    """
+                )
+            );
+            Assert.Equal(
+                users,
+                await session.ColumnAsync<string>(
+                    """
+                    SELECT u.sub || ' ' || p.name FROM core.users u
+                    JOIN core.user_profiles up ON up.user_id = u.id
+                    JOIN core.profiles p ON p.id = up.profile_id
+                    WHERE u.sub = ANY($1) ORDER BY u.sub
+                    """,
+                    (object)users.Select(user => user.Split(' ')[0]).ToArray()
+                )
+            );
+        }
+    }
+
+    [Fact]
+    public async Task The_system_profiles_grant_what_the_design_says()
+    {
+        await using var session = await Session.BeginAsync(
+            db.ConnectionString("app_core"),
+            Guid.Parse(ApiFactory.TenantA)
+        );
+
+        var granted = await session.ColumnAsync<string>(
+            """
+            SELECT p.system_key || ' ' || pp.permission FROM core.profiles p
+            JOIN core.profile_permissions pp ON pp.profile_id = p.id
+            WHERE p.system_key IS NOT NULL ORDER BY (p.system_key || ' ' || pp.permission) COLLATE "C"
+            """
+        );
+
+        // Owner has no rows: grants_all covers the whole catalog.
+        Assert.Equal(
+            [
+                "auditor chat.ask",
+                "auditor documents.read",
+                "auditor establishments.read",
+                "auditor profiles.read",
+                "manager chat.ask",
+                "manager documents.delete",
+                "manager documents.read",
+                "manager documents.upload",
+                "manager establishments.manage",
+                "manager establishments.read",
+                "manager profiles.read",
+            ],
+            granted
+        );
+    }
+
+    [Fact]
     public void The_demo_seed_is_registered_only_in_Development()
     {
         using var production = db.Api.WithWebHostBuilder(builder =>
