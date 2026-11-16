@@ -378,6 +378,11 @@ def test_app_ai_cannot_touch_the_migration_history(app_ai: Engine, statement: st
         ),
         # Written once; deleted only with the conversation, by the cascade.
         ("ai.messages", {("app_ai", "SELECT"), ("app_ai", "INSERT")}),
+        # Never deleted: a deleted document keeps its marker.
+        (
+            "ai.tenant_documents",
+            {("app_ai", privilege) for privilege in ("SELECT", "INSERT", "UPDATE")},
+        ),
     ],
 )
 def test_grants_are_exactly_what_the_roles_need(
@@ -416,6 +421,7 @@ def test_policies_are_scoped_to_roles_never_public(owner: Engine) -> None:
         ("conversations", "conversations_tenant", "ALL", ("app_ai",)),
         ("messages", "messages_read", "SELECT", ("app_ai",)),
         ("messages", "messages_insert", "INSERT", ("app_ai",)),
+        ("tenant_documents", "tenant_documents_tenant", "ALL", ("app_ai",)),
     }
 
 
@@ -435,7 +441,14 @@ def test_every_ai_table_the_app_roles_can_use_forces_rls(owner: Engine) -> None:
         forced = dict(connection.execute(tables).all())
 
     # The check is not vacuous.
-    assert {"chunks", "sources", "model_usage", "conversations", "messages"} <= forced.keys()
+    assert {
+        "chunks",
+        "sources",
+        "model_usage",
+        "conversations",
+        "messages",
+        "tenant_documents",
+    } <= forced.keys()
     assert all(forced.values()), forced
 
 
@@ -514,7 +527,7 @@ def test_app_starts_as_app_ai_and_refuses_the_owner(urls: dict[str, str]) -> Non
 
 
 def test_downgrade_to_base_and_upgrade_again(urls: dict[str, str], owner: Engine) -> None:
-    names = ("chunks", "sources", "model_usage", "conversations", "messages")
+    names = ("chunks", "sources", "model_usage", "conversations", "messages", "tenant_documents")
     tables = text("SELECT " + ", ".join(f"to_regclass('ai.{name}') IS NOT NULL" for name in names))
 
     migrate(urls["ai_owner"], "downgrade", "base")
@@ -987,6 +1000,84 @@ def test_a_message_has_the_shape_of_its_role(app_ai: Engine, columns: str, value
 
     with fails("23514"), tenant_transaction(app_ai, tenant) as connection:
         connection.execute(insert, {"tenant_id": tenant, "conversation_id": conversation})
+
+
+# --- Tenant documents (ai.tenant_documents) --------------------------------------------------
+
+INSERT_TENANT_DOCUMENT = text(
+    """
+    INSERT INTO ai.tenant_documents (tenant_id, document_id, establishment_id)
+    VALUES (:tenant_id, :document_id, :establishment_id)
+    """
+)
+TENANT_DOCUMENTS = text("SELECT tenant_id, document_id FROM ai.tenant_documents")
+
+
+def new_tenant_document(engine: Engine, tenant: UUID, document: UUID | None = None) -> UUID:
+    document = document or uuid4()
+    with tenant_transaction(engine, tenant) as connection:
+        params = {"tenant_id": tenant, "document_id": document, "establishment_id": uuid4()}
+        connection.execute(INSERT_TENANT_DOCUMENT, params)
+    return document
+
+
+def tenant_documents(engine: Engine, tenant: UUID) -> set[tuple[UUID, UUID]]:
+    with tenant_transaction(engine, tenant) as connection:
+        return {tuple(row) for row in connection.execute(TENANT_DOCUMENTS)}
+
+
+def test_another_tenant_cannot_read_change_or_forge_tenant_documents(app_ai: Engine) -> None:
+    tenant_a, tenant_b = uuid4(), uuid4()
+    document = new_tenant_document(app_ai, tenant_a)
+
+    assert tenant_documents(app_ai, tenant_b) == set()
+    with tenant_transaction(app_ai, tenant_b) as connection:
+        update = text("UPDATE ai.tenant_documents SET deleted_at = now() WHERE document_id = :id")
+        assert connection.execute(update, {"id": document}).rowcount == 0
+        lock = text("SELECT 1 FROM ai.tenant_documents WHERE document_id = :id FOR UPDATE")
+        assert connection.execute(lock, {"id": document}).all() == []
+    with denied(), tenant_transaction(app_ai, tenant_b) as connection:
+        params = {"tenant_id": tenant_a, "document_id": uuid4(), "establishment_id": uuid4()}
+        connection.execute(INSERT_TENANT_DOCUMENT, params)
+    # The key leads with the tenant: B can hold a row for the same document id, A's stays as it is.
+    new_tenant_document(app_ai, tenant_b, document)
+    assert tenant_documents(app_ai, tenant_a) == {(tenant_a, document)}
+    assert tenant_documents(app_ai, tenant_b) == {(tenant_b, document)}
+
+
+def test_a_tenant_document_row_is_never_deleted(app_ai: Engine) -> None:
+    tenant_a, tenant_b = uuid4(), uuid4()
+    new_tenant_document(app_ai, tenant_a)
+
+    for tenant in (tenant_a, tenant_b):
+        with denied(), tenant_transaction(app_ai, tenant) as connection:
+            connection.execute(text("DELETE FROM ai.tenant_documents"))
+    assert len(tenant_documents(app_ai, tenant_a)) == 1
+
+
+def test_without_a_tenant_no_tenant_document_is_visible_and_none_can_be_written(
+    app_ai: Engine,
+) -> None:
+    tenant = uuid4()
+    new_tenant_document(app_ai, tenant)
+
+    with app_ai.begin() as connection:
+        assert connection.execute(TENANT_DOCUMENTS).all() == []
+        update = text("UPDATE ai.tenant_documents SET deleted_at = now()")
+        assert connection.execute(update).rowcount == 0
+    with denied(), app_ai.begin() as connection:
+        params = {"tenant_id": tenant, "document_id": uuid4(), "establishment_id": uuid4()}
+        connection.execute(INSERT_TENANT_DOCUMENT, params)
+
+
+def test_only_app_ai_sees_tenant_documents(owner: Engine, corpus: Engine, app_ai: Engine) -> None:
+    tenant = uuid4()
+    new_tenant_document(app_ai, tenant)
+
+    # FORCE ROW LEVEL SECURITY with no policy for the owner: nothing, even with the tenant set.
+    assert tenant_documents(owner, tenant) == set()
+    with denied(), tenant_transaction(corpus, tenant) as connection:
+        connection.execute(TENANT_DOCUMENTS)
 
 
 # --- Chat API (conversations, messages over SSE) ---------------------------------------------
