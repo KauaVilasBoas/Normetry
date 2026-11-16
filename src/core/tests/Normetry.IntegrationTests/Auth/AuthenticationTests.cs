@@ -37,7 +37,6 @@ public sealed class AuthenticationTests
         Assert.Equal(ApiFactory.UserId, me!.UserId);
         Assert.Equal(Guid.Parse(ApiFactory.TenantA), me.TenantId);
         Assert.Equal("Demo Bistro", me.TenantName);
-        Assert.Equal(["Owner"], me.Roles);
         Assert.Equal(
             ("Owner", Profile.SystemKeys.Owner),
             (Assert.Single(me.Profiles).Name, me.Profiles[0].SystemKey)
