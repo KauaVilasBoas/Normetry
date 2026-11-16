@@ -112,6 +112,29 @@ public sealed class DocumentStatusTests
     }
 
     [Fact]
+    public async Task One_message_id_under_two_tenants_is_applied_in_each()
+    {
+        // The inbox key is (tenant, message id): tenant B's message never suppresses tenant A's.
+        var a = await UploadAsync();
+        var b = await UploadAsync();
+        var messageId = Guid.NewGuid();
+
+        await HandleAsync(
+            a,
+            new DocumentIngestionStarted(a.Establishment, a.Document, a.Version, 1),
+            messageId
+        );
+        await HandleAsync(
+            b,
+            new DocumentIngestionStarted(b.Establishment, b.Document, b.Version, 1),
+            messageId
+        );
+
+        Assert.Equal(("Processing", (string?)null), await StatusAsync(a));
+        Assert.Equal(("Processing", (string?)null), await StatusAsync(b));
+    }
+
+    [Fact]
     public async Task An_event_reaches_only_the_tenant_its_envelope_names()
     {
         // Tenant B's message naming tenant A's ids: B's transaction cannot see A's rows.
@@ -171,9 +194,11 @@ public sealed class DocumentStatusTests
         await SetStatusAsync(waiting, "Uploaded", TimeSpan.FromHours(2));
         var sweeper = ActivatorUtilities.CreateInstance<ProcessingTimeoutSweeper>(db.Api.Services);
 
+        // Other tenants' sweeps never reach the stuck version.
+        Assert.Empty(await sweeper.SweepAsync(waiting.Tenant, Ct));
+        Assert.Empty(await sweeper.SweepAsync(recent.Tenant, Ct));
+        Assert.Equal(("Processing", (string?)null), await StatusAsync(stuck));
         var changes = await sweeper.SweepAsync(stuck.Tenant, Ct);
-        await sweeper.SweepAsync(waiting.Tenant, Ct);
-        await sweeper.SweepAsync(recent.Tenant, Ct);
 
         var change = Assert.Single(changes);
         Assert.Equal((stuck.Version, "timed_out"), (change.VersionId, change.FailureCode));

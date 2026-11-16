@@ -111,6 +111,9 @@ public sealed class MessageContractTests
     [InlineData("not json")]
     [InlineData("{}")]
     [InlineData(
+        """{"messageId":"0b8f6c3e-2d1a-4e5f-9a8b-7c6d5e4f3a21","type":"DocumentDeleted","version":1,"occurredAt":"2026-11-16T12:00:00Z","TenantId":"3f0c2a9e-6b1d-4c8e-9a57-2d4e8b1c7f60","payload":{"establishmentId":"8a1e5b77-0c3d-4f29-b6a4-91d2e3c4f5a6","documentId":"c4b2a1f0-9e8d-4c7b-a6f5-e4d3c2b1a0f9"}}"""
+    )]
+    [InlineData(
         """{"messageId":"0b8f6c3e-2d1a-4e5f-9a8b-7c6d5e4f3a21","type":"DocumentArchived","version":1,"occurredAt":"2026-11-16T12:00:00Z","tenantId":"3f0c2a9e-6b1d-4c8e-9a57-2d4e8b1c7f60","payload":{}}"""
     )]
     [InlineData(

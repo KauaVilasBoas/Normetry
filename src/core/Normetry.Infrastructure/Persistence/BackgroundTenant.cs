@@ -13,8 +13,20 @@ namespace Normetry.Infrastructure.Persistence;
 public sealed class BackgroundTenant : ITenantContext
 {
     private Guid? tenantId;
+    private bool resolved;
 
-    public bool IsSet => tenantId is not null;
+    /// <summary>
+    /// Read once, when the scope resolves <see cref="ITenantContext"/>; from then on the scope's
+    /// tenant source is fixed, so a late <see cref="Set"/> throws instead of being ignored.
+    /// </summary>
+    public bool IsSet
+    {
+        get
+        {
+            resolved = true;
+            return tenantId is not null;
+        }
+    }
 
     public Guid TenantId =>
         tenantId ?? throw new InvalidOperationException("The background scope has no tenant.");
@@ -28,9 +40,11 @@ public sealed class BackgroundTenant : ITenantContext
                 nameof(tenant)
             );
         }
-        if (tenantId is not null)
+        if (tenantId is not null || resolved)
         {
-            throw new InvalidOperationException("The background scope already has a tenant.");
+            throw new InvalidOperationException(
+                "The background scope already has a tenant, or resolved one before it was set."
+            );
         }
         tenantId = tenant;
     }
