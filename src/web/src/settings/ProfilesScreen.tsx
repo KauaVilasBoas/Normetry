@@ -55,6 +55,15 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
   }, [focusRequest]);
   const focus = (id: string) => setFocusRequest({ id });
 
+  // Losing profiles.manage (a refetched /me) removes Save, the dialogs and the menus, maybe the
+  // focused one. The users card moves focus first for its menus; anything else lands here.
+  const couldManage = useRef(canManage);
+  useEffect(() => {
+    if (couldManage.current && !canManage && document.activeElement === document.body)
+      focusById(document.getElementById(EDITOR_TITLE_ID) ? EDITOR_TITLE_ID : PROFILES_TITLE_ID);
+    couldManage.current = canManage;
+  }, [canManage]);
+
   const [announcements, setAnnouncements] = useState<{ id: number; text: string }[]>([]);
   const announce = (text: string) =>
     setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text }]);
