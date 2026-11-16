@@ -8,8 +8,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using Normetry.Application.Documents;
 using Normetry.Infrastructure.Messaging;
 using Normetry.Infrastructure.Persistence;
+using Normetry.IntegrationTests.Documents;
 
 namespace Normetry.IntegrationTests;
 
@@ -54,6 +56,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// </summary>
     public string? RabbitMqConnectionString { get; init; }
 
+    /// <summary>Stands in for Azure Blob Storage.</summary>
+    public InMemoryBlobStore Blobs { get; } = new();
+
     public static SecurityKey NewSigningKey() =>
         new RsaSecurityKey(RSA.Create(2048)) { KeyId = "test-key" };
 
@@ -64,6 +69,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             "ConnectionStrings:rabbitmq",
             RabbitMqConnectionString ?? "amqp://guest:guest@127.0.0.1:9"
         );
+        builder.UseSetting("ConnectionStrings:blobs", "UseDevelopmentStorage=true");
         builder.UseSetting("Ai:InternalToken", InternalToken);
         // Nothing listens there; the gateway tests point it at a stub AI service.
         builder.UseSetting("Services:ai:http:0", "http://127.0.0.1:9");
@@ -75,6 +81,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 options.Configuration = new OpenIdConnectConfiguration { Issuer = Issuer };
                 options.Configuration.SigningKeys.Add(SigningKey);
             });
+            services.AddSingleton<IDocumentBlobStore>(Blobs);
             foreach (
                 var host in services
                     .Where(service => service.ImplementationType == typeof(OutboxDispatcher))

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Normetry.Domain.Documents;
 using Normetry.Domain.Establishments;
 using Normetry.Domain.Identity;
 using Normetry.Domain.Tenancy;
@@ -27,6 +28,10 @@ public sealed class CoreDbContext(DbContextOptions<CoreDbContext> options) : DbC
     public DbSet<User> Users => Set<User>();
 
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+
+    public DbSet<Document> Documents => Set<Document>();
+
+    public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
 
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

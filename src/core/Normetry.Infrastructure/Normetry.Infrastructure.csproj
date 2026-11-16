@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />

@@ -4,9 +4,9 @@ namespace Normetry.IntegrationTests.Database;
 
 /// <summary>
 /// RLS on core.tenants, core.establishments, core.chat_message_counts, the identity tables
-/// (profiles, profile_permissions, users, user_profiles) and the messaging tables
-/// (outbox_messages, inbox_messages, outbox_tenants), in plain SQL as app_core (the rls-table
-/// skill).
+/// (profiles, profile_permissions, users, user_profiles), the messaging tables
+/// (outbox_messages, inbox_messages, outbox_tenants) and the document tables (documents,
+/// document_versions), in plain SQL as app_core (the rls-table skill).
 /// Every test makes its own tenants, so tests never see each other's rows.
 /// </summary>
 [Collection(DatabaseCollection.Name)]
@@ -804,5 +804,208 @@ public sealed class RowLevelSecurityTests
                 new[] { tenantA, tenantB }
             )
         );
+    }
+
+    /// <summary>The document rows of one tenant: a user, a document of its establishment and one version.</summary>
+    private sealed record Documents(
+        Guid Tenant,
+        Guid Establishment,
+        Guid User,
+        Guid Document,
+        Guid Version
+    );
+
+    private const string InsertDocument = """
+        INSERT INTO core.documents (id, tenant_id, establishment_id, title, type, created_at)
+        VALUES ($1, $2, $3, 'SOP', 'Sop', now())
+        """;
+    private const string InsertVersion = """
+        INSERT INTO core.document_versions (id, tenant_id, document_id, number, file_name,
+            content_type, size, sha256, blob_path, uploaded_by, uploaded_at, status, status_changed_at)
+        VALUES ($1, $2, $3, $4, 'sop.pdf', 'application/pdf', 1, '00', 'path', $5, now(), 'Uploaded', now())
+        """;
+
+    /// <summary>Two new tenants with their document rows, written by app_core.</summary>
+    private async Task<(Documents A, Documents B)> SeedDocumentsAsync()
+    {
+        var (tenantA, tenantB, establishmentA, establishmentB) = await SeedAsync();
+        var seeded = new List<Documents>();
+        foreach (
+            var (tenant, establishment) in new[]
+            {
+                (tenantA, establishmentA),
+                (tenantB, establishmentB),
+            }
+        )
+        {
+            var rows = new Documents(
+                tenant,
+                establishment,
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7()
+            );
+            await using var session = await Session.BeginAsync(AppCore, tenant);
+            await session.ExecuteAsync(
+                "INSERT INTO core.users (tenant_id, id, sub) VALUES ($1, $2, 'user')",
+                tenant,
+                rows.User
+            );
+            await session.ExecuteAsync(InsertDocument, rows.Document, tenant, establishment);
+            await session.ExecuteAsync(
+                InsertVersion,
+                rows.Version,
+                tenant,
+                rows.Document,
+                1,
+                rows.User
+            );
+            await session.CommitAsync();
+            seeded.Add(rows);
+        }
+        return (seeded[0], seeded[1]);
+    }
+
+    /// <summary>A new row for <paramref name="table"/> carrying <paramref name="target"/>'s tenant and ids.</summary>
+    private static (string Sql, object[] Parameters) InsertDocumentRow(
+        string table,
+        Documents target
+    ) =>
+        table == "documents"
+            ? (InsertDocument, [Guid.CreateVersion7(), target.Tenant, target.Establishment])
+            : (
+                InsertVersion,
+                [Guid.CreateVersion7(), target.Tenant, target.Document, 2, target.User]
+            );
+
+    [Theory]
+    [InlineData("documents")]
+    [InlineData("document_versions")]
+    public async Task Each_tenant_reads_only_its_own_documents(string table)
+    {
+        var (a, b) = await SeedDocumentsAsync();
+        var visible = $"SELECT DISTINCT tenant_id FROM core.{table} WHERE tenant_id = ANY($1)";
+        Guid[] both = [a.Tenant, b.Tenant];
+
+        await using (var session = await Session.BeginAsync(AppCore, a.Tenant))
+        {
+            Assert.Equal([a.Tenant], await session.ColumnAsync<Guid>(visible, both));
+        }
+        await using (var session = await Session.BeginAsync(AppCore, b.Tenant))
+        {
+            Assert.Equal([b.Tenant], await session.ColumnAsync<Guid>(visible, both));
+        }
+    }
+
+    [Theory]
+    [InlineData("UPDATE core.documents SET deleted_at = now() WHERE tenant_id = $1")]
+    [InlineData("UPDATE core.document_versions SET status = 'Indexed' WHERE tenant_id = $1")]
+    public async Task A_tenant_cannot_update_another_tenants_documents(string sql)
+    {
+        var (a, b) = await SeedDocumentsAsync();
+
+        await using (var session = await Session.BeginAsync(AppCore, b.Tenant))
+        {
+            Assert.Equal(0, await session.ExecuteAsync(sql, a.Tenant));
+            await session.CommitAsync();
+        }
+
+        await using var sessionA = await Session.BeginAsync(AppCore, a.Tenant);
+        Assert.Equal(
+            ("Uploaded", 0L),
+            (
+                await sessionA.ScalarAsync<string>(
+                    "SELECT status FROM core.document_versions WHERE id = $1",
+                    a.Version
+                ),
+                await sessionA.ScalarAsync<long>(
+                    "SELECT count(*) FROM core.documents WHERE deleted_at IS NOT NULL"
+                )
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData("DELETE FROM core.documents WHERE tenant_id = $1")]
+    [InlineData("DELETE FROM core.document_versions WHERE tenant_id = $1")]
+    public async Task App_core_cannot_delete_documents_even_its_own(string sql)
+    {
+        var (a, _) = await SeedDocumentsAsync();
+
+        await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+        await session.AssertDeniedAsync(sql, a.Tenant);
+    }
+
+    [Theory]
+    [InlineData("documents")]
+    [InlineData("document_versions")]
+    public async Task A_tenant_cannot_insert_or_move_documents_into_another_tenant(string table)
+    {
+        var (a, b) = await SeedDocumentsAsync();
+        var (sql, parameters) = InsertDocumentRow(table, b);
+
+        await using (var session = await Session.BeginAsync(AppCore, a.Tenant))
+        {
+            await session.AssertDeniedAsync(sql, parameters);
+        }
+        await using (var session = await Session.BeginAsync(AppCore, a.Tenant))
+        {
+            await session.AssertDeniedAsync(
+                $"UPDATE core.{table} SET tenant_id = $1 WHERE tenant_id = $2",
+                b.Tenant,
+                a.Tenant
+            );
+        }
+    }
+
+    [Theory]
+    [InlineData("documents")]
+    [InlineData("document_versions")]
+    public async Task Without_a_tenant_no_document_is_visible_and_inserts_fail(string table)
+    {
+        var (a, b) = await SeedDocumentsAsync();
+        var (sql, parameters) = InsertDocumentRow(table, a);
+
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            Assert.Empty(
+                await session.ColumnAsync<Guid>(
+                    $"SELECT tenant_id FROM core.{table} WHERE tenant_id = ANY($1)",
+                    new[] { a.Tenant, b.Tenant }
+                )
+            );
+            Assert.Equal(
+                0,
+                await session.ExecuteAsync($"UPDATE core.{table} SET tenant_id = tenant_id")
+            );
+        }
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            await session.AssertDeniedAsync(sql, parameters);
+        }
+    }
+
+    [Fact]
+    public async Task A_document_cannot_point_at_another_tenants_establishment_user_or_document()
+    {
+        // Row-level security accepts these rows (their tenant is the session's), but the composite
+        // foreign keys find no establishment, document or user with that id in this tenant.
+        var (a, b) = await SeedDocumentsAsync();
+
+        foreach (
+            var (sql, parameters) in new (string, object[])[]
+            {
+                (InsertDocument, [Guid.CreateVersion7(), a.Tenant, b.Establishment]),
+                (InsertVersion, [Guid.CreateVersion7(), a.Tenant, b.Document, 2, a.User]),
+                (InsertVersion, [Guid.CreateVersion7(), a.Tenant, a.Document, 2, b.User]),
+            }
+        )
+        {
+            await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+            var error = await Assert.ThrowsAsync<Npgsql.PostgresException>(() =>
+                session.ExecuteAsync(sql, parameters)
+            );
+            Assert.Equal("23503", error.SqlState); // foreign_key_violation
+        }
     }
 }

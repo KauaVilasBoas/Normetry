@@ -44,6 +44,8 @@ public sealed class CatalogTests
         Assert.Equal(
             [
                 "chat_message_counts",
+                "document_versions",
+                "documents",
                 "establishments",
                 "inbox_messages",
                 "outbox_messages",
@@ -74,6 +76,8 @@ public sealed class CatalogTests
         Assert.Equal(
             [
                 "chat_message_counts.chat_message_counts_tenant ALL app_core",
+                "document_versions.document_versions_tenant ALL app_core",
+                "documents.documents_tenant ALL app_core",
                 "establishments.establishments_tenant ALL app_core",
                 "inbox_messages.inbox_messages_tenant ALL app_core",
                 "outbox_messages.outbox_messages_tenant ALL app_core",
@@ -109,6 +113,12 @@ public sealed class CatalogTests
                 "chat_message_counts app_core INSERT",
                 "chat_message_counts app_core SELECT",
                 "chat_message_counts app_core UPDATE",
+                "document_versions app_core INSERT",
+                "document_versions app_core SELECT",
+                "document_versions app_core UPDATE",
+                "documents app_core INSERT",
+                "documents app_core SELECT",
+                "documents app_core UPDATE",
                 "establishments app_core DELETE",
                 "establishments app_core INSERT",
                 "establishments app_core SELECT",
@@ -167,6 +177,7 @@ public sealed class CatalogTests
         Assert.Contains(applied, id => id.EndsWith("_CreateUsersProfilesAndPermissions"));
         Assert.Contains(applied, id => id.EndsWith("_InsertPermissionCatalog"));
         Assert.Contains(applied, id => id.EndsWith("_CreateOutboxAndInbox"));
+        Assert.Contains(applied, id => id.EndsWith("_CreateDocuments"));
     }
 
     [Fact]
