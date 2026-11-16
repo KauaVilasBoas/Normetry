@@ -26,6 +26,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public const string TenantA = "11111111-1111-4111-8111-111111111111";
     public const string TenantB = "22222222-2222-4222-8222-222222222222";
 
+    // The demo users (their Keycloak ids, so the token's sub): the seed gives each a system profile.
+    public const string BistroOwner = "11111111-0000-4000-8000-000000000001";
+    public const string BistroManager = "11111111-0000-4000-8000-000000000002";
+    public const string BakeryOwner = "22222222-0000-4000-8000-000000000001";
+    public const string BakeryAuditor = "22222222-0000-4000-8000-000000000002";
+
     /// <summary>What the gateway sends to the AI service as <c>X-Normetry-Internal-Token</c>.</summary>
     public const string InternalToken = "test-internal-token-0123456789abcdef";
 

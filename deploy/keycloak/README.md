@@ -46,11 +46,15 @@ The ids are fixed so the core can seed the same tenants (#12).
 Every demo user's password is `local-demo-only`. It is fake and works only against this local
 realm; never reuse this realm or its users anywhere else.
 
-| Username         | Realm role | Tenant      |
-| ---------------- | ---------- | ----------- |
-| `bistro.owner`   | `Owner`    | Demo Bistro |
-| `bistro.manager` | `Manager`  | Demo Bistro |
-| `bakery.auditor` | `Auditor`  | Demo Bakery |
+| Username         | User id (`sub`)                        | Realm role | Tenant      |
+| ---------------- | -------------------------------------- | ---------- | ----------- |
+| `bistro.owner`   | `11111111-0000-4000-8000-000000000001` | `Owner`    | Demo Bistro |
+| `bistro.manager` | `11111111-0000-4000-8000-000000000002` | `Manager`  | Demo Bistro |
+| `bakery.owner`   | `22222222-0000-4000-8000-000000000001` | `Owner`    | Demo Bakery |
+| `bakery.auditor` | `22222222-0000-4000-8000-000000000002` | `Auditor`  | Demo Bakery |
+
+The user ids are fixed so that `sub` stays the same across realm imports: the core's dev seed
+creates the same users, with the profile named in the table, and finds them by `sub`.
 
 `tenant_id` is a user-profile attribute that only admins can view or edit, so users cannot change
 their own tenant from the account console.

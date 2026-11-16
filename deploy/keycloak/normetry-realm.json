@@ -106,6 +106,7 @@
   ],
   "users": [
     {
+      "id": "11111111-0000-4000-8000-000000000001",
       "username": "bistro.owner",
       "enabled": true,
       "email": "owner@bistro.example",
@@ -117,6 +118,7 @@
       "credentials": [{ "type": "password", "value": "local-demo-only", "temporary": false }]
     },
     {
+      "id": "11111111-0000-4000-8000-000000000002",
       "username": "bistro.manager",
       "enabled": true,
       "email": "manager@bistro.example",
@@ -128,6 +130,19 @@
       "credentials": [{ "type": "password", "value": "local-demo-only", "temporary": false }]
     },
     {
+      "id": "22222222-0000-4000-8000-000000000001",
+      "username": "bakery.owner",
+      "enabled": true,
+      "email": "owner@bakery.example",
+      "emailVerified": true,
+      "firstName": "Bruna",
+      "lastName": "Owner",
+      "attributes": { "tenant_id": ["22222222-2222-4222-8222-222222222222"] },
+      "realmRoles": ["Owner"],
+      "credentials": [{ "type": "password", "value": "local-demo-only", "temporary": false }]
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000002",
       "username": "bakery.auditor",
       "enabled": true,
       "email": "auditor@bakery.example",
