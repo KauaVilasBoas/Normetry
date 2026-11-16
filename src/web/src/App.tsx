@@ -26,8 +26,10 @@ export function App({ auth }: { auth: Auth }) {
             on the new view (the chat's conversation heading or composer). */}
         <BrowserRouter useTransitions={false}>
           <Routes>
-            <Route path="/" element={<AppShell />} />
-            <Route path="/conversations/:conversationId" element={<AppShell />} />
+            <Route path="/" element={<AppShell screen="chat" />} />
+            <Route path="/conversations/:conversationId" element={<AppShell screen="chat" />} />
+            <Route path="/settings" element={<Navigate to="/settings/profiles" replace />} />
+            <Route path="/settings/profiles/:profileId?" element={<AppShell screen="settings" />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

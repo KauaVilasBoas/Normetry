@@ -11,6 +11,16 @@ export class ApiError extends Error {
   }
 }
 
+/** The `code` of an RFC 9457 problem response (`profile.last_owner`), if it carries one. */
+export async function problemCode(response: Response): Promise<string | undefined> {
+  try {
+    const { code } = (await response.json()) as { code?: unknown };
+    return typeof code === "string" ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface ApiClientOptions {
   getAccessToken: () => Promise<string | undefined>;
   /** Refreshes the session once; resolves to the new access token, or null when that failed. */
@@ -21,7 +31,7 @@ export interface ApiClientOptions {
 }
 
 export interface RequestOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** Sent as JSON. */
   json?: unknown;
   accept?: string;
