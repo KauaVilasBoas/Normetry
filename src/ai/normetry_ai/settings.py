@@ -27,6 +27,27 @@ class Settings(BaseSettings):
     # The app role (app_ai, DML only). SQLAlchemy URL with the psycopg 3 driver:
     # postgresql+psycopg://user:password@host:5432/db
     database_url: SecretStr | None = None
+    # RabbitMQ, amqp://user:password@host:5672/. Set: the service consumes the document queue
+    # (messaging/consumer.py), and needs the database and blob storage too. Unset: no consumer.
+    rabbitmq_url: SecretStr | None = None
+    # The blob storage the core uploads to (Azurite locally), and its container.
+    blob_connection_string: SecretStr | None = None
+    blob_container: str = Field(default="documents", min_length=3)
+
+    @model_validator(mode="after")
+    def _consumer_has_what_it_needs(self) -> Self:
+        if self.rabbitmq_url is not None:
+            missing = [
+                name
+                for name, value in (
+                    ("NORMETRY_DATABASE_URL", self.database_url),
+                    ("NORMETRY_BLOB_CONNECTION_STRING", self.blob_connection_string),
+                )
+                if value is None
+            ]
+            if missing:
+                raise ValueError(f"NORMETRY_RABBITMQ_URL also needs {' and '.join(missing)}")
+        return self
 
 
 class EmbeddingSettings(BaseSettings):

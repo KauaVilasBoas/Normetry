@@ -5,6 +5,7 @@ version = "0.0.0"
 description = "Normetry AI service: ingestion, hybrid retrieval and agents behind the core's YARP gateway."
 requires-python = ">=3.12"
 dependencies = [
+    "aio-pika>=10.2.3",
     "alembic>=1.20.1",
     "anthropic>=2.8.0",
     "anyio>=4.16.0",

@@ -7,9 +7,11 @@ from normetry_ai import telemetry
 from normetry_ai.api import conversations, health
 from normetry_ai.api.auth import InternalTokenMiddleware
 from normetry_ai.db import check_runtime_role, create_db_engine
+from normetry_ai.ingestion.documents import BlobStore, DocumentWorker
 from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeRewriteModel
 from normetry_ai.llm.embeddings import SentenceTransformerEmbedder
 from normetry_ai.llm.reranker import CrossEncoderReranker
+from normetry_ai.messaging.consumer import start as start_consumer
 from normetry_ai.retrieval import hybrid
 from normetry_ai.settings import (
     AnswerSettings,
@@ -62,10 +64,11 @@ def create_app(
         # One retriever per process. Its models load on the first question (#49), so the app starts
         # without their weights; a turn that cannot load them answers unavailable.
         embedding, retrieval = EmbeddingSettings(), RetrievalSettings()
+        embedder = SentenceTransformerEmbedder(
+            embedding.embedding_model, embedding.embedding_model_revision
+        )
         app.state.retriever = hybrid.Retriever(
-            SentenceTransformerEmbedder(
-                embedding.embedding_model, embedding.embedding_model_revision
-            ),
+            embedder,
             CrossEncoderReranker(
                 retrieval.reranker_model,
                 retrieval.reranker_model_revision,
@@ -73,9 +76,27 @@ def create_app(
             ),
             retrieval,
         )
+        consumer = None
         try:
+            # Without a RabbitMQ URL (offline tests, health-only runs) nothing is consumed. The
+            # settings guarantee the database and blob storage when it is set.
+            if settings.rabbitmq_url is not None:
+                # The chat's embedder: the model loads once per process, for both.
+                app.state.documents = DocumentWorker(
+                    engine,
+                    embedder,
+                    BlobStore.connect(
+                        settings.blob_connection_string.get_secret_value(),
+                        settings.blob_container,
+                    ),
+                )
+                consumer = await start_consumer(
+                    settings.rabbitmq_url.get_secret_value(), app.state.documents
+                )
             yield
         finally:
+            if consumer is not None:
+                await consumer.close()
             if engine is not None:
                 engine.dispose()
 
