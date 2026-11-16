@@ -16,6 +16,8 @@ public sealed class MeController(IDispatcher dispatcher) : ControllerBase
     /// caller's user row the first time (no profiles yet) and refreshes their name and email.
     /// </summary>
     [HttpGet]
+    // The one action that needs no permission: a user with no profile learns here that they
+    // have none, and a token without a valid tenant gets its 403 here.
     [Authorize(Policy = Policies.Tenant)]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {

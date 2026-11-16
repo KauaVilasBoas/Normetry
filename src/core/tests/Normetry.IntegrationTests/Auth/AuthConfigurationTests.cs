@@ -1,14 +1,18 @@
 using System.Net;
+using System.Reflection;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Normetry.Api.Auth;
+using Normetry.Api.Identity;
+using Normetry.Domain.Identity;
 using Xunit;
 
 namespace Normetry.IntegrationTests.Auth;
@@ -83,14 +87,11 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
     public void Every_endpoint_requires_a_tenant_policy_or_is_an_allowed_anonymous_endpoint()
     {
         string[] anonymousRoutes = ["/health", "/alive"];
-        string[] tenantPolicies =
-        [
-            Policies.Tenant,
-            Policies.Owner,
-            Policies.Manager,
-            Policies.Auditor,
-            Policies.OwnerOrManager,
-        ];
+        // Each permission policy includes Tenant (PermissionPolicyProvider).
+        static bool IncludesTenant(string? policy) =>
+            policy == Policies.Tenant
+            || policy?.StartsWith(HasPermissionAttribute.PolicyPrefix, StringComparison.Ordinal)
+                == true;
         var endpoints = factory
             .Services.GetRequiredService<EndpointDataSource>()
             .Endpoints.OfType<RouteEndpoint>()
@@ -109,9 +110,63 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
             else
             {
                 Assert.Contains(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>(), data =>
-                    tenantPolicies.Contains(data.Policy)
+                    IncludesTenant(data.Policy)
                 );
             }
+        });
+
+        // Both YARP routes are chat.
+        var gateway = endpoints.Where(endpoint =>
+            endpoint.RoutePattern.RawText!.StartsWith("/ai/", StringComparison.Ordinal)
+        );
+        Assert.Equal(2, gateway.Count());
+        Assert.All(gateway, endpoint =>
+            Assert.Contains(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>(), data =>
+                data.Policy == HasPermissionAttribute.PolicyName(Permissions.Chat.Ask)
+            )
+        );
+    }
+
+    [Fact]
+    public void Every_controller_action_requires_a_permission_of_the_catalog_or_is_anonymous()
+    {
+        // The one exception: /me answers any tenant user, so that a user with no profile learns
+        // that they have none. It still requires the Tenant policy (the test above).
+        string[] withoutPermission = [$"{nameof(MeController)}.{nameof(MeController.Get)}"];
+        var actions = typeof(Program)
+            .Assembly.GetTypes()
+            .Where(type => type.IsAssignableTo(typeof(ControllerBase)) && !type.IsAbstract)
+            .SelectMany(controller =>
+                controller
+                    .GetMethods(
+                        BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly
+                    )
+                    .Where(method =>
+                        !method.IsSpecialName && !method.IsDefined(typeof(NonActionAttribute))
+                    )
+                    .Select(method => (Name: $"{controller.Name}.{method.Name}", Method: method))
+            )
+            .ToArray();
+
+        Assert.Contains(actions, action => action.Name == "EstablishmentsController.Create");
+        Assert.All(actions, action =>
+        {
+            var controller = action.Method.DeclaringType!;
+            var permissions = action
+                .Method.GetCustomAttributes<HasPermissionAttribute>()
+                .Concat(controller.GetCustomAttributes<HasPermissionAttribute>())
+                .ToArray();
+            var anonymous =
+                action.Method.IsDefined(typeof(AllowAnonymousAttribute))
+                || controller.IsDefined(typeof(AllowAnonymousAttribute));
+
+            Assert.True(
+                permissions.Length > 0 || anonymous || withoutPermission.Contains(action.Name),
+                $"{action.Name} has neither [HasPermission] nor [AllowAnonymous]."
+            );
+            Assert.All(permissions, attribute =>
+                Assert.Contains(attribute.Permission, Permissions.All)
+            );
         });
     }
 

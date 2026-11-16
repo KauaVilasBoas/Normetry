@@ -27,10 +27,8 @@ internal sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentU
         TryGetTenantId(User, out var tenantId)
             ? tenantId
             : throw new InvalidOperationException(
-                $"The request has no valid tenant: the endpoint must require the {Policies.Tenant} policy."
+                $"The request has no valid tenant: the endpoint must require a policy that includes {Policies.Tenant}."
             );
-
-    public IReadOnlyList<string> Roles => NormetryRoles.All.Where(User.IsInRole).ToArray();
 
     /// <summary>Exactly one <c>tenant_id</c> claim holding a non-empty UUID in 8-4-4-4-12 form.</summary>
     internal static bool TryGetTenantId(ClaimsPrincipal user, out Guid tenantId)

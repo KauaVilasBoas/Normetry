@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Normetry.Api.Auth;
+using Normetry.Domain.Identity;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Transforms;
 
@@ -27,7 +28,7 @@ public static class InternalHeaders
 
 /// <summary>
 /// YARP routes <c>/ai/{**catch-all}</c> and <c>/ai/establishments/{**rest}</c> to the AI service
-/// (ADR 004). Only tenant-scoped callers get through. The AI service trusts these headers, so the
+/// (ADR 004). Only tenant-scoped callers with <c>chat.ask</c> get through. The AI service trusts these headers, so the
 /// gateway removes every internal header and credential the client sent and sets the internal
 /// token, tenant and user from the validated token, plus the establishment and its jurisdiction on
 /// establishment routes (<see cref="EstablishmentScope"/>). Responses are not buffered, so
@@ -116,7 +117,8 @@ internal static class AiGateway
         {
             RouteId = id,
             ClusterId = "ai",
-            AuthorizationPolicy = Policies.Tenant,
+            // Every AI route is chat: conversations, messages and their search.
+            AuthorizationPolicy = HasPermissionAttribute.PolicyName(Permissions.Chat.Ask),
             Match = new RouteMatch { Path = path },
         }
             .WithTransformPathRemovePrefix("/ai")
@@ -166,7 +168,7 @@ internal static class AiGateway
             )
             {
                 throw new InvalidOperationException(
-                    $"The /ai route must require the {Policies.Tenant} policy."
+                    $"The /ai route must require a policy that includes {Policies.Tenant}."
                 );
             }
 

@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Normetry.Api.Auth;
 using Normetry.Application.Establishments.CreateEstablishment;
 using Normetry.Application.Establishments.GetEstablishment;
 using Normetry.Application.Establishments.ListEstablishments;
 using Normetry.BuildingBlocks.Cqrs;
+using Normetry.Domain.Identity;
 
 namespace Normetry.Api.Establishments;
 
@@ -14,7 +14,7 @@ public sealed class EstablishmentsController(IDispatcher dispatcher) : Controlle
 {
     /// <summary>The tenant comes from the token only; the body carries none.</summary>
     [HttpPost]
-    [Authorize(Policy = Policies.OwnerOrManager)]
+    [HasPermission(Permissions.Establishments.Manage)]
     public async Task<IActionResult> Create(
         CreateEstablishmentCommand command,
         CancellationToken cancellationToken
@@ -27,7 +27,7 @@ public sealed class EstablishmentsController(IDispatcher dispatcher) : Controlle
     }
 
     [HttpGet]
-    [Authorize(Policy = Policies.Tenant)]
+    [HasPermission(Permissions.Establishments.Read)]
     public async Task<IActionResult> List(CancellationToken cancellationToken)
     {
         var result = await dispatcher.QueryAsync(new ListEstablishmentsQuery(), cancellationToken);
@@ -36,7 +36,7 @@ public sealed class EstablishmentsController(IDispatcher dispatcher) : Controlle
 
     /// <summary>Another tenant's id answers 404 like an unknown one: RLS hides the row.</summary>
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Policies.Tenant)]
+    [HasPermission(Permissions.Establishments.Read)]
     public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken)
     {
         var result = await dispatcher.QueryAsync(new GetEstablishmentQuery(id), cancellationToken);

@@ -404,17 +404,9 @@ public sealed class ChatGatewayTests : IAsyncLifetime
         Assert.Equal(new Quota(DemoLimit, DemoLimit - 1, resetsAt), after);
     }
 
-    private async Task<Guid> NewTenantAsync(Guid? id = null)
-    {
-        var tenant = id ?? Guid.NewGuid();
-        await using var session = await Session.BeginAsync(db.ConnectionString("app_core"), tenant);
-        await session.ExecuteAsync(
-            "INSERT INTO core.tenants (id, name) VALUES ($1, 'Tenant')",
-            tenant
-        );
-        await session.CommitAsync();
-        return tenant;
-    }
+    // Every user these tests sign in as is an Owner, so chat.ask is never what is tested here.
+    private Task<Guid> NewTenantAsync(Guid? id = null) =>
+        TestTenants.CreateAsync(db, id, ApiFactory.UserId, "user-1", "user-2");
 
     private async Task<Guid> NewEstablishmentAsync(Guid tenant, string jurisdiction = "BR")
     {

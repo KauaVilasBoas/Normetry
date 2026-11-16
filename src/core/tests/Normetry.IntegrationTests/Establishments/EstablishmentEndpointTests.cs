@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
-using Normetry.Api.Auth;
 using Normetry.Application.Establishments;
 using Normetry.Domain.Establishments;
 using Normetry.IntegrationTests.Database;
@@ -32,8 +31,15 @@ public sealed class EstablishmentEndpointTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private HttpClient Client(string tenantId, string role = NormetryRoles.Owner) =>
-        api.CreateClient(ApiFactory.CreateToken(tenantId, role));
+    // The seeded demo users: each tenant's Owner, plus a reader in each (Manager, Auditor).
+    private static string Owner(string tenantId) =>
+        tenantId == ApiFactory.TenantA ? ApiFactory.BistroOwner : ApiFactory.BakeryOwner;
+
+    private static string Reader(string tenantId) =>
+        tenantId == ApiFactory.TenantA ? ApiFactory.BistroManager : ApiFactory.BakeryAuditor;
+
+    private HttpClient Client(string tenantId, string? sub = null) =>
+        api.CreateClient(ApiFactory.CreateToken(tenantId, sub ?? Owner(tenantId)));
 
     private static object Body(string name = "Bistro Centro") =>
         new
@@ -73,15 +79,16 @@ public sealed class EstablishmentEndpointTests
     }
 
     [Theory]
-    [InlineData(NormetryRoles.Owner, HttpStatusCode.Created)]
-    [InlineData(NormetryRoles.Manager, HttpStatusCode.Created)]
-    [InlineData(NormetryRoles.Auditor, HttpStatusCode.Forbidden)]
-    public async Task Only_an_Owner_or_a_Manager_creates_establishments(
-        string role,
+    [InlineData(ApiFactory.TenantA, ApiFactory.BistroOwner, HttpStatusCode.Created)]
+    [InlineData(ApiFactory.TenantA, ApiFactory.BistroManager, HttpStatusCode.Created)]
+    [InlineData(ApiFactory.TenantB, ApiFactory.BakeryAuditor, HttpStatusCode.Forbidden)]
+    public async Task Only_a_user_with_establishments_manage_creates_establishments(
+        string tenantId,
+        string sub,
         HttpStatusCode expected
     )
     {
-        using var client = Client(ApiFactory.TenantA, role);
+        using var client = Client(tenantId, sub);
 
         var response = await client.PostAsJsonAsync("/establishments", Body(), Ct);
 
@@ -164,7 +171,7 @@ public sealed class EstablishmentEndpointTests
 
         var response = await client.PostAsJsonAsync("/establishments", body, Ct);
         var id = (await response.Content.ReadFromJsonAsync<Created>(Ct))!.Id;
-        using var other = Client(ApiFactory.TenantB, NormetryRoles.Auditor);
+        using var other = Client(ApiFactory.TenantB, Reader(ApiFactory.TenantB));
 
         Assert.Equal(
             HttpStatusCode.OK,
@@ -180,7 +187,7 @@ public sealed class EstablishmentEndpointTests
     public async Task Another_tenants_establishment_is_not_found()
     {
         var id = await CreateAsync(ApiFactory.TenantB);
-        using var client = Client(ApiFactory.TenantA, NormetryRoles.Auditor);
+        using var client = Client(ApiFactory.TenantA, Reader(ApiFactory.TenantA));
 
         var response = await client.GetAsync($"/establishments/{id}", Ct);
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(Ct);
@@ -192,7 +199,7 @@ public sealed class EstablishmentEndpointTests
     [Fact]
     public async Task An_unknown_id_is_not_found()
     {
-        using var client = Client(ApiFactory.TenantA, NormetryRoles.Auditor);
+        using var client = Client(ApiFactory.TenantA, Reader(ApiFactory.TenantA));
 
         var response = await client.GetAsync($"/establishments/{Guid.CreateVersion7()}", Ct);
 
@@ -204,8 +211,8 @@ public sealed class EstablishmentEndpointTests
     {
         var ownA = await CreateAsync(ApiFactory.TenantA, "Bistro Leste");
         var ownB = await CreateAsync(ApiFactory.TenantB, "Bakery Leste");
-        using var clientA = Client(ApiFactory.TenantA, NormetryRoles.Auditor);
-        using var clientB = Client(ApiFactory.TenantB, NormetryRoles.Auditor);
+        using var clientA = Client(ApiFactory.TenantA, Reader(ApiFactory.TenantA));
+        using var clientB = Client(ApiFactory.TenantB, Reader(ApiFactory.TenantB));
 
         var listA = await clientA.GetFromJsonAsync<EstablishmentResponse[]>(
             "/establishments",

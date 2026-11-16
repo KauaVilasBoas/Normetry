@@ -1,5 +1,3 @@
-using System.Security.Claims;
-using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -7,32 +5,14 @@ using Normetry.Application.Abstractions;
 
 namespace Normetry.Api.Auth;
 
-/// <summary>Keycloak realm roles. Only these become role claims; defaults such as offline_access are dropped.</summary>
-public static class NormetryRoles
-{
-    public const string Owner = "Owner";
-    public const string Manager = "Manager";
-    public const string Auditor = "Auditor";
-
-    internal static readonly string[] All = [Owner, Manager, Auditor];
-}
-
 public static class Policies
 {
     /// <summary>
     /// Authenticated user with exactly one valid tenant id. Every tenant-scoped endpoint requires
-    /// it, directly or through a role policy (each role policy includes it). Fails with 403.
+    /// it, directly or through a permission policy (<see cref="HasPermissionAttribute"/>), which
+    /// includes it. Fails with 403. Only <c>/me</c> requires it alone.
     /// </summary>
     public const string Tenant = "Tenant";
-    public const string Owner = NormetryRoles.Owner;
-    public const string Manager = NormetryRoles.Manager;
-    public const string Auditor = NormetryRoles.Auditor;
-
-    /// <summary>
-    /// Owner or Manager, on top of <see cref="Tenant"/>. Roles have no hierarchy yet (Owner does
-    /// not imply Manager), so endpoints open to several roles list them; a hierarchy needs an ADR.
-    /// </summary>
-    public const string OwnerOrManager = "OwnerOrManager";
 }
 
 internal static class AuthSetup
@@ -45,7 +25,8 @@ internal static class AuthSetup
     /// <summary>
     /// JWT bearer authentication against the Keycloak realm. Only <c>Authority</c> and
     /// <c>ValidAudiences</c> come from <c>Authentication:Schemes:Bearer</c> (appsettings.json,
-    /// overridable by environment variables); everything else is set here.
+    /// overridable by environment variables); everything else is set here. Authorization is by
+    /// permissions stored in the core database (ADR 012): realm roles authorize nothing.
     /// </summary>
     public static WebApplicationBuilder AddAuth(this WebApplicationBuilder builder)
     {
@@ -108,22 +89,15 @@ internal static class AuthSetup
                 {
                     OnTokenValidated = context =>
                     {
-                        var principal = context.Principal!;
                         if (
-                            principal.FindAll("azp").ToArray() is not [{ Value: var clientId }]
+                            context.Principal!.FindAll("azp").ToArray()
+                                is not [{ Value: var clientId }]
                             || !acceptedClients.Contains(clientId)
                         )
                         {
                             context.Fail(
                                 "The token was issued to a client this API does not accept."
                             );
-                            return Task.CompletedTask;
-                        }
-
-                        var identity = (ClaimsIdentity)principal.Identity!;
-                        foreach (var role in RealmRoles(principal).Intersect(NormetryRoles.All))
-                        {
-                            identity.AddClaim(new Claim(identity.RoleClaimType, role));
                         }
                         return Task.CompletedTask;
                     },
@@ -144,17 +118,16 @@ internal static class AuthSetup
                 .Build();
             options.AddPolicy(Policies.Tenant, tenant);
 
-            foreach (var role in NormetryRoles.All)
-            {
-                options.AddPolicy(role, policy => policy.Combine(tenant).RequireRole(role));
-            }
-            options.AddPolicy(Policies.OwnerOrManager, policy =>
-                policy.Combine(tenant).RequireRole(NormetryRoles.Owner, NormetryRoles.Manager)
-            );
-
             // An endpoint that declares no authorization is tenant-scoped, never anonymous.
             options.FallbackPolicy = tenant;
         });
+        // [HasPermission] policies, checked against the caller's profiles on every request.
+        builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+        builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+        builder.Services.AddSingleton<
+            Microsoft.AspNetCore.Authorization.IAuthorizationMiddlewareResultHandler,
+            PermissionDeniedResultHandler
+        >();
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<HttpCurrentUser>();
@@ -162,26 +135,5 @@ internal static class AuthSetup
         builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HttpCurrentUser>());
 
         return builder;
-    }
-
-    // Keycloak sends realm roles as {"realm_access": {"roles": [...]}}, which arrives as one JSON claim.
-    private static string[] RealmRoles(ClaimsPrincipal principal)
-    {
-        if (principal.FindFirstValue("realm_access") is not { } json)
-        {
-            return [];
-        }
-
-        using var document = JsonDocument.Parse(json);
-        return
-            document.RootElement.ValueKind == JsonValueKind.Object
-            && document.RootElement.TryGetProperty("roles", out var roles)
-            && roles.ValueKind == JsonValueKind.Array
-            ? roles
-                .EnumerateArray()
-                .Where(role => role.ValueKind == JsonValueKind.String)
-                .Select(role => role.GetString()!)
-                .ToArray()
-            : [];
     }
 }
