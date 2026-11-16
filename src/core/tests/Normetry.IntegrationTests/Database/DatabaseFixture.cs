@@ -23,6 +23,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
         "core_owner",
         "ai_owner",
         "app_core",
+        "core_dispatcher",
         "app_ai",
         "corpus_ingestor",
     ];
@@ -35,7 +36,10 @@ public sealed class DatabaseFixture : IAsyncLifetime
     private string? skipReason;
     private ApiFactory? api;
 
-    /// <summary>The API in memory, connected as <c>app_core</c>, with the demo tenants seeded.</summary>
+    /// <summary>
+    /// The API in memory, connected as <c>app_core</c> (and <c>core_dispatcher</c> for the tenant
+    /// list), with the demo tenants seeded.
+    /// </summary>
     public ApiFactory Api => api ?? throw new InvalidOperationException(skipReason);
 
     public async ValueTask InitializeAsync()
@@ -71,7 +75,11 @@ public sealed class DatabaseFixture : IAsyncLifetime
             TextWriter.Null,
             TestContext.Current.CancellationToken
         );
-        api = new ApiFactory { CoreConnectionString = ConnectionString("app_core") };
+        api = new ApiFactory
+        {
+            CoreConnectionString = ConnectionString("app_core"),
+            DispatcherConnectionString = ConnectionString("core_dispatcher"),
+        };
     }
 
     /// <summary>Call first in every test (the test class constructor does).</summary>

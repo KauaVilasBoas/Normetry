@@ -36,6 +36,7 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
         await using var api = new ApiFactory
         {
             CoreConnectionString = db.ConnectionString("app_core"),
+            DispatcherConnectionString = db.ConnectionString("core_dispatcher"),
             RabbitMqConnectionString = broker.ConnectionString,
         };
         var consumer = ActivatorUtilities.CreateInstance<DocumentStatusConsumer>(api.Services);

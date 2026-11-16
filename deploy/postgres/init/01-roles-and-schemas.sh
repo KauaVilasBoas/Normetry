@@ -8,6 +8,7 @@ set -e
 : "${CORE_OWNER_PASSWORD:?must be set}"
 : "${AI_OWNER_PASSWORD:?must be set}"
 : "${APP_CORE_PASSWORD:?must be set}"
+: "${CORE_DISPATCHER_PASSWORD:?must be set}"
 : "${APP_AI_PASSWORD:?must be set}"
 : "${CORPUS_INGESTOR_PASSWORD:?must be set}"
 
@@ -16,6 +17,7 @@ psql -v ON_ERROR_STOP=1 --no-psqlrc --username "$POSTGRES_USER" --dbname "$POSTG
 \getenv core_owner_password CORE_OWNER_PASSWORD
 \getenv ai_owner_password AI_OWNER_PASSWORD
 \getenv app_core_password APP_CORE_PASSWORD
+\getenv core_dispatcher_password CORE_DISPATCHER_PASSWORD
 \getenv app_ai_password APP_AI_PASSWORD
 \getenv corpus_ingestor_password CORPUS_INGESTOR_PASSWORD
 
@@ -23,6 +25,7 @@ psql -v ON_ERROR_STOP=1 --no-psqlrc --username "$POSTGRES_USER" --dbname "$POSTG
 CREATE ROLE core_owner LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD :'core_owner_password';
 CREATE ROLE ai_owner LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD :'ai_owner_password';
 CREATE ROLE app_core LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD :'app_core_password';
+CREATE ROLE core_dispatcher LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD :'core_dispatcher_password';
 CREATE ROLE app_ai LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD :'app_ai_password';
 CREATE ROLE corpus_ingestor LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD :'corpus_ingestor_password';
 
@@ -43,6 +46,9 @@ ALTER DEFAULT PRIVILEGES FOR ROLE core_owner IN SCHEMA core
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_core;
 ALTER DEFAULT PRIVILEGES FOR ROLE core_owner IN SCHEMA core
   GRANT USAGE ON SEQUENCES TO app_core;
+-- core_dispatcher lists the tenants the background services visit: no default grants, the core
+-- migrations grant it SELECT on core.outbox_tenants and nothing else.
+GRANT USAGE ON SCHEMA core TO core_dispatcher;
 
 GRANT USAGE ON SCHEMA ai TO app_ai, corpus_ingestor;
 ALTER DEFAULT PRIVILEGES FOR ROLE ai_owner IN SCHEMA ai

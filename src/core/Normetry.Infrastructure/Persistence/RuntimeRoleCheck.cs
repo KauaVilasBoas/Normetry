@@ -7,20 +7,29 @@ namespace Normetry.Infrastructure.Persistence;
 /// <summary>
 /// Stops the API from starting on a role that can get around RLS: a superuser, a BYPASSRLS role,
 /// or the owner of schema <c>core</c> or of anything in it (directly or by membership). Any of
-/// them would read every tenant or could switch RLS off. The AI service runs the same check on
-/// schema <c>ai</c>.
+/// them would read every tenant or could switch RLS off. Both runtime connection strings are
+/// checked: <c>app_core</c> and the tenant list's <c>core_dispatcher</c>. The AI service runs the
+/// same check on schema <c>ai</c>.
 /// </summary>
 public sealed class RuntimeRoleCheck(IConfiguration configuration) : IHostedService
 {
-    public Task StartAsync(CancellationToken cancellationToken) =>
-        EnsureAsync(CoreDatabase.GetConnectionString(configuration), cancellationToken);
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        await EnsureAsync(CoreDatabase.GetConnectionString(configuration), cancellationToken);
+        await EnsureAsync(
+            CoreDatabase.GetDispatcherConnectionString(configuration),
+            cancellationToken,
+            CoreDatabase.DispatcherConnectionStringName
+        );
+    }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     /// <summary>Throws <see cref="InvalidOperationException"/> naming every problem found.</summary>
     public static async Task EnsureAsync(
         string connectionString,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string name = CoreDatabase.ConnectionStringName
     )
     {
         await using var connection = new NpgsqlConnection(connectionString);
@@ -53,8 +62,9 @@ public sealed class RuntimeRoleCheck(IConfiguration configuration) : IHostedServ
         if (problems.Length > 0)
         {
             throw new InvalidOperationException(
-                $"ConnectionStrings:{CoreDatabase.ConnectionStringName} connects as '{user}', which "
-                    + $"{string.Join(" and ", problems)}. The API must connect as app_core."
+                $"ConnectionStrings:{name} connects as '{user}', which "
+                    + $"{string.Join(" and ", problems)}. The API connects only as app_core and "
+                    + "core_dispatcher."
             );
         }
     }

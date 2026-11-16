@@ -5,8 +5,10 @@ namespace Normetry.Infrastructure.Messaging;
 /// <summary>
 /// The tenants the background services visit (<c>core.outbox_tenants</c>): every tenant that has
 /// written an outbox message, which covers every tenant with a document. This is the one query
-/// without a tenant: the table holds only ids, and its policy lets <c>app_core</c> read them all.
-/// Every row of tenant data is read afterwards in that tenant's own transaction, under RLS.
+/// without a tenant, so it runs as <c>core_dispatcher</c>
+/// (<see cref="CoreDatabase.DispatcherConnectionStringName"/>), a role that reads these ids and
+/// nothing else; <c>app_core</c> cannot read them. Every row of tenant data is read afterwards as
+/// <c>app_core</c>, in that tenant's own transaction, under RLS.
 /// </summary>
 internal static class OutboxTenantList
 {

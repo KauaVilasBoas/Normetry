@@ -24,7 +24,7 @@ from normetry_ai.settings import Settings
 AI_DIR = Path(__file__).resolve().parents[1]
 BOOTSTRAP = AI_DIR.parents[1] / "deploy" / "postgres" / "init" / "01-roles-and-schemas.sh"
 IMAGE = "pgvector/pgvector:0.8.7-pg17"
-ROLES = ("core_owner", "ai_owner", "app_core", "app_ai", "corpus_ingestor")
+ROLES = ("core_owner", "ai_owner", "app_core", "core_dispatcher", "app_ai", "corpus_ingestor")
 TOKEN = "x" * 32
 
 

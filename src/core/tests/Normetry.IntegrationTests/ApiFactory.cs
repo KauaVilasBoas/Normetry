@@ -50,6 +50,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public string? CoreConnectionString { get; init; }
 
     /// <summary>
+    /// The <c>core_dispatcher</c> connection string of the same test database, which the role
+    /// check and the tenant list use. Set it whenever <see cref="CoreConnectionString"/> is set.
+    /// </summary>
+    public string? DispatcherConnectionString { get; init; }
+
+    /// <summary>
     /// The AMQP URI of a test broker (see <c>RabbitMqFixture</c>). Without one the API gets an
     /// address it never connects to. Either way the background messaging services do not run:
     /// tests drive them directly, so no test publishes or consumes another test's messages.
@@ -65,6 +71,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:core", CoreConnectionString ?? "Host=db.invalid");
+        builder.UseSetting(
+            "ConnectionStrings:core-dispatcher",
+            DispatcherConnectionString ?? "Host=db.invalid"
+        );
         builder.UseSetting(
             "ConnectionStrings:rabbitmq",
             RabbitMqConnectionString ?? "amqp://guest:guest@127.0.0.1:9"

@@ -17,6 +17,7 @@ var internalToken = Secret("internal-token");
 var coreOwnerPassword = Secret("core-owner-password");
 var aiOwnerPassword = Secret("ai-owner-password");
 var appCorePassword = Secret("app-core-password");
+var coreDispatcherPassword = Secret("core-dispatcher-password");
 var appAiPassword = Secret("app-ai-password");
 var corpusIngestorPassword = Secret("corpus-ingestor-password");
 var rabbitmqPassword = Secret("rabbitmq-password");
@@ -31,6 +32,7 @@ var postgres = builder
     .WithEnvironment("CORE_OWNER_PASSWORD", coreOwnerPassword)
     .WithEnvironment("AI_OWNER_PASSWORD", aiOwnerPassword)
     .WithEnvironment("APP_CORE_PASSWORD", appCorePassword)
+    .WithEnvironment("CORE_DISPATCHER_PASSWORD", coreDispatcherPassword)
     .WithEnvironment("APP_AI_PASSWORD", appAiPassword)
     .WithEnvironment("CORPUS_INGESTOR_PASSWORD", corpusIngestorPassword);
 
@@ -150,6 +152,12 @@ var api = builder
     .AddProject<Projects.Normetry_Api>("api")
     .WithHttpHealthCheck("/health", endpointName: "http")
     .WithEnvironment("ConnectionStrings__core", Npgsql("app_core", appCorePassword))
+    // Only the tenant list of the outbox dispatcher and the timeout sweeper: core_dispatcher reads
+    // core.outbox_tenants and nothing else, so no request path can list the tenants.
+    .WithEnvironment(
+        "ConnectionStrings__core-dispatcher",
+        Npgsql("core_dispatcher", coreDispatcherPassword)
+    )
     .WithEnvironment("Ai__InternalToken", internalToken)
     .WithReference(keycloak)
     // services__ai__http__0 for the /ai/* gateway (Aspire service discovery).

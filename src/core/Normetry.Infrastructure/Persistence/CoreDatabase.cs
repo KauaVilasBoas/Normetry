@@ -19,6 +19,18 @@ public static class CoreDatabase
         );
 
     /// <summary>
+    /// The <c>core_dispatcher</c> role, which reads only <c>core.outbox_tenants</c>: the tenant list
+    /// of the outbox dispatcher and the timeout sweeper, and nothing else.
+    /// </summary>
+    public const string DispatcherConnectionStringName = "core-dispatcher";
+
+    public static string GetDispatcherConnectionString(IConfiguration configuration) =>
+        configuration.GetConnectionString(DispatcherConnectionStringName)
+        ?? throw new InvalidOperationException(
+            $"Set ConnectionStrings:{DispatcherConnectionStringName} (the core_dispatcher role)."
+        );
+
+    /// <summary>
     /// Npgsql, lower-case snake_case names, the migration history in
     /// <c>core."__EFMigrationsHistory"</c> and the migrations in <c>Normetry.Migrations</c>.
     /// No tenant, so it is internal: only <c>Normetry.Migrations</c> uses it directly.

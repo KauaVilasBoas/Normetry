@@ -494,6 +494,7 @@ def test_bootstrap_roles_have_least_privilege(owner: Engine) -> None:
             ("core_owner", "core", "USAGE"),
             ("core_owner", "core", "CREATE"),
             ("app_core", "core", "USAGE"),
+            ("core_dispatcher", "core", "USAGE"),
             ("ai_owner", "ai", "USAGE"),
             ("ai_owner", "ai", "CREATE"),
             ("app_ai", "ai", "USAGE"),
