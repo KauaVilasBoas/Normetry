@@ -79,7 +79,8 @@ public static class DocumentFiles
 
     /// <summary>
     /// The name without any directory part or control character, at most 255 characters with its
-    /// extension kept.
+    /// extension kept (an extension that long is not: no format has one). Never cuts a surrogate
+    /// pair in half.
     /// </summary>
     private static string DisplayName(string fileName)
     {
@@ -91,7 +92,16 @@ public static class DocumentFiles
             return name;
         }
         var extension = Path.GetExtension(name);
-        return name[..(DocumentVersion.FileNameMaxLength - extension.Length)] + extension;
+        if (extension.Length >= DocumentVersion.FileNameMaxLength)
+        {
+            extension = "";
+        }
+        var length = DocumentVersion.FileNameMaxLength - extension.Length;
+        if (char.IsHighSurrogate(name[length - 1]))
+        {
+            length--;
+        }
+        return name[..length] + extension;
     }
 
     private static bool IsPdf(byte[] content) => content.AsSpan().StartsWith("%PDF-"u8);
