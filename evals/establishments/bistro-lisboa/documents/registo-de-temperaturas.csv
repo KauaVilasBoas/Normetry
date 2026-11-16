@@ -1,0 +1,10 @@
+data;hora;equipamento;temperatura_c;responsavel;observacoes
+2026-11-02;09:00;Câmara frigorífica;2,8;Marco Manager;
+2026-11-02;18:00;Câmara frigorífica;3,5;Marco Manager;
+2026-11-03;09:00;Câmara frigorífica;3,1;Marco Manager;
+2026-11-03;18:00;Câmara frigorífica;3,0;Marco Manager;
+2026-11-02;09:00;Arca congeladora;-20,1;Marco Manager;
+2026-11-03;09:00;Arca congeladora;-16,4;Marco Manager;Descongelação programada, nova leitura às 11:00
+2026-11-03;11:00;Arca congeladora;-19,6;Marco Manager;
+2026-11-02;12:30;Banho-maria;68,0;Marco Manager;
+2026-11-03;12:30;Banho-maria;66,5;Marco Manager;

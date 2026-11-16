@@ -1,0 +1,11 @@
+data,hora,equipamento,temperatura_c,responsavel,acao_corretiva
+2026-11-02,08:00,Câmara fria,3.1,Olivia Owner,
+2026-11-02,16:00,Câmara fria,3.4,Olivia Owner,
+2026-11-03,08:00,Câmara fria,2.9,Olivia Owner,
+2026-11-03,16:00,Câmara fria,6.8,Olivia Owner,Porta encontrada aberta; fechada e nova leitura em 30 minutos
+2026-11-03,16:30,Câmara fria,4.2,Olivia Owner,
+2026-11-04,08:00,Câmara fria,3.0,Olivia Owner,
+2026-11-04,16:00,Câmara fria,3.3,Olivia Owner,
+2026-11-02,08:00,Freezer,-19.5,Olivia Owner,
+2026-11-03,08:00,Freezer,-18.7,Olivia Owner,
+2026-11-04,08:00,Freezer,-19.1,Olivia Owner,

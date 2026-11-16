@@ -1,0 +1,10 @@
+date,time,unit,temperature_f,initials,corrective_action
+2026-11-02,06:00,Walk-in cooler,37,BO,
+2026-11-02,14:00,Walk-in cooler,38,BO,
+2026-11-03,06:00,Walk-in cooler,36,BO,
+2026-11-03,14:00,Walk-in cooler,44,AA,Door seal loose; product moved to reach-in; maintenance called
+2026-11-03,15:00,Walk-in cooler,39,AA,
+2026-11-04,06:00,Walk-in cooler,37,BO,
+2026-11-02,06:00,Display case,40,BO,
+2026-11-03,06:00,Display case,39,BO,
+2026-11-04,06:00,Display case,40,BO,
