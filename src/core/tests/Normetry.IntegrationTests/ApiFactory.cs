@@ -84,7 +84,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IDocumentBlobStore>(Blobs);
             foreach (
                 var host in services
-                    .Where(service => service.ImplementationType == typeof(OutboxDispatcher))
+                    .Where(service =>
+                        service.ImplementationType is { } type
+                        && (
+                            type == typeof(OutboxDispatcher)
+                            || type == typeof(DocumentStatusConsumer)
+                            || type == typeof(ProcessingTimeoutSweeper)
+                        )
+                    )
                     .ToArray()
             )
             {
