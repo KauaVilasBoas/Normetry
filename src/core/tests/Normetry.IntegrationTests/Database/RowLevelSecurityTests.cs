@@ -481,6 +481,99 @@ public sealed class RowLevelSecurityTests
         }
     }
 
+    [Theory]
+    [InlineData("profiles")]
+    [InlineData("users")]
+    public async Task A_tenant_cannot_move_identity_rows_into_another_tenant(string table)
+    {
+        var (a, b) = await SeedIdentityAsync();
+
+        await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+        await session.AssertDeniedAsync(
+            $"UPDATE core.{table} SET tenant_id = $1 WHERE tenant_id = $2",
+            b.Tenant,
+            a.Tenant
+        );
+    }
+
+    [Fact]
+    public async Task Deleting_a_profile_never_reaches_another_tenants_rows_with_the_same_id()
+    {
+        // The key is (tenant_id, id), so two tenants may hold the same profile id. The cascade
+        // runs without RLS; the composite foreign keys keep it inside one tenant.
+        var (a, b) = await SeedIdentityAsync();
+        var shared = Guid.CreateVersion7();
+        foreach (var identity in new[] { a, b })
+        {
+            await using var session = await Session.BeginAsync(AppCore, identity.Tenant);
+            await session.ExecuteAsync(
+                "INSERT INTO core.profiles (tenant_id, id, name, grants_all) VALUES ($1, $2, 'Shared', false)",
+                identity.Tenant,
+                shared
+            );
+            await session.ExecuteAsync(
+                "INSERT INTO core.profile_permissions VALUES ($1, $2, 'chat.ask')",
+                identity.Tenant,
+                shared
+            );
+            await session.ExecuteAsync(
+                "INSERT INTO core.user_profiles VALUES ($1, $2, $3)",
+                identity.Tenant,
+                identity.User,
+                shared
+            );
+            await session.CommitAsync();
+        }
+
+        await using (var session = await Session.BeginAsync(AppCore, a.Tenant))
+        {
+            Assert.Equal(
+                1,
+                await session.ExecuteAsync("DELETE FROM core.profiles WHERE id = $1", shared)
+            );
+            await session.CommitAsync();
+        }
+
+        await using var sessionB = await Session.BeginAsync(AppCore, b.Tenant);
+        Assert.Equal(
+            (1L, 1L),
+            (
+                await sessionB.ScalarAsync<long>(
+                    "SELECT count(*) FROM core.profile_permissions WHERE profile_id = $1",
+                    shared
+                ),
+                await sessionB.ScalarAsync<long>(
+                    "SELECT count(*) FROM core.user_profiles WHERE profile_id = $1",
+                    shared
+                )
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData("profiles")]
+    [InlineData("profile_permissions")]
+    [InlineData("users")]
+    [InlineData("user_profiles")]
+    public async Task The_owner_sees_and_writes_no_identity_rows_even_with_a_tenant_set(
+        string table
+    )
+    {
+        // FORCE ROW LEVEL SECURITY with no policy for core_owner.
+        var (a, _) = await SeedIdentityAsync();
+        var owner = db.ConnectionString("core_owner");
+        var (sql, parameters) = InsertIdentity(table, a);
+
+        await using (var session = await Session.BeginAsync(owner, a.Tenant))
+        {
+            Assert.Equal(0L, await session.ScalarAsync<long>($"SELECT count(*) FROM core.{table}"));
+        }
+        await using (var session = await Session.BeginAsync(owner, a.Tenant))
+        {
+            await session.AssertDeniedAsync(sql, parameters);
+        }
+    }
+
     [Fact]
     public async Task A_link_cannot_join_rows_of_two_tenants()
     {
