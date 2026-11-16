@@ -19,6 +19,7 @@ var aiOwnerPassword = Secret("ai-owner-password");
 var appCorePassword = Secret("app-core-password");
 var appAiPassword = Secret("app-ai-password");
 var corpusIngestorPassword = Secret("corpus-ingestor-password");
+var rabbitmqPassword = Secret("rabbitmq-password");
 
 // The init script runs only on an empty data volume: it creates the roles and both schemas.
 var postgres = builder
@@ -62,6 +63,22 @@ var keycloak = builder
         "--spi-theme--cache-templates=false"
     )
     .WithRealmImport("../../../deploy/keycloak/normetry-realm.json");
+
+// The queue between the core and the AI service (src/shared/contracts/messages). Kept small: the
+// alpine image, no management plugin. The data volume keeps queued messages across runs, and a
+// generated password that never changes, because the broker keeps its users in that volume.
+var rabbitmq = builder
+    .AddRabbitMQ("rabbitmq", password: rabbitmqPassword)
+    .WithImageTag("4.3-alpine")
+    .WithDataVolume();
+
+// Azurite (Azure Blob Storage locally; the same SDK reaches Azure in production). The AppHost
+// creates the documents container on startup; the data volume keeps the uploaded files, which
+// core.document_versions points to.
+var storage = builder.AddAzureStorage("storage").RunAsEmulator(azurite => azurite.WithDataVolume());
+var blobs = storage.AddBlobs("blobs");
+const string DocumentsContainer = "documents";
+storage.AddBlobContainer("documents-container", DocumentsContainer);
 
 // Short-lived: applies the core migrations as core_owner and exits. Only this step gets the owner
 // connection string, because the owner can switch RLS off; the API connects as app_core.
@@ -108,7 +125,13 @@ var ai = builder
     .WithArgs("--factory", "--reload-dir", "normetry_ai")
     .WithEnvironment("NORMETRY_INTERNAL_TOKEN", internalToken)
     .WithEnvironment("NORMETRY_DATABASE_URL", Psycopg("app_ai", appAiPassword))
+    // Setting the RabbitMQ URL turns the service's document consumer on.
+    .WithEnvironment("NORMETRY_RABBITMQ_URL", rabbitmq)
+    .WithEnvironment("NORMETRY_BLOB_CONNECTION_STRING", blobs)
+    .WithEnvironment("NORMETRY_BLOB_CONTAINER", DocumentsContainer)
     .WaitFor(postgres)
+    .WaitFor(rabbitmq)
+    .WaitFor(blobs)
     .WaitForCompletion(aiMigrate);
 
 // The chat model's API key, the only secret not generated: set it once with
@@ -131,8 +154,15 @@ var api = builder
     .WithReference(keycloak)
     // services__ai__http__0 for the /ai/* gateway (Aspire service discovery).
     .WithReference(ai)
+    // ConnectionStrings__rabbitmq (the outbox dispatcher and the status consumer) and
+    // ConnectionStrings__blobs (uploads).
+    .WithReference(rabbitmq)
+    .WithReference(blobs)
+    .WithEnvironment("Documents__BlobContainer", DocumentsContainer)
     .WaitFor(keycloak)
     .WaitFor(postgres)
+    .WaitFor(rabbitmq)
+    .WaitFor(blobs)
     .WaitForCompletion(coreMigrate);
 
 // The web app's Vite dev server. Fixed port: the normetry-web Keycloak client accepts only

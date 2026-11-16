@@ -7,6 +7,8 @@
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.5" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.5" />
     <PackageVersion Include="Aspire.Hosting.Python" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.6.5" />
   </ItemGroup>
   <ItemGroup Label="ServiceDefaults (versions from the Aspire 13.6.5 template)">
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
