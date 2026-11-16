@@ -12,8 +12,8 @@ namespace Normetry.Infrastructure.Messaging;
 /// says), one message at a time. An error is retried after 2, 10, 30, then 60 seconds by a reject
 /// with requeue, which the broker counts; with <c>x-delivery-limit: 4</c> the fifth delivery that
 /// fails goes to <c>core.document-status.dead-letter</c>. A body off the contract is
-/// dead-lettered at once. The client recovers the connection, the queue and the consumer after a
-/// network failure.
+/// dead-lettered at once. When the broker cancels the consumer (its queue was deleted) or closes
+/// the channel, the channel and the consumer are created again.
 /// </summary>
 internal sealed class DocumentStatusConsumer(
     RabbitMqConnection broker,
@@ -54,14 +54,28 @@ internal sealed class DocumentStatusConsumer(
         var consumer = new AsyncEventingBasicConsumer(channel);
         consumer.ReceivedAsync += (_, delivery) =>
             OnDeliveryAsync(channel, delivery, stoppingToken);
+        var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        consumer.UnregisteredAsync += (_, _) => Stop(stopped);
+        consumer.ShutdownAsync += (_, _) => Stop(stopped);
         await channel.BasicConsumeAsync(
             Topology.StatusQueue,
             autoAck: false,
             consumer,
             stoppingToken
         );
-        await Task.Delay(Timeout.Infinite, stoppingToken)
+        await stopped
+            .Task.WaitAsync(stoppingToken)
             .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        if (!stoppingToken.IsCancellationRequested)
+        {
+            throw new InvalidOperationException("The broker cancelled the consumer or its channel");
+        }
+    }
+
+    private static Task Stop(TaskCompletionSource stopped)
+    {
+        stopped.TrySetResult();
+        return Task.CompletedTask;
     }
 
     private async Task OnDeliveryAsync(

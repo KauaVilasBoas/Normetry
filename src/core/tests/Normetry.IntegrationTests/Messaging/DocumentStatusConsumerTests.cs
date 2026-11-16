@@ -82,6 +82,62 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
         }
     }
 
+    [Fact]
+    public async Task The_consumer_comes_back_when_the_broker_cancels_it()
+    {
+        var uploaded = await DocumentStatusTests.UploadAsync(db);
+        await using var api = new ApiFactory
+        {
+            CoreConnectionString = db.ConnectionString("app_core"),
+            DispatcherConnectionString = db.ConnectionString("core_dispatcher"),
+            RabbitMqConnectionString = broker.ConnectionString,
+        };
+        var consumer = ActivatorUtilities.CreateInstance<DocumentStatusConsumer>(api.Services);
+        await using var connection = await broker.ConnectAsync();
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: Ct);
+        await Topology.DeclareStatusQueueAsync(channel, Ct);
+        await consumer.StartAsync(Ct);
+        try
+        {
+            Assert.True(await EventuallyAsync(() => ConsumedAsync(channel)));
+            // Deleting the queue makes the broker cancel the consumer (basic.cancel).
+            await channel.QueueDeleteAsync(Topology.StatusQueue, cancellationToken: Ct);
+
+            Assert.True(await EventuallyAsync(() => ConsumedAsync(channel), attempts: 300));
+            await PublishAsync(
+                channel,
+                DocumentIndexed.RoutingKey,
+                DocumentStatusTests.Body(
+                    uploaded.Tenant,
+                    new DocumentIndexed(
+                        uploaded.Establishment,
+                        uploaded.Document,
+                        uploaded.Version,
+                        1,
+                        8,
+                        2,
+                        "en"
+                    )
+                )
+            );
+            Assert.True(
+                await EventuallyAsync(async () => await StatusAsync(uploaded) == "Indexed")
+            );
+        }
+        finally
+        {
+            await consumer.StopAsync(Ct);
+        }
+    }
+
+    /// <summary>Whether a consumer is on the status queue (declared again if it was deleted).</summary>
+    private static async Task<bool> ConsumedAsync(IChannel channel)
+    {
+        await Topology.DeclareStatusQueueAsync(channel, Ct);
+        var queue = await channel.QueueDeclarePassiveAsync(Topology.StatusQueue, Ct);
+        return queue.ConsumerCount == 1;
+    }
+
     private static Task PublishAsync(IChannel channel, string routingKey, byte[] body) =>
         channel
             .BasicPublishAsync(
@@ -110,9 +166,9 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
         );
     }
 
-    private static async Task<bool> EventuallyAsync(Func<Task<bool>> condition)
+    private static async Task<bool> EventuallyAsync(Func<Task<bool>> condition, int attempts = 100)
     {
-        for (var attempt = 0; attempt < 100; attempt++)
+        for (var attempt = 0; attempt < attempts; attempt++)
         {
             if (await condition())
             {
