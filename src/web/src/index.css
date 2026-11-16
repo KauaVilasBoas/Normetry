@@ -25,6 +25,7 @@
   --text-secondary: #a9b8cc;
   --text-muted: #6b7f99;
 
+  --warning: #f2ae13;
   --neutral: #5b6b82;
   --chart-2: #23b6fd;
 
@@ -98,6 +99,7 @@
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
+  --color-warning: var(--warning);
   --color-neutral: var(--neutral);
   --color-chart-2: var(--chart-2);
 }

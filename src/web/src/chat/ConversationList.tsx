@@ -3,20 +3,8 @@ import { Dialog } from "radix-ui";
 import { useRef } from "react";
 import { Link } from "react-router";
 import { useConversations, type Establishment } from "../api/queries";
-import { copy, format, locale } from "../copy";
+import { copy, format, shortDate } from "../copy";
 import { Button, iconButton, Message, Skeleton, Spinner } from "../ui/primitives";
-
-/** The time today, "Nov 10" this year, "Nov 10, 2025" before. */
-function shortDate(iso: string, now: Date): string {
-  const date = new Date(iso);
-  const options: Intl.DateTimeFormatOptions =
-    date.toDateString() === now.toDateString()
-      ? { hour: "numeric", minute: "2-digit" }
-      : date.getFullYear() === now.getFullYear()
-        ? { month: "short", day: "numeric" }
-        : { month: "short", day: "numeric", year: "numeric" };
-  return new Intl.DateTimeFormat(locale, options).format(date);
-}
 
 /** The selected establishment's conversations, latest first. A card, or a sheet's content. */
 export function ConversationList({

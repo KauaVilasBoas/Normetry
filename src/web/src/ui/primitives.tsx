@@ -1,15 +1,30 @@
 import {
   ArrowRight,
   Check,
+  ChevronDown,
   CircleAlert,
+  CircleCheck,
+  Clock,
+  Diamond,
+  FileText,
   Minus,
   Pill,
   Stethoscope,
   Store,
+  Upload,
   UtensilsCrossed,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useId, type ButtonHTMLAttributes, type ComponentProps, type ReactNode } from "react";
+import {
+  useId,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type ComponentProps,
+  type DragEvent,
+  type Ref,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router";
 
 const buttonVariants = {
@@ -58,13 +73,78 @@ const spinnerSurfaces = {
   mint: "border-mint-hover border-t-on-mint",
 };
 
-/** Indeterminate ring, 16px; static under reduced motion. `surface`: what it sits on. */
-export function Spinner({ surface = "card" }: { surface?: keyof typeof spinnerSurfaces }) {
+/**
+ * Indeterminate ring, 16px (12px when `small`, inside a pill); static under reduced motion.
+ * `surface`: what it sits on.
+ */
+export function Spinner({
+  surface = "card",
+  small = false,
+}: {
+  surface?: keyof typeof spinnerSurfaces;
+  small?: boolean;
+}) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-block size-4 shrink-0 rounded-pill border-2 ${spinnerSurfaces[surface]} motion-safe:animate-spin`}
+      className={`inline-block ${small ? "size-3" : "size-4"} shrink-0 rounded-pill border-2 ${spinnerSurfaces[surface]} motion-safe:animate-spin`}
     />
+  );
+}
+
+// Ingestion is not a compliance state: no green or red (DESIGN.md Ingestion status pill).
+const pills: Record<string, { className: string; glyph: ReactNode } | undefined> = {
+  Uploaded: {
+    className: "border-neutral bg-neutral/10 text-text-secondary",
+    glyph: <Clock aria-hidden="true" className="size-3 shrink-0" />,
+  },
+  Processing: { className: "border-mint bg-mint/10 text-mint", glyph: <Spinner small /> },
+  Indexed: {
+    className: "border-teal-border text-text-primary",
+    glyph: <CircleCheck aria-hidden="true" className="size-3 shrink-0 text-mint" />,
+  },
+  Failed: {
+    className: "border-warning bg-warning/10 text-warning",
+    glyph: <Diamond aria-hidden="true" className="size-2.5 shrink-0 fill-current" />,
+  },
+};
+
+/** A document version's ingestion status: glyph and label. An unknown status looks like Uploaded. */
+export function IngestionPill({ status, label }: { status: string; label: string }) {
+  const pill = pills[status] ?? pills.Uploaded;
+  return (
+    <span
+      className={`inline-flex h-5 items-center gap-1 rounded-pill border px-2 text-caption font-medium whitespace-nowrap ${pill?.className}`}
+    >
+      {pill?.glyph}
+      {label}
+    </span>
+  );
+}
+
+/** A note inside a card (DESIGN.md Inline notice): an icon, a title, its lines, an optional action. */
+export function Notice({
+  icon,
+  title,
+  action,
+  children,
+  className = "",
+  ...props
+}: Omit<ComponentProps<"div">, "title"> & { icon: ReactNode; title: string; action?: ReactNode }) {
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-sm bg-inset p-3 ${className}`}
+      {...props}
+    >
+      <div className="flex min-w-0 flex-1 gap-2">
+        <span className="mt-0.5 flex shrink-0 text-text-secondary">{icon}</span>
+        <div className="min-w-0">
+          <p className="text-body font-semibold">{title}</p>
+          {children && <div className="text-small text-text-secondary">{children}</div>}
+        </div>
+      </div>
+      {action}
+    </div>
   );
 }
 
@@ -358,27 +438,22 @@ function CheckboxText({
   );
 }
 
-/** Labelled input with an optional hint and error (no red: an icon and white text). */
-export function TextField({
-  label,
-  hint,
-  error,
-  ...input
-}: ComponentProps<"input"> & { label: string; hint?: string; error?: string }) {
-  const id = useId();
+const fieldControl =
+  "h-11 w-full rounded-control border border-teal-border bg-inset px-3 text-field sm:text-body";
+
+/** A field's `aria-describedby` and `aria-invalid`, for its hint and error. */
+function fieldAria(id: string, hint: string | undefined, error: string | undefined) {
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
+  return {
+    "aria-invalid": error ? (true as const) : undefined,
+    "aria-describedby": describedBy || undefined,
+  };
+}
+
+/** A field's hint, then its error (no red: an icon and white text). */
+function FieldNotes({ id, hint, error }: { id: string; hint?: string; error?: string }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-small text-text-primary">
-        {label}
-      </label>
-      <input
-        id={id}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy || undefined}
-        className="h-11 w-full rounded-control border border-teal-border bg-inset px-3 text-field sm:text-body"
-        {...input}
-      />
+    <>
       {hint && (
         <p id={`${id}-hint`} className="text-small text-text-secondary">
           {hint}
@@ -390,13 +465,193 @@ export function TextField({
           {error}
         </p>
       )}
+    </>
+  );
+}
+
+/** Labelled input with an optional hint and error. */
+export function TextField({
+  label,
+  hint,
+  error,
+  ...input
+}: ComponentProps<"input"> & { label: string; hint?: string; error?: string }) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-small text-text-primary">
+        {label}
+      </label>
+      <input id={id} {...fieldAria(id, hint, error)} className={fieldControl} {...input} />
+      <FieldNotes id={id} hint={hint} error={error} />
     </div>
   );
 }
 
+/**
+ * A native select as a form field (DESIGN.md Form select): the text field's look with a chevron.
+ * `placeholder` is the empty option, shown in secondary text and never chosen again.
+ */
+export function SelectField({
+  label,
+  placeholder,
+  options,
+  hint,
+  error,
+  ...select
+}: Omit<ComponentProps<"select">, "children"> & {
+  label: string;
+  placeholder: string;
+  options: { value: string; label: string }[];
+  hint?: string;
+  error?: string;
+}) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-small text-text-primary">
+        {label}
+      </label>
+      <div className="relative">
+        <select
+          id={id}
+          {...fieldAria(id, hint, error)}
+          className={`${fieldControl} appearance-none pr-10 *:text-text-primary ${select.value ? "" : "text-text-secondary"}`}
+          {...select}
+        >
+          <option value="" disabled>
+            {placeholder}
+          </option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-text-secondary"
+        />
+      </div>
+      <FieldNotes id={id} hint={hint} error={error} />
+    </div>
+  );
+}
+
+const draggingFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
+
+/**
+ * A file picker (DESIGN.md Drop zone): a native button, so Enter or Space opens the system
+ * picker, that also takes a dropped file (a pointer shortcut). `onFiles` gets every file chosen
+ * or dropped; the caller checks them. Its name is the line it shows; the hint and the error
+ * describe it.
+ */
+export function DropZone({
+  file,
+  size,
+  accept,
+  label,
+  draggingLabel,
+  hint,
+  another,
+  error,
+  onFiles,
+  ref,
+}: {
+  file: File | undefined;
+  /** The chosen file's size, formatted. */
+  size: string;
+  accept: string;
+  label: string;
+  draggingLabel: string;
+  hint: string;
+  another: string;
+  error: string | undefined;
+  onFiles: (files: File[]) => void;
+  ref?: Ref<HTMLButtonElement>;
+}) {
+  const id = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const describedBy = [!file && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
+
+  const over = (event: DragEvent) => {
+    if (!draggingFiles(event)) return;
+    event.preventDefault();
+    setDragging(true);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        ref={ref}
+        type="button"
+        aria-labelledby={`${id}-label`}
+        aria-describedby={describedBy || undefined}
+        onClick={() => input.current?.click()}
+        onDragEnter={over}
+        onDragOver={over}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+        }}
+        onDrop={(event) => {
+          if (!draggingFiles(event)) return;
+          event.preventDefault();
+          setDragging(false);
+          onFiles([...event.dataTransfer.files]);
+        }}
+        className={`flex min-h-32 w-full flex-col items-center justify-center gap-1 rounded-control border p-4 text-center ${
+          dragging
+            ? "border-solid border-mint bg-teal-deep"
+            : "border-dashed border-teal-border bg-inset"
+        }`}
+      >
+        {file && !dragging ? (
+          <span id={`${id}-label`} className="flex w-full min-w-0 items-center gap-2 text-left">
+            <FileText aria-hidden="true" className="size-5 shrink-0 text-text-secondary" />
+            <span className="min-w-0 flex-1 truncate text-body font-medium">{file.name}</span>{" "}
+            <span className="shrink-0 text-small text-text-secondary tabular-nums">{size}</span>{" "}
+            <span className="shrink-0 text-small font-medium text-mint">{another}</span>
+          </span>
+        ) : (
+          <>
+            <Upload aria-hidden="true" className="size-5 text-text-secondary" />
+            <span id={`${id}-label`} className="text-body font-medium">
+              {dragging ? draggingLabel : label}
+            </span>
+            {!file && (
+              <span id={`${id}-hint`} className="text-small text-text-secondary">
+                {hint}
+              </span>
+            )}
+          </>
+        )}
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept={accept}
+        hidden
+        tabIndex={-1}
+        onChange={(event) => {
+          onFiles([...(event.target.files ?? [])]);
+          // The same file chosen again still counts.
+          event.target.value = "";
+        }}
+      />
+      <FieldNotes id={id} error={error} />
+    </div>
+  );
+}
+
+const dialogSurface =
+  "fixed top-1/2 left-1/2 z-40 w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-card border border-border bg-elevated p-5 motion-safe:animate-fade-in";
+
 /** The dialog surface (DESIGN.md Alert dialog): centered, elevated, max 400px. */
-export const dialogPanel =
-  "fixed top-1/2 left-1/2 z-40 w-[calc(100%-2rem)] max-w-100 -translate-x-1/2 -translate-y-1/2 rounded-card border border-border bg-elevated p-5 motion-safe:animate-fade-in";
+export const dialogPanel = `${dialogSurface} max-w-100`;
+
+/** A dialog that holds an upload: 480px, scrolling inside itself on a short screen. */
+export const uploadDialogPanel = `${dialogSurface} max-h-[calc(100dvh-2rem)] max-w-120 overflow-y-auto`;
 
 /**
  * A dialog with a form: title, fields, an inline error, then Cancel and the primary submit. It
