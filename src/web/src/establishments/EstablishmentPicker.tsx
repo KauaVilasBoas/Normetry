@@ -9,6 +9,8 @@ interface PickerProps {
   state: ListState;
   establishments: Establishment[] | undefined;
   givenName: string | undefined;
+  /** What choosing one is for, on this screen. */
+  subtitle: string;
   onSelect: (establishment: Establishment) => void;
   onRetry: () => void;
   /** A request is in flight (after Try again). */
@@ -20,6 +22,7 @@ export function EstablishmentPicker({
   state,
   establishments,
   givenName,
+  subtitle,
   onSelect,
   onRetry,
   fetching,
@@ -30,7 +33,7 @@ export function EstablishmentPicker({
       <p className="text-greeting font-semibold">
         {givenName ? format(copy.picker.greeting, { name: givenName }) : copy.picker.greetingNoName}
       </p>
-      <p className="mt-1 text-body text-text-secondary">{copy.picker.subtitle}</p>
+      <p className="mt-1 text-body text-text-secondary">{subtitle}</p>
       <section
         aria-labelledby="establishments-title"
         aria-busy={state === "loading" || retrying}

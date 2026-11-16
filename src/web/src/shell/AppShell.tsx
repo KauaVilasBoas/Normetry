@@ -6,6 +6,7 @@ import { ApiError } from "../api/client";
 import {
   can,
   useConversations,
+  useDocument,
   useEstablishments,
   useMe,
   type Establishment,
@@ -13,28 +14,42 @@ import {
 import { useSession } from "../auth/session";
 import { ChatScreen } from "../chat/ChatScreen";
 import { copy, format } from "../copy";
+import { DocumentsScreen } from "../documents/DocumentsScreen";
 import { EstablishmentPicker } from "../establishments/EstablishmentPicker";
 import { listState, useEstablishmentSelection } from "../establishments/selection";
 import { ProfilesScreen } from "../settings/ProfilesScreen";
 import { iconButton, Message } from "../ui/primitives";
 import { Sidebar } from "./Sidebar";
 
+type Screen = "chat" | "documents" | "settings";
+
+const headings: Record<Screen, string> = {
+  chat: copy.shell.askTheRegulation,
+  documents: copy.shell.documents,
+  settings: copy.shell.settings,
+};
+
+/** Where an establishment chosen in the picker or the switcher leads: the section's root. */
+const sectionRoots = { chat: "/", documents: "/documents" };
+
 /**
  * The app frame: sidebar (a drawer below 1024px), top bar and main. Main shows what `/me`'s
  * permissions allow; while `/me` is pending nothing gated shows. The server checks every call.
  * Settings belongs to the organization, so it shows without an establishment.
  */
-export function AppShell({ screen }: { screen: "chat" | "settings" }) {
+export function AppShell({ screen }: { screen: Screen }) {
   const { profile } = useSession();
   const me = useMe();
   const chatAllowed = can(me.data, "chat.ask");
+  const documentsAllowed = can(me.data, "documents.read");
   const establishmentsAllowed = can(me.data, "establishments.read");
   const establishments = useEstablishments(establishmentsAllowed);
   const state = listState(me, establishments);
   const { selected, select } = useEstablishmentSelection(me.data, establishments.data);
-  const { conversationId } = useParams();
+  const { conversationId, documentId } = useParams();
   const navigate = useNavigate();
   const conversations = useConversations(chatAllowed && screen === "chat");
+  const openDocument = useDocument(documentId, documentsAllowed && screen === "documents");
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -51,37 +66,41 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
 
-  // A conversation opened by URL selects its establishment when it is one of the user's, even before
-  // one is selected (the chat does the same from the loaded conversation). Once per conversation,
-  // so a later choice in the switcher wins. Anyone else's shows as not found.
-  const conversationEstablishment = conversations.data?.find(
-    (conversation) => conversation.id === conversationId,
-  )?.establishmentId;
-  const owner = establishments.data?.find((item) => item.id === conversationEstablishment);
-  const syncedConversation = useRef<string>(undefined);
+  // A conversation or a document opened by URL selects its establishment when it is one of the
+  // user's, even before one is selected (the chat does the same from the loaded conversation).
+  // Once per conversation or document, so a later choice in the switcher wins. Anyone else's
+  // shows as not found.
+  const routedId = conversationId ?? documentId;
+  const routedEstablishment =
+    conversationId !== undefined
+      ? conversations.data?.find((conversation) => conversation.id === conversationId)
+          ?.establishmentId
+      : openDocument.data?.establishmentId;
+  const owner = establishments.data?.find((item) => item.id === routedEstablishment);
+  const synced = useRef<string>(undefined);
   useEffect(() => {
-    if (conversationId === undefined) syncedConversation.current = undefined;
-    if (!owner || syncedConversation.current === conversationId) return;
-    syncedConversation.current = conversationId;
+    if (routedId === undefined) synced.current = undefined;
+    if (!owner || synced.current === routedId) return;
+    synced.current = routedId;
     if (owner.id !== selected?.id) select(owner);
-  }, [conversationId, owner, selected, select]);
+  }, [routedId, owner, selected, select]);
 
-  // Choosing an establishment opens a new conversation for it.
+  // Choosing an establishment opens the section's root for it: a new conversation, or its list.
   const chooseInPicker = (establishment: Establishment) => {
     select(establishment);
-    void navigate("/");
+    void navigate(screen === "documents" ? sectionRoots.documents : sectionRoots.chat);
     setFocusKey((key) => key + 1);
   };
 
   const chooseInSwitcher = (establishment: Establishment) => {
     select(establishment);
-    // Settings stays where it is; the chat opens a new conversation for the establishment.
+    // Settings stays where it is; the chat and Documents go to their root for the establishment.
     if (screen === "settings") {
       setDrawerOpen(false);
       setAnnouncement(format(copy.switcher.selected, { name: establishment.name }));
       return;
     }
-    void navigate("/");
+    void navigate(sectionRoots[screen]);
     if (drawerOpen) {
       focusRegionAfterDrawer.current = true;
       setDrawerOpen(false);
@@ -96,8 +115,8 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
     if (establishments.isError) void establishments.refetch();
   };
 
-  // The screens the user may open; Documents joins them when it is built.
-  const canOpenAScreen = chatAllowed || can(me.data, "profiles.read");
+  // The screens the user may open. Home goes to the first: the chat, Documents, then Settings.
+  const canOpenAScreen = chatAllowed || documentsAllowed || can(me.data, "profiles.read");
 
   let content: ReactNode;
   if (me.data && !canOpenAScreen) {
@@ -119,11 +138,17 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
         />
       );
     else content = <ProfilesScreen me={me} />;
-  } else if (me.data && !chatAllowed) {
-    // Home goes to the first screen the user may open: here, Settings.
+  } else if (screen === "documents" && me.data && !documentsAllowed) {
+    content = (
+      <AccessCard
+        title={format(copy.access.refusedTitle, { screen: copy.shell.documents })}
+        body={copy.access.refusedBody}
+      />
+    );
+  } else if (screen === "chat" && me.data && !chatAllowed) {
     content =
       conversationId === undefined ? (
-        <Navigate to="/settings/profiles" replace />
+        <Navigate to={documentsAllowed ? "/documents" : "/settings/profiles"} replace />
       ) : (
         <AccessCard
           title={format(copy.access.refusedTitle, { screen: copy.shell.askTheRegulation })}
@@ -133,6 +158,15 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
   } else if (me.data && !establishmentsAllowed) {
     content = (
       <AccessCard title={copy.access.establishmentsTitle} body={copy.access.establishmentsBody} />
+    );
+  } else if (selected && state === "list" && screen === "documents") {
+    content = (
+      <DocumentsScreen
+        establishment={selected}
+        documentId={documentId}
+        me={me.data}
+        focusKey={focusKey}
+      />
     );
   } else if (selected && state === "list") {
     content = (
@@ -150,6 +184,7 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
         state={state}
         establishments={establishments.data}
         givenName={profile.givenName}
+        subtitle={screen === "documents" ? copy.picker.subtitleDocuments : copy.picker.subtitle}
         onSelect={chooseInPicker}
         onRetry={retry}
         fetching={me.isFetching || establishments.isFetching}
@@ -167,7 +202,15 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
 
   return (
     <div className="flex h-dvh bg-app">
-      <title>{screen === "settings" ? copy.titles.profiles : copy.titles.app}</title>
+      <title>
+        {screen === "settings"
+          ? copy.titles.profiles
+          : screen === "chat"
+            ? copy.titles.app
+            : openDocument.data && documentId !== undefined
+              ? format(copy.titles.document, { title: openDocument.data.title })
+              : copy.titles.documents}
+      </title>
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-control focus:bg-elevated focus:px-4 focus:py-2"
@@ -187,9 +230,7 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
             >
               <Menu aria-hidden="true" className="size-5" />
             </Dialog.Trigger>
-            <h1 className="text-title font-semibold">
-              {screen === "settings" ? copy.shell.settings : copy.shell.askTheRegulation}
-            </h1>
+            <h1 className="text-title font-semibold">{headings[screen]}</h1>
           </header>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 z-40 bg-scrim" />

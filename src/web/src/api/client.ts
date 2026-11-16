@@ -34,6 +34,8 @@ export interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** Sent as JSON. */
   json?: unknown;
+  /** Sent as multipart; the browser sets its content type and boundary. */
+  form?: FormData;
   accept?: string;
   signal?: AbortSignal;
 }
@@ -49,12 +51,12 @@ export function createApiClient({
   const send = (
     path: string,
     token: string | undefined,
-    { method = "GET", json, accept = "application/json", signal }: RequestOptions,
+    { method = "GET", json, form, accept = "application/json", signal }: RequestOptions,
   ) =>
     fetch(`${baseUrl}${path}`, {
       method,
       signal,
-      body: json === undefined ? undefined : JSON.stringify(json),
+      body: form ?? (json === undefined ? undefined : JSON.stringify(json)),
       headers: {
         Accept: accept,
         ...(json === undefined ? {} : { "Content-Type": "application/json" }),
@@ -78,6 +80,8 @@ export function createApiClient({
 
   return {
     request,
+    /** For a SignalR connection, which cannot send the header: the token goes in its URL. */
+    accessToken: getAccessToken,
     async get<T>(path: string): Promise<T> {
       const response = await request(path);
       if (!response.ok) throw new ApiError(response.status);

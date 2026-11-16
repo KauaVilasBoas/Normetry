@@ -2,8 +2,9 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-// The browser calls the core API on this origin under /api, and the dev server forwards it, so the
-// API needs no CORS. The AppHost sets NORMETRY_API_URL; the fallback is the API's http profile.
+// The browser calls the core API on this origin under /api, and its SignalR hubs under /hubs
+// (WebSockets), and the dev server forwards both, so the API needs no CORS. The AppHost sets
+// NORMETRY_API_URL; the fallback is the API's http profile.
 const apiUrl = process.env.NORMETRY_API_URL ?? "http://localhost:5208";
 
 export default defineConfig({
@@ -15,6 +16,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       "/api": { target: apiUrl, rewrite: (path) => path.replace(/^\/api/, "") },
+      "/hubs": { target: apiUrl, ws: true },
     },
   },
   test: {
