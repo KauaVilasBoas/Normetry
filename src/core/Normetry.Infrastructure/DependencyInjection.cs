@@ -58,8 +58,10 @@ public static class DependencyInjection
         ));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
 
-        // Background services open one scope per tenant and set its tenant here first.
+        // Background services open one scope per tenant and set its tenant here first; the
+        // development document seed also sets the user it uploads as.
         services.AddScoped<BackgroundTenant>();
+        services.AddScoped<BackgroundUser>();
         services.AddScoped<IOutbox, Outbox>();
         services.AddSingleton<RabbitMqConnection>();
         services.AddSingleton<RabbitMqPublisher>();
@@ -77,4 +79,11 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddDemoTenantSeed(this IServiceCollection services) =>
         services.AddHostedService<DemoTenantSeed>();
+
+    /// <summary>
+    /// Development only: once the API has started, uploads the demo establishments' documents from
+    /// <c>evals/establishments</c> through the upload commands.
+    /// </summary>
+    public static IServiceCollection AddDemoDocumentSeed(this IServiceCollection services) =>
+        services.AddHostedService<DemoDocumentSeed>();
 }

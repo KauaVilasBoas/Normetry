@@ -37,6 +37,14 @@ public static class DocumentFiles
         ),
     ];
 
+    /// <summary>The canonical content type of an accepted extension, or null.</summary>
+    public static string? ContentTypeOf(string fileName) =>
+        Formats
+            .FirstOrDefault(format =>
+                format.Extension == Path.GetExtension(fileName).ToLowerInvariant()
+            )
+            ?.ContentType;
+
     /// <summary>The accepted file, with its canonical content type, or why it was refused.</summary>
     public static Result<DocumentFile> Inspect(UploadedFile file)
     {

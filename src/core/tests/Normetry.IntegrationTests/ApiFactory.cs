@@ -80,6 +80,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             RabbitMqConnectionString ?? "amqp://guest:guest@127.0.0.1:9"
         );
         builder.UseSetting("ConnectionStrings:blobs", "UseDevelopmentStorage=true");
+        // The development document seed runs, but finds nothing: tests call it with their own
+        // folder and tenant, so the demo tenants never get the demo documents here.
+        builder.UseSetting(
+            DemoDocumentSeed.DirectorySetting,
+            Path.Combine(Path.GetTempPath(), $"normetry-no-demo-documents-{Guid.NewGuid():N}")
+        );
         builder.UseSetting("Ai:InternalToken", InternalToken);
         // Nothing listens there; the gateway tests point it at a stub AI service.
         builder.UseSetting("Services:ai:http:0", "http://127.0.0.1:9");
