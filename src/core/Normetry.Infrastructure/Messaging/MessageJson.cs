@@ -38,6 +38,8 @@ internal static partial class MessageJson
 {
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
+        // camelCase only, as the contract says: "TenantId" is not the envelope's tenant.
+        PropertyNameCaseInsensitive = false,
         // A missing field or a null where the contract has none fails the read.
         RespectNullableAnnotations = true,
         RespectRequiredConstructorParameters = true,

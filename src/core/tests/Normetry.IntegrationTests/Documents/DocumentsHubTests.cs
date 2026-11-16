@@ -115,6 +115,36 @@ public sealed class DocumentsHubTests
     }
 
     [Fact]
+    public async Task A_revoked_permission_stops_new_joins_on_an_open_connection()
+    {
+        var a = await DocumentStatusTests.UploadAsync(db);
+        var reader = Guid.NewGuid().ToString();
+        var profile = await TestTenants.GrantAsync(
+            db,
+            a.Tenant,
+            reader,
+            Permissions.Documents.Read
+        );
+        await using var connection = await ConnectAsync(a.Tenant, reader);
+        await connection.InvokeAsync("JoinEstablishment", a.Establishment, Ct).WaitAsync(Wait, Ct);
+
+        await using (
+            var session = await Session.BeginAsync(db.ConnectionString("app_core"), a.Tenant)
+        )
+        {
+            await session.ExecuteAsync(
+                "DELETE FROM core.user_profiles WHERE profile_id = $1",
+                profile
+            );
+            await session.CommitAsync();
+        }
+
+        await Assert.ThrowsAsync<HubException>(() =>
+            connection.InvokeAsync("JoinEstablishment", a.Establishment, Ct).WaitAsync(Wait, Ct)
+        );
+    }
+
+    [Fact]
     public async Task The_query_string_token_is_read_for_the_hubs_only()
     {
         var token = ApiFactory.CreateToken();

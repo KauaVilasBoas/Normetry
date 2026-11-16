@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Normetry.Application.Documents;
@@ -53,8 +54,12 @@ internal sealed class DocumentStatusMessages(
             return ConsumeOutcome.DeadLetter;
         }
 
+        Activity.Current?.SetTag("normetry.tenant_id", message.TenantId.ToString());
         await using var scope = scopes.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<BackgroundTenant>().Set(message.TenantId);
+        using var log = logger.BeginScope(
+            new Dictionary<string, object> { ["TenantId"] = message.TenantId }
+        );
         var result = await scope
             .ServiceProvider.GetRequiredService<IDispatcher>()
             .SendAsync(

@@ -37,7 +37,19 @@ internal sealed class ProcessingTimeoutSweeper(
                     )
                 )
                 {
-                    await SweepAsync(tenantId, stoppingToken);
+                    // One tenant's failure must not hold back the tenants after it.
+                    try
+                    {
+                        await SweepAsync(tenantId, stoppingToken);
+                    }
+                    catch (Exception error) when (!stoppingToken.IsCancellationRequested)
+                    {
+                        logger.LogWarning(
+                            error,
+                            "Processing timeout sweep failed for tenant {TenantId}",
+                            tenantId
+                        );
+                    }
                 }
             }
             catch (Exception error) when (!stoppingToken.IsCancellationRequested)
@@ -56,6 +68,9 @@ internal sealed class ProcessingTimeoutSweeper(
     {
         await using var scope = scopes.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<BackgroundTenant>().Set(tenantId);
+        using var log = logger.BeginScope(
+            new Dictionary<string, object> { ["TenantId"] = tenantId }
+        );
         var result = await scope
             .ServiceProvider.GetRequiredService<IDispatcher>()
             .SendAsync(new TimeOutProcessingCommand(), cancellationToken);

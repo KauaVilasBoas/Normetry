@@ -116,6 +116,32 @@ public sealed class OutboxDispatcherTests : IClassFixture<RabbitMqFixture>
         Assert.Equal([true], await SentAsync(tenant));
     }
 
+    [Fact]
+    public async Task A_dispatch_publishes_only_its_tenants_messages()
+    {
+        var tenantA = await TestTenants.CreateAsync(db);
+        var tenantB = await TestTenants.CreateAsync(db);
+        await using var api = NewApi();
+        await using var connection = await broker.ConnectAsync();
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: Ct);
+        var queue = await BindTestQueueAsync(channel, DocumentDeleted.RoutingKey);
+        foreach (var tenant in new[] { tenantA, tenantB })
+        {
+            await WriteWithStateChangeAsync(api, tenant, id => new DocumentDeleted(
+                id,
+                Guid.CreateVersion7()
+            ));
+        }
+
+        Assert.Equal(1, await NewDispatcher(api).DispatchAsync(tenantA, Ct));
+
+        var delivered = await channel.BasicGetAsync(queue, autoAck: true, Ct);
+        Assert.Equal(tenantA, MessageJson.Parse(delivered!.Body.Span).TenantId);
+        Assert.Null(await channel.BasicGetAsync(queue, autoAck: true, Ct));
+        Assert.Equal([true], await SentAsync(tenantA));
+        Assert.Equal([false], await SentAsync(tenantB));
+    }
+
     private ApiFactory NewApi() =>
         new()
         {

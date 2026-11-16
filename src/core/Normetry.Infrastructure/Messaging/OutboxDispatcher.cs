@@ -55,7 +55,15 @@ internal sealed class OutboxDispatcher(
             var tenantId in await OutboxTenantList.ListAsync(connectionString, cancellationToken)
         )
         {
-            await DispatchAsync(tenantId, cancellationToken);
+            // One tenant's failure must not hold back the tenants after it.
+            try
+            {
+                await DispatchAsync(tenantId, cancellationToken);
+            }
+            catch (Exception error) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(error, "Outbox dispatch failed for tenant {TenantId}", tenantId);
+            }
         }
     }
 
@@ -64,6 +72,9 @@ internal sealed class OutboxDispatcher(
     {
         await using var scope = scopes.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<BackgroundTenant>().Set(tenantId);
+        using var log = logger.BeginScope(
+            new Dictionary<string, object> { ["TenantId"] = tenantId }
+        );
         var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var pending = await db

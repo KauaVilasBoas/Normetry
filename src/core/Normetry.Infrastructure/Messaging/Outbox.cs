@@ -12,6 +12,8 @@ namespace Normetry.Infrastructure.Messaging;
 /// </summary>
 internal sealed class Outbox(CoreDbContext db, ITenantContext tenant, TimeProvider clock) : IOutbox
 {
+    internal const int TraceStateMaxLength = 512;
+
     public async Task EnqueueAsync<TMessage>(TMessage message, CancellationToken cancellationToken)
         where TMessage : IIntegrationMessage
     {
@@ -31,7 +33,10 @@ internal sealed class Outbox(CoreDbContext db, ITenantContext tenant, TimeProvid
                 RoutingKey = TMessage.RoutingKey,
                 Body = MessageJson.Serialize(id, tenantId, now, message),
                 TraceParent = activity?.Id,
-                TraceState = activity?.TraceStateString,
+                // A client may send any tracestate; an oversized one is dropped, never stored.
+                TraceState = activity?.TraceStateString is { Length: <= TraceStateMaxLength } state
+                    ? state
+                    : null,
                 CreatedAt = now,
             }
         );
