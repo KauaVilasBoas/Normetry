@@ -152,7 +152,7 @@ function ProfilesMenu({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const send = useSend();
+  const { send, closed } = useSend({ inside: true });
   // Profile id → the state its request is setting.
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string>();
@@ -190,7 +190,9 @@ function ProfilesMenu({
     <DropdownMenu.Root
       onOpenChange={(open) => {
         onOpenChange(open);
-        if (!open) setError(undefined);
+        if (open) return;
+        setError(undefined);
+        closed();
       }}
     >
       <DropdownMenu.Trigger asChild>

@@ -401,7 +401,10 @@ describe("profiles tab", () => {
 });
 
 describe("lost permissions and /me failures", () => {
-  it("moves focus to the editor when a refused create takes the dialog away", async () => {
+  const meCalls = (fetch: ReturnType<typeof stubApi>) =>
+    fetch.mock.calls.filter(([input]) => input === "/api/me").length;
+
+  it("keeps a refusal in its dialog until it closes, then refetches /me and moves focus", async () => {
     const fetch = renderSettings({
       "/me": [{ body: me }, { body: readOnly }],
       "POST /profiles": { status: 403, body: { code: "permission.denied" } },
@@ -413,12 +416,42 @@ describe("lost permissions and /me failures", () => {
     const dialog = await screen.findByRole("dialog", { name: "New profile" });
     await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Bar staff{Enter}");
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "You no longer have permission to do this.",
+    );
+    expect(meCalls(fetch)).toBe(1);
+    await expectNoAxeViolations();
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "New profile" })).toBeNull());
     await waitFor(() =>
       expect(screen.getByRole("heading", { level: 2, name: "Owner" })).toHaveFocus(),
     );
-    expect(screen.queryByRole("button", { name: "New profile" })).toBeNull();
-    expect(fetch.mock.calls.filter(([input]) => input === "/api/me")).toHaveLength(2);
+    expect(meCalls(fetch)).toBe(2);
+  });
+
+  it("keeps a refusal in the profiles menu until it closes, then refetches /me", async () => {
+    const fetch = renderSettings({
+      "/me": [{ body: me }, { body: readOnly }],
+      "PUT /users/u-2/profiles/p-auditor": { status: 403, body: { code: "permission.denied" } },
+    });
+    const user = userEvent.setup();
+    await within(await usersCard()).findByText("Marco Costa");
+
+    await user.click(screen.getByRole("button", { name: "Change profiles for Marco Costa" }));
+    const menu = await screen.findByRole("menu");
+    await user.click(within(menu).getByRole("menuitemcheckbox", { name: "Auditor" }));
+
+    expect(
+      await within(menu).findByText("You no longer have permission to do this."),
+    ).toBeVisible();
+    expect(meCalls(fetch)).toBe(1);
+    await user.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Change profiles/ })).toBeNull(),
+    );
+    expect(meCalls(fetch)).toBe(2);
   });
 
   it("shows a failed /me in the list card and recovers with Try again", async () => {
