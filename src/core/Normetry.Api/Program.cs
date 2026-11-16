@@ -42,5 +42,6 @@ app.UseAuthorization();
 app.MapDefaultEndpoints();
 app.MapControllers();
 app.MapAiGateway();
+app.MapDocumentsHub();
 
 app.Run();

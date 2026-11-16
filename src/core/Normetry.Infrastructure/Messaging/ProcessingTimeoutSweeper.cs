@@ -62,6 +62,13 @@ internal sealed class ProcessingTimeoutSweeper(
         if (result.Value.Count > 0)
         {
             logger.LogInformation("Timed out {Count} processing version(s)", result.Value.Count);
+            await Notify.SafelyAsync(
+                scope.ServiceProvider.GetRequiredService<IDocumentStatusNotifier>(),
+                tenantId,
+                result.Value,
+                logger,
+                cancellationToken
+            );
         }
         return result.Value;
     }

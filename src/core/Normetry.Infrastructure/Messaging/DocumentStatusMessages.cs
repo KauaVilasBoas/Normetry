@@ -65,6 +65,49 @@ internal sealed class DocumentStatusMessages(
         {
             throw new InvalidOperationException($"Recording failed: {result.Error.Code}.");
         }
+        // The transaction has committed: push the change, to this message's tenant only.
+        if (result.Value is { } change)
+        {
+            await Notify.SafelyAsync(
+                scope.ServiceProvider.GetRequiredService<IDocumentStatusNotifier>(),
+                message.TenantId,
+                [change],
+                logger,
+                cancellationToken
+            );
+        }
         return ConsumeOutcome.Ack;
+    }
+}
+
+internal static class Notify
+{
+    /// <summary>
+    /// A push that fails is logged, not retried: the change is committed, and the web app refetches
+    /// after a reconnect.
+    /// </summary>
+    public static async Task SafelyAsync(
+        IDocumentStatusNotifier notifier,
+        Guid tenantId,
+        IEnumerable<DocumentStatusChange> changes,
+        ILogger logger,
+        CancellationToken cancellationToken
+    )
+    {
+        foreach (var change in changes)
+        {
+            try
+            {
+                await notifier.NotifyAsync(tenantId, change, cancellationToken);
+            }
+            catch (Exception error) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(
+                    error,
+                    "Could not push the status of version {VersionId}",
+                    change.VersionId
+                );
+            }
+        }
     }
 }
