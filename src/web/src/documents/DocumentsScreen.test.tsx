@@ -1,0 +1,652 @@
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { App } from "../App";
+import { createAuth } from "../auth/session";
+import {
+  allPermissions,
+  establishments,
+  expectNoAxeViolations,
+  fakeOidc,
+  me,
+  mockViewport,
+  stubApi,
+} from "../test/fakes";
+import type { DocumentStatusChange } from "./live";
+
+// A hub per connection the screen opens; the test plays the server's side.
+const hubs = vi.hoisted(() => {
+  type Callback = () => void;
+  class FakeHub {
+    state = "Disconnected";
+    events = new Map<string, (change: unknown) => void>();
+    reconnecting: Callback = () => {};
+    reconnected: Callback = () => {};
+    closed: Callback = () => {};
+    invoke = vi.fn(() => Promise.resolve());
+    start = vi.fn(() => {
+      this.state = "Connected";
+      return Promise.resolve();
+    });
+    stop = vi.fn(() => {
+      this.state = "Disconnected";
+      return Promise.resolve();
+    });
+    on(name: string, handler: (change: unknown) => void) {
+      this.events.set(name, handler);
+    }
+    onreconnecting(callback: Callback) {
+      this.reconnecting = callback;
+    }
+    onreconnected(callback: Callback) {
+      this.reconnected = callback;
+    }
+    onclose(callback: Callback) {
+      this.closed = callback;
+    }
+  }
+  return { FakeHub, all: [] as FakeHub[], urls: [] as unknown[] };
+});
+
+vi.mock("@microsoft/signalr", () => ({
+  HttpTransportType: { WebSockets: 1 },
+  HubConnectionState: { Connected: "Connected" },
+  LogLevel: { Warning: 3 },
+  HubConnectionBuilder: class {
+    withUrl(url: string, options: unknown) {
+      hubs.urls.push({ url, options });
+      return this;
+    }
+    withAutomaticReconnect() {
+      return this;
+    }
+    configureLogging() {
+      return this;
+    }
+    build() {
+      const hub = new hubs.FakeHub();
+      hubs.all.push(hub);
+      return hub;
+    }
+  },
+}));
+
+beforeEach(() => {
+  hubs.all.length = 0;
+  hubs.urls.length = 0;
+});
+
+const latestHub = () => hubs.all[hubs.all.length - 1];
+const push = (change: Partial<DocumentStatusChange>) =>
+  act(() =>
+    latestHub().events.get("DocumentStatusChanged")?.({
+      establishmentId: "e-lisboa",
+      versionId: "v-x",
+      failureCode: null,
+      failureReason: null,
+      changedAt: "2026-11-16T10:00:00Z",
+      ...change,
+    }),
+  );
+
+const never = () => new Promise<Response>(() => {});
+const storageKey = `normetry.establishment.${me.tenantId}.${me.userId}`;
+
+const version = (number: number, status: string, extra: object = {}) => ({
+  id: `v-${number}`,
+  number,
+  fileName: `cold-storage-v${number}.pdf`,
+  contentType: "application/pdf",
+  size: 2_516_582,
+  status,
+  failureCode: null,
+  failureReason: null,
+  uploadedBy: { id: "u-2", displayName: "Ana Vieira" },
+  uploadedAt: "2026-11-14T10:00:00Z",
+  statusChangedAt: "2026-11-14T10:00:00Z",
+  chunkCount: null,
+  pageCount: null,
+  language: null,
+  ...extra,
+});
+
+const fields = (id: string, title: string, type: string, current: number | null) => ({
+  id,
+  establishmentId: "e-lisboa",
+  title,
+  type,
+  createdAt: "2026-11-01T10:00:00Z",
+  updatedAt: "2026-11-14T10:00:00Z",
+  currentVersionNumber: current,
+});
+
+const list = [
+  { ...fields("d-cold", "Cold storage SOP", "Sop", 3), latestVersion: version(3, "Indexed") },
+  {
+    ...fields("d-temps", "Walk-in temperature log", "Log", 4),
+    latestVersion: version(5, "Processing"),
+  },
+  {
+    ...fields("d-license", "Food business license", "License", null),
+    latestVersion: version(1, "Failed", { failureCode: "no_text_layer" }),
+  },
+  {
+    ...fields("d-pest", "Pest control report", "Report", null),
+    latestVersion: version(1, "Uploaded"),
+  },
+];
+
+const processing = {
+  ...fields("d-cold", "Cold storage SOP", "Sop", 3),
+  versions: [
+    version(4, "Processing"),
+    version(3, "Indexed"),
+    version(2, "Failed", {
+      failureCode: "no_text_layer",
+      uploadedBy: { id: "u-3", displayName: null },
+    }),
+  ],
+};
+const indexed = { ...processing, versions: processing.versions.slice(1) };
+
+function renderDocuments(
+  routes: Parameters<typeof stubApi>[0] = {},
+  { path = "/documents", width = 1280, permissions = allPermissions, remembered = true } = {},
+) {
+  mockViewport(width);
+  if (remembered) localStorage.setItem(storageKey, "e-lisboa");
+  window.history.replaceState(null, "", path);
+  const fetch = stubApi({
+    "/me": { body: { ...me, permissions } },
+    "/establishments": { body: establishments },
+    "/establishments/e-lisboa/documents": { body: list },
+    "/documents/d-cold": { body: processing },
+    ...routes,
+  });
+  render(<App auth={createAuth(fakeOidc().oidc)} />);
+  return fetch;
+}
+
+const card = () => screen.getByRole("region", { name: "Bistro Lisboa" });
+const rows = () => within(card()).getAllByRole("row").slice(1);
+const calls = (fetch: ReturnType<typeof stubApi>, path: string, method = "GET") =>
+  fetch.mock.calls.filter(
+    ([input, init]) => input === `/api${path}` && (init?.method ?? "GET") === method,
+  );
+const lastForm = (fetch: ReturnType<typeof stubApi>) =>
+  fetch.mock.calls.findLast(([, init]) => init?.method === "POST")?.[1]?.body as FormData;
+
+const pdf = (name = "cold-storage-sop.pdf") =>
+  new File(["%PDF-1.7"], name, { type: "application/pdf" });
+const fileInput = () => document.querySelector<HTMLInputElement>('input[type="file"]')!;
+
+describe("documents list", () => {
+  it("lists the documents with their status, version and type, newest updated first", async () => {
+    renderDocuments();
+
+    const link = await screen.findByRole("link", { name: "Walk-in temperature log" });
+    expect(link).toHaveAccessibleDescription("Processing Version 5");
+    expect(link).toHaveAttribute("href", "/documents/d-temps");
+    expect(within(card()).getByText("4 documents")).toBeVisible();
+    expect(rows().map((row) => row.textContent)).toEqual([
+      expect.stringMatching(/^Cold storage SOP.*SOPIndexedv3Version 3/),
+      expect.stringMatching(/^Walk-in temperature log.*LogProcessing Version 5v4Version 4/),
+      expect.stringMatching(/^Food business license.*LicenseFailed No text layer—No indexed/),
+      expect.stringMatching(/^Pest control report.*ReportWaiting—No indexed/),
+    ]);
+    expect(
+      within(card()).getByRole("table", { name: "Documents for Bistro Lisboa" }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
+    expect(document.title).toBe("Documents · Normetry");
+    expect(
+      within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", {
+        name: "Documents",
+      }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(hubs.urls).toMatchObject([
+      { url: "/hubs/documents", options: { skipNegotiation: true } },
+    ]);
+    await waitFor(() =>
+      expect(latestHub().invoke).toHaveBeenCalledWith("JoinEstablishment", "e-lisboa"),
+    );
+    await expectNoAxeViolations();
+  });
+
+  it("shows skeleton rows while loading", async () => {
+    renderDocuments({ "/establishments/e-lisboa/documents": never });
+
+    await waitFor(() => expect(card()).toHaveAttribute("aria-busy", "true"));
+    expect(within(card()).getByText("Loading documents…")).toBeInTheDocument();
+    await expectNoAxeViolations();
+  });
+
+  it("shows the empty state, with Upload only for who may upload", async () => {
+    renderDocuments(
+      { "/establishments/e-lisboa/documents": { body: [] } },
+      { permissions: ["establishments.read", "documents.read"] },
+    );
+
+    expect(
+      await screen.findByText("Documents uploaded for Bistro Lisboa appear here."),
+    ).toBeVisible();
+    expect(within(card()).getByText("0 documents")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Upload document" })).toBeNull();
+    await expectNoAxeViolations();
+  });
+
+  it("shows a load error and recovers with Try again", async () => {
+    renderDocuments({
+      "/establishments/e-lisboa/documents": [{ status: 500 }, { status: 500 }, { body: list }],
+    });
+
+    // One retry, a second later, before the error shows.
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Try again" }, { timeout: 3000 }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
+    );
+    expect(rows()).toHaveLength(4);
+  });
+
+  it("keeps the status column and the title's meta line below 768px", async () => {
+    renderDocuments({}, { width: 375 });
+
+    await screen.findByRole("link", { name: "Cold storage SOP" });
+    await expectNoAxeViolations();
+  });
+});
+
+describe("upload", () => {
+  it("checks the form, uploads, and shows the new row as Waiting", async () => {
+    const uploaded = {
+      ...fields("d-new", "Allergen matrix", "Sop", null),
+      versions: [version(1, "Uploaded", { fileName: "allergens.pdf" })],
+    };
+    // The server's list: the new document joins it once it is uploaded.
+    let server: unknown[] = list;
+    const fetch = renderDocuments({
+      "/establishments/e-lisboa/documents": () => Promise.resolve(Response.json(server)),
+      "POST /establishments/e-lisboa/documents": () => {
+        server = [{ ...uploaded, latestVersion: uploaded.versions[0] }, ...list];
+        return Promise.resolve(Response.json(uploaded, { status: 202 }));
+      },
+    });
+    const user = userEvent.setup();
+    const trigger = await screen.findByRole("button", { name: "Upload document" });
+
+    await user.click(trigger);
+    const dialog = await screen.findByRole("dialog", { name: "Upload document" });
+    expect(dialog).toHaveAccessibleDescription("Add a document to Bistro Lisboa.");
+    const zone = within(dialog).getByRole("button", { name: "Choose a file or drop it here" });
+    await waitFor(() => expect(zone).toHaveFocus());
+    expect(zone).toHaveAccessibleDescription("PDF, DOCX, TXT or CSV · up to 10 MB and 100 pages");
+    await expectNoAxeViolations();
+
+    await user.click(within(dialog).getByRole("button", { name: "Upload" }));
+    await waitFor(() => expect(zone).toHaveFocus());
+    expect(zone).toHaveAccessibleDescription(/Choose a file to upload\.$/);
+    expect(within(dialog).getByRole("textbox", { name: "Title" })).toHaveAccessibleDescription(
+      "Enter a title.",
+    );
+    expect(within(dialog).getByRole("combobox", { name: "Type" })).toHaveAccessibleDescription(
+      "Choose a type.",
+    );
+    await expectNoAxeViolations();
+
+    await user.upload(fileInput(), pdf("allergens.pdf"));
+    const chosen = within(dialog).getByRole("button", {
+      name: "allergens.pdf 0 kB Choose another file",
+    });
+    expect(chosen).toHaveFocus();
+    expect(within(dialog).getByText("allergens.pdf chosen.")).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
+    const title = within(dialog).getByRole("textbox", { name: "Title" });
+    expect(title).toHaveValue("allergens");
+    await user.clear(title);
+    await user.type(title, "Allergen matrix");
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Type" }), "Sop");
+    await user.click(within(dialog).getByRole("button", { name: "Upload" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(trigger).toHaveFocus();
+    const form = lastForm(fetch);
+    expect(form.get("title")).toBe("Allergen matrix");
+    expect(form.get("type")).toBe("Sop");
+    expect((form.get("file") as File).name).toBe("allergens.pdf");
+    expect(
+      screen.getByText("“Allergen matrix” uploaded. It's waiting to be processed."),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("link", { name: "Allergen matrix" }),
+    ).toHaveAccessibleDescription("Waiting");
+  });
+
+  it("refuses a file of the wrong type or size before sending it", async () => {
+    renderDocuments();
+    const user = userEvent.setup({ applyAccept: false });
+    await user.click(await screen.findByRole("button", { name: "Upload document" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.upload(fileInput(), new File(["png"], "fridge.png", { type: "image/png" }));
+    const zone = within(dialog).getByRole("button", { name: "Choose a file or drop it here" });
+    expect(zone).toHaveAccessibleDescription(/“fridge\.png” isn't a PDF, DOCX, TXT or CSV file\.$/);
+
+    const big = pdf("big.pdf");
+    Object.defineProperty(big, "size", { value: 10 * 1024 * 1024 + 1 });
+    await user.upload(fileInput(), big);
+    expect(zone).toHaveAccessibleDescription(/“big\.pdf” is larger than 10 MB\.$/);
+  });
+
+  it("opens with a file dropped on the card, and refuses two", async () => {
+    renderDocuments();
+    await screen.findByRole("link", { name: "Cold storage SOP" });
+
+    fireEvent.drop(card(), { dataTransfer: { files: [pdf(), pdf("b.pdf")], types: ["Files"] } });
+    let dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("button", { name: "Choose a file or drop it here" }),
+    ).toHaveAccessibleDescription(/Drop one file at a time\.$/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("button", { name: "Upload document" })).toHaveFocus();
+
+    fireEvent.drop(card(), { dataTransfer: { files: [pdf()], types: ["Files"] } });
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("textbox", { name: "Title" })).toHaveValue("cold-storage-sop");
+  });
+
+  it("shows the server's refusals in the dialog", async () => {
+    renderDocuments({
+      "POST /establishments/e-lisboa/documents": [
+        { status: 409, body: { code: "document.limit_reached" } },
+        { status: 400, body: { code: "document.invalid_content" } },
+      ],
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Upload document" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.upload(fileInput(), pdf());
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Type" }), "License");
+
+    await user.click(within(dialog).getByRole("button", { name: "Upload" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "This establishment has reached its document limit. Delete a document before uploading another.",
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Upload" }));
+    const zone = within(dialog).getByRole("button", { name: "Choose a file or drop it here" });
+    await waitFor(() => expect(zone).toHaveFocus());
+    expect(zone).toHaveAccessibleDescription(
+      /“cold-storage-sop\.pdf” isn't a valid PDF, DOCX, TXT or CSV file\.$/,
+    );
+  });
+});
+
+describe("live status", () => {
+  it("refetches and announces a version that finished", async () => {
+    const fetch = renderDocuments();
+    await screen.findByRole("link", { name: "Walk-in temperature log" });
+    await waitFor(() => expect(latestHub().invoke).toHaveBeenCalled());
+    const before = calls(fetch, "/establishments/e-lisboa/documents").length;
+
+    push({
+      documentId: "d-temps",
+      versionNumber: 5,
+      status: "Processing",
+      currentVersionNumber: 4,
+    });
+    push({ documentId: "d-temps", versionNumber: 5, status: "Indexed", currentVersionNumber: 5 });
+    push({
+      documentId: "d-license",
+      versionNumber: 1,
+      status: "Failed",
+      failureCode: "parse_error",
+      currentVersionNumber: null,
+    });
+    push({ establishmentId: "e-sao-paulo", documentId: "d-other", status: "Indexed" });
+
+    await waitFor(() =>
+      expect(calls(fetch, "/establishments/e-lisboa/documents").length).toBeGreaterThan(before),
+    );
+    const region = screen.getByText("“Walk-in temperature log” is indexed.").parentElement;
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region?.textContent).toBe(
+      "“Walk-in temperature log” is indexed.“Food business license” couldn't be indexed: Couldn't read the file.",
+    );
+  });
+
+  it("says when updates paused, and Reconnect starts over and refetches", async () => {
+    const fetch = renderDocuments();
+    await screen.findByRole("link", { name: "Cold storage SOP" });
+    await waitFor(() => expect(latestHub().invoke).toHaveBeenCalled());
+
+    act(() => latestHub().reconnecting());
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(
+      await screen.findByText("Live updates paused. Reconnecting…", {}, { timeout: 3000 }),
+    ).toBeVisible();
+    act(() => latestHub().closed());
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Live updates stopped. Statuses may be out of date.");
+    await expectNoAxeViolations();
+    const before = calls(fetch, "/establishments/e-lisboa/documents").length;
+
+    await userEvent.click(within(status).getByRole("button", { name: "Reconnect" }));
+
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    expect(hubs.all).toHaveLength(2);
+    expect(latestHub().invoke).toHaveBeenCalledWith("JoinEstablishment", "e-lisboa");
+    expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus();
+    await waitFor(() =>
+      expect(calls(fetch, "/establishments/e-lisboa/documents").length).toBeGreaterThan(before),
+    );
+  });
+});
+
+describe("document detail", () => {
+  it("opens from the list with its versions and the processing notice", async () => {
+    renderDocuments();
+    await userEvent.click(await screen.findByRole("link", { name: "Cold storage SOP" }));
+
+    const title = await screen.findByRole("heading", { level: 2, name: "Cold storage SOP" });
+    await waitFor(() => expect(title).toHaveFocus());
+    expect(await screen.findByText("SOP · Bistro Lisboa")).toBeVisible();
+    await waitFor(() => expect(document.title).toBe("Cold storage SOP · Documents · Normetry"));
+    const versions = screen.getByRole("region", { name: "Versions" });
+    expect(within(versions).getByText("Version 4 is processing.")).toBeVisible();
+    expect(
+      within(versions).getByText("Version 3 stays in use until version 4 is indexed."),
+    ).toBeVisible();
+    const upload = screen.getByRole("button", { name: "Upload new version" });
+    expect(upload).toHaveAttribute("aria-disabled", "true");
+    expect(upload).toHaveAccessibleDescription(
+      "You can upload another version when this one finishes.",
+    );
+    const [v4, v3, v2] = within(versions).getAllByRole("row").slice(1);
+    expect(v4).toHaveTextContent(/Version 4.*Processing/);
+    expect(within(v3).getByText("Current")).toBeVisible();
+    expect(v2).toHaveTextContent(/Failed No text layer.*Unknown user/);
+    await expectNoAxeViolations();
+
+    await userEvent.click(upload);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("uploads a new version, after which Upload new version waits for it", async () => {
+    const fetch = renderDocuments(
+      {
+        "/documents/d-cold": { body: indexed },
+        "POST /documents/d-cold/versions": { status: 202, body: processing },
+      },
+      { path: "/documents/d-cold" },
+    );
+    const user = userEvent.setup();
+    const upload = await screen.findByRole("button", { name: "Upload new version" });
+    expect(upload).not.toHaveAttribute("aria-disabled", "true");
+
+    await user.click(upload);
+    const dialog = await screen.findByRole("dialog", { name: "Upload a new version" });
+    expect(dialog).toHaveAccessibleDescription(
+      "“Cold storage SOP” keeps its title and type. Version 3 stays in use until the new one is indexed.",
+    );
+    expect(within(dialog).queryByRole("textbox")).toBeNull();
+    await user.upload(fileInput(), pdf("cold-storage-v4.pdf"));
+    await user.click(within(dialog).getByRole("button", { name: "Upload" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(upload).toHaveFocus();
+    expect(upload).toHaveAttribute("aria-disabled", "true");
+    expect((lastForm(fetch).get("file") as File).name).toBe("cold-storage-v4.pdf");
+    expect(lastForm(fetch).get("title")).toBeNull();
+    expect(
+      screen.getByText("New version uploaded. It's waiting to be processed."),
+    ).toBeInTheDocument();
+  });
+
+  it("announces the open document's version by number", async () => {
+    renderDocuments({}, { path: "/documents/d-cold" });
+    await screen.findByText("Version 4 is processing.");
+    await waitFor(() => expect(latestHub().invoke).toHaveBeenCalled());
+
+    push({
+      documentId: "d-cold",
+      versionNumber: 4,
+      status: "Failed",
+      failureCode: "too_many_pages",
+      currentVersionNumber: 3,
+    });
+
+    expect(screen.getByText("Version 4 couldn't be indexed: Too many pages.")).toBeInTheDocument();
+  });
+
+  it("deletes after confirmation, then focuses the list", async () => {
+    const fetch = renderDocuments(
+      { "DELETE /documents/d-cold": { status: 204 } },
+      { path: "/documents/d-cold" },
+    );
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Delete document" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete “Cold storage SOP”?" });
+    expect(dialog).toHaveAccessibleDescription(
+      "The document and all its versions are removed from Bistro Lisboa. This can't be undone.",
+    );
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/documents"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
+    );
+    expect(screen.getByText("“Cold storage SOP” deleted.")).toBeInTheDocument();
+    expect(calls(fetch, "/documents/d-cold", "DELETE")).toHaveLength(1);
+  });
+
+  it("shows a document that is gone as not found, with the way back", async () => {
+    renderDocuments(
+      { "/documents/d-gone": { status: 404, body: { code: "document.not_found" } } },
+      { path: "/documents/d-gone" },
+    );
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "This document isn't available" }),
+    ).toBeVisible();
+    await expectNoAxeViolations();
+    await userEvent.click(screen.getByRole("link", { name: "Back to documents" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
+    );
+  });
+
+  it("selects the establishment of a document opened by URL", async () => {
+    renderDocuments(
+      {
+        "/documents/d-sp": {
+          body: { ...processing, id: "d-sp", establishmentId: "e-sao-paulo", title: "POP" },
+        },
+        "/establishments/e-sao-paulo/documents": { body: [] },
+      },
+      { path: "/documents/d-sp" },
+    );
+
+    expect(await screen.findByText("SOP · Bistro São Paulo")).toBeVisible();
+    await waitFor(() =>
+      expect(latestHub().invoke).toHaveBeenLastCalledWith("JoinEstablishment", "e-sao-paulo"),
+    );
+  });
+
+  it("is laid out for 375px without violations", async () => {
+    renderDocuments({}, { path: "/documents/d-cold", width: 375 });
+
+    await screen.findByText("Version 4 is processing.");
+    await expectNoAxeViolations();
+  });
+});
+
+describe("documents access and navigation", () => {
+  it("goes to the list when the establishment changes on a document", async () => {
+    renderDocuments(
+      { "/establishments/e-sao-paulo/documents": { body: [] } },
+      {
+        path: "/documents/d-cold",
+      },
+    );
+    await screen.findByText("Version 4 is processing.");
+    const user = userEvent.setup();
+
+    const switcher = screen.getByRole("combobox", { name: "Establishment" });
+    switcher.focus();
+    await user.keyboard("{Enter}");
+    await screen.findByRole("listbox");
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    await waitFor(() => expect(window.location.pathname).toBe("/documents"));
+    expect(await screen.findByRole("region", { name: "Bistro São Paulo" })).toBeVisible();
+    expect(screen.getByText("Bistro São Paulo selected")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(latestHub().invoke).toHaveBeenLastCalledWith("JoinEstablishment", "e-sao-paulo"),
+    );
+    expect(hubs.all).toHaveLength(1);
+  });
+
+  it("sends a user without chat.ask from home to Documents", async () => {
+    renderDocuments(
+      {},
+      { path: "/", permissions: ["establishments.read", "documents.read", "profiles.read"] },
+    );
+
+    expect(await screen.findByRole("link", { name: "Cold storage SOP" })).toBeVisible();
+    expect(window.location.pathname).toBe("/documents");
+  });
+
+  it("asks for an establishment first, with its own subtitle", async () => {
+    renderDocuments({}, { remembered: false });
+
+    expect(await screen.findByText("Choose an establishment to see its documents.")).toBeVisible();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
+    );
+  });
+
+  it("refuses Documents without documents.read and never asks for documents", async () => {
+    const fetch = renderDocuments({}, { permissions: ["establishments.read", "chat.ask"] });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "You don't have access to Documents" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Documents" })).toBeNull();
+    expect(fetch.mock.calls.some(([input]) => input.includes("/documents"))).toBe(false);
+    expect(hubs.all).toHaveLength(0);
+    await expectNoAxeViolations();
+  });
+});
