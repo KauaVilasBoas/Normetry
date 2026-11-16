@@ -48,4 +48,11 @@ public static class DocumentErrors
             $"The establishment already has {limit} documents. Delete one before uploading another.",
             ErrorType.Conflict
         );
+
+    public static Error VersionLimitReached(int limit) =>
+        new(
+            "document.version_limit_reached",
+            $"The document already has {limit} versions. Upload the file as a new document.",
+            ErrorType.Conflict
+        );
 }

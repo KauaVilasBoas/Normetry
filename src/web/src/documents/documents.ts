@@ -62,6 +62,8 @@ export function uploadRefusal(result: Sent & { ok: false }, fileName: string) {
       return { file: format(copy.upload.tooLarge, file) };
     case "document.limit_reached":
       return { form: copy.upload.limitReached };
+    case "document.version_limit_reached":
+      return { form: copy.upload.versionLimitReached };
     case "document.version_in_flight":
       return { form: copy.upload.inFlight };
   }

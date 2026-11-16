@@ -415,6 +415,8 @@ export const copy = {
     typeRequired: "Choose a type.",
     limitReached:
       "This establishment has reached its document limit. Delete a document before uploading another.",
+    versionLimitReached:
+      "This document has reached its version limit. Upload the file as a new document.",
     inFlight:
       "Another version of this document is already being processed. Try again when it finishes.",
     network: "Couldn't upload the file. Check your connection and try again.",
