@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Normetry.Infrastructure.Persistence;
+using Npgsql;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -13,15 +16,22 @@ namespace Normetry.Infrastructure.Messaging;
 /// with requeue, which the broker counts; with <c>x-delivery-limit: 4</c> the fifth delivery that
 /// fails goes to <c>core.document-status.dead-letter</c>. A body off the contract is
 /// dead-lettered at once. When the broker cancels the consumer (its queue was deleted) or closes
-/// the channel, the channel and the consumer are created again.
+/// the channel, the channel and the consumer are created again. While the database does not
+/// answer, a failed message is held (unacknowledged, so it spends none of its deliveries) and
+/// handled again every 10 seconds; RabbitMQ's consumer timeout (30 minutes by default) bounds one
+/// hold.
 /// </summary>
 internal sealed class DocumentStatusConsumer(
     RabbitMqConnection broker,
     DocumentStatusMessages messages,
+    IConfiguration configuration,
     ILogger<DocumentStatusConsumer> logger
 ) : BackgroundService
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan OutageWait = TimeSpan.FromSeconds(10);
+
+    private readonly string connectionString = CoreDatabase.GetConnectionString(configuration);
 
     /// <summary>The waits before each requeue: 102 seconds in all, to outlast a database restart.</summary>
     private static readonly int[] RequeueSeconds = [2, 10, 30, 60];
@@ -103,21 +113,37 @@ internal sealed class DocumentStatusConsumer(
         activity?.SetTag("messaging.message.id", delivery.BasicProperties.MessageId);
 
         ConsumeOutcome outcome;
-        try
+        while (true)
         {
-            outcome = await messages.HandleAsync(delivery.Body, cancellationToken);
-        }
-        catch (Exception error) when (!cancellationToken.IsCancellationRequested)
-        {
-            // Outside the handler's TenantId log scope, so the tenant goes in the line itself.
-            logger.LogWarning(
-                error,
-                "Delivery {DeliveryCount} of {MessageId} for tenant {TenantId} failed; retrying",
-                count + 1,
-                delivery.BasicProperties.MessageId,
-                TenantOf(delivery.Body)
-            );
-            outcome = ConsumeOutcome.Retry;
+            try
+            {
+                outcome = await messages.HandleAsync(delivery.Body, cancellationToken);
+                break;
+            }
+            catch (Exception error) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Outside the handler's TenantId log scope, so the tenant goes in the line itself.
+                if (!await DatabaseAnswersAsync(cancellationToken))
+                {
+                    logger.LogWarning(
+                        error,
+                        "Holding {MessageId} for tenant {TenantId}: the database does not answer",
+                        delivery.BasicProperties.MessageId,
+                        TenantOf(delivery.Body)
+                    );
+                    await Task.Delay(OutageWait, cancellationToken);
+                    continue;
+                }
+                logger.LogWarning(
+                    error,
+                    "Delivery {DeliveryCount} of {MessageId} for tenant {TenantId} failed; retrying",
+                    count + 1,
+                    delivery.BasicProperties.MessageId,
+                    TenantOf(delivery.Body)
+                );
+                outcome = ConsumeOutcome.Retry;
+                break;
+            }
         }
 
         switch (outcome)
@@ -133,6 +159,22 @@ internal sealed class DocumentStatusConsumer(
                 await Task.Delay(TimeSpan.FromSeconds(seconds), cancellationToken);
                 await channel.BasicRejectAsync(delivery.DeliveryTag, true, cancellationToken);
                 break;
+        }
+    }
+
+    private async Task<bool> DatabaseAnswersAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using var command = new NpgsqlCommand("SELECT 1", connection);
+            await command.ExecuteScalarAsync(cancellationToken);
+            return true;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
         }
     }
 

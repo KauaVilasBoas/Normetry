@@ -75,6 +75,10 @@ class BlobStore:
         except ResourceNotFoundError as error:
             raise Rejected("blob_missing", "The uploaded file is missing from storage.") from error
 
+    def reachable(self) -> None:
+        """Raises when the container does not answer."""
+        self._container.get_container_properties()
+
 
 _SELECT_DOCUMENT = text(
     """
@@ -153,6 +157,17 @@ class DocumentWorker:
         self.engine = engine
         self.embedder = embedder
         self.blobs = blobs
+
+    def reachable(self) -> bool:
+        """Whether the database and blob storage answer. A failure while one of them does not is
+        an outage, not the message's fault."""
+        try:
+            with self.engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            self.blobs.reachable()
+        except Exception:
+            return False
+        return True
 
     def ingest(
         self, tenant_id: UUID, message: DocumentUploaded, on_start: Callable[[], None]

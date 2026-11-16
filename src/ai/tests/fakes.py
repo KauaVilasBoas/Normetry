@@ -15,6 +15,12 @@ class FakeContainer:
         self.blobs = dict(blobs or {})
         self.requested: list[str] = []
         self.downloaded: list[str] = []
+        self.down = False
+
+    def get_container_properties(self) -> SimpleNamespace:
+        if self.down:
+            raise ConnectionError("blob storage unreachable")
+        return SimpleNamespace()
 
     def get_blob_client(self, path: str) -> "FakeBlob":
         self.requested.append(path)

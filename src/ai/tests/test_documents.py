@@ -180,6 +180,15 @@ def docs(app_ai: Engine) -> Docs:
 
 
 @integration
+def test_the_worker_is_reachable_only_while_the_database_and_blob_storage_answer(
+    docs: Docs,
+) -> None:
+    assert docs.worker.reachable()
+    docs.container.down = True
+    assert not docs.worker.reachable()
+
+
+@integration
 @pytest.mark.parametrize(
     ("data", "content_type", "pages", "paths"),
     [
