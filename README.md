@@ -158,7 +158,7 @@ Only .NET writes the `core` schema and only Python writes the `ai` schema. AI re
 
 | Context | Responsibility |
 |---|---|
-| Tenancy & Identity | Tenant, User and roles (Owner, Manager, Auditor). OIDC through Keycloak in local development |
+| Tenancy & Identity | Tenant, User, and profiles that grant permissions (system profiles Owner, Manager, Auditor, plus the tenant's own; ADR 012). OIDC through Keycloak in local development |
 | Establishments | Establishment with its type (restaurant, pharmacy, clinic) and jurisdiction |
 | Documents | Document, versions, type (SOP, license, log, report), expiry and status `Uploaded → Processing → Indexed \| Failed` |
 | Regulations | Regulation catalog (code, jurisdiction, version, effective date). Read-only in the core, because the AI service owns ingestion |
@@ -310,6 +310,7 @@ Full records are in [`docs/adr/`](docs/adr/).
 | [009](docs/adr/009-in-house-cqrs-dispatcher.md) | In-house CQRS dispatcher instead of MediatR | MediatR has required a commercial license since 2025, and a small dispatcher shows how the pattern works | We own and test the pipeline, and there are no ecosystem extensions |
 | [010](docs/adr/010-daily-chat-quota-by-plan.md) | Daily chat quota per user by plan, counted in PostgreSQL | Model calls cost money, and the limit must survive restarts and hold across API instances | One database write per chat message, and old count rows need a cleanup job |
 | [011](docs/adr/011-web-app-is-a-vite-spa.md) | The web app is a Vite single-page app with in-memory tokens, calling only the core API | All data and rules already sit behind the .NET API, so a second server would have nothing to do; no token is kept in web storage | No server rendering, and a reload goes back through Keycloak |
+| [012](docs/adr/012-authorization-by-permissions-in-the-core-database.md) | Authorization by permissions in the core database: tenant profiles grant `area.action` permissions, checked with `[HasPermission]`; Keycloak only authenticates | Tenants manage their own profiles, changes apply on the next request, and RLS isolates the data | One query per protected request, and authorization depends on the core database |
 
 <details>
 <summary>Why PostgreSQL and not SQL Server?</summary>
@@ -411,14 +412,14 @@ dotnet run --project src/core/Normetry.AppHost    # PostgreSQL, Keycloak, migrat
 
 The first run generates every password and the internal token and keeps them in the AppHost's user secrets, so there is nothing to configure. The console prints the Aspire dashboard login link (`https://localhost:17081`). If Docker cannot reach `mcr.microsoft.com`, set `ASPIRE_ENABLE_CONTAINER_TUNNEL=false` first.
 
-The local Keycloak realm has two demo tenants and three demo users ([`deploy/keycloak/README.md`](deploy/keycloak/README.md)). Open the web app at `http://localhost:5173` and sign in as `bistro.owner` with the password `local-demo-only`. To call the API directly on `http://localhost:5208`:
+The local Keycloak realm has two demo tenants and four demo users ([`deploy/keycloak/README.md`](deploy/keycloak/README.md)); the core's dev seed gives each its profile. Open the web app at `http://localhost:5173` and sign in as `bistro.owner` with the password `local-demo-only`. To call the API directly on `http://localhost:5208`:
 
 ```bash
 TOKEN=$(curl -s http://localhost:8180/realms/normetry/protocol/openid-connect/token \
   -d grant_type=password -d client_id=normetry-dev \
   -d username=bistro.owner -d password=local-demo-only | jq -r .access_token)
 
-curl -H "Authorization: Bearer $TOKEN" http://localhost:5208/me          # user, tenant, roles
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5208/me          # user, tenant, profiles, permissions
 curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"name":"Bistro Centro","type":"Restaurant","jurisdiction":"BR"}' \
   http://localhost:5208/establishments                                     # 201
