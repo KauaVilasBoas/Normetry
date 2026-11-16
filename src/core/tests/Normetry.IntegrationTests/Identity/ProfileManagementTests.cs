@@ -76,6 +76,35 @@ public sealed class ProfileManagementTests
 
     private sealed record Created(Guid Id);
 
+    [Theory]
+    [InlineData("create")]
+    [InlineData("rename")]
+    public async Task A_name_taken_by_a_concurrent_request_is_a_409_not_a_500(string change)
+    {
+        var (tenant, owner) = await NewTenantAsync();
+        var renamed = change == "rename" ? await CreateAsync(owner, "Kitchen") : Guid.Empty;
+
+        // Another request has inserted the name but not committed yet: the API's own check cannot
+        // see it, and its insert waits on the unique index until that request commits.
+        await using var concurrent = await Session.BeginAsync(
+            db.ConnectionString("app_core"),
+            tenant
+        );
+        await concurrent.ExecuteAsync(
+            "INSERT INTO core.profiles (tenant_id, id, name, grants_all) VALUES ($1, $2, 'Bar', false)",
+            tenant,
+            Guid.CreateVersion7()
+        );
+        var request =
+            change == "create"
+                ? owner.PostAsJsonAsync("/profiles", new { name = "Bar" }, Ct)
+                : PatchAsync(owner, renamed, "Bar");
+        await Task.Delay(500, Ct);
+        await concurrent.CommitAsync();
+
+        await AssertProblemAsync(await request, HttpStatusCode.Conflict, "profile.name_taken");
+    }
+
     [Fact]
     public async Task The_catalog_and_the_system_profiles_are_listed()
     {

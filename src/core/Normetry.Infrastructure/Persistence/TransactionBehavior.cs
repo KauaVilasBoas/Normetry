@@ -1,18 +1,29 @@
+using Microsoft.EntityFrameworkCore;
+using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Npgsql;
 
 namespace Normetry.Infrastructure.Persistence;
 
 /// <summary>
 /// Runs every request, queries included, in one transaction, which the interceptor scopes to the
 /// request's tenant. A successful command saves its changes and commits; a failed result or an
-/// exception rolls back, and a query never commits.
+/// exception rolls back, and a query never commits. A unique index that refuses the save in a
+/// race the handler's own check cannot see (two concurrent requests) becomes that index's
+/// refusal instead of a 500.
 /// </summary>
 internal sealed class TransactionBehavior<TRequest, TResult>(CoreDbContext db)
     : IPipelineBehavior<TRequest, TResult>
     where TRequest : IRequest<TResult>
-    where TResult : Result
+    where TResult : Result, IFailureFactory<TResult>
 {
+    // Unique indexes whose violation is an expected refusal, by name.
+    private static readonly Dictionary<string, Error> UniqueRefusals = new()
+    {
+        ["ix_profiles_tenant_id_name"] = IdentityErrors.NameTaken,
+    };
+
     private static readonly bool IsQuery = typeof(TRequest)
         .GetInterfaces()
         .Any(contract =>
@@ -29,7 +40,23 @@ internal sealed class TransactionBehavior<TRequest, TResult>(CoreDbContext db)
         var result = await next();
         if (result.IsSuccess && !IsQuery)
         {
-            await db.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException error)
+                when (error.InnerException
+                        is PostgresException
+                        {
+                            SqlState: PostgresErrorCodes.UniqueViolation,
+                            ConstraintName: { } constraint,
+                        }
+                    && UniqueRefusals.TryGetValue(constraint, out var refusal)
+                )
+            {
+                // The transaction is aborted; disposing it rolls back.
+                return TResult.Failure(refusal);
+            }
             await transaction.CommitAsync(cancellationToken);
         }
         return result;
