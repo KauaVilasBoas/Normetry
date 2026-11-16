@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Application.Abstractions;
 using Normetry.Application.Establishments;
+using Normetry.Application.Identity;
 using Normetry.Application.Tenancy;
 using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
@@ -35,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IEstablishmentRepository, EstablishmentRepository>();
         services.AddScoped<IChatMessageCounter, ChatMessageCounter>();
+        services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
         return services;
     }
