@@ -146,6 +146,7 @@ public sealed class OutboxDispatcherTests : IClassFixture<RabbitMqFixture>
         new()
         {
             CoreConnectionString = db.ConnectionString("app_core"),
+            DispatcherConnectionString = db.ConnectionString("core_dispatcher"),
             RabbitMqConnectionString = broker.ConnectionString,
         };
 

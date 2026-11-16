@@ -14,6 +14,7 @@ In database `normetry`:
 | `core_owner` | EF Core migrations | owns schema `core`; nothing on `ai` |
 | `ai_owner` | Alembic migrations | owns schema `ai`; nothing on `core` |
 | `app_core` | .NET API at runtime | `USAGE` on `core`; DML on tables and `USAGE` on sequences that `core_owner` creates (default privileges) |
+| `core_dispatcher` | .NET API at runtime: only the tenant list of the outbox dispatcher and the timeout sweeper | `USAGE` on `core` only, no default privileges; a core migration grants it `SELECT` on `core.outbox_tenants` and nothing else |
 | `app_ai` | AI service at runtime | `USAGE` on `ai`; DML on tables and `USAGE` on sequences that `ai_owner` creates |
 | `corpus_ingestor` | public corpus ingestion | `USAGE` on `ai` only; the ai migrations grant it the corpus tables explicitly |
 
@@ -34,7 +35,7 @@ The container needs all of these; the script fails if any password is missing.
 | `POSTGRES_PASSWORD` | superuser password (required by the image) |
 | `POSTGRES_DB` | `normetry` |
 | `CORE_OWNER_PASSWORD`, `AI_OWNER_PASSWORD` | owner role passwords |
-| `APP_CORE_PASSWORD`, `APP_AI_PASSWORD`, `CORPUS_INGESTOR_PASSWORD` | app role passwords |
+| `APP_CORE_PASSWORD`, `CORE_DISPATCHER_PASSWORD`, `APP_AI_PASSWORD`, `CORPUS_INGESTOR_PASSWORD` | app role passwords |
 
 Passwords are read inside psql with `\getenv`, so they never appear in a file or on a command line.
 In tests, generate random values per run.
@@ -44,4 +45,6 @@ In tests, generate random values per run.
 The AppHost generates every password on the first run and stores it in its user secrets, and the
 data lives in a Docker volume named `normetry.apphost-<hash>-postgres-data`. The script never runs
 again on an existing volume, so after clearing the AppHost user secrets (or to apply a change to
-`init/`), delete that volume too: `docker volume rm <name>`.
+`init/`), delete that volume too: `docker volume rm <name>`. A volume created before a role was
+added to the script lacks that role, and the migration that grants it fails (`role "core_dispatcher"
+does not exist`): delete the volume and run the AppHost again.

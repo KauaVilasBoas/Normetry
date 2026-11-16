@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Normetry.IntegrationTests.Database;
 
-/// <summary>What the migrations leave in the catalog: RLS everywhere app_core can reach, policies only for app_core, minimal grants.</summary>
+/// <summary>What the migrations leave in the catalog: RLS everywhere the runtime roles (app_core, core_dispatcher) can reach, policies only for them, minimal grants.</summary>
 [Collection(DatabaseCollection.Name)]
 public sealed class CatalogTests
 {
@@ -18,7 +18,7 @@ public sealed class CatalogTests
     private Task<Session> OwnerAsync() => Session.BeginAsync(db.ConnectionString("core_owner"));
 
     [Fact]
-    public async Task Every_core_table_app_core_can_use_has_RLS_enabled_and_forced()
+    public async Task Every_core_table_a_runtime_role_can_use_has_RLS_enabled_and_forced()
     {
         // The one exception is the global permission catalog, which app_core can only read. The
         // first migration revokes app_core's access to the history table.
@@ -27,7 +27,8 @@ public sealed class CatalogTests
             """
             SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
-              AND has_table_privilege('app_core', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
+              AND (has_table_privilege('app_core', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
+                OR has_table_privilege('core_dispatcher', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE'))
               AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
               AND c.relname <> 'permissions'
             """
@@ -36,7 +37,8 @@ public sealed class CatalogTests
             """
             SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'core'
-              AND has_table_privilege('app_core', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
+              AND (has_table_privilege('app_core', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
+                OR has_table_privilege('core_dispatcher', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE'))
             ORDER BY c.relname
             """
         );
@@ -63,7 +65,7 @@ public sealed class CatalogTests
     }
 
     [Fact]
-    public async Task Every_core_policy_is_for_app_core_and_none_targets_PUBLIC()
+    public async Task Every_core_policy_is_for_a_runtime_role_and_none_targets_PUBLIC()
     {
         await using var session = await OwnerAsync();
         var policies = await session.ColumnAsync<string>(
@@ -81,8 +83,8 @@ public sealed class CatalogTests
                 "establishments.establishments_tenant ALL app_core",
                 "inbox_messages.inbox_messages_tenant ALL app_core",
                 "outbox_messages.outbox_messages_tenant ALL app_core",
+                "outbox_tenants.outbox_tenants_dispatcher SELECT core_dispatcher",
                 "outbox_tenants.outbox_tenants_insert INSERT app_core",
-                "outbox_tenants.outbox_tenants_select SELECT app_core",
                 "profile_permissions.profile_permissions_tenant ALL app_core",
                 "profiles.profiles_tenant ALL app_core",
                 "tenants.tenants_insert INSERT app_core",
@@ -96,7 +98,7 @@ public sealed class CatalogTests
     }
 
     [Fact]
-    public async Task App_core_has_only_the_privileges_its_policies_need()
+    public async Task The_runtime_roles_have_only_the_privileges_their_policies_need()
     {
         await using var session = await OwnerAsync();
         var grants = await session.ColumnAsync<string>(
@@ -129,7 +131,7 @@ public sealed class CatalogTests
                 "outbox_messages app_core SELECT",
                 "outbox_messages app_core UPDATE",
                 "outbox_tenants app_core INSERT",
-                "outbox_tenants app_core SELECT",
+                "outbox_tenants core_dispatcher SELECT",
                 "permissions app_core SELECT",
                 "profile_permissions app_core DELETE",
                 "profile_permissions app_core INSERT",
@@ -149,6 +151,66 @@ public sealed class CatalogTests
             ],
             grants
         );
+    }
+
+    [Fact]
+    public async Task Core_dispatcher_can_only_read_the_tenant_list()
+    {
+        // Every privilege on every relation in core, PUBLIC grants and memberships included, and
+        // no way into schema ai.
+        await using var session = await OwnerAsync();
+        var privileges = await session.ColumnAsync<string>(
+            """
+            SELECT c.relname || ' ' || p.privilege
+            FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace,
+                 unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES',
+                              'TRIGGER']) p(privilege)
+            WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+              AND has_table_privilege('core_dispatcher', c.oid, p.privilege)
+            ORDER BY 1
+            """
+        );
+
+        Assert.Equal(["outbox_tenants SELECT"], privileges);
+        Assert.False(
+            await session.ScalarAsync<bool>(
+                "SELECT has_schema_privilege('core_dispatcher', 'core', 'CREATE')"
+            )
+        );
+        Assert.False(
+            await session.ScalarAsync<bool>(
+                "SELECT has_schema_privilege('core_dispatcher', 'ai', 'USAGE')"
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData("SELECT * FROM core.outbox_messages")]
+    [InlineData("SELECT * FROM core.inbox_messages")]
+    [InlineData("SELECT * FROM core.documents")]
+    [InlineData("SELECT * FROM core.document_versions")]
+    [InlineData("SELECT * FROM core.users")]
+    [InlineData("SELECT * FROM core.tenants")]
+    [InlineData("SELECT * FROM core.establishments")]
+    [InlineData("SELECT * FROM core.profiles")]
+    [InlineData("SELECT * FROM core.permissions")]
+    [InlineData("""SELECT * FROM core."__EFMigrationsHistory" """)]
+    [InlineData(
+        "INSERT INTO core.outbox_messages (tenant_id, id, type, routing_key, body, created_at) VALUES (gen_random_uuid(), gen_random_uuid(), 'x', 'x', '{}', now())"
+    )]
+    [InlineData("UPDATE core.outbox_messages SET sent_at = now()")]
+    [InlineData("UPDATE core.documents SET title = 'x'")]
+    [InlineData("DELETE FROM core.users")]
+    [InlineData("INSERT INTO core.tenants (id, name) VALUES (gen_random_uuid(), 'x')")]
+    [InlineData("CREATE TABLE core.dispatcher_table (id int)")]
+    public async Task Core_dispatcher_cannot_read_or_write_any_other_table(string sql)
+    {
+        await using var session = await Session.BeginAsync(
+            db.ConnectionString("core_dispatcher"),
+            Guid.NewGuid()
+        );
+
+        await session.AssertDeniedAsync(sql);
     }
 
     [Theory]
@@ -178,6 +240,7 @@ public sealed class CatalogTests
         Assert.Contains(applied, id => id.EndsWith("_InsertPermissionCatalog"));
         Assert.Contains(applied, id => id.EndsWith("_CreateOutboxAndInbox"));
         Assert.Contains(applied, id => id.EndsWith("_CreateDocuments"));
+        Assert.Contains(applied, id => id.EndsWith("_RestrictTenantListToCoreDispatcher"));
     }
 
     [Fact]

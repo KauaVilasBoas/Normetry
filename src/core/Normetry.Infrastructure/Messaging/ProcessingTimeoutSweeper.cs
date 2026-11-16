@@ -22,7 +22,9 @@ internal sealed class ProcessingTimeoutSweeper(
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
 
-    private readonly string connectionString = CoreDatabase.GetConnectionString(configuration);
+    private readonly string tenantListConnectionString = CoreDatabase.GetDispatcherConnectionString(
+        configuration
+    );
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -32,7 +34,7 @@ internal sealed class ProcessingTimeoutSweeper(
             {
                 foreach (
                     var tenantId in await OutboxTenantList.ListAsync(
-                        connectionString,
+                        tenantListConnectionString,
                         stoppingToken
                     )
                 )

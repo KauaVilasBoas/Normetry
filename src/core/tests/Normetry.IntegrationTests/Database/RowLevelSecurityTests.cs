@@ -1,3 +1,4 @@
+using Normetry.Infrastructure.Messaging;
 using Xunit;
 
 namespace Normetry.IntegrationTests.Database;
@@ -6,7 +7,8 @@ namespace Normetry.IntegrationTests.Database;
 /// RLS on core.tenants, core.establishments, core.chat_message_counts, the identity tables
 /// (profiles, profile_permissions, users, user_profiles), the messaging tables
 /// (outbox_messages, inbox_messages, outbox_tenants) and the document tables (documents,
-/// document_versions), in plain SQL as app_core (the rls-table skill).
+/// document_versions), in plain SQL as app_core (the rls-table skill), plus core_dispatcher's
+/// read of the tenant list.
 /// Every test makes its own tenants, so tests never see each other's rows.
 /// </summary>
 [Collection(DatabaseCollection.Name)]
@@ -763,26 +765,47 @@ public sealed class RowLevelSecurityTests
         }
     }
 
-    [Fact]
-    public async Task Outbox_tenants_are_readable_by_every_session_but_written_only_for_its_own_tenant()
-    {
-        // The one cross-tenant read: the dispatcher lists the tenants it visits. The rows hold
-        // nothing but the id; every message is read under its tenant's RLS.
-        const string Insert = "INSERT INTO core.outbox_tenants (tenant_id) VALUES ($1)";
-        var (tenantA, tenantB, _, _) = await SeedAsync();
+    private const string InsertOutboxTenant =
+        "INSERT INTO core.outbox_tenants (tenant_id) VALUES ($1)";
+    private const string VisibleOutboxTenants =
+        "SELECT tenant_id FROM core.outbox_tenants WHERE tenant_id = ANY($1)";
 
+    /// <summary>Two new tenants, each listed in core.outbox_tenants by its own app_core session.</summary>
+    private async Task<(Guid TenantA, Guid TenantB)> SeedOutboxTenantsAsync()
+    {
+        var (tenantA, tenantB, _, _) = await SeedAsync();
+        foreach (var tenant in new[] { tenantA, tenantB })
+        {
+            await using var session = await Session.BeginAsync(AppCore, tenant);
+            await session.ExecuteAsync(InsertOutboxTenant, tenant);
+            await session.CommitAsync();
+        }
+        return (tenantA, tenantB);
+    }
+
+    [Fact]
+    public async Task App_core_lists_only_its_own_tenant_and_never_reads_the_tenant_list()
+    {
+        var (tenantA, tenantB) = await SeedOutboxTenantsAsync();
+
+        // The outbox's own statement: listing the tenant again is a no-op, without reading.
         await using (var session = await Session.BeginAsync(AppCore, tenantA))
         {
-            await session.ExecuteAsync(Insert, tenantA);
-            await session.CommitAsync();
+            Assert.Equal(
+                0,
+                await session.ExecuteAsync(
+                    "INSERT INTO core.outbox_tenants (tenant_id) VALUES ($1) ON CONFLICT DO NOTHING",
+                    tenantA
+                )
+            );
         }
         await using (var session = await Session.BeginAsync(AppCore, tenantA))
         {
-            await session.AssertDeniedAsync(Insert, tenantB);
+            await session.AssertDeniedAsync(InsertOutboxTenant, Guid.NewGuid());
         }
         await using (var session = await Session.BeginAsync(AppCore))
         {
-            await session.AssertDeniedAsync(Insert, tenantB);
+            await session.AssertDeniedAsync(InsertOutboxTenant, Guid.NewGuid());
         }
         foreach (
             var sql in new[]
@@ -795,15 +818,41 @@ public sealed class RowLevelSecurityTests
             await using var session = await Session.BeginAsync(AppCore, tenantA);
             await session.AssertDeniedAsync(sql, tenantA);
         }
+        // No app_core session reads the list, so a request path cannot learn another tenant's id:
+        // not with another tenant set, not with its own, not with none.
+        foreach (var tenant in new Guid?[] { tenantB, tenantA, null })
+        {
+            await using var session = await Session.BeginAsync(AppCore, tenant);
+            await session.AssertDeniedAsync(VisibleOutboxTenants, new[] { tenantA, tenantB });
+        }
+    }
 
-        await using var anyone = await Session.BeginAsync(AppCore);
-        Assert.Equal(
-            [tenantA],
-            await anyone.ColumnAsync<Guid>(
-                "SELECT tenant_id FROM core.outbox_tenants WHERE tenant_id = ANY($1)",
-                new[] { tenantA, tenantB }
-            )
+    [Fact]
+    public async Task Core_dispatcher_reads_every_listed_tenant_and_writes_none()
+    {
+        // The one cross-tenant read: the tenants the outbox dispatcher and the sweeper visit. The
+        // rows hold nothing but the id; every message is read as app_core under its tenant's RLS.
+        var (tenantA, tenantB) = await SeedOutboxTenantsAsync();
+        var dispatcher = db.ConnectionString("core_dispatcher");
+
+        Assert.Superset(
+            new HashSet<Guid> { tenantA, tenantB },
+            (
+                await OutboxTenantList.ListAsync(dispatcher, TestContext.Current.CancellationToken)
+            ).ToHashSet()
         );
+        foreach (
+            var sql in new[]
+            {
+                InsertOutboxTenant,
+                "UPDATE core.outbox_tenants SET tenant_id = tenant_id WHERE tenant_id = $1",
+                "DELETE FROM core.outbox_tenants WHERE tenant_id = $1",
+            }
+        )
+        {
+            await using var session = await Session.BeginAsync(dispatcher);
+            await session.AssertDeniedAsync(sql, tenantA);
+        }
     }
 
     /// <summary>The document rows of one tenant: a user, a document of its establishment and one version.</summary>

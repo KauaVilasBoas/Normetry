@@ -26,7 +26,9 @@ internal sealed class OutboxDispatcher(
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
 
-    private readonly string connectionString = CoreDatabase.GetConnectionString(configuration);
+    private readonly string tenantListConnectionString = CoreDatabase.GetDispatcherConnectionString(
+        configuration
+    );
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -52,7 +54,10 @@ internal sealed class OutboxDispatcher(
         // ponytail: every listed tenant is visited on each pass (one short transaction each);
         // switch to a wake-up signal or a pending flag when there are many tenants.
         foreach (
-            var tenantId in await OutboxTenantList.ListAsync(connectionString, cancellationToken)
+            var tenantId in await OutboxTenantList.ListAsync(
+                tenantListConnectionString,
+                cancellationToken
+            )
         )
         {
             // One tenant's failure must not hold back the tenants after it.
