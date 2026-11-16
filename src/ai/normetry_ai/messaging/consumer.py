@@ -81,10 +81,12 @@ async def _uploaded(
         result = await anyio.to_thread.run_sync(worker.ingest, tenant_id, uploaded, started)
     except Rejected as rejected:
         logger.info(
-            "Version %d of document %s failed: %s",
+            "Version %d of document %s of tenant %s failed: %s",
             uploaded.version_number,
             uploaded.document_id,
+            tenant_id,
             rejected.reason,
+            extra={"tenant_id": str(tenant_id)},
         )
         failed = DocumentIngestionFailed(
             **_version(uploaded), reason_code=rejected.reason, reason_text=rejected.text
@@ -116,7 +118,12 @@ async def handle(
         {"normetry.tenant_id": str(tenant_id), "normetry.message.type": message.type}
     )
     if not isinstance(payload, DocumentUploaded | DocumentDeleted):
-        logger.warning("Dead-lettered a %s, which this queue does not take", message.type)
+        logger.warning(
+            "Dead-lettered a %s of tenant %s, which this queue does not take",
+            message.type,
+            tenant_id,
+            extra={"tenant_id": str(tenant_id)},
+        )
         return "dead-letter"
     try:
         if isinstance(payload, DocumentDeleted):
@@ -128,12 +135,14 @@ async def handle(
         last = delivery_count >= DELIVERY_LIMIT
         # The error type only: a database error's text can quote stored rows.
         logger.warning(
-            "Delivery %d of %s %s failed (%s)%s",
+            "Delivery %d of %s %s of tenant %s failed (%s)%s",
             delivery_count + 1,
             message.type,
             message.message_id,
+            tenant_id,
             type(error).__name__,
             ", dead-lettered" if last else ", retrying",
+            extra={"tenant_id": str(tenant_id)},
         )
         if not last:
             return "retry"
@@ -146,7 +155,12 @@ async def handle(
             try:
                 await publish(event(tenant_id, failed))
             except Exception as publish_error:  # the core's timeout will fail the version instead
-                logger.warning("Could not publish the failure (%s)", type(publish_error).__name__)
+                logger.warning(
+                    "Could not publish the failure for tenant %s (%s)",
+                    tenant_id,
+                    type(publish_error).__name__,
+                    extra={"tenant_id": str(tenant_id)},
+                )
         return "dead-letter"
 
 
