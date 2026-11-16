@@ -1,10 +1,11 @@
 namespace Normetry.BuildingBlocks.Results;
 
 /// <summary>
-/// Lets generic pipeline code (the validation behavior) build a failed <c>Result</c> or
-/// <c>Result&lt;T&gt;</c> without knowing which one it holds, and without reflection.
+/// Lets generic pipeline code (the validation and transaction behaviors) build a failed
+/// <c>Result</c> or <c>Result&lt;T&gt;</c> without knowing which one it holds, and without
+/// reflection.
 /// </summary>
-internal interface IFailureFactory<TSelf>
+public interface IFailureFactory<TSelf>
     where TSelf : IFailureFactory<TSelf>
 {
     static abstract TSelf Failure(Error error);

@@ -3,7 +3,7 @@ using Normetry.BuildingBlocks.Results;
 namespace Normetry.Application.Identity;
 
 /// <summary>The stable codes of the profile and user management refusals.</summary>
-internal static class IdentityErrors
+public static class IdentityErrors
 {
     // Another tenant's profile or user is invisible under row-level security, so it is not found
     // either: the answer never tells whether the id exists elsewhere.

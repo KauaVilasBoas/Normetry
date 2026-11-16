@@ -14,8 +14,8 @@ internal sealed class CreateProfileHandler(IProfileRepository profiles, ITenantC
     )
     {
         var profile = Profile.Create(tenant.TenantId, request.Name);
-        // ponytail: check then insert; two concurrent creates of one name end in a 500 from the
-        // unique index instead of a 409. Map the unique violation if that ever matters.
+        // Two concurrent creates of one name both pass this check; the unique index refuses the
+        // second at commit, which TransactionBehavior maps to the same refusal.
         if (await profiles.NameTakenAsync(profile.Name, cancellationToken))
         {
             return IdentityErrors.NameTaken;
