@@ -45,7 +45,7 @@ internal sealed class UserRepository(CoreDbContext db) : IUserRepository
     {
         var profiles = HeldProfiles(sub);
         // Owner's grants_all covers every catalog row, present and future.
-        return await db
+        var names = await db
             .Permissions.Where(permission =>
                 profiles.Any(profile =>
                     profile.GrantsAll
@@ -55,9 +55,68 @@ internal sealed class UserRepository(CoreDbContext db) : IUserRepository
                 )
             )
             .Select(permission => permission.Name)
-            .OrderBy(name => name)
             .ToListAsync(cancellationToken);
+        return [.. names.Order(StringComparer.Ordinal)];
     }
+
+    public async Task<IReadOnlyList<UserResponse>> ListAsync(
+        string callerSub,
+        CancellationToken cancellationToken
+    ) =>
+        await db
+            .Users.OrderBy(user => user.DisplayName)
+            .ThenBy(user => user.Id)
+            .Select(user => new UserResponse(
+                user.Id,
+                user.DisplayName,
+                user.Email,
+                user.Sub == callerSub,
+                db.Profiles.Where(profile =>
+                        user.Profiles.Any(held => held.ProfileId == profile.Id)
+                    )
+                    .OrderBy(profile => profile.Name)
+                    .Select(profile => new ProfileSummary(
+                        profile.Id,
+                        profile.Name,
+                        profile.SystemKey
+                    ))
+                    .ToList()
+            ))
+            .ToListAsync(cancellationToken);
+
+    public Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken) =>
+        db.Users.AnyAsync(user => user.Id == id, cancellationToken);
+
+    public Task AssignAsync(
+        Guid tenantId,
+        Guid userId,
+        Guid profileId,
+        CancellationToken cancellationToken
+    ) =>
+        // Safe under a repeated or concurrent assign. The composite foreign keys reject a user or
+        // profile of another tenant even if RLS let the row through.
+        db.Database.ExecuteSqlAsync(
+            $"""
+            INSERT INTO core.user_profiles (tenant_id, user_id, profile_id)
+            VALUES ({tenantId}, {userId}, {profileId})
+            ON CONFLICT DO NOTHING
+            """,
+            cancellationToken
+        );
+
+    public Task UnassignAsync(Guid userId, Guid profileId, CancellationToken cancellationToken) =>
+        db
+            .UserProfiles.Where(held => held.UserId == userId && held.ProfileId == profileId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> ListHoldersAsync(
+        Guid profileId,
+        CancellationToken cancellationToken
+    ) =>
+        await db
+            .UserProfiles.Where(held => held.ProfileId == profileId)
+            .Select(held => held.UserId)
+            .ToListAsync(cancellationToken);
 
     private IQueryable<Profile> HeldProfiles(string sub)
     {
