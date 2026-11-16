@@ -109,12 +109,15 @@ def test_an_upload_publishes_started_then_its_result_for_the_message_tenant() ->
     assert (started.version_id, started.version_number) == (UPLOADED.version_id, 2)
 
 
-def test_result_events_have_ids_derived_from_their_version() -> None:
+def test_result_events_have_ids_derived_from_their_tenant_and_version() -> None:
     first = deliver(FakeWorker(result=INDEXED), UPLOADED)[1].published
     again = deliver(FakeWorker(result=INDEXED), UPLOADED)[1].published
 
     assert [m.message_id for m in first] == [m.message_id for m in again]
     assert len({m.message_id for m in first}) == 2
+    # The same version id under another tenant never shares an id in the core's inbox.
+    other = consumer.event(uuid4(), first[1].payload)
+    assert other.message_id != first[1].message_id
 
 
 def test_a_file_that_cannot_be_indexed_publishes_its_failure_and_is_acked() -> None:
