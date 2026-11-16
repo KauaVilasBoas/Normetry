@@ -4,9 +4,12 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="RabbitMQ.Client" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Normetry.Migrations" />
+    <InternalsVisibleTo Include="Normetry.IntegrationTests" />
+    <InternalsVisibleTo Include="Normetry.UnitTests" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Normetry.Application\Normetry.Application.csproj" />

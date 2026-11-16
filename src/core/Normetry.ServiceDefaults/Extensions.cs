@@ -67,6 +67,8 @@ public static class Extensions
             {
                 tracing
                     .AddSource(builder.Environment.ApplicationName)
+                    // Outbox publishing and queue consuming (Normetry.Infrastructure).
+                    .AddSource("Normetry.Messaging")
                     .AddAspNetCoreInstrumentation(tracing =>
                         // Exclude health check requests from tracing
                         tracing.Filter = context =>

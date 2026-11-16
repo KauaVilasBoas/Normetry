@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using Normetry.Infrastructure.Messaging;
 using Normetry.Infrastructure.Persistence;
 
 namespace Normetry.IntegrationTests;
@@ -46,12 +47,23 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// </summary>
     public string? CoreConnectionString { get; init; }
 
+    /// <summary>
+    /// The AMQP URI of a test broker (see <c>RabbitMqFixture</c>). Without one the API gets an
+    /// address it never connects to. Either way the background messaging services do not run:
+    /// tests drive them directly, so no test publishes or consumes another test's messages.
+    /// </summary>
+    public string? RabbitMqConnectionString { get; init; }
+
     public static SecurityKey NewSigningKey() =>
         new RsaSecurityKey(RSA.Create(2048)) { KeyId = "test-key" };
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:core", CoreConnectionString ?? "Host=db.invalid");
+        builder.UseSetting(
+            "ConnectionStrings:rabbitmq",
+            RabbitMqConnectionString ?? "amqp://guest:guest@127.0.0.1:9"
+        );
         builder.UseSetting("Ai:InternalToken", InternalToken);
         // Nothing listens there; the gateway tests point it at a stub AI service.
         builder.UseSetting("Services:ai:http:0", "http://127.0.0.1:9");
@@ -63,6 +75,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 options.Configuration = new OpenIdConnectConfiguration { Issuer = Issuer };
                 options.Configuration.SigningKeys.Add(SigningKey);
             });
+            foreach (
+                var host in services
+                    .Where(service => service.ImplementationType == typeof(OutboxDispatcher))
+                    .ToArray()
+            )
+            {
+                services.Remove(host);
+            }
             if (CoreConnectionString is null)
             {
                 foreach (

@@ -3,6 +3,7 @@ using Normetry.Domain.Establishments;
 using Normetry.Domain.Identity;
 using Normetry.Domain.Tenancy;
 using Normetry.Domain.Usage;
+using Normetry.Infrastructure.Messaging;
 
 namespace Normetry.Infrastructure.Persistence;
 
@@ -26,6 +27,12 @@ public sealed class CoreDbContext(DbContextOptions<CoreDbContext> options) : DbC
     public DbSet<User> Users => Set<User>();
 
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+
+    internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    internal DbSet<OutboxTenant> OutboxTenants => Set<OutboxTenant>();
+
+    internal DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

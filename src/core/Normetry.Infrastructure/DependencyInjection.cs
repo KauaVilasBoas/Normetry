@@ -6,6 +6,7 @@ using Normetry.Application.Identity;
 using Normetry.Application.Tenancy;
 using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
+using Normetry.Infrastructure.Messaging;
 using Normetry.Infrastructure.Persistence;
 
 namespace Normetry.Infrastructure;
@@ -15,8 +16,10 @@ public static class DependencyInjection
     /// <summary>
     /// The core database as <c>app_core</c> (<c>ConnectionStrings:core</c>, required), scoped to
     /// the request's <see cref="ITenantContext"/>, plus the repositories, the transaction
-    /// behavior and a startup check that the role cannot get around RLS. Call it after <c>AddDispatcher</c>: the behavior then runs inside logging and
-    /// validation, so an invalid request opens no transaction.
+    /// behavior, a startup check that the role cannot get around RLS, the outbox and its
+    /// dispatcher to RabbitMQ (<c>ConnectionStrings:rabbitmq</c>, required). Call it after
+    /// <c>AddDispatcher</c>: the behavior then runs inside logging and validation, so an invalid
+    /// request opens no transaction.
     /// </summary>
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
@@ -39,6 +42,13 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
+
+        // Background services open one scope per tenant and set its tenant here first.
+        services.AddScoped<BackgroundTenant>();
+        services.AddScoped<IOutbox, Outbox>();
+        services.AddSingleton<RabbitMqConnection>();
+        services.AddSingleton<RabbitMqPublisher>();
+        services.AddHostedService<OutboxDispatcher>();
         return services;
     }
 
