@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, ShieldCheck, Trash2 } from "lucide-react";
+import { CircleAlert, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
@@ -150,6 +150,9 @@ export function ProfileEditor({
       className="min-w-0 flex-1 rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in"
     >
       <div className="flex items-center gap-2">
+        {notFound && (
+          <CircleAlert aria-hidden="true" className="size-5 shrink-0 text-text-secondary" />
+        )}
         <h2
           id={EDITOR_TITLE_ID}
           tabIndex={-1}
@@ -157,12 +160,15 @@ export function ProfileEditor({
         >
           {notFound
             ? copy.profiles.notFoundTitle
-            : (name ?? (
+            : (name ??
+              (failed ? (
+                copy.profiles.errorTitle
+              ) : (
                 <>
                   <Skeleton className="my-0.5 h-4 w-40 max-w-full" />
                   <span className="sr-only">{copy.profiles.loading}</span>
                 </>
-              ))}
+              )))}
         </h2>
         {!notFound && system && <Tag>{copy.profiles.system}</Tag>}
         <span className="flex-1" />
