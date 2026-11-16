@@ -65,7 +65,7 @@ The body is authoritative. The AMQP properties and headers below repeat or add t
 | `unsupported_format` | `contentType` is not PDF, DOCX, TXT or CSV |
 | `no_text_layer` | a PDF with under 50 non-whitespace characters per page on average (scans; there is no OCR) |
 | `too_many_pages` | a PDF over 100 pages |
-| `too_large` | over 10 MiB (10,485,760 bytes) by `size` or by the stored blob, or a DOCX that unpacks to over 50 MiB |
+| `too_large` | over 10 MiB (10,485,760 bytes) by the stored blob, a DOCX that unpacks to over 50 MiB, or more text than 100 pages (over 500 chunks) |
 | `blob_missing` | no blob at `blobPath` |
 | `blob_path_outside_tenant` | `blobPath` is not under `tenants/{tenantId}/` |
 | `parse_error` | the file cannot be read as its format, or holds no text |
