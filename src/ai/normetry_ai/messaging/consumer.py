@@ -56,8 +56,10 @@ Publish = Callable[[Envelope[Any]], Awaitable[None]]
 
 
 def event(tenant_id: UUID, payload: VersionPayload) -> Envelope[Any]:
-    """A result event for one document version, with its deterministic message id."""
-    message_id = uuid5(_EVENT_IDS, f"{payload.TYPE}:{payload.version_id}")
+    """A result event for one document version, with its deterministic message id. The tenant is
+    part of it: the core's inbox is keyed by message id alone, so two tenants' events must never
+    share one, even for the same version id."""
+    message_id = uuid5(_EVENT_IDS, f"{tenant_id}:{payload.TYPE}:{payload.version_id}")
     return envelope(tenant_id, payload, message_id)
 
 

@@ -56,7 +56,7 @@ The body is authoritative. The AMQP properties and headers below repeat or add t
 - `DocumentUploaded`: establishment, document, version id and number, `blobPath`, `contentType` (no parameters), `size` in bytes and `sha256` (lower-case hex). The blob path is `tenants/{tenantId}/establishments/{establishmentId}/documents/{documentId}/versions/{versionId}/{file}`; the AI service refuses one outside `tenants/{tenantId}/` of the envelope's tenant.
 - `DocumentDeleted`: establishment and document. The AI service keeps a deleted marker, so an ingestion in flight or a late `DocumentUploaded` stores nothing.
 - `DocumentIngestionStarted`, `DocumentIndexed`, `DocumentIngestionFailed`: establishment, document, version id and number. `DocumentIndexed` adds `chunkCount`, `pageCount` (null for DOCX, TXT and CSV) and `language` (`en` or `pt`); `DocumentIngestionFailed` adds `reasonCode` and `reasonText`.
-- The AI service gives its events a message id derived from the version (UUIDv5 of type and version id), so re-publishing one after a redelivery is deduplicated by the core's inbox.
+- The AI service gives its events a message id derived from the version (UUIDv5 of tenant id, type and version id), so re-publishing one after a redelivery is deduplicated by the core's inbox, and two tenants' events never share an id.
 
 ### Failure reasons
 
