@@ -1,11 +1,27 @@
-import { ArrowRight, Pill, Stethoscope, Store, UtensilsCrossed } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  CircleAlert,
+  Minus,
+  Pill,
+  Stethoscope,
+  Store,
+  UtensilsCrossed,
+} from "lucide-react";
 import { Dialog } from "radix-ui";
-import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
+import { useId, type ButtonHTMLAttributes, type ComponentProps, type ReactNode } from "react";
+import { Link } from "react-router";
 
 const buttonVariants = {
   primary: "bg-mint text-on-mint font-semibold hover:bg-mint-hover",
   secondary: "border border-teal-border text-text-primary font-medium",
 };
+
+const buttonBase =
+  "inline-flex h-9 items-center justify-center gap-2 rounded-control px-4 text-body";
+
+/** A secondary button's classes, for a link that looks like one ("Back to profiles"). */
+export const secondaryButton = `${buttonBase} ${buttonVariants.secondary} hover:bg-elevated`;
 
 /**
  * DESIGN.md buttons: one primary per view; text on mint is always --on-mint. A secondary button
@@ -24,7 +40,7 @@ export function Button({
   return (
     <button
       type="button"
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-control px-4 text-body ${buttonVariants[variant]} ${hover} ${className}`}
+      className={`${buttonBase} ${buttonVariants[variant]} ${hover} ${className}`}
       {...props}
     />
   );
@@ -124,6 +140,43 @@ export function Message({
   );
 }
 
+/**
+ * A load failure inside a card: the message, then Try again (`aria-disabled` with a spinner while
+ * it retries, so focus stays on it).
+ */
+export function ErrorMessage({
+  title,
+  body,
+  retryLabel,
+  retrying,
+  onRetry,
+}: {
+  title: string;
+  body: string;
+  retryLabel: string;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div role="alert">
+      <Message
+        icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
+        title={title}
+        body={body}
+      />
+      <Button
+        variant="secondary"
+        className="mt-4"
+        aria-disabled={retrying}
+        onClick={retrying ? undefined : onRetry}
+      >
+        {retrying && <Spinner />}
+        {retryLabel}
+      </Button>
+    </div>
+  );
+}
+
 /** Opens a citation's source; `aria-expanded` while its passage is the one shown. */
 export function CitationChip({
   label,
@@ -178,6 +231,244 @@ export function Sheet({
           {...content}
         >
           {children}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/** A plain label ("System", a profile name). Not a status, so never a status color. */
+export function Tag({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-block h-5 max-w-full shrink-0 truncate rounded-sm bg-inset px-2 text-caption leading-5 font-medium text-text-secondary">
+      {children}
+    </span>
+  );
+}
+
+/** Section tabs under the top bar: links, the current one marked with a mint underline. */
+export function TabStrip({
+  label,
+  tabs,
+}: {
+  label: string;
+  tabs: { to: string; label: string; active: boolean }[];
+}) {
+  return (
+    <nav aria-label={label} className="mb-4 flex gap-4 border-b border-border">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.to}
+          to={tab.to}
+          aria-current={tab.active ? "page" : undefined}
+          className={`-mb-px flex h-9 items-center border-b-2 text-body font-medium ${
+            tab.active
+              ? "border-mint text-text-primary"
+              : "border-transparent text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** Native checkbox in a 44px label row; the description is its accessible description. */
+export function Checkbox({
+  label,
+  description,
+  ...input
+}: Omit<ComponentProps<"input">, "type"> & { label: string; description?: string }) {
+  const id = useId();
+  return (
+    <label className="flex min-h-11 items-start gap-3 rounded-control px-2 py-2 hover:bg-elevated">
+      <input
+        type="checkbox"
+        aria-labelledby={`${id}-label`}
+        aria-describedby={description ? `${id}-description` : undefined}
+        className="mt-0.5 size-4 shrink-0 accent-mint"
+        {...input}
+      />
+      <CheckboxText id={id} label={label} description={description} />
+    </label>
+  );
+}
+
+/** A checkbox row that cannot change: a check or a dash, and `state` ("Granted:") for screen readers. */
+export function ReadOnlyCheckbox({
+  checked,
+  state,
+  label,
+  description,
+}: {
+  checked: boolean;
+  state: string;
+  label: string;
+  description?: string;
+}) {
+  const id = useId();
+  const Icon = checked ? Check : Minus;
+  return (
+    <div className="flex min-h-11 items-start gap-3 px-2 py-2">
+      <Icon
+        aria-hidden="true"
+        className={`mt-0.5 size-4 shrink-0 ${checked ? "text-text-primary" : "text-text-secondary"}`}
+      />
+      <CheckboxText
+        id={id}
+        state={state}
+        label={label}
+        description={description}
+        muted={!checked}
+      />
+    </div>
+  );
+}
+
+function CheckboxText({
+  id,
+  state,
+  label,
+  description,
+  muted = false,
+}: {
+  id: string;
+  state?: string;
+  label: string;
+  description?: string;
+  muted?: boolean;
+}) {
+  return (
+    <span className="min-w-0">
+      <span
+        id={`${id}-label`}
+        className={`block text-body font-medium ${muted ? "text-text-secondary" : ""}`}
+      >
+        {state && <span className="sr-only">{state} </span>}
+        {label}
+      </span>
+      {description && (
+        <span id={`${id}-description`} className="block text-small text-text-secondary">
+          {description}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Labelled input with an optional hint and error (no red: an icon and white text). */
+export function TextField({
+  label,
+  hint,
+  error,
+  ...input
+}: ComponentProps<"input"> & { label: string; hint?: string; error?: string }) {
+  const id = useId();
+  const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-small text-text-primary">
+        {label}
+      </label>
+      <input
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy || undefined}
+        className="h-11 w-full rounded-control border border-teal-border bg-inset px-3 text-field sm:text-body"
+        {...input}
+      />
+      {hint && (
+        <p id={`${id}-hint`} className="text-small text-text-secondary">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={`${id}-error`} className="flex items-start gap-1.5 text-small text-text-primary">
+          <CircleAlert aria-hidden="true" className="size-4 shrink-0 text-text-secondary" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The dialog surface (DESIGN.md Alert dialog): centered, elevated, max 400px. */
+export const dialogPanel =
+  "fixed top-1/2 left-1/2 z-40 w-[calc(100%-2rem)] max-w-100 -translate-x-1/2 -translate-y-1/2 rounded-card border border-border bg-elevated p-5 motion-safe:animate-fade-in";
+
+/**
+ * A dialog with a form: title, fields, an inline error, then Cancel and the primary submit. It
+ * cannot be dismissed while `submitting`. Focus returns to `trigger` unless `onCloseAutoFocus`
+ * prevents it.
+ */
+export function FormDialog({
+  trigger,
+  open,
+  onOpenChange,
+  title,
+  submitLabel,
+  cancelLabel,
+  submitting,
+  error,
+  onSubmit,
+  onCloseAutoFocus,
+  children,
+}: {
+  trigger: ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  submitLabel: string;
+  cancelLabel: string;
+  submitting: boolean;
+  error: string | undefined;
+  onSubmit: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
+  children: ReactNode;
+}) {
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!submitting) onOpenChange(next);
+      }}
+    >
+      <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-scrim" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onCloseAutoFocus={onCloseAutoFocus}
+          className={dialogPanel}
+        >
+          <Dialog.Title className="text-title font-semibold">{title}</Dialog.Title>
+          <form
+            noValidate
+            className="mt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!submitting) onSubmit();
+            }}
+          >
+            {children}
+            {error && (
+              <p role="alert" className="mt-3 text-body">
+                {error}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <Dialog.Close asChild>
+                <Button variant="secondary" onElevated>
+                  {cancelLabel}
+                </Button>
+              </Dialog.Close>
+              <Button type="submit" variant="primary" aria-disabled={submitting}>
+                {submitting && <Spinner surface="mint" />}
+                {submitLabel}
+              </Button>
+            </div>
+          </form>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
