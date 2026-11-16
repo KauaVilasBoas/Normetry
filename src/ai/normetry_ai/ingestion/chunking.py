@@ -11,8 +11,18 @@ import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Protocol
 
-from normetry_ai.ingestion.corpus import Section
+
+class Section(Protocol):
+    """A corpus `Section` or a tenant document's `Part`: a located piece of normalized text."""
+
+    @property
+    def section_path(self) -> str: ...
+
+    @property
+    def text(self) -> str: ...
+
 
 # About one provision. Measured on the corpus: at most 535 BGE-M3 tokens per chunk (95% under 430),
 # so a chunk and a question fit what the re-ranker (bge-reranker-v2-m3) scores at once. Sections
