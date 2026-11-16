@@ -211,6 +211,25 @@ public sealed class DocumentEndpointTests
     }
 
     [Fact]
+    public async Task A_document_holds_at_most_the_configured_number_of_versions()
+    {
+        var tenant = await NewTenantAsync();
+        await using var api = db.Api.WithWebHostBuilder(builder =>
+            builder.UseSetting("Documents:MaxVersionsPerDocument", "1")
+        );
+        using var client = api.CreateClient(
+            ApiFactory.CreateToken(tenant.Id.ToString(), tenant.Owner)
+        );
+        var (document, first) = await UploadPdfAsync(client, tenant);
+        await SetStatusAsync(tenant.Id, first, "Indexed");
+
+        using var refused = await UploadVersionAsync(client, document);
+
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Equal("document.version_limit_reached", await CodeAsync(refused));
+    }
+
+    [Fact]
     public async Task An_establishment_holds_at_most_the_configured_number_of_documents()
     {
         var tenant = await NewTenantAsync();

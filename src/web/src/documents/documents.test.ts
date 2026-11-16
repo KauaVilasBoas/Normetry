@@ -6,6 +6,7 @@ import {
   MAX_FILE_SIZE,
   rowCaption,
   titleFromFile,
+  uploadRefusal,
   versionNotice,
   withContentType,
 } from "./documents";
@@ -52,6 +53,13 @@ describe("file checks", () => {
     );
     expect(withContentType(file("log.csv", 10, "text/x-csv")).type).toBe("text/csv");
     expect(withContentType(file("log.csv", 10, "application/vnd.ms-excel")).type).toBe("text/csv");
+  });
+
+  it("shows a full document's refusal above the buttons", () => {
+    const refused = { ok: false, status: 409, code: "document.version_limit_reached" } as const;
+    expect(uploadRefusal(refused, "sop.pdf")).toEqual({
+      form: "This document has reached its version limit. Upload the file as a new document.",
+    });
   });
 
   it("prefills the title without the extension", () => {

@@ -11,6 +11,7 @@ internal sealed class UploadDocumentVersionHandler(
     IDocumentBlobStore blobs,
     IOutbox outbox,
     ICurrentUser currentUser,
+    DocumentsOptions options,
     TimeProvider clock
 ) : ICommandHandler<UploadDocumentVersionCommand, DocumentResponse>
 {
@@ -35,6 +36,10 @@ internal sealed class UploadDocumentVersionHandler(
         if (document.HasVersionInFlight)
         {
             return DocumentErrors.VersionInFlight;
+        }
+        if (document.Versions.Count >= options.MaxVersionsPerDocument)
+        {
+            return DocumentErrors.VersionLimitReached(options.MaxVersionsPerDocument);
         }
 
         var version = document.AddVersion(
