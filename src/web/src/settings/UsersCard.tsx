@@ -105,22 +105,27 @@ export function UsersCard({
                     </p>
                     {email && <p className="truncate text-small text-text-secondary">{email}</p>}
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-wrap gap-1.5 sm:pt-0.5">
-                    {held.length > 0 ? (
-                      held.map((profile) => <Tag key={profile.id}>{profile.name}</Tag>)
-                    ) : (
-                      <span className="text-small text-text-secondary">{copy.users.noProfile}</span>
+                  {/* Below 640px the tags and the menu share the line under the email. */}
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5 pt-0.5">
+                      {held.length > 0 ? (
+                        held.map((profile) => <Tag key={profile.id}>{profile.name}</Tag>)
+                      ) : (
+                        <span className="text-small text-text-secondary">
+                          {copy.users.noProfile}
+                        </span>
+                      )}
+                    </div>
+                    {canManage && profiles.length > 0 && (
+                      <ProfilesMenu
+                        user={user}
+                        name={name}
+                        profiles={profiles}
+                        onOpenChange={(open) => (menuOpen.current = open)}
+                      />
                     )}
                   </div>
                 </div>
-                {canManage && profiles.length > 0 && (
-                  <ProfilesMenu
-                    user={user}
-                    name={name}
-                    profiles={profiles}
-                    onOpenChange={(open) => (menuOpen.current = open)}
-                  />
-                )}
               </li>
             );
           })}
