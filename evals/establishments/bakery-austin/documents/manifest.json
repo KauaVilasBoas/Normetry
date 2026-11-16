@@ -1,0 +1,25 @@
+{
+  "establishment": "Bakery Austin",
+  "documents": [
+    {
+      "title": "Food safety plan",
+      "type": "Sop",
+      "file": "food-safety-plan.docx"
+    },
+    {
+      "title": "Allergen control procedure",
+      "type": "Sop",
+      "file": "allergen-procedure.txt"
+    },
+    {
+      "title": "Cooler temperature log",
+      "type": "Log",
+      "file": "cooler-temperature-log.csv"
+    },
+    {
+      "title": "Monthly self-inspection (October)",
+      "type": "Report",
+      "file": "monthly-self-inspection.pdf"
+    }
+  ]
+}

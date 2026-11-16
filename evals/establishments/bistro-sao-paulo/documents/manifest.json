@@ -1,0 +1,20 @@
+{
+  "establishment": "Bistro São Paulo",
+  "documents": [
+    {
+      "title": "Manual de Boas Práticas",
+      "type": "Sop",
+      "file": "manual-de-boas-praticas.pdf"
+    },
+    {
+      "title": "Procedimento de higienização de superfícies",
+      "type": "Sop",
+      "file": "procedimento-de-higienizacao.txt"
+    },
+    {
+      "title": "Registro de temperatura da câmara fria e do freezer",
+      "type": "Log",
+      "file": "registro-de-temperatura.csv"
+    }
+  ]
+}

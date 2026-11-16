@@ -1,0 +1,20 @@
+{
+  "establishment": "Bistro Lisboa",
+  "documents": [
+    {
+      "title": "Plano HACCP",
+      "type": "Sop",
+      "file": "plano-haccp.docx"
+    },
+    {
+      "title": "Plano de limpeza e desinfeção",
+      "type": "Sop",
+      "file": "plano-de-limpeza.txt"
+    },
+    {
+      "title": "Registo de temperaturas",
+      "type": "Log",
+      "file": "registo-de-temperaturas.csv"
+    }
+  ]
+}

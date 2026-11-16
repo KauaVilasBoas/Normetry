@@ -1,0 +1,15 @@
+Allergen control procedure - Bakery Austin
+
+Fictional document for the Normetry demo. It does not describe a real business.
+
+Allergens handled here: wheat, milk, eggs, soy, tree nuts (almonds, pecans) and sesame.
+
+1. Every recipe card lists its allergens. A new or changed recipe is not baked until its card is updated.
+2. Nut products are made on Mondays and Thursdays only, on the marked table, with their own tools.
+3. After a nut product, the table, mixer and tools are washed, rinsed and sanitized before any other product.
+4. Labels on packaged items name every allergen in the recipe.
+5. When a customer asks about allergens, staff read the recipe card. Staff never guess.
+
+Training: every new hire reads this procedure in their first week and signs the training log.
+
+Owner: Bruna Owner. Reviewed every year or when a recipe changes.
