@@ -111,6 +111,10 @@ async def handle(
         logger.warning("Dead-lettered a message off its contract (%s)", type(error).__name__)
         return "dead-letter"
     tenant_id, payload = message.tenant_id, message.payload
+    # So traces can be audited and filtered per tenant (ids only, never names or text).
+    trace.get_current_span().set_attributes(
+        {"normetry.tenant_id": str(tenant_id), "normetry.message.type": message.type}
+    )
     if not isinstance(payload, DocumentUploaded | DocumentDeleted):
         logger.warning("Dead-lettered a %s, which this queue does not take", message.type)
         return "dead-letter"

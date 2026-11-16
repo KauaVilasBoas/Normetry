@@ -30,6 +30,8 @@ from normetry_ai.messaging.contracts import DocumentDeleted, DocumentIndexed, Do
 from normetry_ai.retrieval.language import detect_language
 
 logger = logging.getLogger(__name__)
+# azure-core logs every request URL at INFO, and a blob URL holds the uploaded file's name.
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
 
 # Chunks per version. The design allows 100 pages; a dense page is about 3,000 characters, two
 # chunks, so 500 leaves room and keeps embedding a version to a few minutes of CPU. A 10 MiB text
