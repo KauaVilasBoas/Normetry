@@ -101,22 +101,24 @@ export function Avatar({ name }: { name: string }) {
   );
 }
 
-/** Empty and error block: optional icon, title and body. */
+/** Empty and error block: optional icon, title and body. `heading`: h2 when no card title is above. */
 export function Message({
   icon,
   title,
   body,
+  heading: Heading = "h3",
   className = "mt-4 items-start",
 }: {
   icon?: ReactNode;
   title: string;
   body: string;
+  heading?: "h2" | "h3";
   className?: string;
 }) {
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       {icon}
-      <h3 className="text-title font-semibold">{title}</h3>
+      <Heading className="text-title font-semibold">{title}</Heading>
       <p className="text-body text-text-secondary">{body}</p>
     </div>
   );

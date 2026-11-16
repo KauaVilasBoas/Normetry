@@ -5,6 +5,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/client";
 import {
   conversationsKey,
+  meKey,
   quotaKey,
   useChatQuota,
   useConversation,
@@ -159,9 +160,12 @@ export function ConversationPane({
         list.map((turn) => (turn.key === key ? { ...turn, ...change(turn) } : turn)),
       );
     };
-    // 5xx from the gateway: the assistant is unavailable; any other 4xx: a generic failure.
-    const fail = (status: number) =>
+    // 5xx from the gateway: the assistant is unavailable; any other 4xx: a generic failure. A 403
+    // is a permission taken away: /me again, which closes the chat if chat.ask is gone.
+    const fail = (status: number) => {
+      if (status === 403) void queryClient.invalidateQueries({ queryKey: meKey });
       update(() => ({ status: status >= 500 ? "unavailable" : "error" }));
+    };
     announce(format(copy.chat.checking, { regulation }));
     try {
       let id = savedId;
@@ -274,7 +278,10 @@ export function ConversationPane({
         method: "DELETE",
       });
       // 404: it is already gone, which is what the user asked for.
-      if (!response.ok && response.status !== 404) return false;
+      if (!response.ok && response.status !== 404) {
+        if (response.status === 403) void queryClient.invalidateQueries({ queryKey: meKey });
+        return false;
+      }
     } catch {
       return false;
     }

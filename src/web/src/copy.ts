@@ -38,6 +38,16 @@ export const copy = {
     accountMenuUnnamed: "Account menu",
     signOut: "Sign out",
   },
+  access: {
+    noneTitle: "You don't have access yet",
+    noneBody:
+      "Ask an administrator in your organization to give you a profile, then reload this page.",
+    refusedTitle: "You don't have access to {screen}",
+    refusedBody: "Ask an administrator in your organization for access.",
+    establishmentsTitle: "You don't have access to establishments",
+    establishmentsBody:
+      "Documents and Ask the Regulation work per establishment. Ask an administrator in your organization for access.",
+  },
   switcher: {
     placeholder: "Choose establishment",
     none: "No establishment",

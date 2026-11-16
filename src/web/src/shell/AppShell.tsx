@@ -1,26 +1,37 @@
-import { Menu, X } from "lucide-react";
+import { Lock, Menu, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
-import { useConversations, useEstablishments, useMe, type Establishment } from "../api/queries";
+import {
+  can,
+  useConversations,
+  useEstablishments,
+  useMe,
+  type Establishment,
+} from "../api/queries";
 import { useSession } from "../auth/session";
 import { ChatScreen } from "../chat/ChatScreen";
 import { copy, format } from "../copy";
 import { EstablishmentPicker } from "../establishments/EstablishmentPicker";
 import { listState, useEstablishmentSelection } from "../establishments/selection";
-import { iconButton } from "../ui/primitives";
+import { iconButton, Message } from "../ui/primitives";
 import { Sidebar } from "./Sidebar";
 
-/** The app frame: sidebar (a drawer below 1024px), top bar and main. */
+/**
+ * The app frame: sidebar (a drawer below 1024px), top bar and main. Main shows what `/me`'s
+ * permissions allow; while `/me` is pending nothing gated shows. The server checks every call.
+ */
 export function AppShell() {
   const { profile } = useSession();
   const me = useMe();
-  const establishments = useEstablishments();
+  const chatAllowed = can(me.data, "chat.ask");
+  const establishmentsAllowed = can(me.data, "establishments.read");
+  const establishments = useEstablishments(establishmentsAllowed);
   const state = listState(me, establishments);
   const { selected, select } = useEstablishmentSelection(me.data, establishments.data);
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const conversations = useConversations();
+  const conversations = useConversations(chatAllowed);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -75,6 +86,46 @@ export function AppShell() {
     if (me.isError) void me.refetch();
     if (establishments.isError) void establishments.refetch();
   };
+
+  let content: ReactNode;
+  if (me.data?.permissions.length === 0) {
+    content = <AccessCard title={copy.access.noneTitle} body={copy.access.noneBody} />;
+  } else if (me.data && !chatAllowed) {
+    content =
+      conversationId === undefined ? (
+        <AccessCard title={copy.access.noneTitle} body={copy.access.noneBody} />
+      ) : (
+        <AccessCard
+          title={format(copy.access.refusedTitle, { screen: copy.shell.askTheRegulation })}
+          body={copy.access.refusedBody}
+        />
+      );
+  } else if (me.data && !establishmentsAllowed) {
+    content = (
+      <AccessCard title={copy.access.establishmentsTitle} body={copy.access.establishmentsBody} />
+    );
+  } else if (selected && state === "list") {
+    content = (
+      <ChatScreen
+        establishment={selected}
+        conversationId={conversationId}
+        focusKey={focusKey}
+        onEstablishment={select}
+      />
+    );
+  } else {
+    // Any failure, /me included, shows the picker with its message and Try again.
+    content = (
+      <EstablishmentPicker
+        state={state}
+        establishments={establishments.data}
+        givenName={profile.givenName}
+        onSelect={chooseInPicker}
+        onRetry={retry}
+        fetching={me.isFetching || establishments.isFetching}
+      />
+    );
+  }
 
   const sidebarProps = {
     me,
@@ -140,29 +191,27 @@ export function AppShell() {
           tabIndex={-1}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 sm:px-5 sm:pb-5"
         >
-          {/* Any failure, /me included, shows the picker with its message and Try again. */}
-          {selected && state === "list" ? (
-            <ChatScreen
-              establishment={selected}
-              conversationId={conversationId}
-              focusKey={focusKey}
-              onEstablishment={select}
-            />
-          ) : (
-            <EstablishmentPicker
-              state={state}
-              establishments={establishments.data}
-              givenName={profile.givenName}
-              onSelect={chooseInPicker}
-              onRetry={retry}
-              fetching={me.isFetching || establishments.isFetching}
-            />
-          )}
+          {content}
         </main>
       </div>
       <p aria-live="polite" className="sr-only">
         {announcement}
       </p>
+    </div>
+  );
+}
+
+/** A refused or no-access state in main: the picker's card with a lock. */
+function AccessCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="w-full max-w-160 rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in">
+      <Message
+        heading="h2"
+        className="items-start"
+        icon={<Lock aria-hidden="true" className="size-5 text-neutral" />}
+        title={title}
+        body={body}
+      />
     </div>
   );
 }

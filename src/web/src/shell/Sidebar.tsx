@@ -3,7 +3,7 @@ import { Building2, ChevronDown, LogOut, MessagesSquare } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
 import { Link, useMatch } from "react-router";
-import type { Establishment, Me } from "../api/queries";
+import { can, type Establishment, type Me, type ProfileSummary } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { forgetEstablishments, type ListState } from "../establishments/selection";
@@ -35,7 +35,15 @@ export function Sidebar({
   // A new conversation and a saved one are both Ask the Regulation.
   const atNew = useMatch("/") !== null;
   const atConversation = useMatch("/conversations/:conversationId") !== null;
-  const chatActive = atNew || atConversation;
+  const items = [
+    {
+      to: "/",
+      label: copy.shell.askTheRegulation,
+      Icon: MessagesSquare,
+      shown: can(me.data, "chat.ask"),
+      active: atNew || atConversation,
+    },
+  ].filter((item) => item.shown);
   return (
     <>
       <div className="flex items-center justify-between">
@@ -44,32 +52,45 @@ export function Sidebar({
       </div>
       <div className="mt-5 flex flex-col gap-2">
         <TenantLabel me={me} />
-        <EstablishmentSwitcher
-          state={state}
-          establishments={establishments}
-          selected={selected}
-          onSelect={onSelect}
-        />
+        {(me.isPending || can(me.data, "establishments.read")) && (
+          <EstablishmentSwitcher
+            state={state}
+            establishments={establishments}
+            selected={selected}
+            onSelect={onSelect}
+          />
+        )}
       </div>
-      <nav aria-label={copy.shell.navLabel} className="mt-5">
-        <ul>
-          <li>
-            <Link
-              to="/"
-              onClick={onNavigate}
-              aria-current={chatActive ? "page" : undefined}
-              className={`flex h-9 items-center gap-3 rounded-control px-3 text-body font-medium ${
-                chatActive ? "bg-teal text-text-primary" : "text-text-secondary hover:bg-elevated"
-              }`}
-            >
-              <MessagesSquare aria-hidden="true" className="size-4.5 shrink-0" />
-              {copy.shell.askTheRegulation}
-            </Link>
-          </li>
-        </ul>
-      </nav>
+      {me.isPending ? (
+        <div className="mt-5 flex flex-col gap-1">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ) : (
+        items.length > 0 && (
+          <nav aria-label={copy.shell.navLabel} className="mt-5">
+            <ul className="flex flex-col gap-1">
+              {items.map(({ to, label, Icon, active }) => (
+                <li key={to}>
+                  <Link
+                    to={to}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex h-9 items-center gap-3 rounded-control px-3 text-body font-medium ${
+                      active ? "bg-teal text-text-primary" : "text-text-secondary hover:bg-elevated"
+                    }`}
+                  >
+                    <Icon aria-hidden="true" className="size-4.5 shrink-0" />
+                    {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      )}
       <div className="flex-1" />
-      <UserMenu roles={me.data?.roles} />
+      <UserMenu profiles={me.data?.profiles} />
     </>
   );
 }
@@ -87,7 +108,7 @@ function TenantLabel({ me }: { me: UseQueryResult<Me> }) {
   );
 }
 
-function UserMenu({ roles }: { roles: string[] | undefined }) {
+function UserMenu({ profiles }: { profiles: ProfileSummary[] | undefined }) {
   const { profile, signOut } = useSession();
   // Without a name the email takes its place and is not repeated below it.
   const name = profile.name ?? profile.email ?? "";
@@ -123,8 +144,10 @@ function UserMenu({ roles }: { roles: string[] | undefined }) {
             {email && (
               <span className="block truncate text-small text-text-secondary">{email}</span>
             )}
-            {roles && roles.length > 0 && (
-              <span className="block text-small text-text-secondary">{roles.join(", ")}</span>
+            {profiles && profiles.length > 0 && (
+              <span className="block text-small text-text-secondary">
+                {profiles.map((profile) => profile.name).join(", ")}
+              </span>
             )}
           </DropdownMenu.Label>
           <DropdownMenu.Separator className="-mx-2 my-1 h-px bg-border" />
