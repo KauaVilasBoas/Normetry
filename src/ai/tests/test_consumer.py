@@ -180,11 +180,20 @@ def test_a_delete_is_applied_for_the_message_tenant() -> None:
         b"not json",
         b'{"type": "DocumentUploaded", "version": 1}',
         b'{"type": "DocumentUploaded", "version": 9, "payload": {}}',
+        b'{"type": ["DocumentUploaded"], "version": {"v": 1}, "payload": {}}',
         (FIXTURES / "document-uploaded.v1.invalid.json").read_bytes(),
         (FIXTURES / "document-deleted.v1.invalid.json").read_bytes(),  # nil tenant
         (FIXTURES / "document-indexed.v1.valid.json").read_bytes(),  # not for this queue
     ],
-    ids=["not-json", "no-payload", "unknown-version", "no-sha256", "nil-tenant", "wrong-queue"],
+    ids=[
+        "not-json",
+        "no-payload",
+        "unknown-version",
+        "unhashable-type",
+        "no-sha256",
+        "nil-tenant",
+        "wrong-queue",
+    ],
 )
 def test_a_message_off_this_queues_contract_is_dead_lettered_untouched(body: bytes) -> None:
     worker, broker = FakeWorker(), FakeBroker()
