@@ -92,11 +92,13 @@ internal sealed class DocumentStatusConsumer(
         }
         catch (Exception error) when (!cancellationToken.IsCancellationRequested)
         {
+            // Outside the handler's TenantId log scope, so the tenant goes in the line itself.
             logger.LogWarning(
                 error,
-                "Delivery {DeliveryCount} of {MessageId} failed; retrying",
+                "Delivery {DeliveryCount} of {MessageId} for tenant {TenantId} failed; retrying",
                 count + 1,
-                delivery.BasicProperties.MessageId
+                delivery.BasicProperties.MessageId,
+                TenantOf(delivery.Body)
             );
             outcome = ConsumeOutcome.Retry;
         }
@@ -113,6 +115,22 @@ internal sealed class DocumentStatusConsumer(
                 await Task.Delay(TimeSpan.FromSeconds(1 << Math.Min(count, 3)), cancellationToken);
                 await channel.BasicRejectAsync(delivery.DeliveryTag, true, cancellationToken);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// The envelope's tenant, for a log line only, or null. A body off the contract is
+    /// dead-lettered before anything can fail, so a failed delivery normally has one.
+    /// </summary>
+    private static Guid? TenantOf(ReadOnlyMemory<byte> body)
+    {
+        try
+        {
+            return MessageJson.Parse(body.Span).TenantId;
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 
