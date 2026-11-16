@@ -788,16 +788,18 @@ public sealed class RowLevelSecurityTests
     {
         var (tenantA, tenantB) = await SeedOutboxTenantsAsync();
 
-        // The outbox's own statement: listing the tenant again is a no-op, without reading.
+        // The outbox's own statement: listing the tenant again is a no-op, without reading. With
+        // another tenant's listed id it fails rather than answering 0, so it never reveals whether
+        // a guessed tenant exists.
+        const string ListTenant =
+            "INSERT INTO core.outbox_tenants (tenant_id) VALUES ($1) ON CONFLICT DO NOTHING";
         await using (var session = await Session.BeginAsync(AppCore, tenantA))
         {
-            Assert.Equal(
-                0,
-                await session.ExecuteAsync(
-                    "INSERT INTO core.outbox_tenants (tenant_id) VALUES ($1) ON CONFLICT DO NOTHING",
-                    tenantA
-                )
-            );
+            Assert.Equal(0, await session.ExecuteAsync(ListTenant, tenantA));
+        }
+        await using (var session = await Session.BeginAsync(AppCore, tenantA))
+        {
+            await session.AssertDeniedAsync(ListTenant, tenantB);
         }
         await using (var session = await Session.BeginAsync(AppCore, tenantA))
         {
