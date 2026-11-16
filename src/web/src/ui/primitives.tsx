@@ -261,7 +261,8 @@ export function TabStrip({
           key={tab.to}
           to={tab.to}
           aria-current={tab.active ? "page" : undefined}
-          className={`-mb-px flex h-9 items-center border-b-2 text-body font-medium ${
+          // Inset ring: the strip is the first thing in the scrolling main, which clips outside it.
+          className={`-mb-px flex h-9 items-center rounded-t-sm border-b-2 px-2 text-body font-medium focus-visible:-outline-offset-2 ${
             tab.active
               ? "border-mint text-text-primary"
               : "border-transparent text-text-secondary hover:text-text-primary"
