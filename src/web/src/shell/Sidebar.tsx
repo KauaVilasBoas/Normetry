@@ -162,7 +162,7 @@ function UserMenu({ profiles }: { profiles: ProfileSummary[] | undefined }) {
               </span>
             )}
           </DropdownMenu.Label>
-          <DropdownMenu.Separator className="-mx-2 my-1 h-px bg-border" />
+          <DropdownMenu.Separator className="-mx-2 my-1 h-px bg-inset" />
           <DropdownMenu.Item
             onSelect={() => {
               forgetEstablishments();
