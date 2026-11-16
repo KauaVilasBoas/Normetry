@@ -72,33 +72,29 @@ describe("auth screens", () => {
 });
 
 describe("establishment picker", () => {
-  it("shows skeleton rows while loading", async () => {
+  it("shows only the switcher skeleton and a busy label while loading", async () => {
     renderApp({ "/me": never, "/establishments": never });
 
-    const card = await screen.findByRole("region", { name: "Establishments" });
-    expect(card).toHaveAttribute("aria-busy", "true");
-    expect(within(card).getByText("Loading establishments…")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Loading establishments…" })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: "Loading establishments…" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
-    expect(screen.getByText("Welcome back, Olivia")).toBeVisible();
+    expect(within(screen.getByRole("main")).getByText("Loading establishments…")).toHaveClass(
+      "sr-only",
+    );
+    expect(screen.queryByRole("region", { name: "Establishments" })).toBeNull();
     await expectNoAxeViolations();
   });
 
-  it("lists the establishments with their type, jurisdiction and regulation", async () => {
+  it("selects the first establishment when none is remembered, without asking", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
 
-    const row = await screen.findByRole("button", {
-      name: "Bistro Lisboa, Restaurant, European Union",
-    });
-    expect(row).toHaveAccessibleDescription(
-      "Restaurant · European Union · Regulation (EC) 852/2004",
+    expect(await screen.findByText("Bistro Lisboa · Regulation (EC) 852/2004")).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Establishment" })).toHaveTextContent(
+      "Bistro Lisboa",
     );
-    expect(
-      screen.getByRole("button", { name: "Bistro São Paulo, Restaurant, Brazil" }),
-    ).toHaveTextContent("Anvisa RDC 216/2004");
-    expect(picker()).toHaveAttribute("aria-busy", "false");
+    expect(screen.queryByRole("region", { name: "Establishments" })).toBeNull();
+    expect(localStorage.getItem(storageKey)).toBeNull();
     expect(document.title).toBe("Ask the Regulation · Normetry");
     await expectNoAxeViolations();
   });
@@ -113,26 +109,14 @@ describe("establishment picker", () => {
         ],
       },
     });
+    const user = userEvent.setup();
 
-    expect(await screen.findByRole("button", { name: "Lab, Laboratory, CA" })).toHaveTextContent(
+    (await screen.findByRole("combobox", { name: "Establishment" })).focus();
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByRole("option", { name: "Lab" })).toHaveAccessibleDescription(
       "Laboratory · CA",
     );
-  });
-
-  it("selects on activation, remembers the id and opens a new conversation", async () => {
-    renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bistro São Paulo, Restaurant, Brazil" }),
-    );
-
-    const heading = screen.getByRole("heading", { level: 2, name: "New conversation" });
-    expect(heading).toHaveFocus();
-    expect(screen.getByRole("region", { name: "New conversation" })).toHaveTextContent(
-      "Bistro São Paulo · Anvisa RDC 216/2004",
-    );
-    expect(localStorage.getItem(storageKey)).toBe("e-sao-paulo");
-    await expectNoAxeViolations();
   });
 
   it("restores the remembered establishment", async () => {
@@ -146,25 +130,19 @@ describe("establishment picker", () => {
     );
   });
 
-  it("clears a remembered id that is no longer in the list", async () => {
+  it("clears a remembered id that is no longer in the list and selects the first", async () => {
     localStorage.setItem(storageKey, "e-gone");
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
 
-    await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" });
-    await waitFor(() => expect(localStorage.getItem(storageKey)).toBeNull());
-  });
-
-  it("selects the only establishment automatically", async () => {
-    renderApp({ "/me": { body: me }, "/establishments": { body: [establishments[0]] } });
-
     expect(await screen.findByText("Bistro Lisboa · Regulation (EC) 852/2004")).toBeVisible();
+    await waitFor(() => expect(localStorage.getItem(storageKey)).toBeNull());
   });
 
   it("shows the empty state", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: [] } });
 
     expect(await screen.findByRole("heading", { name: "No establishments yet" })).toBeVisible();
-    expect(switcherNone()).toBeDisabled();
+    expect(switcherNone()).toHaveAttribute("aria-disabled", "true");
     await expectNoAxeViolations();
   });
 
@@ -180,7 +158,7 @@ describe("establishment picker", () => {
 
     const alert = await screen.findByRole("alert", {}, { timeout: 3000 });
     expect(alert).toHaveTextContent("Couldn't load establishments");
-    expect(switcherNone()).toBeDisabled();
+    expect(switcherNone()).toHaveAttribute("aria-disabled", "true");
     await expectNoAxeViolations();
 
     const tryAgain = within(alert).getByRole("button", { name: "Try again" });
@@ -190,9 +168,10 @@ describe("establishment picker", () => {
     expect(tryAgain).toHaveFocus();
     expect(picker()).toHaveAttribute("aria-busy", "true");
     answer(Response.json(establishments));
-    expect(
-      await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" }),
-    ).toBeVisible();
+    expect(await screen.findByText("Bistro Lisboa · Regulation (EC) 852/2004")).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "New conversation" })).toHaveFocus(),
+    );
   });
 
   it("shows the error state when /me fails, even with a single establishment", async () => {
@@ -216,7 +195,7 @@ describe("establishment picker", () => {
         name: "Your account isn't linked to an organization",
       }),
     ).toBeVisible();
-    expect(within(picker()).queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
     await expectNoAxeViolations();
   });
 
@@ -243,14 +222,14 @@ describe("shell", () => {
   it("has no tenant label when /me has no tenantName", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
 
-    await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" });
+    await screen.findByRole("combobox", { name: "Establishment" });
     expect(screen.queryByText("Organization:")).toBeNull();
   });
 
   it("has the landmarks, the skip link and the active nav item", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
 
-    await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" });
+    await screen.findByRole("combobox", { name: "Establishment" });
     expect(screen.getByRole("link", { name: "Skip to main content" })).toHaveAttribute(
       "href",
       "#main",
@@ -295,45 +274,47 @@ describe("shell", () => {
   it("closes the drawer after a choice in it and focuses the conversation", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
     const user = userEvent.setup();
-    await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" });
+    await screen.findByRole("combobox", { name: "Establishment" });
 
     await user.click(screen.getByRole("button", { name: "Open navigation" }));
     const drawer = await screen.findByRole("dialog", { name: "Navigation" });
     expect(within(drawer).getByRole("button", { name: "Close navigation" })).toBeVisible();
     await expectNoAxeViolations();
     const drawerSwitcher = within(drawer).getByRole("combobox", { name: "Establishment" });
-    expect(drawerSwitcher).toHaveTextContent("Choose establishment");
+    expect(drawerSwitcher).toHaveTextContent("Bistro Lisboa");
     drawerSwitcher.focus();
     await user.keyboard("{Enter}");
     await screen.findByRole("listbox");
-    await user.keyboard("{Enter}");
+    await user.keyboard("{ArrowDown}{Enter}");
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() =>
       expect(screen.getByRole("heading", { level: 2, name: "New conversation" })).toHaveFocus(),
     );
-    expect(screen.getByText("Bistro Lisboa · Regulation (EC) 852/2004")).toBeVisible();
+    expect(screen.getByText("Bistro São Paulo · Anvisa RDC 216/2004")).toBeVisible();
   });
 
   it("closes the drawer when the window widens to the desktop layout", async () => {
-    const desktop = { matches: false, listener: () => {} };
+    // Every media query listener (the chat has its own), so the shell's hears the change too.
+    const desktop = { matches: false, listeners: [] as (() => void)[] };
     vi.spyOn(window, "matchMedia").mockImplementation(
       () =>
         ({
           get matches() {
             return desktop.matches;
           },
-          addEventListener: (_type: string, listener: () => void) => (desktop.listener = listener),
+          addEventListener: (_type: string, listener: () => void) =>
+            desktop.listeners.push(listener),
           removeEventListener: () => {},
         }) as unknown as MediaQueryList,
     );
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
-    await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" });
+    await screen.findByRole("combobox", { name: "Establishment" });
     await userEvent.click(screen.getByRole("button", { name: "Open navigation" }));
     await screen.findByRole("dialog", { name: "Navigation" });
 
     desktop.matches = true;
-    act(() => desktop.listener());
+    act(() => desktop.listeners.forEach((listener) => listener()));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
@@ -341,7 +322,7 @@ describe("shell", () => {
   it("returns focus to the menu button when the drawer is dismissed", async () => {
     renderApp({ "/me": { body: me }, "/establishments": { body: establishments } });
     const user = userEvent.setup();
-    await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" });
+    await screen.findByRole("combobox", { name: "Establishment" });
 
     await user.click(screen.getByRole("button", { name: "Open navigation" }));
     await screen.findByRole("dialog", { name: "Navigation" });
@@ -404,7 +385,7 @@ describe("permissions", () => {
   it("shows two skeleton bars instead of the nav while /me is pending", async () => {
     renderApp({ "/me": never });
 
-    await screen.findByRole("region", { name: "Establishments" });
+    await screen.findByRole("button", { name: "Loading establishments…" });
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Ask the Regulation" })).toBeNull();
   });

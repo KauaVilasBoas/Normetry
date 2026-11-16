@@ -1,138 +1,65 @@
-import { ChevronRight, CircleAlert, Store } from "lucide-react";
-import { useId } from "react";
-import type { Establishment } from "../api/queries";
-import { copy, format } from "../copy";
-import { Button, Message, Skeleton, Spinner, TypeTile } from "../ui/primitives";
-import { describeEstablishment, type ListState } from "./selection";
+import { CircleAlert, Store } from "lucide-react";
+import { copy } from "../copy";
+import { Button, Message, Spinner } from "../ui/primitives";
+import type { ListState } from "./selection";
 
 interface PickerProps {
   state: ListState;
-  establishments: Establishment[] | undefined;
-  givenName: string | undefined;
-  /** What choosing one is for, on this screen. */
-  subtitle: string;
-  onSelect: (establishment: Establishment) => void;
   onRetry: () => void;
   /** A request is in flight (after Try again). */
   fetching: boolean;
 }
 
-/** Shown in main until an establishment is selected. */
-export function EstablishmentPicker({
-  state,
-  establishments,
-  givenName,
-  subtitle,
-  onSelect,
-  onRetry,
-  fetching,
-}: PickerProps) {
+/**
+ * Main while no establishment can be selected. Loading shows nothing but a busy label (the
+ * sidebar switcher's skeleton is the visible cue); an empty or failed list shows the
+ * establishments card. Once the list loads, the remembered establishment, else the first, is
+ * selected and the switcher changes it.
+ */
+export function EstablishmentPicker({ state, onRetry, fetching }: PickerProps) {
+  if (state === "loading") {
+    return (
+      <div aria-busy="true">
+        <span className="sr-only">{copy.picker.loading}</span>
+      </div>
+    );
+  }
   const retrying = state === "error" && fetching;
   return (
-    <div className="flex flex-col">
-      <p className="text-greeting font-semibold">
-        {givenName ? format(copy.picker.greeting, { name: givenName }) : copy.picker.greetingNoName}
-      </p>
-      <p className="mt-1 text-body text-text-secondary">{subtitle}</p>
-      <section
-        aria-labelledby="establishments-title"
-        aria-busy={state === "loading" || retrying}
-        className="mt-4 w-full max-w-160 overflow-hidden rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in"
-      >
-        <h2 id="establishments-title" className="text-title font-semibold">
-          {copy.picker.title}
-        </h2>
-        {state === "loading" && <LoadingRows />}
-        {state === "list" && establishments && (
-          <ul className="-mx-5 -mb-5 mt-4 divide-y divide-border border-t border-border">
-            {establishments.map((establishment) => (
-              <li key={establishment.id}>
-                <EstablishmentRow establishment={establishment} onSelect={onSelect} />
-              </li>
-            ))}
-          </ul>
-        )}
-        {state === "empty" && (
-          <Message
-            icon={<Store aria-hidden="true" className="size-5 text-neutral" />}
-            title={copy.picker.emptyTitle}
-            body={copy.picker.emptyBody}
-          />
-        )}
-        {state === "error" && (
-          <div role="alert">
-            <Message
-              icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
-              title={copy.picker.errorTitle}
-              body={copy.picker.errorBody}
-            />
-            {/* aria-disabled, not disabled, while retrying: focus stays on the button. */}
-            <Button
-              variant="secondary"
-              className="mt-4"
-              aria-disabled={retrying}
-              onClick={retrying ? undefined : onRetry}
-            >
-              {retrying && <Spinner />}
-              {copy.picker.tryAgain}
-            </Button>
-          </div>
-        )}
-        {state === "forbidden" && (
-          <Message title={copy.picker.noTenantTitle} body={copy.picker.noTenantBody} />
-        )}
-      </section>
-    </div>
-  );
-}
-
-function EstablishmentRow({
-  establishment,
-  onSelect,
-}: {
-  establishment: Establishment;
-  onSelect: (establishment: Establishment) => void;
-}) {
-  const { meta, label } = describeEstablishment(establishment);
-  const metaId = useId();
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-describedby={metaId}
-      onClick={() => onSelect(establishment)}
-      className="flex min-h-15 w-full items-center gap-3 px-5 py-2 text-left hover:bg-elevated focus-visible:-outline-offset-2"
+    <section
+      aria-labelledby="establishments-title"
+      aria-busy={retrying}
+      className="w-full max-w-160 overflow-hidden rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in"
     >
-      <TypeTile type={establishment.type} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-body font-medium">{establishment.name}</span>
-        <span id={metaId} className="block text-small text-text-secondary">
-          {meta}
-        </span>
-      </span>
-      <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-secondary" />
-    </button>
-  );
-}
-
-function LoadingRows() {
-  return (
-    <>
-      <span className="sr-only">{copy.picker.loading}</span>
-      <ul
-        aria-hidden="true"
-        className="-mx-5 -mb-5 mt-4 divide-y divide-border border-t border-border"
-      >
-        {[0, 1, 2].map((row) => (
-          <li key={row} className="flex min-h-15 items-center gap-3 px-5 py-2">
-            <Skeleton className="size-7" />
-            <span className="flex flex-1 flex-col gap-2">
-              <Skeleton className="h-3 w-2/5" />
-              <Skeleton className="h-2.5 w-3/5" />
-            </span>
-          </li>
-        ))}
-      </ul>
-    </>
+      <h2 id="establishments-title" className="text-title font-semibold">
+        {copy.picker.title}
+      </h2>
+      {state === "empty" && (
+        <Message
+          icon={<Store aria-hidden="true" className="size-5 text-neutral" />}
+          title={copy.picker.emptyTitle}
+          body={copy.picker.emptyBody}
+        />
+      )}
+      {state === "error" && (
+        <div role="alert">
+          <Message
+            icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
+            title={copy.picker.errorTitle}
+            body={copy.picker.errorBody}
+          />
+          {/* aria-disabled, not disabled, while retrying: focus stays on the button. */}
+          <Button
+            variant="secondary"
+            className="mt-4"
+            aria-disabled={retrying}
+            onClick={retrying ? undefined : onRetry}
+          >
+            {retrying && <Spinner />}
+            {copy.picker.tryAgain}
+          </Button>
+        </div>
+      )}
+    </section>
   );
 }

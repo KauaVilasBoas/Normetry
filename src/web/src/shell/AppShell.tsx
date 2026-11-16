@@ -2,7 +2,6 @@ import { Lock, Menu, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
-import { ApiError } from "../api/client";
 import {
   can,
   useConversations,
@@ -11,7 +10,6 @@ import {
   useMe,
   type Establishment,
 } from "../api/queries";
-import { useSession } from "../auth/session";
 import { ChatScreen } from "../chat/ChatScreen";
 import { copy, format } from "../copy";
 import { DocumentsScreen } from "../documents/DocumentsScreen";
@@ -29,7 +27,7 @@ const headings: Record<Screen, string> = {
   settings: copy.shell.settings,
 };
 
-/** Where an establishment chosen in the picker or the switcher leads: the section's root. */
+/** Where an establishment chosen in the switcher leads: the section's root. */
 const sectionRoots = { chat: "/", documents: "/documents" };
 
 /**
@@ -38,7 +36,6 @@ const sectionRoots = { chat: "/", documents: "/documents" };
  * Settings belongs to the organization, so it shows without an establishment.
  */
 export function AppShell({ screen }: { screen: Screen }) {
-  const { profile } = useSession();
   const me = useMe();
   const chatAllowed = can(me.data, "chat.ask");
   const documentsAllowed = can(me.data, "documents.read");
@@ -85,13 +82,6 @@ export function AppShell({ screen }: { screen: Screen }) {
     if (owner.id !== selected?.id) select(owner);
   }, [routedId, owner, selected, select]);
 
-  // Choosing an establishment opens the section's root for it: a new conversation, or its list.
-  const chooseInPicker = (establishment: Establishment) => {
-    select(establishment);
-    void navigate(screen === "documents" ? sectionRoots.documents : sectionRoots.chat);
-    setFocusKey((key) => key + 1);
-  };
-
   const chooseInSwitcher = (establishment: Establishment) => {
     select(establishment);
     // Settings stays where it is; the chat and Documents go to their root for the establishment.
@@ -110,7 +100,15 @@ export function AppShell({ screen }: { screen: Screen }) {
     }
   };
 
+  // A Try again that loads the list moves focus to the screen's heading: its button is gone.
+  // Adjusted during render, as React advises for state that follows other state.
+  const [retried, setRetried] = useState(false);
+  if (retried && state !== "error") {
+    setRetried(false);
+    if (state === "list") setFocusKey((key) => key + 1);
+  }
   const retry = () => {
+    setRetried(true);
     if (me.isError) void me.refetch();
     if (establishments.isError) void establishments.refetch();
   };
@@ -127,10 +125,11 @@ export function AppShell({ screen }: { screen: Screen }) {
       ) : (
         <AccessCard title={copy.access.noScreenTitle} body={copy.access.noScreenBody} />
       );
+  } else if (state === "forbidden") {
+    // A token without a valid tenant: the same on every route.
+    content = <AccessCard title={copy.picker.noTenantTitle} body={copy.picker.noTenantBody} />;
   } else if (screen === "settings") {
-    if (me.error instanceof ApiError && me.error.status === 403)
-      content = <AccessCard title={copy.picker.noTenantTitle} body={copy.picker.noTenantBody} />;
-    else if (me.data && !can(me.data, "profiles.read"))
+    if (me.data && !can(me.data, "profiles.read"))
       content = (
         <AccessCard
           title={format(copy.access.refusedTitle, { screen: copy.shell.settings })}
@@ -178,14 +177,10 @@ export function AppShell({ screen }: { screen: Screen }) {
       />
     );
   } else {
-    // Any failure, /me included, shows the picker with its message and Try again.
+    // Loading, no establishment or any failure (/me included): the card with its message.
     content = (
       <EstablishmentPicker
         state={state}
-        establishments={establishments.data}
-        givenName={profile.givenName}
-        subtitle={screen === "documents" ? copy.picker.subtitleDocuments : copy.picker.subtitle}
-        onSelect={chooseInPicker}
         onRetry={retry}
         fetching={me.isFetching || establishments.isFetching}
       />
@@ -274,7 +269,7 @@ export function AppShell({ screen }: { screen: Screen }) {
   );
 }
 
-/** A refused or no-access state in main: the picker's card with a lock. */
+/** A refused or no-access state in main: the establishments card's shape, with a lock. */
 function AccessCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="w-full max-w-160 rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in">

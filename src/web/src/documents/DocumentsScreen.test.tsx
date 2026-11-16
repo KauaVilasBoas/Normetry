@@ -652,17 +652,11 @@ describe("documents access and navigation", () => {
     expect(window.location.pathname).toBe("/documents");
   });
 
-  it("asks for an establishment first, with its own subtitle", async () => {
+  it("opens the first establishment's documents when none is remembered", async () => {
     renderDocuments({}, { remembered: false });
 
-    expect(await screen.findByText("Choose an establishment to see its documents.")).toBeVisible();
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bistro Lisboa, Restaurant, European Union" }),
-    );
-
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
-    );
+    expect(await screen.findByRole("heading", { level: 2, name: "Bistro Lisboa" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Establishments" })).toBeNull();
   });
 
   it("refuses Documents without documents.read and never asks for documents", async () => {

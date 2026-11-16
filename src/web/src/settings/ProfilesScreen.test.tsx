@@ -624,11 +624,11 @@ describe("settings access and narrow layout", () => {
     switcher.focus();
     await user.keyboard("{Enter}");
     await screen.findByRole("listbox");
-    await user.keyboard("{Enter}");
+    await user.keyboard("{ArrowDown}{Enter}");
 
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
     expect(window.location.pathname).toBe("/settings/profiles");
-    expect(screen.getByText("Bistro Lisboa selected")).toBeInTheDocument();
+    expect(screen.getByText("Bistro São Paulo selected")).toBeInTheDocument();
   });
 
   it("is master and detail by route below 768px", async () => {
