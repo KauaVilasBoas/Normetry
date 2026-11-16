@@ -1,12 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Normetry.Application.Abstractions;
 using Normetry.Infrastructure.Persistence;
 using Normetry.IntegrationTests.Database;
 using Xunit;
 
 namespace Normetry.IntegrationTests.Messaging;
 
-/// <summary>A background scope that forgets its tenant, or sets it too late, fails closed and loudly.</summary>
+/// <summary>A background scope that forgets its tenant, or sets its tenant or user too late, fails closed and loudly.</summary>
 [Collection(DatabaseCollection.Name)]
 public sealed class BackgroundTenantTests
 {
@@ -42,6 +43,17 @@ public sealed class BackgroundTenantTests
 
         Assert.Throws<InvalidOperationException>(() =>
             scope.ServiceProvider.GetRequiredService<BackgroundTenant>().Set(Guid.NewGuid())
+        );
+    }
+
+    [Fact]
+    public async Task A_user_set_after_the_scope_resolved_its_user_source_throws()
+    {
+        await using var scope = db.Api.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ICurrentUser>();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<BackgroundUser>().Set("demo-owner")
         );
     }
 }
