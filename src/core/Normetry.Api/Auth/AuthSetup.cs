@@ -145,7 +145,13 @@ internal static class AuthSetup
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<HttpCurrentUser>();
-        builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<HttpCurrentUser>());
+        // Only the development document seed sets a background user; a request's user comes
+        // only from its token.
+        builder.Services.AddScoped<ICurrentUser>(sp =>
+            sp.GetRequiredService<BackgroundUser>() is { IsSet: true } background
+                ? background
+                : sp.GetRequiredService<HttpCurrentUser>()
+        );
         // A background service's scope (outbox dispatcher, queue consumer) sets its tenant from
         // the outbox row or the message; a request's tenant comes only from its token.
         builder.Services.AddScoped<ITenantContext>(sp =>

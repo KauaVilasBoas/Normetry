@@ -31,6 +31,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddDemoTenantSeed();
+    builder.Services.AddDemoDocumentSeed();
 }
 
 var app = builder.Build();

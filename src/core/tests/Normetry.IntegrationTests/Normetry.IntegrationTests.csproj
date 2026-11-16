@@ -20,5 +20,11 @@
       Link="postgres-init\%(RecursiveDir)%(Filename)%(Extension)"
       CopyToOutputDirectory="PreserveNewest"
     />
+    <!-- The demo documents the development seed uploads, checked through the real commands. -->
+    <None
+      Include="..\..\..\..\evals\establishments\**"
+      Link="demo-documents\%(RecursiveDir)%(Filename)%(Extension)"
+      CopyToOutputDirectory="PreserveNewest"
+    />
   </ItemGroup>
 </Project>
