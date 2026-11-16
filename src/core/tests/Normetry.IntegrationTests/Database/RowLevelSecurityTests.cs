@@ -3,7 +3,8 @@ using Xunit;
 namespace Normetry.IntegrationTests.Database;
 
 /// <summary>
-/// RLS on core.tenants, core.establishments and core.chat_message_counts, in plain SQL as
+/// RLS on core.tenants, core.establishments, core.chat_message_counts and the identity tables
+/// (profiles, profile_permissions, users, user_profiles), in plain SQL as
 /// app_core (the rls-table skill).
 /// Every test makes its own tenants, so tests never see each other's rows.
 /// </summary>
@@ -299,6 +300,213 @@ public sealed class RowLevelSecurityTests
                 InsertChatCount.Replace("'user'", "'another user'"),
                 tenantA
             );
+        }
+    }
+
+    /// <summary>
+    /// The identity rows of one tenant: a profile granting chat.ask held by a user, and a second
+    /// profile nobody holds.
+    /// </summary>
+    private sealed record Identity(Guid Tenant, Guid Profile, Guid SpareProfile, Guid User);
+
+    private static readonly string[] IdentityTables =
+    [
+        "profiles",
+        "profile_permissions",
+        "users",
+        "user_profiles",
+    ];
+
+    /// <summary>Two new tenants with their identity rows, written by app_core.</summary>
+    private async Task<(Identity A, Identity B)> SeedIdentityAsync()
+    {
+        var (tenantA, tenantB, _, _) = await SeedAsync();
+        var identities = new List<Identity>();
+        foreach (var tenant in new[] { tenantA, tenantB })
+        {
+            var identity = new Identity(
+                tenant,
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7()
+            );
+            await using var session = await Session.BeginAsync(AppCore, tenant);
+            await session.ExecuteAsync(
+                """
+                INSERT INTO core.profiles (tenant_id, id, name, grants_all)
+                VALUES ($1, $2, 'Kitchen', false), ($1, $3, 'Spare', false)
+                """,
+                tenant,
+                identity.Profile,
+                identity.SpareProfile
+            );
+            await session.ExecuteAsync(
+                "INSERT INTO core.profile_permissions VALUES ($1, $2, 'chat.ask')",
+                tenant,
+                identity.Profile
+            );
+            await session.ExecuteAsync(
+                "INSERT INTO core.users (tenant_id, id, sub) VALUES ($1, $2, 'user')",
+                tenant,
+                identity.User
+            );
+            await session.ExecuteAsync(
+                "INSERT INTO core.user_profiles VALUES ($1, $2, $3)",
+                tenant,
+                identity.User,
+                identity.Profile
+            );
+            await session.CommitAsync();
+            identities.Add(identity);
+        }
+        return (identities[0], identities[1]);
+    }
+
+    /// <summary>A new row for <paramref name="table"/> in <paramref name="target"/>'s tenant.</summary>
+    private static (string Sql, object[] Parameters) InsertIdentity(
+        string table,
+        Identity target
+    ) =>
+        table switch
+        {
+            "profiles" => (
+                "INSERT INTO core.profiles (tenant_id, id, name, grants_all) VALUES ($1, $2, 'New', false)",
+                [target.Tenant, Guid.CreateVersion7()]
+            ),
+            "profile_permissions" => (
+                "INSERT INTO core.profile_permissions VALUES ($1, $2, 'profiles.read')",
+                [target.Tenant, target.Profile]
+            ),
+            "users" => (
+                "INSERT INTO core.users (tenant_id, id, sub) VALUES ($1, $2, 'new')",
+                [target.Tenant, Guid.CreateVersion7()]
+            ),
+            _ => (
+                "INSERT INTO core.user_profiles VALUES ($1, $2, $3)",
+                [target.Tenant, target.User, target.SpareProfile]
+            ),
+        };
+
+    [Theory]
+    [InlineData("profiles")]
+    [InlineData("profile_permissions")]
+    [InlineData("users")]
+    [InlineData("user_profiles")]
+    public async Task Each_tenant_reads_only_its_own_identity_rows(string table)
+    {
+        var (a, b) = await SeedIdentityAsync();
+        var visible = $"SELECT DISTINCT tenant_id FROM core.{table} WHERE tenant_id = ANY($1)";
+        Guid[] both = [a.Tenant, b.Tenant];
+
+        await using (var session = await Session.BeginAsync(AppCore, a.Tenant))
+        {
+            Assert.Equal([a.Tenant], await session.ColumnAsync<Guid>(visible, both));
+        }
+        await using (var session = await Session.BeginAsync(AppCore, b.Tenant))
+        {
+            Assert.Equal([b.Tenant], await session.ColumnAsync<Guid>(visible, both));
+        }
+    }
+
+    [Theory]
+    [InlineData("UPDATE core.profiles SET name = 'Taken' WHERE tenant_id = $1")]
+    [InlineData("UPDATE core.users SET display_name = 'Taken' WHERE tenant_id = $1")]
+    [InlineData("DELETE FROM core.profiles WHERE tenant_id = $1")]
+    [InlineData("DELETE FROM core.profile_permissions WHERE tenant_id = $1")]
+    [InlineData("DELETE FROM core.user_profiles WHERE tenant_id = $1")]
+    public async Task A_tenant_cannot_update_or_delete_another_tenants_identity_rows(string sql)
+    {
+        var (a, b) = await SeedIdentityAsync();
+
+        await using (var session = await Session.BeginAsync(AppCore, b.Tenant))
+        {
+            Assert.Equal(0, await session.ExecuteAsync(sql, a.Tenant));
+            await session.CommitAsync();
+        }
+
+        await using var sessionA = await Session.BeginAsync(AppCore, a.Tenant);
+        Assert.Equal(
+            ("Kitchen", (string?)null, 1L, 1L),
+            (
+                await sessionA.ScalarAsync<string>(
+                    "SELECT name FROM core.profiles WHERE id = $1",
+                    a.Profile
+                ),
+                await sessionA.ScalarAsync<object>(
+                    "SELECT display_name FROM core.users WHERE id = $1",
+                    a.User
+                ) as string,
+                await sessionA.ScalarAsync<long>("SELECT count(*) FROM core.profile_permissions"),
+                await sessionA.ScalarAsync<long>("SELECT count(*) FROM core.user_profiles")
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData("profiles")]
+    [InlineData("profile_permissions")]
+    [InlineData("users")]
+    [InlineData("user_profiles")]
+    public async Task A_tenant_cannot_insert_identity_rows_into_another_tenant(string table)
+    {
+        var (a, b) = await SeedIdentityAsync();
+        var (sql, parameters) = InsertIdentity(table, b);
+
+        await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+        await session.AssertDeniedAsync(sql, parameters);
+    }
+
+    [Theory]
+    [InlineData("profiles")]
+    [InlineData("profile_permissions")]
+    [InlineData("users")]
+    [InlineData("user_profiles")]
+    public async Task Without_a_tenant_no_identity_row_is_visible_and_inserts_fail(string table)
+    {
+        var (a, b) = await SeedIdentityAsync();
+        var (sql, parameters) = InsertIdentity(table, a);
+
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            Assert.Empty(
+                await session.ColumnAsync<Guid>(
+                    $"SELECT tenant_id FROM core.{table} WHERE tenant_id = ANY($1)",
+                    new[] { a.Tenant, b.Tenant }
+                )
+            );
+        }
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            await session.AssertDeniedAsync(sql, parameters);
+        }
+    }
+
+    [Fact]
+    public async Task A_link_cannot_join_rows_of_two_tenants()
+    {
+        // Row-level security accepts these rows (their tenant is the session's), but the composite
+        // foreign keys find no profile with that id in this tenant.
+        var (a, b) = await SeedIdentityAsync();
+
+        foreach (
+            var (sql, parameters) in new (string, object[])[]
+            {
+                (
+                    "INSERT INTO core.user_profiles VALUES ($1, $2, $3)",
+                    [a.Tenant, a.User, b.Profile]
+                ),
+                (
+                    "INSERT INTO core.profile_permissions VALUES ($1, $2, 'profiles.read')",
+                    [a.Tenant, b.Profile]
+                ),
+            }
+        )
+        {
+            await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+            var error = await Assert.ThrowsAsync<Npgsql.PostgresException>(() =>
+                session.ExecuteAsync(sql, parameters)
+            );
+            Assert.Equal("23503", error.SqlState); // foreign_key_violation
         }
     }
 

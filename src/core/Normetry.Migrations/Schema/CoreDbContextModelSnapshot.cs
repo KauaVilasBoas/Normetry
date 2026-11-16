@@ -63,6 +63,145 @@ namespace Normetry.Migrations.Schema
                         });
                 });
 
+            modelBuilder.Entity("Normetry.Domain.Identity.Permission", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Name")
+                        .HasName("pk_permissions");
+
+                    b.ToTable("permissions", "core");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.Profile", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("GrantsAll")
+                        .HasColumnType("boolean")
+                        .HasColumnName("grants_all");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("SystemKey")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("system_key");
+
+                    b.HasKey("TenantId", "Id")
+                        .HasName("pk_profiles");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_profiles_tenant_id_name");
+
+                    b.HasIndex("TenantId", "SystemKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_profiles_tenant_id_system_key")
+                        .HasFilter("system_key IS NOT NULL");
+
+                    b.ToTable("profiles", "core", t =>
+                        {
+                            t.HasCheckConstraint("ck_profiles_grants_all", "grants_all = (coalesce(system_key, '') = 'owner')");
+
+                            t.HasCheckConstraint("ck_profiles_system_key", "system_key IN ('owner', 'manager', 'auditor')");
+                        });
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.ProfilePermission", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
+                    b.Property<string>("Permission")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("permission");
+
+                    b.HasKey("TenantId", "ProfileId", "Permission")
+                        .HasName("pk_profile_permissions");
+
+                    b.HasIndex("Permission")
+                        .HasDatabaseName("ix_profile_permissions_permission");
+
+                    b.ToTable("profile_permissions", "core");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.User", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DisplayName")
+                        .HasColumnType("text")
+                        .HasColumnName("display_name");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("text")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Sub")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("sub");
+
+                    b.HasKey("TenantId", "Id")
+                        .HasName("pk_users");
+
+                    b.HasIndex("TenantId", "Sub")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_tenant_id_sub");
+
+                    b.ToTable("users", "core");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.UserProfile", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
+                    b.HasKey("TenantId", "UserId", "ProfileId")
+                        .HasName("pk_user_profiles");
+
+                    b.HasIndex("TenantId", "ProfileId")
+                        .HasDatabaseName("ix_user_profiles_tenant_id_profile_id");
+
+                    b.ToTable("user_profiles", "core");
+                });
+
             modelBuilder.Entity("Normetry.Domain.Tenancy.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -116,6 +255,60 @@ namespace Normetry.Migrations.Schema
                         .HasConstraintName("fk_establishments_tenants_tenant_id");
                 });
 
+            modelBuilder.Entity("Normetry.Domain.Identity.Profile", b =>
+                {
+                    b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_profiles_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.ProfilePermission", b =>
+                {
+                    b.HasOne("Normetry.Domain.Identity.Permission", null)
+                        .WithMany()
+                        .HasForeignKey("Permission")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_profile_permissions_permissions_permission");
+
+                    b.HasOne("Normetry.Domain.Identity.Profile", null)
+                        .WithMany("GrantedPermissions")
+                        .HasForeignKey("TenantId", "ProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_profile_permissions_profiles_tenant_id_profile_id");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.User", b =>
+                {
+                    b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_users_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.UserProfile", b =>
+                {
+                    b.HasOne("Normetry.Domain.Identity.Profile", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_profiles_profiles_tenant_id_profile_id");
+
+                    b.HasOne("Normetry.Domain.Identity.User", null)
+                        .WithMany("Profiles")
+                        .HasForeignKey("TenantId", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_profiles_users_tenant_id_user_id");
+                });
+
             modelBuilder.Entity("Normetry.Domain.Usage.ChatMessageCount", b =>
                 {
                     b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
@@ -124,6 +317,16 @@ namespace Normetry.Migrations.Schema
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_chat_message_counts_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.Profile", b =>
+                {
+                    b.Navigation("GrantedPermissions");
+                });
+
+            modelBuilder.Entity("Normetry.Domain.Identity.User", b =>
+                {
+                    b.Navigation("Profiles");
                 });
 #pragma warning restore 612, 618
         }

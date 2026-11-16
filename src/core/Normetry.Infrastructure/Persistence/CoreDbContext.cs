@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Normetry.Domain.Establishments;
+using Normetry.Domain.Identity;
 using Normetry.Domain.Tenancy;
 using Normetry.Domain.Usage;
 
@@ -17,6 +18,14 @@ public sealed class CoreDbContext(DbContextOptions<CoreDbContext> options) : DbC
     public DbSet<Establishment> Establishments => Set<Establishment>();
 
     public DbSet<ChatMessageCount> ChatMessageCounts => Set<ChatMessageCount>();
+
+    public DbSet<Permission> Permissions => Set<Permission>();
+
+    public DbSet<Profile> Profiles => Set<Profile>();
+
+    public DbSet<User> Users => Set<User>();
+
+    public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
