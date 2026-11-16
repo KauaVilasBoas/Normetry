@@ -429,7 +429,7 @@ describe("permissions", () => {
   it("refuses Ask the Regulation by URL without chat.ask", async () => {
     window.history.replaceState(null, "", "/conversations/c-1");
     const { fetch } = renderApp({
-      "/me": { body: without("chat.ask", "profiles.read", "profiles.manage") },
+      "/me": { body: without("chat.ask") },
       "/establishments": { body: establishments },
     });
 
@@ -440,6 +440,39 @@ describe("permissions", () => {
     expect(called(fetch, "/ai/conversations")).toBe(false);
     await expectNoAxeViolations();
   });
+
+  it.each(["/", "/settings/profiles"])(
+    "tells a user whose profile opens no screen, at %s",
+    async (path) => {
+      window.history.replaceState(null, "", path);
+      const { fetch } = renderApp({
+        "/me": {
+          body: {
+            ...me,
+            permissions: ["establishments.read"],
+            profiles: [{ id: "p-kitchen", name: "Kitchen lead", systemKey: null }],
+          },
+        },
+        "/establishments": { body: establishments },
+      });
+
+      expect(
+        await screen.findByRole("heading", {
+          level: 2,
+          name: "Your profile doesn't include any screens yet",
+        }),
+      ).toBeVisible();
+      expect(
+        screen.getByText(
+          "Ask an administrator in your organization to add permissions to your profile.",
+        ),
+      ).toBeVisible();
+      expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+      expect(called(fetch, "/profiles")).toBe(false);
+      expect(called(fetch, "/ai/conversations")).toBe(false);
+      await expectNoAxeViolations();
+    },
+  );
 
   it("explains establishments are needed, and never lists them, without establishments.read", async () => {
     const { fetch } = renderApp({
