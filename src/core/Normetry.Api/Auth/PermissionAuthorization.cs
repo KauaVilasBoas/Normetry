@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.Options;
 using Normetry.Application.Identity.GetCurrentUserPermissions;
-using Normetry.Application.Identity.SyncCurrentUser;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 using Normetry.Domain.Identity;
@@ -49,9 +48,8 @@ internal sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> op
 
 /// <summary>
 /// Loads the caller's permissions once per authorization, under the request's tenant transaction
-/// (RLS), and meets every <see cref="PermissionRequirement"/> they cover. A caller with none may
-/// be signing in for the first time, so their user row is created then: the tenant's
-/// administrators can then find them and assign a profile.
+/// (RLS), and meets every <see cref="PermissionRequirement"/> they cover. It only reads: the user
+/// row is created by <c>/me</c>, which the web app calls first at sign-in.
 /// </summary>
 internal sealed class PermissionHandler(IDispatcher dispatcher) : IAuthorizationHandler
 {
@@ -74,12 +72,6 @@ internal sealed class PermissionHandler(IDispatcher dispatcher) : IAuthorization
             new GetCurrentUserPermissionsQuery(),
             cancellationToken
         );
-        if (permissions.Value.Count == 0)
-        {
-            await dispatcher.SendAsync(new SyncCurrentUserCommand(), cancellationToken);
-            return;
-        }
-
         foreach (var requirement in pending)
         {
             if (permissions.Value.Contains(requirement.Permission))
