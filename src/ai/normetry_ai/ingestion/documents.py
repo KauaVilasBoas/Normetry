@@ -31,6 +31,13 @@ from normetry_ai.retrieval.language import detect_language
 
 logger = logging.getLogger(__name__)
 
+# Chunks per version. The design allows 100 pages; a dense page is about 3,000 characters, two
+# chunks, so 500 leaves room and keeps embedding a version to a few minutes of CPU. A 10 MiB text
+# file would otherwise take thousands of chunks, and the queue it holds up serves every tenant.
+# ponytail: bounds embedding only; a file that hangs a parser still holds the queue. Upgrade: run
+# parse and embed in a subprocess with a wall-clock limit.
+MAX_CHUNKS = 500
+
 # A segment that HTTP clients would resolve ("." and ".."), an empty one, a backslash (which some
 # storage clients read as "/") or a control character could move a path out of its prefix.
 _UNSAFE_PATH = re.compile(r"(^|/)\.{0,2}(/|$)|[\\\x00-\x1f\x7f]")
@@ -166,6 +173,8 @@ class DocumentWorker:
             raise Rejected("internal", "The stored file does not match the uploaded file.")
         parsed = parse_file(data, message.content_type)
         chunks = chunk_sections(parsed.parts)
+        if len(chunks) > MAX_CHUNKS:
+            raise Rejected("too_large", "The document holds more text than 100 pages.")
         language = detect_language(" ".join(part.text for part in parsed.parts))
         vectors = self.embedder.embed_documents([chunk.content for chunk in chunks])
         metadata = json.dumps({"embedding_model": self.embedder.name})

@@ -12,6 +12,7 @@ from sample_files import LINE, make_docx, make_pdf
 from sqlalchemy import Engine, text
 
 from normetry_ai.db import tenant_transaction
+from normetry_ai.ingestion import documents
 from normetry_ai.ingestion.documents import BlobStore, DocumentWorker, in_tenant
 from normetry_ai.ingestion.parsers import CSV, DOCX, MAX_BYTES, PDF, TXT, Rejected
 from normetry_ai.messaging.contracts import DocumentDeleted, DocumentIndexed, DocumentUploaded
@@ -324,6 +325,22 @@ def test_a_failed_version_leaves_the_previous_one_current(
     assert docs.started == [1, 2]  # started, then failed
     assert docs.chunks(tenant, document) == [(1, None, "Version one.")]
     assert docs.row(tenant, document) == (1, False)
+
+
+@integration
+def test_a_version_with_too_many_chunks_fails_before_it_is_embedded(
+    docs: Docs, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(documents, "MAX_CHUNKS", 2)
+    tenant, document = uuid4(), uuid4()
+    pages = make_pdf([[LINE] * 3] * 3)  # one chunk per page
+
+    with pytest.raises(Rejected) as error:
+        docs.ingest(tenant, docs.upload(tenant, document, 1, pages, PDF))
+
+    assert error.value.reason == "too_large"
+    assert docs.embedder.embedded == []
+    assert docs.row(tenant, document) is None
 
 
 @integration
