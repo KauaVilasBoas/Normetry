@@ -96,7 +96,10 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
             .Endpoints.OfType<RouteEndpoint>()
             .ToArray();
 
-        Assert.Contains(endpoints, endpoint => endpoint.RoutePattern.RawText == "/me");
+        // Controller routes come without the leading slash ("me").
+        Assert.Contains(endpoints, endpoint =>
+            endpoint.RoutePattern.RawText?.TrimStart('/') == "me"
+        );
         Assert.All(endpoints, endpoint =>
         {
             if (endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null)

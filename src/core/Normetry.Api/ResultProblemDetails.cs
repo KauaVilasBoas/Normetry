@@ -31,4 +31,15 @@ public static class ResultProblemDetails
 
         return TypedResults.Problem(problem);
     }
+
+    /// <summary>The same problem response, for a controller action.</summary>
+    public static ObjectResult ToActionResult(this Result result)
+    {
+        var problem = result.ToProblemDetails().ProblemDetails;
+        return new ObjectResult(problem)
+        {
+            StatusCode = problem.Status,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
 }
