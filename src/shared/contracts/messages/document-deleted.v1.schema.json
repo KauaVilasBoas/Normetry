@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/document-deleted.v1.schema.json",
+  "title": "DocumentDeleted, version 1",
+  "description": "core to ai: a document was soft-deleted. The AI service removes its chunks, and an ingestion still in flight stores nothing.",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "type": { "const": "DocumentDeleted" },
+    "version": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "establishmentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "documentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" }
+      },
+      "required": ["establishmentId", "documentId"],
+      "additionalProperties": false
+    }
+  }
+}

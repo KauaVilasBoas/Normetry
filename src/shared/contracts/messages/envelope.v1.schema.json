@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/envelope.v1.schema.json",
+  "title": "Message envelope, version 1",
+  "description": "The JSON body of every queue message. Each message schema narrows `type`, `version` and `payload`. The body is authoritative: consumers take the tenant, type and version from it, never from AMQP properties or headers.",
+  "type": "object",
+  "properties": {
+    "messageId": {
+      "description": "Unique per message. Consumers deduplicate on it.",
+      "$ref": "#/$defs/uuid"
+    },
+    "type": {
+      "description": "The message name, such as DocumentUploaded.",
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z]+$"
+    },
+    "version": {
+      "description": "The message version. A breaking change creates a new version.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurredAt": {
+      "description": "When the publisher recorded the event, RFC 3339 with an offset.",
+      "$ref": "#/$defs/timestamp"
+    },
+    "tenantId": {
+      "description": "The tenant the message belongs to. The only source of the tenant for a consumer.",
+      "$ref": "#/$defs/tenantId"
+    },
+    "payload": {
+      "description": "The message fields, defined by each message schema.",
+      "type": "object"
+    }
+  },
+  "required": ["messageId", "type", "version", "occurredAt", "tenantId", "payload"],
+  "additionalProperties": false,
+  "$defs": {
+    "uuid": {
+      "description": "Lower-case 8-4-4-4-12 form, as Guid.ToString() and Python's str(UUID) write it.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "tenantId": {
+      "allOf": [
+        { "$ref": "#/$defs/uuid" },
+        { "not": { "const": "00000000-0000-0000-0000-000000000000" } }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "versionNumber": {
+      "description": "The document version's number: 1 for the first upload, then 2, 3, ...",
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
