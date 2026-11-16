@@ -56,4 +56,10 @@ ALTER DEFAULT PRIVILEGES FOR ROLE ai_owner IN SCHEMA ai
 ALTER DEFAULT PRIVILEGES FOR ROLE ai_owner IN SCHEMA ai
   GRANT USAGE ON SEQUENCES TO app_ai;
 -- corpus_ingestor gets no default grants: the ai migrations grant it only the corpus tables it writes.
+
+-- PostgreSQL lets PUBLIC execute every new function. Not for the owners' functions: a migration
+-- that adds one grants EXECUTE to the roles that need it. This is the global form, because a
+-- per-schema default cannot take away a global one.
+ALTER DEFAULT PRIVILEGES FOR ROLE core_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE ai_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 SQL
