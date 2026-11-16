@@ -18,7 +18,7 @@ All three use the existing nav-item classes (`h-9 rounded-control px-3 text-body
 - Settings belongs to the organization, not to an establishment. It renders without the establishment-picker gate. Changing the establishment in the switcher leaves the user on the page.
 - Top bar `h1`: "Settings". `<title>`: "Profiles · Settings · Normetry".
 
-**Home (`/`).** A user without `chat.ask` is sent to `/documents` if they hold `documents.read`, otherwise to `/settings/profiles` if they hold `profiles.read`, otherwise to the "no access" state (§6).
+**Home (`/`).** A user without `chat.ask` is sent to `/documents` if they hold `documents.read`, otherwise to `/settings/profiles` if they hold `profiles.read`, otherwise to the "no access" or "no screen" state (§6).
 
 ## 2. Layout
 
@@ -130,9 +130,10 @@ The breakpoint is `md`, 768px, the same as `media.list` in chat. Main scrolls, u
 | Loading | List card: 4 skeleton rows (`h-3 w-3/5` and `h-2.5 w-3/10`). Editor: a title bar (`h-4 w-40`), then 4 groups, each a legend bar and two rows. Users: 3 rows, each an avatar `size-8`, two bars and a button bar `h-9 w-24`. Each card is `aria-busy="true"` with a visually hidden "Loading profiles…" or "Loading users…". |
 | Empty | Does not occur: there are always 3 system profiles and at least the current user. Do not build one. |
 | Error | Inside the affected card, `role="alert"`: `Message` with "Couldn't load profiles" or "Couldn't load users", then a secondary "Try again" (`aria-disabled` with a `Spinner` while retrying, as in `ConversationList`). When the retry succeeds, focus moves to the card `h2`. |
-| Profile not found | In the editor: "This profile isn't available" / "It may have been deleted.", then a secondary link-button "Back to profiles". |
+| Profile not found | The editor `h2` reads "This profile isn't available", so the region keeps a name and focus has a target, with a 20px `CircleAlert` `text-text-secondary` before it. Below: "It may have been deleted.", then a secondary link-button "Back to profiles". A load that fails before the name is known puts "Couldn't load profiles" in the `h2` instead of the skeleton. |
+| `/me` fails | A `/me` that never loaded (not a 403): the list card shows "Couldn't load profiles" with Try again, which refetches `/me`; the editor and Users cards stay hidden until it recovers. A failed background refetch keeps the cached `/me` and changes nothing. A `/me` 403 (no organization) shows "Your account isn't linked to an organization" in the lock card of §6. |
 | Save, create or delete fails | Inline `role="alert"` text in the editor footer or the dialog, above the buttons. The draft is kept. |
-| Lockout refusal (409) | Inside the menu, below a separator, `role="alert"`: `CircleAlert` 16 `text-text-secondary` and a 12px white line, "{name} is the organization's last Owner. Give the Owner profile to someone else first." It clears on the next toggle or when the menu closes. |
+| Lockout refusal (409) | Inside the menu, below a separator shown with it: `CircleAlert` 16 `text-text-secondary` and a 12px white line, "{name} is the organization's last Owner. Give the Owner profile to someone else first." A menu may hold only items, groups and separators, so the line is not `role="alert"`: it sits in a menu group that is itself `aria-live="assertive" aria-atomic="true"`, always present and empty until a refusal. It clears on the next toggle or when the menu closes. |
 | Permission revoked mid-session (403 on an action) | Inline at the action: "You no longer have permission to do this." Then refetch `/me`, which hides the action. |
 | Duplicate name (409) | A field error in the name dialog. |
 | Refused (direct URL without `profiles.read`) | §6. |
@@ -154,6 +155,7 @@ The breakpoint is `md`, 768px, the same as `media.list` in chat. Main scrolls, u
 
 **Refused and no-access states.** All render in main as a `Message` inside a card (`p-5 max-w-160`, like the picker) with `Lock` 20 `text-neutral`:
 - **No permissions at all** (a user with no profile): "You don't have access yet" / "Ask an administrator in your organization to give you a profile, then reload this page." The sidebar shows only the logo, the tenant label and the user card. Do not call `/establishments`.
+- **A profile but no screen** (the user's profiles open none of Ask the Regulation, Documents or Settings): "Your profile doesn't include any screens yet" / "Ask an administrator in your organization to add permissions to your profile." Like the state above, it shows on every route, and the sidebar has no nav.
 - **A route without its permission:** "You don't have access to {screen}" / "Ask an administrator in your organization for access." `{screen}` is "Ask the Regulation", "Documents" or "Settings".
 - **`documents.read` or `chat.ask` without `establishments.read`:**
   - Hide the switcher and don't call `/establishments`. A 403 from that endpoint must no longer be read as "not linked to an organization"; only a 403 from `/me` means that.
@@ -212,7 +214,7 @@ The breakpoint is `md`, 768px, the same as `media.list` in chat. Main scrolls, u
 - Heading "Users" · caption "People appear here after their first sign-in to Normetry."
 - Your own row: "{name} (you)" · a user with no profile: "No profile".
 - Button "Profiles", with `aria-label` "Change profiles for {name}" (the visible text is part of the name).
-- Menu label: "Profiles for {name}".
+- Menu label: "Profiles for {name}". The menu's accessible name comes from its trigger, "Change profiles for {name}" (Radix's default); the label stays visible inside it.
 - Lockout: as in §5 · other errors: "Couldn't change {name}'s profiles. Try again."
 - Loading "Loading users…" · error "Couldn't load users".
 
@@ -233,6 +235,7 @@ Below 768px, the back link "Profiles" comes first on the detail route.
 - The back link: the list `h2`.
 - After a delete: the list `h2`.
 - Dialogs return focus to their trigger. After a create, focus goes to the new editor `h2` instead.
+- When a refetched `/me` takes away `profiles.manage` and removes the focused control (Save, a dialog's trigger, a menu), focus goes to the editor `h2`, or to the list `h2` when no editor shows. A menu that was open sends it to the Users `h2`.
 
 **Labels**
 - Each area is a `fieldset` with a `legend`. Each checkbox is a native input wrapped in its `<label>`, with its description linked by `aria-describedby`.
@@ -243,7 +246,7 @@ Below 768px, the back link "Profiles" comes first on the detail route.
 
 **Live regions**
 - One visually hidden `aria-live="polite"` region per screen, as in `ChatScreen`. It carries saved, created, renamed and deleted messages.
-- Refusals and errors use `role="alert"` where they appear. The lockout message sits inside the menu, because Radix hides everything outside an open menu from assistive tech.
+- Refusals and errors use `role="alert"` where they appear. The menu's refusals sit inside the menu, in its assertive live group (§5): Radix hides everything outside an open menu from assistive tech, and a menu may not hold an alert.
 
 **Other**
 - Disabled controls use `aria-disabled`, never `disabled` (the one exception is a native checkbox with no `profiles.manage`; that case renders read-only rows instead).
