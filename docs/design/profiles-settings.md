@@ -15,7 +15,7 @@ All three use the existing nav-item classes (`h-9 rounded-control px-3 text-body
 **Routes**
 - `/settings` redirects to `/settings/profiles`.
 - `/settings/profiles` and `/settings/profiles/:profileId`.
-- Settings belongs to the organization, not to an establishment. It renders without the establishment-picker gate. Changing the establishment in the switcher leaves the user on the page.
+- Settings belongs to the organization, not to an establishment. It never shows the establishments card: it needs no establishment. Changing the establishment in the switcher leaves the user on the page.
 - Top bar `h1`: "Settings". `<title>`: "Profiles · Settings · Normetry".
 
 **Home (`/`).** A user without `chat.ask` is sent to `/documents` if they hold `documents.read`, otherwise to `/settings/profiles` if they hold `profiles.read`, otherwise to the "no access" or "no screen" state (§6).
@@ -96,7 +96,7 @@ The breakpoint is `md`, 768px, the same as `media.list` in chat. Main scrolls, u
 | Read-only row | Same layout with no input. Granted: `Check` 16 `text-text-primary`, white label. Not granted: `Minus` 16 `text-text-secondary`, secondary label. A visually hidden "Granted:" or "Not granted:" precedes the label. |
 | Owner note | Inset block: `rounded-sm bg-inset p-3 flex gap-2`, `ShieldCheck` 16 `text-text-secondary`, one 13px white line. |
 | Editor footer | `mt-5 border-t border-border pt-4 flex items-center justify-end gap-3`. "Unsaved changes" in 12px `text-text-secondary`, shown only when the draft differs. **Primary** "Save changes" (`w-full sm:w-auto`). While saving: `Spinner surface="mint"` and "Saving…". |
-| Users card | Card. Header `p-5` with `h2` "Users" and a 12px secondary caption. The list uses the picker's list classes (`divide-y divide-border border-t border-border`). |
+| Users card | Card. Header `p-5` with `h2` "Users" and a 12px secondary caption. The list uses `divide-y divide-border border-t border-border`. |
 | User row | `flex min-h-15 items-start gap-3 px-5 py-3`. `Avatar` 32. Name 13/500. Email 12px secondary. Tags `flex flex-wrap gap-1.5`. On the right a **secondary** `Button` "Profiles" with `ChevronDown` 16. Below 640px the tags wrap onto a second line under the name. |
 | Profile menu | Radix `DropdownMenu`, styled like the account menu: `rounded-control border border-border bg-elevated p-1 min-w-56`. `Label` at 12px secondary. `CheckboxItem`: `h-9 rounded-sm px-2 gap-2 data-highlighted:bg-inset`, focus ring inset. A 16px indicator slot holds `Check` in `text-mint`; while that item's request runs it holds `Spinner surface="elevated"`. The separator is `h-px bg-inset`, because inside an elevated surface dividers use `--bg-inset`. |
 | Name dialog (create or rename) | Radix `Dialog` on the Alert dialog surface: `bg-elevated border border-border rounded-card p-5 max-w-100`, centered, over `bg-scrim`. Title 15/600. Footer right-aligned: Cancel (`secondary onElevated`), then the primary. |
@@ -148,12 +148,12 @@ The breakpoint is `md`, 768px, the same as `media.list` in chat. Main scrolls, u
 | `documents.read` | Documents (nav item, list, detail, live updates) |
 | `documents.upload` | "Upload document", "Upload new version", dropping a file on the documents list |
 | `documents.delete` | "Delete" on the document detail |
-| `establishments.read` | The establishment switcher and picker. Chat and Documents need it. |
+| `establishments.read` | The establishment switcher. Chat and Documents need it. |
 | `establishments.manage` | Nothing yet: the screen doesn't exist |
 | `profiles.read` | Settings (nav item, read-only Profiles tab) |
 | `profiles.manage` | New profile, Rename, Delete, permission checkboxes and Save, the users' Profiles menus |
 
-**Refused and no-access states.** All render in main as a `Message` inside a card (`p-5 max-w-160`, like the picker) with `Lock` 20 `text-neutral`:
+**Refused and no-access states.** All render in main as a `Message` inside a card (`p-5 max-w-160`, like the establishments card) with `Lock` 20 `text-neutral`:
 - **No permissions at all** (a user with no profile): "You don't have access yet" / "Ask an administrator in your organization to give you a profile, then reload this page." The sidebar shows only the logo, the tenant label and the user card. Do not call `/establishments`.
 - **A profile but no screen** (the user's profiles open none of Ask the Regulation, Documents or Settings): "Your profile doesn't include any screens yet" / "Ask an administrator in your organization to add permissions to your profile." Like the state above, it shows on every route, and the sidebar has no nav.
 - **A route without its permission:** "You don't have access to {screen}" / "Ask an administrator in your organization for access." `{screen}` is "Ask the Regulation", "Documents" or "Settings".

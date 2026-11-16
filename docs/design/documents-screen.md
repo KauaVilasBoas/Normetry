@@ -3,11 +3,10 @@
 ## 1. Navigation and routes
 
 - Nav item "Documents" (`FileText`, `/documents`, needs `documents.read`), after Ask the Regulation (Spec 1 §1).
-- Routes: `/documents` (list) and `/documents/:documentId` (detail). Both are establishment-scoped: with no establishment selected, main shows the existing picker.
-  - The picker's subtitle needs a version for this route: "Choose an establishment to see its documents."
+- Routes: `/documents` (list) and `/documents/:documentId` (detail). Both are establishment-scoped. The user never picks one to start: the remembered establishment, else the first in the list, is selected, and the switcher changes it. Main shows the establishments card only when the list is empty or failed, and the lock card when the account has no organization.
 - Top bar `h1`: "Documents" on both routes.
   - `<title>`: "Documents · Normetry", and on the detail page "{title} · Documents · Normetry".
-- **Changing establishment** in the switcher navigates to `/documents`. Today `chooseInSwitcher` always goes to `/`; it must go to the root of the current section.
+- **Changing establishment** in the switcher navigates to `/documents`.
 - **Opening a detail URL** for a document of another establishment in the same tenant selects that establishment once, as the chat does for conversations.
 
 ## 2. Layout
