@@ -10,6 +10,9 @@ from uuid import UUID, uuid4
 
 import anyio
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from pydantic import ValidationError
 from test_contracts import errors, schema_name
 
@@ -107,6 +110,20 @@ def test_an_upload_publishes_started_then_its_result_for_the_message_tenant() ->
     assert {message.tenant_id for message in broker.published} == {TENANT}
     started = broker.published[0].payload
     assert (started.version_id, started.version_number) == (UPLOADED.version_id, 2)
+
+
+def test_the_consumer_span_names_the_message_tenant() -> None:
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    body = envelope(TENANT, DELETED).model_dump_json().encode()
+
+    with provider.get_tracer(__name__).start_as_current_span("process ai.documents"):
+        anyio.run(handle, body, 0, FakeWorker(), FakeBroker().publish)
+
+    (span,) = exporter.get_finished_spans()
+    assert span.attributes["normetry.tenant_id"] == str(TENANT)
+    assert span.attributes["normetry.message.type"] == "DocumentDeleted"
 
 
 def test_result_events_have_ids_derived_from_their_tenant_and_version() -> None:
