@@ -148,7 +148,10 @@ def parse(body: bytes | str) -> Envelope[Any]:
     data = json.loads(body)
     if not isinstance(data, dict):
         raise ValueError("a message body is a JSON object")
-    payload = MESSAGES.get((data.get("type"), data.get("version")))
+    kind, version = data.get("type"), data.get("version")
+    # A list or an object is unhashable: a lookup would raise TypeError, which no caller expects.
+    scalar = isinstance(kind, str) and isinstance(version, int)
+    payload = MESSAGES.get((kind, version)) if scalar else None
     if payload is None:
         raise ValueError("unknown message type or version")
     return Envelope[payload].model_validate(data)
