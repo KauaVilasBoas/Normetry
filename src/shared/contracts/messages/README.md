@@ -105,4 +105,4 @@ The body is authoritative. The AMQP properties and headers below repeat or add t
 ## Contract tests
 
 - Python (`src/ai/tests/test_contracts.py`): every schema is valid 2020-12; every fixture validates (or, the invalid ones, fails exactly one rule) against its schema and against the Python models; the models' own output validates against the schemas; the required fields match `published.json`.
-- .NET: the same checks against the C# message types, with the core's messaging (#84, #85).
+- .NET (`src/core/tests/Normetry.UnitTests/Messaging/MessageContractTests.cs`): every schema is valid 2020-12; every fixture validates (or, the invalid ones, fails) against its schema and is read (or refused) by the core's `MessageJson`; what the core writes for each message validates against its schema and reads back the same.
