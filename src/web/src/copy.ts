@@ -33,6 +33,7 @@ export const copy = {
     askTheRegulation: "Ask the Regulation",
     settings: "Settings",
     navigation: "Navigation",
+    loadingNavigation: "Loading navigation…",
     openNavigation: "Open navigation",
     closeNavigation: "Close navigation",
     organization: "Organization:",

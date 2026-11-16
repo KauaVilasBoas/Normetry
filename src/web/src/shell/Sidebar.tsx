@@ -7,6 +7,7 @@ import { can, type Establishment, type Me, type ProfileSummary } from "../api/qu
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { forgetEstablishments, type ListState } from "../establishments/selection";
+import { sortProfiles } from "../settings/profiles";
 import { Logo } from "../ui/Logo";
 import { Avatar, Skeleton } from "../ui/primitives";
 import { EstablishmentSwitcher } from "./EstablishmentSwitcher";
@@ -70,7 +71,8 @@ export function Sidebar({
         )}
       </div>
       {me.isPending ? (
-        <div className="mt-5 flex flex-col gap-1">
+        <div aria-busy="true" className="mt-5 flex flex-col gap-1">
+          <span className="sr-only">{copy.shell.loadingNavigation}</span>
           <Skeleton className="h-9 w-full" />
           <Skeleton className="h-9 w-full" />
         </div>
@@ -154,7 +156,9 @@ function UserMenu({ profiles }: { profiles: ProfileSummary[] | undefined }) {
             )}
             {profiles && profiles.length > 0 && (
               <span className="block text-small text-text-secondary">
-                {profiles.map((profile) => profile.name).join(", ")}
+                {sortProfiles(profiles)
+                  .map((profile) => profile.name)
+                  .join(", ")}
               </span>
             )}
           </DropdownMenu.Label>
