@@ -240,7 +240,7 @@ def test_an_indexed_version_whose_result_cannot_be_published_is_never_reported_f
 
 
 def test_retries_wait_longer_each_time() -> None:
-    assert [retry_delay(count) for count in range(DELIVERY_LIMIT)] == [1, 2, 4, 8]
+    assert [retry_delay(count) for count in range(DELIVERY_LIMIT)] == [2, 10, 30, 60]
 
 
 def test_the_queue_dead_letters_after_the_limit_the_consumer_counts_to() -> None:
