@@ -1,5 +1,5 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { Building2, ChevronDown, LogOut, MessagesSquare } from "lucide-react";
+import { Building2, ChevronDown, LogOut, MessagesSquare, Settings } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
 import { Link, useMatch } from "react-router";
@@ -35,6 +35,7 @@ export function Sidebar({
   // A new conversation and a saved one are both Ask the Regulation.
   const atNew = useMatch("/") !== null;
   const atConversation = useMatch("/conversations/:conversationId") !== null;
+  const atSettings = useMatch("/settings/*") !== null;
   const items = [
     {
       to: "/",
@@ -42,6 +43,13 @@ export function Sidebar({
       Icon: MessagesSquare,
       shown: can(me.data, "chat.ask"),
       active: atNew || atConversation,
+    },
+    {
+      to: "/settings/profiles",
+      label: copy.shell.settings,
+      Icon: Settings,
+      shown: can(me.data, "profiles.read"),
+      active: atSettings,
     },
   ].filter((item) => item.shown);
   return (

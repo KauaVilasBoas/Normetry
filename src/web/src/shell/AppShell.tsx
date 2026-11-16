@@ -1,7 +1,8 @@
 import { Lock, Menu, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Navigate, useNavigate, useParams } from "react-router";
+import { ApiError } from "../api/client";
 import {
   can,
   useConversations,
@@ -14,14 +15,16 @@ import { ChatScreen } from "../chat/ChatScreen";
 import { copy, format } from "../copy";
 import { EstablishmentPicker } from "../establishments/EstablishmentPicker";
 import { listState, useEstablishmentSelection } from "../establishments/selection";
+import { ProfilesScreen } from "../settings/ProfilesScreen";
 import { iconButton, Message } from "../ui/primitives";
 import { Sidebar } from "./Sidebar";
 
 /**
  * The app frame: sidebar (a drawer below 1024px), top bar and main. Main shows what `/me`'s
  * permissions allow; while `/me` is pending nothing gated shows. The server checks every call.
+ * Settings belongs to the organization, so it shows without an establishment.
  */
-export function AppShell() {
+export function AppShell({ screen }: { screen: "chat" | "settings" }) {
   const { profile } = useSession();
   const me = useMe();
   const chatAllowed = can(me.data, "chat.ask");
@@ -31,7 +34,7 @@ export function AppShell() {
   const { selected, select } = useEstablishmentSelection(me.data, establishments.data);
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const conversations = useConversations(chatAllowed);
+  const conversations = useConversations(chatAllowed && screen === "chat");
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -72,6 +75,12 @@ export function AppShell() {
 
   const chooseInSwitcher = (establishment: Establishment) => {
     select(establishment);
+    // Settings stays where it is; the chat opens a new conversation for the establishment.
+    if (screen === "settings") {
+      setDrawerOpen(false);
+      setAnnouncement(format(copy.switcher.selected, { name: establishment.name }));
+      return;
+    }
     void navigate("/");
     if (drawerOpen) {
       focusRegionAfterDrawer.current = true;
@@ -90,10 +99,26 @@ export function AppShell() {
   let content: ReactNode;
   if (me.data?.permissions.length === 0) {
     content = <AccessCard title={copy.access.noneTitle} body={copy.access.noneBody} />;
+  } else if (screen === "settings") {
+    if (me.error instanceof ApiError && me.error.status === 403)
+      content = <AccessCard title={copy.picker.noTenantTitle} body={copy.picker.noTenantBody} />;
+    else if (me.data && !can(me.data, "profiles.read"))
+      content = (
+        <AccessCard
+          title={format(copy.access.refusedTitle, { screen: copy.shell.settings })}
+          body={copy.access.refusedBody}
+        />
+      );
+    else content = <ProfilesScreen me={me} />;
   } else if (me.data && !chatAllowed) {
+    // Home goes to the first screen the user may open.
     content =
       conversationId === undefined ? (
-        <AccessCard title={copy.access.noneTitle} body={copy.access.noneBody} />
+        can(me.data, "profiles.read") ? (
+          <Navigate to="/settings/profiles" replace />
+        ) : (
+          <AccessCard title={copy.access.noneTitle} body={copy.access.noneBody} />
+        )
       ) : (
         <AccessCard
           title={format(copy.access.refusedTitle, { screen: copy.shell.askTheRegulation })}
@@ -137,7 +162,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-dvh bg-app">
-      <title>{copy.titles.app}</title>
+      <title>{screen === "settings" ? copy.titles.profiles : copy.titles.app}</title>
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-control focus:bg-elevated focus:px-4 focus:py-2"
@@ -157,7 +182,9 @@ export function AppShell() {
             >
               <Menu aria-hidden="true" className="size-5" />
             </Dialog.Trigger>
-            <h1 className="text-title font-semibold">{copy.shell.askTheRegulation}</h1>
+            <h1 className="text-title font-semibold">
+              {screen === "settings" ? copy.shell.settings : copy.shell.askTheRegulation}
+            </h1>
           </header>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 z-40 bg-scrim" />
