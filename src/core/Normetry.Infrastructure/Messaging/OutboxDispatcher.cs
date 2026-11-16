@@ -8,8 +8,11 @@ using Normetry.Infrastructure.Persistence;
 namespace Normetry.Infrastructure.Messaging;
 
 /// <summary>
-/// Publishes pending outbox rows every second. Each tenant of <see cref="OutboxTenantList"/> gets its
-/// own scope and transaction (RLS on the tenant of its rows): the batch is locked with
+/// Publishes pending outbox rows. A tenant whose messages this process just committed is
+/// published at once (<see cref="OutboxSignal"/>); every 30 seconds, and after a failure, a full
+/// pass visits each tenant of <see cref="OutboxTenantList"/>, for rows a signal did not cover
+/// (another API instance, a crash, a broker that was down). Each tenant gets its own scope and
+/// transaction (RLS on the tenant of its rows): the batch is locked with
 /// <c>FOR UPDATE SKIP LOCKED</c>, so two API instances never publish the same row at once, and a
 /// row is marked sent only after the broker confirmed it. A crash between the confirm and the
 /// commit publishes the row again: delivery is at least once and consumers deduplicate.
@@ -17,13 +20,14 @@ namespace Normetry.Infrastructure.Messaging;
 internal sealed class OutboxDispatcher(
     IServiceScopeFactory scopes,
     RabbitMqPublisher publisher,
+    OutboxSignal signal,
     IConfiguration configuration,
     TimeProvider clock,
     ILogger<OutboxDispatcher> logger
 ) : BackgroundService
 {
     private const int BatchSize = 50;
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan FullPassInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
 
     private readonly string tenantListConnectionString = CoreDatabase.GetDispatcherConnectionString(
@@ -34,19 +38,62 @@ internal sealed class OutboxDispatcher(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var delay = PollInterval;
             try
             {
                 await DispatchAllAsync(stoppingToken);
+                await DispatchSignaledAsync(stoppingToken);
             }
             catch (Exception error) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogWarning(error, "Outbox dispatch failed; retrying");
-                delay = RetryDelay;
+                await Task.Delay(RetryDelay, stoppingToken)
+                    .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             }
-            await Task.Delay(delay, stoppingToken)
-                .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
+    }
+
+    /// <summary>Until the next full pass is due, publishes the tenants signaled as they come.</summary>
+    private async Task DispatchSignaledAsync(CancellationToken stoppingToken)
+    {
+        using var pass = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        pass.CancelAfter(FullPassInterval);
+        try
+        {
+            while (await signal.Reader.WaitToReadAsync(pass.Token))
+            {
+                var tenants = new HashSet<Guid>();
+                while (signal.Reader.TryRead(out var tenantId))
+                {
+                    tenants.Add(tenantId);
+                }
+                foreach (var tenantId in tenants)
+                {
+                    try
+                    {
+                        await DrainAsync(tenantId, stoppingToken);
+                    }
+                    catch (Exception error) when (!stoppingToken.IsCancellationRequested)
+                    {
+                        // Its rows stay pending for the next full pass.
+                        logger.LogWarning(
+                            error,
+                            "Outbox dispatch failed for tenant {TenantId}",
+                            tenantId
+                        );
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+        {
+            // The full pass is due.
+        }
+    }
+
+    /// <summary>Publishes the tenant's batches until one is not full (all sent, or a failure).</summary>
+    private async Task DrainAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        while (await DispatchAsync(tenantId, cancellationToken) == BatchSize) { }
     }
 
     public async Task DispatchAllAsync(CancellationToken cancellationToken)
@@ -55,7 +102,7 @@ internal sealed class OutboxDispatcher(
             tenantListConnectionString,
             logger,
             "Outbox dispatch",
-            tenantId => DispatchAsync(tenantId, cancellationToken),
+            tenantId => DrainAsync(tenantId, cancellationToken),
             cancellationToken
         );
     }

@@ -142,6 +142,52 @@ public sealed class OutboxDispatcherTests : IClassFixture<RabbitMqFixture>
         Assert.Equal([false], await SentAsync(tenantB));
     }
 
+    [Fact]
+    public async Task A_running_dispatcher_publishes_a_committed_message_without_waiting_for_a_full_pass()
+    {
+        var tenant = await TestTenants.CreateAsync(db);
+        await using var api = NewApi();
+        await using var connection = await broker.ConnectAsync();
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: Ct);
+        var queue = await BindTestQueueAsync(channel, DocumentDeleted.RoutingKey);
+        var dispatcher = NewDispatcher(api);
+        await WriteWithStateChangeAsync(api, tenant, id => new DocumentDeleted(
+            id,
+            Guid.CreateVersion7()
+        ));
+        await dispatcher.StartAsync(Ct);
+        try
+        {
+            // The first message goes out with the full pass at start; the next pass is 30 s away.
+            Assert.NotNull(await DeliveredAsync(channel, queue));
+
+            await WriteWithStateChangeAsync(api, tenant, id => new DocumentDeleted(
+                id,
+                Guid.CreateVersion7()
+            ));
+
+            Assert.NotNull(await DeliveredAsync(channel, queue));
+        }
+        finally
+        {
+            await dispatcher.StopAsync(Ct);
+        }
+    }
+
+    /// <summary>The next message on the queue, waiting up to 5 seconds, or null.</summary>
+    private static async Task<BasicGetResult?> DeliveredAsync(IChannel channel, string queue)
+    {
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            if (await channel.BasicGetAsync(queue, autoAck: true, Ct) is { } delivered)
+            {
+                return delivered;
+            }
+            await Task.Delay(100, Ct);
+        }
+        return null;
+    }
+
     private ApiFactory NewApi() =>
         new()
         {
@@ -180,6 +226,7 @@ public sealed class OutboxDispatcherTests : IClassFixture<RabbitMqFixture>
             .EnqueueAsync(message(establishment.Id), Ct);
         await context.SaveChangesAsync(Ct);
         await transaction.CommitAsync(Ct);
+        scope.ServiceProvider.GetRequiredService<AfterCommit>().Run();
         return establishment.Id;
     }
 

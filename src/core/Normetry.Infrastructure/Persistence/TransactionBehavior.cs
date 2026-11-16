@@ -11,10 +11,12 @@ namespace Normetry.Infrastructure.Persistence;
 /// request's tenant. A successful command saves its changes and commits; a failed result or an
 /// exception rolls back, and a query never commits. A unique index that refuses the save in a
 /// race the handler's own check cannot see (two concurrent requests) becomes that index's
-/// refusal instead of a 500.
+/// refusal instead of a 500. After the commit it runs the scope's <see cref="AfterCommit"/> work.
 /// </summary>
-internal sealed class TransactionBehavior<TRequest, TResult>(CoreDbContext db)
-    : IPipelineBehavior<TRequest, TResult>
+internal sealed class TransactionBehavior<TRequest, TResult>(
+    CoreDbContext db,
+    AfterCommit afterCommit
+) : IPipelineBehavior<TRequest, TResult>
     where TRequest : IRequest<TResult>
     where TResult : Result, IFailureFactory<TResult>
 {
@@ -58,6 +60,7 @@ internal sealed class TransactionBehavior<TRequest, TResult>(CoreDbContext db)
                 return TResult.Failure(refusal);
             }
             await transaction.CommitAsync(cancellationToken);
+            afterCommit.Run();
         }
         return result;
     }

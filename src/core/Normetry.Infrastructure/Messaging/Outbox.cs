@@ -7,10 +7,17 @@ namespace Normetry.Infrastructure.Messaging;
 
 /// <summary>
 /// Adds the message to the request's unit of work, so <c>TransactionBehavior</c> saves it with
-/// the state change, and records the tenant for the dispatcher. The tenant comes from the scope's
-/// <see cref="ITenantContext"/>, and RLS refuses a row for any other.
+/// the state change, records the tenant for the dispatcher and wakes the dispatcher once the
+/// transaction commits. The tenant comes from the scope's <see cref="ITenantContext"/>, and RLS
+/// refuses a row for any other.
 /// </summary>
-internal sealed class Outbox(CoreDbContext db, ITenantContext tenant, TimeProvider clock) : IOutbox
+internal sealed class Outbox(
+    CoreDbContext db,
+    ITenantContext tenant,
+    AfterCommit afterCommit,
+    OutboxSignal signal,
+    TimeProvider clock
+) : IOutbox
 {
     internal const int TraceStateMaxLength = 512;
 
@@ -44,5 +51,6 @@ internal sealed class Outbox(CoreDbContext db, ITenantContext tenant, TimeProvid
             $"INSERT INTO core.outbox_tenants (tenant_id) VALUES ({tenantId}) ON CONFLICT DO NOTHING",
             cancellationToken
         );
+        afterCommit.Add(() => signal.Notify(tenantId));
     }
 }

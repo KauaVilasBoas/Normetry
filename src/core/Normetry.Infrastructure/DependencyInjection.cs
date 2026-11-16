@@ -57,12 +57,14 @@ public static class DependencyInjection
             new BlobContainerClient(blobConnectionString, blobContainer)
         ));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
+        services.AddScoped<AfterCommit>();
 
         // Background services open one scope per tenant and set its tenant here first; the
         // development document seed also sets the user it uploads as.
         services.AddScoped<BackgroundTenant>();
         services.AddScoped<BackgroundUser>();
         services.AddScoped<IOutbox, Outbox>();
+        services.AddSingleton<OutboxSignal>();
         services.AddSingleton<RabbitMqConnection>();
         services.AddSingleton<RabbitMqPublisher>();
         services.AddHostedService<OutboxDispatcher>();
