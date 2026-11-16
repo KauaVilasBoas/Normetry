@@ -40,11 +40,14 @@ export function fileProblem(files: File[]): string | undefined {
 }
 
 /**
- * The file as sent: a browser that knows no type for the extension (a .docx without Office) sends
- * none, which the core refuses, so it gets the one the core expects.
+ * The file with the content type the core expects for its extension. Browsers report their own: none
+ * for a .docx without Office, application/octet-stream or text/x-csv on some systems. The core
+ * checks the file's first bytes anyway.
  */
-export const withContentType = (file: File) =>
-  file.type ? file : new File([file], file.name, { type: formats[extensionOf(file.name)] });
+export const withContentType = (file: File) => {
+  const type = formats[extensionOf(file.name)];
+  return !type || file.type === type ? file : new File([file], file.name, { type });
+};
 
 /** Where an upload's refusal shows: on the file (the drop zone) or above the buttons. */
 export function uploadRefusal(result: Sent & { ok: false }, fileName: string) {

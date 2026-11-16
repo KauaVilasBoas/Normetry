@@ -43,13 +43,15 @@ describe("file checks", () => {
     );
   });
 
-  it("gives a file the browser has no type for the one the core expects", () => {
+  it("sends the content type the core expects for the extension, whatever the browser says", () => {
     expect(withContentType(file("sop.docx")).type).toBe(
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     );
-    expect(withContentType(file("log.csv", 10, "application/vnd.ms-excel")).type).toBe(
-      "application/vnd.ms-excel",
+    expect(withContentType(file("sop.docx", 10, "application/octet-stream")).type).toBe(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     );
+    expect(withContentType(file("log.csv", 10, "text/x-csv")).type).toBe("text/csv");
+    expect(withContentType(file("log.csv", 10, "application/vnd.ms-excel")).type).toBe("text/csv");
   });
 
   it("prefills the title without the extension", () => {
