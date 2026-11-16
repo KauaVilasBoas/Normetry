@@ -26,7 +26,7 @@ The body is UTF-8 JSON, camelCase:
 }
 ```
 
-- `messageId`: unique per message. Consumers deduplicate on it (the core's inbox is keyed by it).
+- `messageId`: unique per message. Consumers deduplicate on it (the core's inbox is keyed by tenant and message id).
 - `type` and `version`: the message and its version; they pick the schema.
 - `occurredAt`: RFC 3339 with an offset (`Z` or `+00:00`).
 - `tenantId`: the tenant, a non-nil UUID. **The only source of the tenant for a consumer.** A consumer sets the tenant of its database transaction from it and from nothing else.
