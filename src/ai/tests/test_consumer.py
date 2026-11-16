@@ -78,9 +78,10 @@ class FakeWorker:
 class FakeBroker:
     published: list[Envelope[Any]] = field(default_factory=list)
     failing: bool = False
+    refuses: str | None = None  # one message type that cannot be published
 
     async def publish(self, message: Envelope[Any]) -> None:
-        if self.failing:
+        if self.failing or message.type == self.refuses:
             raise ConnectionError("broker gone")
         self.published.append(message)
 
@@ -218,6 +219,15 @@ def test_a_broker_failure_is_retried_and_never_blocks_the_dead_letter() -> None:
     # On the last delivery the failure event cannot go either; the message is dead-lettered.
     last = deliver(FakeWorker(result=INDEXED), UPLOADED, DELIVERY_LIMIT, FakeBroker(failing=True))
     assert last[0] == "dead-letter"
+
+
+def test_an_indexed_version_whose_result_cannot_be_published_is_never_reported_failed() -> None:
+    broker = FakeBroker(refuses="DocumentIndexed")
+
+    action, broker = deliver(FakeWorker(result=INDEXED), UPLOADED, DELIVERY_LIMIT, broker)
+
+    assert action == "dead-letter"
+    assert [kind for kind, _ in broker.sent] == ["DocumentIngestionStarted"]
 
 
 def test_retries_wait_longer_each_time() -> None:
