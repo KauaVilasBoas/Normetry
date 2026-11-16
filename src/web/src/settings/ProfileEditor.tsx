@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "../api/client";
 import {
@@ -81,14 +81,6 @@ export function ProfileEditor({
   const saved = profile.data?.permissions ?? [];
   const granted = draft ?? saved;
   const dirty = draft !== undefined && !sameSet(draft, saved);
-  // Saving away the user's own profiles.manage (a refetched /me) removes Save under focus.
-  const wasEditable = useRef(editable);
-  useEffect(() => {
-    if (wasEditable.current && !editable && document.activeElement === document.body)
-      document.getElementById(EDITOR_TITLE_ID)?.focus();
-    wasEditable.current = editable;
-  }, [editable]);
-
   const caption = !canManage
     ? copy.profiles.readOnlyCaption
     : system && !grantsAll
