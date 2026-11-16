@@ -51,7 +51,10 @@ QUEUE_ARGUMENTS = {
 # Result events get an id derived from the version, so the core's inbox drops a re-published one.
 _EVENT_IDS = uuid5(NAMESPACE_URL, "https://contracts.normetry.example/messages/")
 
-Action = Literal["ack", "retry", "dead-letter"]
+Action = Literal["ack", "retry", "dead-letter", "wait"]
+# While the database or blob storage is down, a message waits here, unacknowledged, and spends
+# none of its deliveries. RabbitMQ's consumer timeout (30 minutes by default) bounds one wait.
+OUTAGE_WAIT_SECONDS = 10.0
 Publish = Callable[[Envelope[Any]], Awaitable[None]]
 
 
@@ -112,8 +115,10 @@ async def handle(
 
     A body that breaks the contract, or a message this queue does not take, is dead-lettered at
     once. A file that cannot be indexed publishes DocumentIngestionFailed and is acknowledged.
-    Any other error is retried; on the last delivery an upload that is not indexed publishes
-    DocumentIngestionFailed (`internal`) first, so the core does not wait for its timeout.
+    Any other error waits while the database or blob storage is unreachable (`wait`: the caller
+    handles the message again later), and is retried otherwise; on the last delivery an upload that
+    is not indexed publishes DocumentIngestionFailed (`internal`) first, so the core does not wait
+    for its timeout.
     """
     try:
         message = parse(body)
@@ -140,6 +145,16 @@ async def handle(
             await _uploaded(tenant_id, payload, worker, publish)
         return "ack"
     except Exception as error:
+        if not await anyio.to_thread.run_sync(worker.reachable):
+            logger.warning(
+                "Holding %s %s of tenant %s: the database or blob storage is unreachable (%s)",
+                message.type,
+                message.message_id,
+                tenant_id,
+                type(error).__name__,
+                extra={"tenant_id": str(tenant_id)},
+            )
+            return "wait"
         last = delivery_count >= DELIVERY_LIMIT
         # The error type only: a database error's text can quote stored rows.
         logger.warning(
@@ -241,6 +256,9 @@ async def start(
                 },
             ):
                 action = await handle(incoming.body, count, worker, publish)
+                while action == "wait":
+                    await asyncio.sleep(OUTAGE_WAIT_SECONDS)
+                    action = await handle(incoming.body, count, worker, publish)
             if action == "ack":
                 await incoming.ack()
             elif action == "retry":

@@ -58,7 +58,11 @@ class FakeWorker:
     result: DocumentIndexed | None = None
     error: Exception | None = None
     starts: bool = True
+    up: bool = True  # whether the database and blob storage answer
     calls: list[tuple[str, UUID, Any]] = field(default_factory=list)
+
+    def reachable(self) -> bool:
+        return self.up
 
     def ingest(self, tenant_id: UUID, message: DocumentUploaded, on_start: Any) -> Any:
         self.calls.append(("ingest", tenant_id, message))
@@ -213,6 +217,16 @@ def test_a_transient_failure_is_retried_then_fails_the_version_and_is_dead_lette
     assert action == "dead-letter"
     failed = broker.sent[-1][1]
     assert (broker.sent[-1][0], failed.reason_code) == ("DocumentIngestionFailed", "internal")
+
+
+def test_a_failure_during_an_outage_waits_without_spending_a_delivery() -> None:
+    down = FakeWorker(error=OSError("database down"), up=False)
+
+    for payload in (UPLOADED, DELETED):
+        action, broker = deliver(down, payload, DELIVERY_LIMIT)
+        # Even on the last delivery: nothing is dead-lettered, and no failure is published.
+        assert action == "wait"
+        assert "DocumentIngestionFailed" not in [kind for kind, _ in broker.sent]
 
 
 def test_a_failed_delete_is_retried_then_dead_lettered() -> None:
