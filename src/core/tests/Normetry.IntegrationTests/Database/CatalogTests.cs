@@ -45,6 +45,9 @@ public sealed class CatalogTests
             [
                 "chat_message_counts",
                 "establishments",
+                "inbox_messages",
+                "outbox_messages",
+                "outbox_tenants",
                 "permissions",
                 "profile_permissions",
                 "profiles",
@@ -72,6 +75,10 @@ public sealed class CatalogTests
             [
                 "chat_message_counts.chat_message_counts_tenant ALL app_core",
                 "establishments.establishments_tenant ALL app_core",
+                "inbox_messages.inbox_messages_tenant ALL app_core",
+                "outbox_messages.outbox_messages_tenant ALL app_core",
+                "outbox_tenants.outbox_tenants_insert INSERT app_core",
+                "outbox_tenants.outbox_tenants_select SELECT app_core",
                 "profile_permissions.profile_permissions_tenant ALL app_core",
                 "profiles.profiles_tenant ALL app_core",
                 "tenants.tenants_insert INSERT app_core",
@@ -106,6 +113,13 @@ public sealed class CatalogTests
                 "establishments app_core INSERT",
                 "establishments app_core SELECT",
                 "establishments app_core UPDATE",
+                "inbox_messages app_core INSERT",
+                "inbox_messages app_core SELECT",
+                "outbox_messages app_core INSERT",
+                "outbox_messages app_core SELECT",
+                "outbox_messages app_core UPDATE",
+                "outbox_tenants app_core INSERT",
+                "outbox_tenants app_core SELECT",
                 "permissions app_core SELECT",
                 "profile_permissions app_core DELETE",
                 "profile_permissions app_core INSERT",
@@ -152,6 +166,7 @@ public sealed class CatalogTests
         Assert.Contains(applied, id => id.EndsWith("_CreateChatMessageCounts"));
         Assert.Contains(applied, id => id.EndsWith("_CreateUsersProfilesAndPermissions"));
         Assert.Contains(applied, id => id.EndsWith("_InsertPermissionCatalog"));
+        Assert.Contains(applied, id => id.EndsWith("_CreateOutboxAndInbox"));
     }
 
     [Fact]

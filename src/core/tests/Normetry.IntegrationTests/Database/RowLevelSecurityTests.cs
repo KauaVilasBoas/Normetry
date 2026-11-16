@@ -3,9 +3,10 @@ using Xunit;
 namespace Normetry.IntegrationTests.Database;
 
 /// <summary>
-/// RLS on core.tenants, core.establishments, core.chat_message_counts and the identity tables
-/// (profiles, profile_permissions, users, user_profiles), in plain SQL as
-/// app_core (the rls-table skill).
+/// RLS on core.tenants, core.establishments, core.chat_message_counts, the identity tables
+/// (profiles, profile_permissions, users, user_profiles) and the messaging tables
+/// (outbox_messages, inbox_messages, outbox_tenants), in plain SQL as app_core (the rls-table
+/// skill).
 /// Every test makes its own tenants, so tests never see each other's rows.
 /// </summary>
 [Collection(DatabaseCollection.Name)]
@@ -621,5 +622,187 @@ public sealed class RowLevelSecurityTests
         {
             await session.AssertDeniedAsync(InsertEstablishment, Guid.CreateVersion7(), tenantA);
         }
+    }
+
+    /// <summary>A new row for <paramref name="table"/> (outbox_messages or inbox_messages) in <paramref name="tenant"/>.</summary>
+    private static (string Sql, object[] Parameters) InsertMessage(string table, Guid tenant) =>
+        table == "outbox_messages"
+            ? (
+                """
+                INSERT INTO core.outbox_messages (tenant_id, id, type, routing_key, body, created_at)
+                VALUES ($1, $2, 'DocumentDeleted', 'document.deleted.v1', '{}', now())
+                """,
+                [tenant, Guid.CreateVersion7()]
+            )
+            : (
+                """
+                INSERT INTO core.inbox_messages (tenant_id, message_id, type, received_at)
+                VALUES ($1, $2, 'DocumentIndexed', now())
+                """,
+                [tenant, Guid.NewGuid()]
+            );
+
+    /// <summary>Two new tenants with one row each in <paramref name="table"/>, written by app_core.</summary>
+    private async Task<(Guid TenantA, Guid TenantB)> SeedMessagesAsync(string table)
+    {
+        var (tenantA, tenantB, _, _) = await SeedAsync();
+        foreach (var tenant in new[] { tenantA, tenantB })
+        {
+            await using var session = await Session.BeginAsync(AppCore, tenant);
+            var (sql, parameters) = InsertMessage(table, tenant);
+            await session.ExecuteAsync(sql, parameters);
+            await session.CommitAsync();
+        }
+        return (tenantA, tenantB);
+    }
+
+    [Theory]
+    [InlineData("outbox_messages")]
+    [InlineData("inbox_messages")]
+    public async Task Each_tenant_reads_only_its_own_messages(string table)
+    {
+        var (tenantA, tenantB) = await SeedMessagesAsync(table);
+        var visible = $"SELECT DISTINCT tenant_id FROM core.{table} WHERE tenant_id = ANY($1)";
+        Guid[] both = [tenantA, tenantB];
+
+        await using (var session = await Session.BeginAsync(AppCore, tenantA))
+        {
+            Assert.Equal([tenantA], await session.ColumnAsync<Guid>(visible, both));
+        }
+        await using (var session = await Session.BeginAsync(AppCore, tenantB))
+        {
+            Assert.Equal([tenantB], await session.ColumnAsync<Guid>(visible, both));
+        }
+    }
+
+    [Fact]
+    public async Task A_tenant_cannot_mark_another_tenants_outbox_messages_sent()
+    {
+        var (tenantA, tenantB) = await SeedMessagesAsync("outbox_messages");
+
+        await using (var session = await Session.BeginAsync(AppCore, tenantB))
+        {
+            Assert.Equal(
+                0,
+                await session.ExecuteAsync(
+                    "UPDATE core.outbox_messages SET sent_at = now() WHERE tenant_id = $1",
+                    tenantA
+                )
+            );
+            await session.CommitAsync();
+        }
+
+        await using var sessionA = await Session.BeginAsync(AppCore, tenantA);
+        Assert.Equal(
+            1L,
+            await sessionA.ScalarAsync<long>(
+                "SELECT count(*) FROM core.outbox_messages WHERE sent_at IS NULL"
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData("DELETE FROM core.outbox_messages WHERE tenant_id = $1")]
+    [InlineData("UPDATE core.inbox_messages SET type = 'x' WHERE tenant_id = $1")]
+    [InlineData("DELETE FROM core.inbox_messages WHERE tenant_id = $1")]
+    public async Task App_core_cannot_delete_outbox_rows_or_change_inbox_rows_even_its_own(
+        string sql
+    )
+    {
+        var (tenantA, _) = await SeedMessagesAsync(
+            sql.Contains("outbox") ? "outbox_messages" : "inbox_messages"
+        );
+
+        await using var session = await Session.BeginAsync(AppCore, tenantA);
+        await session.AssertDeniedAsync(sql, tenantA);
+    }
+
+    [Theory]
+    [InlineData("outbox_messages")]
+    [InlineData("inbox_messages")]
+    public async Task A_tenant_cannot_insert_or_move_messages_into_another_tenant(string table)
+    {
+        var (tenantA, tenantB) = await SeedMessagesAsync(table);
+        var (sql, parameters) = InsertMessage(table, tenantB);
+
+        await using (var session = await Session.BeginAsync(AppCore, tenantA))
+        {
+            await session.AssertDeniedAsync(sql, parameters);
+        }
+        if (table == "outbox_messages")
+        {
+            await using var session = await Session.BeginAsync(AppCore, tenantA);
+            await session.AssertDeniedAsync(
+                "UPDATE core.outbox_messages SET tenant_id = $1 WHERE tenant_id = $2",
+                tenantB,
+                tenantA
+            );
+        }
+    }
+
+    [Theory]
+    [InlineData("outbox_messages")]
+    [InlineData("inbox_messages")]
+    public async Task Without_a_tenant_no_message_is_visible_and_inserts_fail(string table)
+    {
+        var (tenantA, tenantB) = await SeedMessagesAsync(table);
+        var (sql, parameters) = InsertMessage(table, tenantA);
+
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            Assert.Empty(
+                await session.ColumnAsync<Guid>(
+                    $"SELECT tenant_id FROM core.{table} WHERE tenant_id = ANY($1)",
+                    new[] { tenantA, tenantB }
+                )
+            );
+        }
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            await session.AssertDeniedAsync(sql, parameters);
+        }
+    }
+
+    [Fact]
+    public async Task Outbox_tenants_are_readable_by_every_session_but_written_only_for_its_own_tenant()
+    {
+        // The one cross-tenant read: the dispatcher lists the tenants it visits. The rows hold
+        // nothing but the id; every message is read under its tenant's RLS.
+        const string Insert = "INSERT INTO core.outbox_tenants (tenant_id) VALUES ($1)";
+        var (tenantA, tenantB, _, _) = await SeedAsync();
+
+        await using (var session = await Session.BeginAsync(AppCore, tenantA))
+        {
+            await session.ExecuteAsync(Insert, tenantA);
+            await session.CommitAsync();
+        }
+        await using (var session = await Session.BeginAsync(AppCore, tenantA))
+        {
+            await session.AssertDeniedAsync(Insert, tenantB);
+        }
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            await session.AssertDeniedAsync(Insert, tenantB);
+        }
+        foreach (
+            var sql in new[]
+            {
+                "UPDATE core.outbox_tenants SET tenant_id = tenant_id WHERE tenant_id = $1",
+                "DELETE FROM core.outbox_tenants WHERE tenant_id = $1",
+            }
+        )
+        {
+            await using var session = await Session.BeginAsync(AppCore, tenantA);
+            await session.AssertDeniedAsync(sql, tenantA);
+        }
+
+        await using var anyone = await Session.BeginAsync(AppCore);
+        Assert.Equal(
+            [tenantA],
+            await anyone.ColumnAsync<Guid>(
+                "SELECT tenant_id FROM core.outbox_tenants WHERE tenant_id = ANY($1)",
+                new[] { tenantA, tenantB }
+            )
+        );
     }
 }

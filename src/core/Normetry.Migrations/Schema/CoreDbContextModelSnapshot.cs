@@ -245,6 +245,99 @@ namespace Normetry.Migrations.Schema
                     b.ToTable("chat_message_counts", "core");
                 });
 
+            modelBuilder.Entity("Normetry.Infrastructure.Messaging.InboxMessage", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("message_id");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("type");
+
+                    b.HasKey("TenantId", "MessageId")
+                        .HasName("pk_inbox_messages");
+
+                    b.ToTable("inbox_messages", "core");
+                });
+
+            modelBuilder.Entity("Normetry.Infrastructure.Messaging.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("json")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("RoutingKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("routing_key");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)")
+                        .HasColumnName("trace_parent");
+
+                    b.Property<string>("TraceState")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("trace_state");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("type");
+
+                    b.HasKey("TenantId", "Id")
+                        .HasName("pk_outbox_messages");
+
+                    b.HasIndex("TenantId", "CreatedAt")
+                        .HasDatabaseName("ix_outbox_messages_tenant_id_created_at")
+                        .HasFilter("sent_at IS NULL");
+
+                    b.ToTable("outbox_messages", "core");
+                });
+
+            modelBuilder.Entity("Normetry.Infrastructure.Messaging.OutboxTenant", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("TenantId")
+                        .HasName("pk_outbox_tenants");
+
+                    b.ToTable("outbox_tenants", "core");
+                });
+
             modelBuilder.Entity("Normetry.Domain.Establishments.Establishment", b =>
                 {
                     b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
@@ -317,6 +410,26 @@ namespace Normetry.Migrations.Schema
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_chat_message_counts_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("Normetry.Infrastructure.Messaging.OutboxMessage", b =>
+                {
+                    b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_outbox_messages_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("Normetry.Infrastructure.Messaging.OutboxTenant", b =>
+                {
+                    b.HasOne("Normetry.Domain.Tenancy.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_outbox_tenants_tenants_tenant_id");
                 });
 
             modelBuilder.Entity("Normetry.Domain.Identity.Profile", b =>
