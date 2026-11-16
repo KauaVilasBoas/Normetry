@@ -88,6 +88,19 @@ internal static class AuthSetup
 
                 options.Events = new JwtBearerEvents
                 {
+                    // Browsers cannot set headers on a WebSocket, so the SignalR client sends the
+                    // access token in the query string. It is read there for the hubs only.
+                    OnMessageReceived = context =>
+                    {
+                        if (
+                            context.Request.Path.StartsWithSegments("/hubs")
+                            && context.Request.Query["access_token"] is [{ Length: > 0 } token]
+                        )
+                        {
+                            context.Token = token;
+                        }
+                        return Task.CompletedTask;
+                    },
                     OnTokenValidated = context =>
                     {
                         if (
