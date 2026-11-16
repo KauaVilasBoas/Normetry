@@ -46,15 +46,20 @@ The ids are fixed so the core can seed the same tenants (#12).
 Every demo user's password is `local-demo-only`. It is fake and works only against this local
 realm; never reuse this realm or its users anywhere else.
 
-| Username         | User id (`sub`)                        | Realm role | Tenant      |
-| ---------------- | -------------------------------------- | ---------- | ----------- |
-| `bistro.owner`   | `11111111-0000-4000-8000-000000000001` | `Owner`    | Demo Bistro |
-| `bistro.manager` | `11111111-0000-4000-8000-000000000002` | `Manager`  | Demo Bistro |
-| `bakery.owner`   | `22222222-0000-4000-8000-000000000001` | `Owner`    | Demo Bakery |
-| `bakery.auditor` | `22222222-0000-4000-8000-000000000002` | `Auditor`  | Demo Bakery |
+| Username         | User id (`sub`)                        | Profile (core) | Tenant      |
+| ---------------- | -------------------------------------- | -------------- | ----------- |
+| `bistro.owner`   | `11111111-0000-4000-8000-000000000001` | Owner          | Demo Bistro |
+| `bistro.manager` | `11111111-0000-4000-8000-000000000002` | Manager        | Demo Bistro |
+| `bakery.owner`   | `22222222-0000-4000-8000-000000000001` | Owner          | Demo Bakery |
+| `bakery.auditor` | `22222222-0000-4000-8000-000000000002` | Auditor        | Demo Bakery |
 
-The user ids are fixed so that `sub` stays the same across realm imports: the core's dev seed
-creates the same users, with the profile named in the table, and finds them by `sub`.
+Keycloak only authenticates. What a user may do comes from their profiles in the core database
+([ADR 012](../../docs/adr/012-authorization-by-permissions-in-the-core-database.md)): the realm has
+no Normetry roles, and any realm role a token carries authorizes nothing. The core's dev seed
+(`DemoTenantSeed`) creates these users with the profile in the table and finds them by `sub`, so
+the user ids are fixed and `sub` stays the same across realm imports. A user added here signs in
+with no profile: they get a user row on their first sign-in and 403 everywhere but `/me` until an
+Owner assigns them a profile in the app.
 
 `tenant_id` is a user-profile attribute that only admins can view or edit, so users cannot change
 their own tenant from the account console.
@@ -69,7 +74,8 @@ their own tenant from the account console.
   built-in `basic`, `roles`, `web-origins` and `acr`); no optional scopes, so it cannot ask for
   `offline_access`. Its access tokens carry the same claims as `normetry-dev` (same two mappers).
 - `normetry-dev`: public client with only the password grant, for manual testing with curl. Its
-  access tokens carry `aud: normetry-api`, `tenant_id` and the roles in `realm_access.roles`.
+  access tokens carry `aud: normetry-api`, `tenant_id`, `name` and `email` (the core shows the last
+  two to the tenant's administrators).
 
 ```sh
 curl -s http://localhost:8180/realms/normetry/protocol/openid-connect/token \

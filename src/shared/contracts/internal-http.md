@@ -29,7 +29,7 @@ Any other `/ai/*` path is forwarded the same way, without establishment headers.
 
 ## Core gateway rules
 
-- The route requires the `Tenant` policy. A request without a valid token gets 401 and one without a valid tenant gets 403; neither reaches the AI service.
+- The route requires the `chat.ask` permission (ADR 012), whose policy includes `Tenant`. A request without a valid token gets 401, one without a valid tenant gets 403, and one whose profiles do not grant `chat.ask` gets 403 `permission.denied`; none of them reaches the AI service.
 - The `/ai` prefix is removed: `/ai/health` arrives as `/health`.
 - Before adding anything, the gateway removes every inbound header whose name starts with `X-Normetry-` (any case, and with underscores read as dashes, so `X_Normetry_Tenant_Id` goes too), plus `Authorization` and `Cookie`. It also drops an `access_token` query parameter. Credentials meant for the core never reach the AI service.
 - It then sets the tenant, user and token headers from the validated token only, never from the body, query string or client headers.
