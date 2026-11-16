@@ -17,14 +17,19 @@ export interface Live {
 /** A table header cell (DESIGN.md Table, on the inset header row). */
 export const th = "h-9 px-3 text-left text-caption font-medium text-text-muted";
 
-/** Shown while live updates are paused or stopped, under a card's header. */
+/**
+ * Under a card's header: a status region, always there so screen readers hear what arrives in it,
+ * that holds the notice while live updates are paused or stopped.
+ */
 export function ConnectionNotice({ live }: { live: Live }) {
-  if (live.state === "live") return null;
+  return <div role="status">{live.state !== "live" && <LiveNotice live={live} />}</div>;
+}
+
+function LiveNotice({ live }: { live: Live }) {
   const reconnecting = live.state === "reconnecting";
   const retrying = live.state === "retrying";
   return (
     <Notice
-      role="status"
       className="mx-5 mb-4"
       icon={reconnecting ? <Spinner /> : <WifiOff aria-hidden="true" className="size-4" />}
       title={reconnecting ? copy.documents.reconnecting : copy.documents.stopped}

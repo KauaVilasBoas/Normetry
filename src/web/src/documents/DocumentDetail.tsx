@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CircleAlert, Clock, Trash2, Upload } from "lucide-react";
 import { AlertDialog } from "radix-ui";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "../api/client";
 import {
@@ -73,6 +73,15 @@ export function DocumentDetailView({
   const uploadButton = useRef<HTMLButtonElement>(null);
   const afterId = useId();
 
+  // Try again: the error card (and its button) goes once the document loads, so focus moves to
+  // the title, after the commit that shows it.
+  const retried = useRef(false);
+  useEffect(() => {
+    if (!retried.current || !detail) return;
+    retried.current = false;
+    document.getElementById(DETAIL_TITLE_ID)?.focus();
+  }, [detail]);
+
   const back = (
     <Link
       to="/documents"
@@ -113,10 +122,10 @@ export function DocumentDetailView({
                 onClick={
                   retrying
                     ? undefined
-                    : () =>
-                        void query.refetch().then((result) => {
-                          if (result.isSuccess) document.getElementById(DETAIL_TITLE_ID)?.focus();
-                        })
+                    : () => {
+                        retried.current = true;
+                        void query.refetch();
+                      }
                 }
               >
                 {retrying && <Spinner />}
@@ -197,7 +206,8 @@ export function DocumentDetailView({
       {detail ? (
         <Versions detail={detail} live={live} afterId={canUpload ? afterId : undefined} />
       ) : (
-        <VersionsSkeleton />
+        // The heading says it is loading until the title is known; then the skeleton does.
+        <VersionsSkeleton label={title !== undefined} />
       )}
 
       {canUpload && detail && (
@@ -337,30 +347,33 @@ function Versions({
   );
 }
 
-function VersionsSkeleton() {
+function VersionsSkeleton({ label }: { label: boolean }) {
   return (
-    <div
-      aria-hidden="true"
-      className="rounded-card border border-border bg-card motion-safe:animate-fade-in"
-    >
-      <div className="p-5">
-        <Skeleton className="h-4 w-24" />
+    <>
+      {label && <span className="sr-only">{copy.documents.loadingDocument}</span>}
+      <div
+        aria-hidden="true"
+        className="rounded-card border border-border bg-card motion-safe:animate-fade-in"
+      >
+        <div className="p-5">
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <ul className="border-t border-border">
+          {[0, 1, 2].map((row) => (
+            <li
+              key={row}
+              className="flex h-14 items-center gap-3 border-t border-border px-5 first:border-t-0"
+            >
+              <span className="flex flex-1 flex-col gap-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-2.5 w-2/5" />
+              </span>
+              <Skeleton className="h-5 w-20" />
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul className="border-t border-border">
-        {[0, 1, 2].map((row) => (
-          <li
-            key={row}
-            className="flex h-14 items-center gap-3 border-t border-border px-5 first:border-t-0"
-          >
-            <span className="flex flex-1 flex-col gap-2">
-              <Skeleton className="h-3 w-16" />
-              <Skeleton className="h-2.5 w-2/5" />
-            </span>
-            <Skeleton className="h-5 w-20" />
-          </li>
-        ))}
-      </ul>
-    </div>
+    </>
   );
 }
 

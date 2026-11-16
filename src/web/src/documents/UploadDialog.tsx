@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Dialog } from "radix-ui";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
 import type { RequestOptions } from "../api/client";
 import { documentKey, documentsKey, type DocumentDetail, type Establishment } from "../api/queries";
 import { copy, fileSize, format } from "../copy";
@@ -21,6 +21,14 @@ import {
   uploadRefusal,
   withContentType,
 } from "./documents";
+
+// A file dropped beside the drop zone would make the browser open it, leaving the app (and its
+// in-memory session). Inside the dialog it does nothing, and it never reaches the list card.
+const swallowFiles = (event: DragEvent) => {
+  if (!event.dataTransfer.types.includes("Files")) return;
+  event.preventDefault();
+  event.stopPropagation();
+};
 
 const typeOptions = Object.entries(copy.documents.typeOptions).map(([value, label]) => ({
   value,
@@ -62,8 +70,17 @@ export function UploadDialog({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-scrim" />
+        <Dialog.Overlay
+          onDragOver={swallowFiles}
+          onDrop={swallowFiles}
+          className="fixed inset-0 z-40 bg-scrim"
+        />
         <Dialog.Content
+          // Only Cancel and Esc close it: a stray click on the scrim (back from finding the file)
+          // would abort the upload and lose the form.
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onDragOver={swallowFiles}
+          onDrop={swallowFiles}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             returnFocus.current?.focus();
