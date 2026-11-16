@@ -4,12 +4,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Normetry.Infrastructure.Persistence;
-using Npgsql;
 
 namespace Normetry.Infrastructure.Messaging;
 
 /// <summary>
-/// Publishes pending outbox rows every second. Each tenant of <c>core.outbox_tenants</c> gets its
+/// Publishes pending outbox rows every second. Each tenant of <see cref="OutboxTenantList"/> gets its
 /// own scope and transaction (RLS on the tenant of its rows): the batch is locked with
 /// <c>FOR UPDATE SKIP LOCKED</c>, so two API instances never publish the same row at once, and a
 /// row is marked sent only after the broker confirmed it. A crash between the confirm and the
@@ -52,7 +51,9 @@ internal sealed class OutboxDispatcher(
     {
         // ponytail: every listed tenant is visited on each pass (one short transaction each);
         // switch to a wake-up signal or a pending flag when there are many tenants.
-        foreach (var tenantId in await ListTenantsAsync(cancellationToken))
+        foreach (
+            var tenantId in await OutboxTenantList.ListAsync(connectionString, cancellationToken)
+        )
         {
             await DispatchAsync(tenantId, cancellationToken);
         }
@@ -103,26 +104,5 @@ internal sealed class OutboxDispatcher(
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return sent;
-    }
-
-    /// <summary>
-    /// The one query without a tenant: <c>core.outbox_tenants</c> holds only ids, and its policy
-    /// lets <c>app_core</c> read them all. Every row of tenant data is read later, under RLS.
-    /// </summary>
-    private async Task<List<Guid>> ListTenantsAsync(CancellationToken cancellationToken)
-    {
-        await using var connection = new NpgsqlConnection(connectionString);
-        await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand(
-            "SELECT tenant_id FROM core.outbox_tenants",
-            connection
-        );
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        var tenants = new List<Guid>();
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            tenants.Add(reader.GetGuid(0));
-        }
-        return tenants;
     }
 }

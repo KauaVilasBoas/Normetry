@@ -64,6 +64,10 @@ public static class DependencyInjection
         services.AddSingleton<RabbitMqConnection>();
         services.AddSingleton<RabbitMqPublisher>();
         services.AddHostedService<OutboxDispatcher>();
+        services.AddScoped<IInbox, Inbox>();
+        services.AddSingleton<DocumentStatusMessages>();
+        services.AddHostedService<DocumentStatusConsumer>();
+        services.AddHostedService<ProcessingTimeoutSweeper>();
         return services;
     }
 

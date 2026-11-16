@@ -34,13 +34,25 @@ public sealed record DocumentDeleted(Guid EstablishmentId, Guid DocumentId) : II
     public static string RoutingKey => "document.deleted.v1";
 }
 
+/// <summary>An ai to core event about one document version.</summary>
+public interface IDocumentVersionEvent
+{
+    Guid EstablishmentId { get; }
+
+    Guid DocumentId { get; }
+
+    Guid VersionId { get; }
+
+    int VersionNumber { get; }
+}
+
 /// <summary>ai to core: ingestion of a version started.</summary>
 public sealed record DocumentIngestionStarted(
     Guid EstablishmentId,
     Guid DocumentId,
     Guid VersionId,
     int VersionNumber
-) : IIntegrationMessage
+) : IIntegrationMessage, IDocumentVersionEvent
 {
     public static string Type => "DocumentIngestionStarted";
 
@@ -58,7 +70,7 @@ public sealed record DocumentIndexed(
     int ChunkCount,
     int? PageCount,
     string Language
-) : IIntegrationMessage
+) : IIntegrationMessage, IDocumentVersionEvent
 {
     public static string Type => "DocumentIndexed";
 
@@ -83,7 +95,7 @@ public sealed record DocumentIngestionFailed(
     int VersionNumber,
     string ReasonCode,
     string ReasonText
-) : IIntegrationMessage
+) : IIntegrationMessage, IDocumentVersionEvent
 {
     public const int ReasonTextMaxLength = 500;
 
