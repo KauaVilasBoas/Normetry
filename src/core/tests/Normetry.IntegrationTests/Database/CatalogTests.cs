@@ -1,3 +1,4 @@
+using Normetry.Domain.Identity;
 using Xunit;
 
 namespace Normetry.IntegrationTests.Database;
@@ -19,7 +20,8 @@ public sealed class CatalogTests
     [Fact]
     public async Task Every_core_table_app_core_can_use_has_RLS_enabled_and_forced()
     {
-        // No allow-list: the first migration revokes app_core's access to the history table.
+        // The one exception is the global permission catalog, which app_core can only read. The
+        // first migration revokes app_core's access to the history table.
         await using var session = await OwnerAsync();
         var unforced = await session.ColumnAsync<string>(
             """
@@ -27,6 +29,7 @@ public sealed class CatalogTests
             WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
               AND has_table_privilege('app_core', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
               AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
+              AND c.relname <> 'permissions'
             """
         );
         var usable = await session.ColumnAsync<string>(
@@ -38,7 +41,19 @@ public sealed class CatalogTests
             """
         );
 
-        Assert.Equal(["chat_message_counts", "establishments", "tenants"], usable); // the check is not vacuous
+        Assert.Equal(
+            [
+                "chat_message_counts",
+                "establishments",
+                "permissions",
+                "profile_permissions",
+                "profiles",
+                "tenants",
+                "user_profiles",
+                "users",
+            ],
+            usable
+        ); // the check is not vacuous
         Assert.Empty(unforced);
     }
 
@@ -57,8 +72,12 @@ public sealed class CatalogTests
             [
                 "chat_message_counts.chat_message_counts_tenant ALL app_core",
                 "establishments.establishments_tenant ALL app_core",
+                "profile_permissions.profile_permissions_tenant ALL app_core",
+                "profiles.profiles_tenant ALL app_core",
                 "tenants.tenants_insert INSERT app_core",
                 "tenants.tenants_select SELECT app_core",
+                "user_profiles.user_profiles_tenant ALL app_core",
+                "users.users_tenant ALL app_core",
             ],
             policies
         );
@@ -87,8 +106,22 @@ public sealed class CatalogTests
                 "establishments app_core INSERT",
                 "establishments app_core SELECT",
                 "establishments app_core UPDATE",
+                "permissions app_core SELECT",
+                "profile_permissions app_core DELETE",
+                "profile_permissions app_core INSERT",
+                "profile_permissions app_core SELECT",
+                "profiles app_core DELETE",
+                "profiles app_core INSERT",
+                "profiles app_core SELECT",
+                "profiles app_core UPDATE",
                 "tenants app_core INSERT",
                 "tenants app_core SELECT",
+                "user_profiles app_core DELETE",
+                "user_profiles app_core INSERT",
+                "user_profiles app_core SELECT",
+                "users app_core INSERT",
+                "users app_core SELECT",
+                "users app_core UPDATE",
             ],
             grants
         );
@@ -117,5 +150,33 @@ public sealed class CatalogTests
 
         Assert.Contains(applied, id => id.EndsWith("_CreateTenantsAndEstablishments"));
         Assert.Contains(applied, id => id.EndsWith("_CreateChatMessageCounts"));
+        Assert.Contains(applied, id => id.EndsWith("_CreateUsersProfilesAndPermissions"));
+        Assert.Contains(applied, id => id.EndsWith("_InsertPermissionCatalog"));
+    }
+
+    [Fact]
+    public async Task The_permission_catalog_holds_the_names_in_code()
+    {
+        await using var session = await Session.BeginAsync(db.ConnectionString("app_core"));
+
+        var names = await session.ColumnAsync<string>(
+            "SELECT name FROM core.permissions ORDER BY name COLLATE \"C\""
+        );
+
+        Assert.Equal(Permissions.All.Order(StringComparer.Ordinal), names);
+    }
+
+    [Theory]
+    [InlineData("INSERT INTO core.permissions (name) VALUES ('reports.export')")]
+    [InlineData("UPDATE core.permissions SET name = 'chat.shout' WHERE name = 'chat.ask'")]
+    [InlineData("DELETE FROM core.permissions WHERE name = 'chat.ask'")]
+    public async Task App_core_cannot_change_the_permission_catalog(string sql)
+    {
+        await using var session = await Session.BeginAsync(
+            db.ConnectionString("app_core"),
+            Guid.NewGuid()
+        );
+
+        await session.AssertDeniedAsync(sql);
     }
 }

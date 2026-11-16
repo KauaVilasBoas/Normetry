@@ -15,4 +15,5 @@ data migration can fill a table that an earlier schema migration created.
   policy for `core_owner`, a data migration cannot write tenant-owned tables such as
   `core.tenants` or `core.establishments`. Reference data goes only in tables without RLS.
 
-None exist yet.
+- `InsertPermissionCatalog`: the permission catalog (`core.permissions`, global, no RLS). A new
+  permission is a new data migration; Owner gets it through `grants_all` with no other change.
