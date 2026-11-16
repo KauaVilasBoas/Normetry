@@ -42,7 +42,8 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
   // From 768px, the first profile (Owner) when none is chosen.
   const selectedId = profileId ?? (wide ? sorted[0]?.id : undefined);
 
-  const meFailed = queryFailed(me);
+  // A failed background refetch keeps the cached /me: only a /me never loaded counts.
+  const meFailed = queryFailed(me) && !me.data;
   const listFailed = meFailed || queryFailed(profiles);
   const listRetrying = listFailed && (me.isFetching || profiles.isFetching);
   const showList = wide || profileId === undefined;
