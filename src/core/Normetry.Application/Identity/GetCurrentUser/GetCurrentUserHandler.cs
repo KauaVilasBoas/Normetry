@@ -24,7 +24,6 @@ internal sealed class GetCurrentUserHandler(
             currentUser.UserId,
             tenant.TenantId,
             row?.Name,
-            profiles.Select(profile => profile.Name).ToArray(),
             permissions,
             profiles
         );
