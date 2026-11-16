@@ -452,6 +452,29 @@ def test_every_ai_table_the_app_roles_can_use_forces_rls(owner: Engine) -> None:
     assert all(forced.values()), forced
 
 
+def test_a_function_ai_owner_creates_is_executable_by_no_app_role(owner: Engine) -> None:
+    # The bootstrap revokes PUBLIC's default EXECUTE on ai_owner's functions. The probe is rolled
+    # back with the transaction.
+    executable = text(
+        """
+        SELECT p.proname, r.role
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace,
+             unnest(ARRAY['app_ai', 'corpus_ingestor', 'app_core', 'core_dispatcher']) r(role)
+        WHERE n.nspname = 'ai' AND has_function_privilege(r.role, p.oid, 'EXECUTE')
+        """
+    )
+    with owner.connect() as connection, connection.begin() as transaction:
+        connection.execute(
+            text("CREATE FUNCTION ai.probe() RETURNS int LANGUAGE sql AS 'SELECT 1'")
+        )
+        assert connection.execute(executable).all() == []
+        # The check is not vacuous.
+        assert connection.execute(
+            text("SELECT has_function_privilege('ai_owner', 'ai.probe()', 'EXECUTE')")
+        ).scalar_one()
+        transaction.rollback()
+
+
 def test_bootstrap_roles_have_least_privilege(owner: Engine) -> None:
     roles = {"roles": list(ROLES)}
     attributes = text(

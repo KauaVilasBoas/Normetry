@@ -19,7 +19,9 @@ In database `normetry`:
 | `corpus_ingestor` | public corpus ingestion | `USAGE` on `ai` only; the ai migrations grant it the corpus tables explicitly |
 
 Every role is `LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB`. The script also creates the
-`vector` extension, revokes `CREATE` on schema `public` and `TEMPORARY` on the database from `PUBLIC`.
+`vector` extension, revokes `CREATE` on schema `public` and `TEMPORARY` on the database from `PUBLIC`,
+and takes away `PUBLIC`'s default `EXECUTE` on every function `core_owner` or `ai_owner` creates
+later: a migration that adds a function grants it to the roles that call it.
 
 Owner credentials never go to a running service: owners can switch RLS off, so only the short-lived
 migration steps use them. Default privileges also reach the migration history tables

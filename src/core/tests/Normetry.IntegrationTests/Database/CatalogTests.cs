@@ -184,6 +184,33 @@ public sealed class CatalogTests
         );
     }
 
+    [Fact]
+    public async Task A_function_core_owner_creates_is_executable_by_no_runtime_role()
+    {
+        // The bootstrap revokes PUBLIC's default EXECUTE on core_owner's functions. The probe is
+        // rolled back with the session.
+        await using var session = await OwnerAsync();
+        await session.ExecuteAsync(
+            "CREATE FUNCTION core.probe() RETURNS int LANGUAGE sql AS 'SELECT 1'"
+        );
+        var executable = await session.ColumnAsync<string>(
+            """
+            SELECT p.proname || ' ' || r.role
+            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace,
+                 unnest(ARRAY['app_core', 'core_dispatcher', 'app_ai', 'corpus_ingestor']) r(role)
+            WHERE n.nspname = 'core' AND has_function_privilege(r.role, p.oid, 'EXECUTE')
+            ORDER BY 1
+            """
+        );
+
+        Assert.Empty(executable);
+        Assert.True(
+            await session.ScalarAsync<bool>(
+                "SELECT has_function_privilege('core_owner', 'core.probe()', 'EXECUTE')"
+            )
+        ); // the check is not vacuous
+    }
+
     [Theory]
     [InlineData("SELECT * FROM core.outbox_messages")]
     [InlineData("SELECT * FROM core.inbox_messages")]
