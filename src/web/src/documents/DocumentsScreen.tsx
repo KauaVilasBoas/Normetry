@@ -21,7 +21,7 @@ const focusById = (id: string) => document.getElementById(id)?.focus();
  * Documents (spec documents-screen.md): `/documents` is the selected establishment's list,
  * `/documents/:documentId` one document. Above both: the live status connection and the polite
  * region, so a message survives the move from the detail back to the list. A new `focusKey` (the
- * picker or the drawer chose an establishment) moves focus to the list's heading.
+ * drawer chose an establishment, or a retry loaded the list) moves focus to the page's heading.
  */
 export function DocumentsScreen({
   establishment,
@@ -47,7 +47,8 @@ export function DocumentsScreen({
   const focus = (id: string) => setFocusRequest({ id });
 
   useEffect(() => {
-    if (focusKey > 0) focusById(LIST_TITLE_ID);
+    if (focusKey > 0)
+      (document.getElementById(LIST_TITLE_ID) ?? document.getElementById(DETAIL_TITLE_ID))?.focus();
   }, [focusKey]);
 
   const refetch = (id: string | undefined, options = {}) => {

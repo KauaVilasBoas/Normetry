@@ -6,13 +6,13 @@ import { copy, format } from "../copy";
 
 export type ListState = "loading" | "list" | "empty" | "error" | "forbidden";
 
-/** What the picker and the switcher show; both requests must succeed. */
+/** What the switcher and the establishments card show; both requests must succeed. */
 export function listState(
   me: UseQueryResult<Me>,
   list: UseQueryResult<Establishment[]>,
 ): ListState {
   // 403 from /me: the token has no valid tenant. From /establishments it is a missing permission,
-  // which refetches /me (createQueryClient) and so hides the picker.
+  // which refetches /me (createQueryClient) and so hides the card.
   if (me.error instanceof ApiError && me.error.status === 403) return "forbidden";
   // A failed query goes back to pending when Try again refetches it; keep the error (and its
   // button, which holds focus) until that request settles.
@@ -23,25 +23,17 @@ export function listState(
   return list.data.length > 0 ? "list" : "empty";
 }
 
-/** Labels for an establishment; unknown enum values show as sent, never crash. */
-export function describeEstablishment({ name, type, jurisdiction }: Establishment) {
+/** An establishment's type, jurisdiction and regulation; unknown enum values show as sent. */
+export function describeEstablishment({ type, jurisdiction }: Establishment) {
   const typeLabel = copy.establishmentTypes[type] ?? type;
   const place = copy.jurisdictions[jurisdiction];
-  const jurisdictionLabel = place?.name ?? jurisdiction;
-  return {
-    meta: place
-      ? format(copy.picker.meta, {
-          type: typeLabel,
-          jurisdiction: place.name,
-          regulation: place.regulation,
-        })
-      : format(copy.picker.metaUnknownJurisdiction, { type: typeLabel, jurisdiction }),
-    label: format(copy.picker.optionLabel, {
-      name,
-      type: typeLabel,
-      jurisdiction: jurisdictionLabel,
-    }),
-  };
+  return place
+    ? format(copy.picker.meta, {
+        type: typeLabel,
+        jurisdiction: place.name,
+        regulation: place.regulation,
+      })
+    : format(copy.picker.metaUnknownJurisdiction, { type: typeLabel, jurisdiction });
 }
 
 // Only the id is remembered, per tenant and user, as a convenience: the core reloads it under RLS.
@@ -79,16 +71,14 @@ function writeStored(key: string, id: string | null) {
 
 /**
  * The selected establishment: the user's choice in this page, else the remembered one if it is
- * still in the list, else the only one. Undefined means the picker shows.
+ * still in the list, else the first. Undefined only while the list is loading, empty or failed.
  */
 export function useEstablishmentSelection(me: Me | undefined, list: Establishment[] | undefined) {
   const [chosenId, setChosenId] = useState<string>();
   const key = me && storageKey(me);
   const stored = key ? readStored(key) : null;
 
-  const selected =
-    list?.find((item) => item.id === (chosenId ?? stored)) ??
-    (chosenId === undefined && list?.length === 1 ? list[0] : undefined);
+  const selected = list?.find((item) => item.id === (chosenId ?? stored)) ?? list?.[0];
 
   const staleStored = !!list && stored !== null && !list.some((item) => item.id === stored);
   useEffect(() => {
