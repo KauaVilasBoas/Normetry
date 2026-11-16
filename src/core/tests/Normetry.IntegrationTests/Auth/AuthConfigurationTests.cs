@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -164,6 +165,47 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
                 permissions.Length > 0 || anonymous || withoutPermission.Contains(action.Name),
                 $"{action.Name} has neither [HasPermission] nor [AllowAnonymous]."
             );
+            Assert.All(permissions, attribute =>
+                Assert.Contains(attribute.Permission, Permissions.All)
+            );
+        });
+    }
+
+    [Fact]
+    public void Every_hub_and_hub_method_requires_a_permission_of_the_catalog()
+    {
+        // SignalR authorizes the hub's attributes once, when a client connects, and only the
+        // method's own attributes on each call: both need one. The methods are the ones SignalR
+        // exposes: public instance methods not declared by Hub or object.
+        var hubs = typeof(Program)
+            .Assembly.GetTypes()
+            .Where(type => type.IsAssignableTo(typeof(Hub)) && !type.IsAbstract)
+            .ToArray();
+        var methods = hubs.SelectMany(hub =>
+                hub.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(method =>
+                        !method.IsSpecialName
+                        && !method.GetBaseDefinition().DeclaringType!.IsAssignableFrom(typeof(Hub))
+                    )
+                    .Select(method => (Name: $"{hub.Name}.{method.Name}", Method: method))
+            )
+            .ToArray();
+
+        Assert.Contains(methods, method => method.Name == "DocumentsHub.JoinEstablishment");
+        Assert.All(hubs, hub =>
+        {
+            var permissions = hub.GetCustomAttributes<HasPermissionAttribute>().ToArray();
+            Assert.True(permissions.Length > 0, $"{hub.Name} has no [HasPermission].");
+            Assert.All(permissions, attribute =>
+                Assert.Contains(attribute.Permission, Permissions.All)
+            );
+        });
+        Assert.All(methods, method =>
+        {
+            var permissions = method
+                .Method.GetCustomAttributes<HasPermissionAttribute>(inherit: false)
+                .ToArray();
+            Assert.True(permissions.Length > 0, $"{method.Name} has no [HasPermission].");
             Assert.All(permissions, attribute =>
                 Assert.Contains(attribute.Permission, Permissions.All)
             );
