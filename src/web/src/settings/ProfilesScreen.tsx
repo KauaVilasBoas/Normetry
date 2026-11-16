@@ -108,7 +108,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
         <Link
           to="/settings/profiles"
           onClick={() => focus(PROFILES_TITLE_ID)}
-          className="mb-3 inline-flex h-9 items-center gap-1.5 self-start rounded-control text-body font-medium text-mint"
+          className="-mx-2 mb-3 inline-flex h-9 items-center gap-1.5 self-start rounded-control px-2 text-body font-medium text-mint focus-visible:-outline-offset-2"
         >
           <ArrowLeft aria-hidden="true" className="size-4" />
           {copy.profiles.title}
