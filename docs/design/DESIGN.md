@@ -51,7 +51,7 @@ Values sampled from the rendered mock. The mock's palette card labels slightly d
 | Token | Hex | Use |
 |---|---|---|
 | `--success` | `#03DA96` | Compliant, positive delta (↑) |
-| `--warning` | `#F2AE13` | Partially Compliant, Attention |
+| `--warning` | `#F2AE13` | Partially Compliant, Attention; a Failed ingestion (it needs attention, see Ingestion status pill) |
 | `--danger` | `#ED3F45` | Non-Compliant, negative delta (↓) |
 | `--neutral` | `#5B6B82` | Not Applicable, empty-state icons; graphics only, never text |
 | `--alert` | `#F4C33A` | "!" badge on change-monitor documents |
@@ -112,7 +112,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 
 - **App frame:** sidebar 220px fixed + content, filling the viewport. Content padding 20px (16px below 640px); gap between cards 16px. Below 1024px the sidebar becomes a modal drawer from the left over `--scrim`, opened from a menu button in the top bar.
 - **Sidebar (top → bottom):** logo · tenant label (building icon + name, static, no border) · establishment switcher (type icon, name, chevron; transparent, 1px `--teal-border`, `--radius-control`) · navigation · flexible space · user card (avatar, name, email, chevron).
-- **Navigation:** icon (outline, 18px) + label. Active item = `--teal` filled, rounded 10px, white (`--text-primary`) label and icon. Items: Overview, Establishments, Compliance, Audit Management, Regulatory Library, Change Monitor, Reports, Settings, plus **Ask the Regulation** (Lucide `MessagesSquare`), which replaces the AI Assistant card: the card is not built. Items whose screen does not exist yet, or that the user's permissions do not allow, are hidden, not disabled.
+- **Navigation:** icon (outline, 18px) + label. Active item = `--teal` filled, rounded 10px, white (`--text-primary`) label and icon. Items: Overview, Establishments, Compliance, **Documents** (Lucide `FileText`), Audit Management, Regulatory Library, Change Monitor, Reports, Settings, plus **Ask the Regulation** (Lucide `MessagesSquare`), which replaces the AI Assistant card: the card is not built. Items whose screen does not exist yet, or that the user's permissions do not allow, are hidden, not disabled; today the nav reads Ask the Regulation · Documents · Settings.
 - **Top bar:** 56px tall, no border. Page title left; search field ("Search anything…", ⌘K hint) · notification bell · avatar right.
 - **Page header:** greeting + one-line subtitle on the left; secondary action ("Export Report", icon + text) then primary action ("+ Add Evidence") on the right.
 - **Overview grid:**
@@ -135,17 +135,21 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | **Secondary button** | transparent, 1px `--teal-border`, white text, radius 10px, optional leading icon. |
 | **Disabled control** | a control that is unavailable stays focusable (`aria-disabled`, not `disabled`), shows at 50% opacity and does not change on hover. Contrast rules exempt it. |
 | **Status pill** | fully rounded, 1px border in the status color, background = status color at ~10% opacity, text in the status color 11–12px/500, leading glyph: ◆ diamond for Compliant and Attention/Partially Compliant, ● dot for Non-Compliant, ⊘ for Not Applicable. |
+| **Ingestion status pill** | a document version's processing state, never a compliance state, so no green or red: the Status pill shape (20px, `--radius-pill`, 1px border, 11px/500, a 12px leading glyph and the label). **Waiting** (Uploaded): `--neutral` border, `--neutral` at 10% fill, `--text-secondary` text, `Clock` glyph. **Processing**: mint border, text and arc, mint at 10% fill, 12px Small ring (static under reduced motion). **Indexed**: `--teal-border` border, white text, transparent fill, mint `CircleCheck`, as the Checklist's done. **Failed**: the Attention style (`--warning` border and text, `--warning` at 10% fill, ◆). A caption under it (11px `--text-secondary`) gives the failure reason or the version in flight. |
 | **Time badge** | `--info-bg` fill, `--info` text, radius 6px, 11px ("In 14 days"). |
 | **"NEW" badge** | `--teal-deep` fill, mint text, uppercase 10px/700, radius 4px. |
-| **Dropdown / select** | `--bg-inset`, 1px `--teal-border`, radius 8px, chevron right ("ISO 27001:2022 ⌄", "6 Months ⌄"). |
+| **Dropdown / select** | `--bg-inset`, 1px `--teal-border`, radius 8px, chevron right ("ISO 27001:2022 ⌄", "6 Months ⌄"): the compact filter in a card header. |
+| **Form select** | a select used as a form field follows the Text field: native `<select>`, 44px, `--bg-inset`, 1px `--teal-border`, `--radius-control`, no native arrow (`appearance: none`) and a 16px `ChevronDown` in `--text-secondary` at the right; a placeholder option ("Choose a type") in `--text-secondary`. Label, hint and error as the Text field. |
 | **Table** | header row in `--text-muted` 11px; rows 12px with 1px `--border` separators, no zebra; columns: ID · name · status pill · progress bar + % · count · date. |
 | **Progress bar** | 6px high, `--chart-track` track, `--chart-1` fill, rounded; percentage to the right in white. |
 | **Donut** | thick ring (~18% of radius), big centered value + caption; legend to the right: color dot · label · % · (count). |
 | **Area chart** | single series, `--chart-1` line 2px with dot markers, gradient fill, 0–100% axis and month labels in `--text-secondary`. |
 | **Skeleton** | loading placeholder bars and tiles in `--bg-elevated`, `--radius-sm`, with a gentle opacity pulse (none under reduced motion); the container has `aria-busy="true"` and a visually hidden loading label. |
-| **Small ring** | indeterminate progress, 16px: 2px `--bg-elevated` track with a mint arc, spinning; static under reduced motion. Next to a status text, for example "Signing you in…". Inside `--bg-elevated` the track is `--bg-inset`; on a mint button the track is `--mint-hover` and the arc `--on-mint`. |
+| **Small ring** | indeterminate progress, 16px: 2px `--bg-elevated` track with a mint arc, spinning; static under reduced motion. Next to a status text, for example "Signing you in…". Inside `--bg-elevated` the track is `--bg-inset`; on a mint button the track is `--mint-hover` and the arc `--on-mint`. A 12px ring (same 2px track) is the glyph of the Processing ingestion pill. |
 | **Radial progress** | mint ring on `--chart-track`, centered % (white, 20px/700) + status text ("Evaluation In Progress…"). |
 | **Stepper** | numbered circles connected by a line: "1 Analysis — 2 Findings — 3 Action Plan"; current step mint, others `--text-secondary`. |
+| **Inline notice** | a note inside a card about its content, such as the chat's quota or a version that is processing: `--bg-inset`, `--radius-sm`, padding 12, a 16px icon in `--text-secondary` (or the Small ring), a 13px/600 white title and 12px `--text-secondary` lines, each its own paragraph; optionally a secondary button. No status colors. |
+| **Drop zone** | a native button that opens the file picker, so the keyboard path is Enter or Space; dropping a file on it is a pointer shortcut. At least 128px tall, `--bg-inset`, 1px dashed `--teal-border`, `--radius-control`, padding 16, centered: 20px `Upload` in `--text-secondary`, a 13px/500 white line ("Choose a file or drop it here") and a 12px `--text-secondary` hint (formats and limits). While a file is dragged over it: solid mint border and `--teal-deep` fill, with no transition. Once a file is chosen it shows one row: 20px `FileText`, the name (13px/500, truncated), the size (12px `--text-secondary`, tabular) and "Choose another file" (12px/500 mint). Its error and hint are linked with `aria-describedby`. |
 | **Checklist** | mint filled check-circle for done, mint outlined circle for in progress, text in `--text-secondary`. |
 | **Chat** | user bubble right-aligned, `--bubble-user` fill, white 13/20 text, `--radius-control`, padding 10/14, max 85% of the column, with a 32px initials avatar on `--teal` to its right. Assistant bubble left after a 32px N-mark avatar (`--bg-elevated` circle): `--bg-elevated`, 1px `--border`, `--radius-card`, padding 16; each claim a paragraph followed by its citation chips. Input: auto-growing textarea (1–6 lines, min 44px) on `--bg-inset`, 1px `--teal-border`, `--radius-control`, with a 32px round `--mint` send button and an `--on-mint` icon inside it at the bottom right (the mock draws it blue with a white arrow; one accent wins). |
 | **Citation chip** | button, 28px tall, padding 0/10, `--radius-sm`, 1px `--teal-border`, transparent; mint 12px/500 label "View source · {section}" and a 14px arrow. Hover `--bg-inset` (inside an elevated bubble). Open (`aria-expanded`): `--teal-deep` fill, 1px `--mint` border (the fill alone is only 1.7:1 against the bubble), mint text. A long label truncates at the chip width. |
@@ -181,7 +185,7 @@ Keycloak sign-in uses the same auth canvas, card, logo and form tokens. Its
 |---|---|
 | Overview | KPI row, compliance donut, controls/requirements table, compliance over time, upcoming audits, top risk categories |
 | Ask the Regulation | conversation list, chat with citation chips, source panel with the quoted passage in its original language (§4 layout) |
-| Documents | upload + table with type, expiry and ingestion status pills |
+| Documents | upload (drop zone) + table with type, current version and ingestion status pills; detail with the version history ([`documents-screen.md`](documents-screen.md)) |
 | Simulated Inspection | stepper + radial progress + checklist while running; findings table with status pills and Accept / Reject / Edit after |
 | Change Monitor | change alert cards with impact footer |
 | Settings | Profiles tab: profile list, permission editor, users and their profiles ([`profiles-settings.md`](profiles-settings.md)) |
