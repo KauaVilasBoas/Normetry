@@ -1039,10 +1039,15 @@ def test_another_tenant_cannot_read_change_or_forge_tenant_documents(app_ai: Eng
     with denied(), tenant_transaction(app_ai, tenant_b) as connection:
         params = {"tenant_id": tenant_a, "document_id": uuid4(), "establishment_id": uuid4()}
         connection.execute(INSERT_TENANT_DOCUMENT, params)
+    # Nor can B hand its own row to A.
+    own = new_tenant_document(app_ai, tenant_b)
+    with denied(), tenant_transaction(app_ai, tenant_b) as connection:
+        move = text("UPDATE ai.tenant_documents SET tenant_id = :a WHERE document_id = :id")
+        connection.execute(move, {"a": tenant_a, "id": own})
     # The key leads with the tenant: B can hold a row for the same document id, A's stays as it is.
     new_tenant_document(app_ai, tenant_b, document)
     assert tenant_documents(app_ai, tenant_a) == {(tenant_a, document)}
-    assert tenant_documents(app_ai, tenant_b) == {(tenant_b, document)}
+    assert tenant_documents(app_ai, tenant_b) == {(tenant_b, own), (tenant_b, document)}
 
 
 def test_a_tenant_document_row_is_never_deleted(app_ai: Engine) -> None:

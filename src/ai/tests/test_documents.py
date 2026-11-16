@@ -3,13 +3,16 @@ the worker against the shared PostgreSQL container, as app_ai, with a fake blob 
 embedder. Out-of-order, duplicate and racing messages are run in the order that triggers them."""
 
 import hashlib
+import logging
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
 import pytest
+from azure.storage.blob import ContainerClient
 from fakes import FakeContainer, FakeEmbedder
 from sample_files import LINE, make_docx, make_pdf
 from sqlalchemy import Engine, text
+from urllib3.util import parse_url
 
 from normetry_ai.db import tenant_transaction
 from normetry_ai.ingestion import documents
@@ -67,6 +70,26 @@ def test_a_path_outside_the_tenant_is_refused_before_storage_is_asked(path: str)
         BlobStore(container).download(TENANT, path)
     assert error.value.reason == "blob_path_outside_tenant"
     assert container.requested == []
+
+
+@pytest.mark.parametrize(
+    "name", ["%2e%2e/%2e%2e/other/sop.pdf", "a%2fb.pdf", "sop.pdf?comp=list", "sop.pdf#x"]
+)
+def test_the_sdk_keeps_an_accepted_path_under_the_tenant_in_the_request_url(name: str) -> None:
+    # in_tenant passes these; the SDK must quote them so no request leaves the prefix.
+    path = f"tenants/{TENANT}/{name}"
+    container = ContainerClient.from_connection_string("UseDevelopmentStorage=true", "documents")
+
+    url = parse_url(container.get_blob_client(path).url)  # builds the URL, sends nothing
+
+    assert in_tenant(TENANT, path)
+    assert url.path.startswith(f"/devstoreaccount1/documents/tenants/{TENANT}/")
+    assert (url.query, url.fragment) == (None, None)
+
+
+def test_request_urls_with_file_names_stay_out_of_info_logs() -> None:
+    policy = logging.getLogger("azure.core.pipeline.policies.http_logging_policy")
+    assert not policy.isEnabledFor(logging.INFO)
 
 
 def test_a_missing_or_oversized_blob_is_refused_and_a_large_one_never_downloaded() -> None:
