@@ -400,6 +400,61 @@ describe("profiles tab", () => {
   });
 });
 
+describe("lost permissions and /me failures", () => {
+  it("moves focus to the editor when a refused create takes the dialog away", async () => {
+    const fetch = renderSettings({
+      "/me": [{ body: me }, { body: readOnly }],
+      "POST /profiles": { status: 403, body: { code: "permission.denied" } },
+    });
+    await editor("Owner");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "New profile" }));
+    const dialog = await screen.findByRole("dialog", { name: "New profile" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Bar staff{Enter}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Owner" })).toHaveFocus(),
+    );
+    expect(screen.queryByRole("button", { name: "New profile" })).toBeNull();
+    expect(fetch.mock.calls.filter(([input]) => input === "/api/me")).toHaveLength(2);
+  });
+
+  it("shows a failed /me in the list card and recovers with Try again", async () => {
+    renderSettings({ "/me": [{ status: 503 }, { status: 503 }, { body: me }] });
+
+    const alert = await within(await screen.findByRole("region", { name: "Profiles" })).findByRole(
+      "alert",
+      {},
+      { timeout: 3000 },
+    );
+    expect(alert).toHaveTextContent("Couldn't load profiles");
+    expect(screen.queryByRole("region", { name: "Users" })).toBeNull();
+    await expectNoAxeViolations();
+    await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Profiles" })).toHaveFocus(),
+    );
+    expect(await editor("Owner")).toBeVisible();
+    expect(await usersCard()).toBeVisible();
+  });
+
+  it("explains a missing organization on a /me 403", async () => {
+    renderSettings({ "/me": { status: 403 } });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Your account isn't linked to an organization",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Profiles" })).toBeNull();
+    await expectNoAxeViolations();
+  });
+});
+
 describe("users", () => {
   it("lists users by name with their profiles", async () => {
     renderSettings();
@@ -555,6 +610,8 @@ describe("settings access and narrow layout", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Kitchen lead" })).toHaveFocus();
     expect(screen.queryByRole("region", { name: "Users" })).toBeNull();
+    await screen.findAllByRole("checkbox");
+    await expectNoAxeViolations();
     expect(screen.queryByRole("navigation", { name: "Settings sections" })).toBeNull();
     await userEvent.click(screen.getByRole("link", { name: "Profiles" }));
 
