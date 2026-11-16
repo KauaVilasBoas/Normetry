@@ -11,9 +11,9 @@ export function listState(
   me: UseQueryResult<Me>,
   list: UseQueryResult<Establishment[]>,
 ): ListState {
-  // 403: the token has no valid tenant, so every tenant-scoped endpoint refuses it.
-  if ([me.error, list.error].some((error) => error instanceof ApiError && error.status === 403))
-    return "forbidden";
+  // 403 from /me: the token has no valid tenant. From /establishments it is a missing permission,
+  // which refetches /me (createQueryClient) and so hides the picker.
+  if (me.error instanceof ApiError && me.error.status === 403) return "forbidden";
   // A failed query goes back to pending when Try again refetches it; keep the error (and its
   // button, which holds focus) until that request settles.
   const failed = (query: UseQueryResult) =>

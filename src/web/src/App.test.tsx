@@ -392,3 +392,100 @@ describe("shell", () => {
     expect(localStorage.getItem(storageKey)).toBeNull();
   });
 });
+
+describe("permissions", () => {
+  const without = (...names: string[]) => ({
+    ...me,
+    permissions: me.permissions.filter((name) => !names.includes(name)),
+  });
+  const called = (fetch: ReturnType<typeof stubApi>, path: string) =>
+    fetch.mock.calls.some(([input]) => input === `/api${path}`);
+
+  it("shows two skeleton bars instead of the nav while /me is pending", async () => {
+    renderApp({ "/me": never });
+
+    await screen.findByRole("region", { name: "Establishments" });
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Ask the Regulation" })).toBeNull();
+  });
+
+  it("shows no access, and no switcher or nav, to a user with no profile", async () => {
+    const { fetch } = renderApp({
+      "/me": { body: { ...me, permissions: [], profiles: [] } },
+      "/establishments": { body: establishments },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "You don't have access yet" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Establishment" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "No establishment" })).toBeNull();
+    expect(called(fetch, "/establishments")).toBe(false);
+    expect(called(fetch, "/ai/conversations")).toBe(false);
+    await expectNoAxeViolations();
+  });
+
+  it("refuses Ask the Regulation by URL without chat.ask", async () => {
+    window.history.replaceState(null, "", "/conversations/c-1");
+    const { fetch } = renderApp({
+      "/me": { body: without("chat.ask", "profiles.read", "profiles.manage") },
+      "/establishments": { body: establishments },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "You don't have access to Ask the Regulation" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Ask the Regulation" })).toBeNull();
+    expect(called(fetch, "/ai/conversations")).toBe(false);
+    await expectNoAxeViolations();
+  });
+
+  it("explains establishments are needed, and never lists them, without establishments.read", async () => {
+    const { fetch } = renderApp({
+      "/me": { body: without("establishments.read") },
+      "/establishments": { body: establishments },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "You don't have access to establishments" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("combobox", { name: "Establishment" })).toBeNull();
+    expect(called(fetch, "/establishments")).toBe(false);
+    await expectNoAxeViolations();
+  });
+
+  it("reads a 403 from /establishments as a lost permission, not a missing organization", async () => {
+    const { fetch } = renderApp({
+      "/me": [{ body: me }, { body: without("establishments.read") }],
+      "/establishments": { status: 403, body: { code: "permission.denied" } },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "You don't have access to establishments" }),
+    ).toBeVisible();
+    expect(screen.queryByText("Your account isn't linked to an organization")).toBeNull();
+    expect(fetch.mock.calls.filter(([input]) => input === "/api/me")).toHaveLength(2);
+  });
+
+  it("lists the user's profile names in the account menu", async () => {
+    renderApp({
+      "/me": {
+        body: {
+          ...me,
+          profiles: [
+            { id: "p-manager", name: "Manager", systemKey: "manager" },
+            { id: "p-kitchen", name: "Kitchen lead", systemKey: null },
+          ],
+        },
+      },
+      "/establishments": { body: establishments },
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Account menu, Olivia Owner" }),
+    );
+
+    expect(await screen.findByRole("menu")).toHaveTextContent("Manager, Kitchen lead");
+  });
+});

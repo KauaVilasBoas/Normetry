@@ -69,10 +69,24 @@ export function stubApi(routes: Record<string, Route | Route[]>) {
   return fetch;
 }
 
+/** The whole catalog, in the server's order: what Owner grants. */
+export const allPermissions = [
+  "establishments.read",
+  "establishments.manage",
+  "documents.read",
+  "documents.upload",
+  "documents.delete",
+  "chat.ask",
+  "profiles.read",
+  "profiles.manage",
+];
+
+/** GET /me for an Owner; spread it with other `permissions` for anyone else. */
 export const me = {
   userId: "user-1",
   tenantId: "11111111-1111-4111-8111-111111111111",
-  roles: ["Owner"],
+  permissions: allPermissions,
+  profiles: [{ id: "p-owner", name: "Owner", systemKey: "owner" }],
 };
 
 export const establishments = [
