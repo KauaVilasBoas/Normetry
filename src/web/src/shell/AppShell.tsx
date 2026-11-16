@@ -96,9 +96,18 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
     if (establishments.isError) void establishments.refetch();
   };
 
+  // The screens the user may open; Documents joins them when it is built.
+  const canOpenAScreen = chatAllowed || can(me.data, "profiles.read");
+
   let content: ReactNode;
-  if (me.data?.permissions.length === 0) {
-    content = <AccessCard title={copy.access.noneTitle} body={copy.access.noneBody} />;
+  if (me.data && !canOpenAScreen) {
+    // No profile at all, or profiles whose permissions open no screen: the same on every route.
+    content =
+      me.data.profiles.length === 0 ? (
+        <AccessCard title={copy.access.noneTitle} body={copy.access.noneBody} />
+      ) : (
+        <AccessCard title={copy.access.noScreenTitle} body={copy.access.noScreenBody} />
+      );
   } else if (screen === "settings") {
     if (me.error instanceof ApiError && me.error.status === 403)
       content = <AccessCard title={copy.picker.noTenantTitle} body={copy.picker.noTenantBody} />;
@@ -111,14 +120,10 @@ export function AppShell({ screen }: { screen: "chat" | "settings" }) {
       );
     else content = <ProfilesScreen me={me} />;
   } else if (me.data && !chatAllowed) {
-    // Home goes to the first screen the user may open.
+    // Home goes to the first screen the user may open: here, Settings.
     content =
       conversationId === undefined ? (
-        can(me.data, "profiles.read") ? (
-          <Navigate to="/settings/profiles" replace />
-        ) : (
-          <AccessCard title={copy.access.noneTitle} body={copy.access.noneBody} />
-        )
+        <Navigate to="/settings/profiles" replace />
       ) : (
         <AccessCard
           title={format(copy.access.refusedTitle, { screen: copy.shell.askTheRegulation })}

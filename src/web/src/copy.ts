@@ -45,6 +45,8 @@ export const copy = {
     noneTitle: "You don't have access yet",
     noneBody:
       "Ask an administrator in your organization to give you a profile, then reload this page.",
+    noScreenTitle: "Your profile doesn't include any screens yet",
+    noScreenBody: "Ask an administrator in your organization to add permissions to your profile.",
     refusedTitle: "You don't have access to {screen}",
     refusedBody: "Ask an administrator in your organization for access.",
     establishmentsTitle: "You don't have access to establishments",
