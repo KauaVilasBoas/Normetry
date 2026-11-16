@@ -17,7 +17,16 @@ import {
 } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
-import { Avatar, Button, iconButton, Message, Skeleton, Spinner, TypeTile } from "../ui/primitives";
+import {
+  Avatar,
+  Button,
+  dialogPanel,
+  iconButton,
+  Message,
+  Skeleton,
+  Spinner,
+  TypeTile,
+} from "../ui/primitives";
 import { Answer } from "./Answer";
 import { quotaAfter, quotaNoticeText, streamAnswer, toTurns, type Turn } from "./answers";
 import { Composer } from "./Composer";
@@ -526,7 +535,7 @@ function DeleteConversation({
             event.preventDefault();
             if (trigger.current?.isConnected) trigger.current.focus();
           }}
-          className="fixed top-1/2 left-1/2 z-40 w-[calc(100%-2rem)] max-w-100 -translate-x-1/2 -translate-y-1/2 rounded-card border border-border bg-elevated p-5 motion-safe:animate-fade-in"
+          className={dialogPanel}
         >
           <AlertDialog.Title className="text-title font-semibold">
             {copy.chat.deleteTitle}
