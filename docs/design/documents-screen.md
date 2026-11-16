@@ -167,7 +167,7 @@ The new-version dialog has the same zone. It has no Title or Type field, its tit
 
 - The **newest version** decides the pill. The **current version** is the newest version that is Indexed; it fills the Version column and gets the "Current" tag.
 - **List caption under the pill:**
-  - if the newest version isn't the current one: "Version {n}";
+  - if a current version exists and the newest isn't it: "Version {n}";
   - if the status is Failed: the short reason;
   - if both apply: "Version {n} · {reason}".
 - **Detail notice**, chosen by the newest version's status. A Failed version shows the long reason. When the newest version is Indexed there is no notice.
@@ -194,6 +194,7 @@ The new-version dialog has the same zone. It has no Title or Type field, its tit
 | parse error | Couldn't read the file | The file may be damaged or password-protected. Check that it opens, then upload it again. |
 | internal error | Internal error | Something went wrong on our side. Upload the file again later. |
 | timed out | Timed out | Processing took too long and was stopped. Upload the file again. |
+| blob path outside tenant | Internal error | Something went wrong on our side. Upload the file again later. |
 | (unknown) | Couldn't be indexed | Something went wrong while processing this file. Upload it again. |
 
 ## 5. Behavior
@@ -205,7 +206,7 @@ The new-version dialog has the same zone. It has no Title or Type field, its tit
   - **Page count** can only be checked by the worker. A long file shows up as Failed with "Too many pages".
   - **Required fields:** Title and Type. On submit with errors, focus moves to the first invalid control.
   - **Success (202):** the dialog closes, focus returns to the trigger, the list refetches (the new row appears as Waiting), and a message is announced.
-  - **Cancel or Esc** aborts a running upload. If the server already accepted the file, it still appears in the list.
+  - **Cancel or Esc** aborts a running upload. If the server already accepted the file, it still appears in the list. A click on the scrim does nothing: it would lose the form and abort the upload. A file dropped beside the zone does nothing either (the browser would otherwise open it and leave the app).
 - **Dropping on the list card** (only with `documents.upload`) opens the upload dialog with that file chosen. While a file is dragged over it, the card shows the drop zone's mint border. This is a pointer shortcut only.
 - **New version.** "Upload new version" opens the same dialog in new-version mode. On success focus returns to the button, which is now `aria-disabled` because a version is in flight.
 - **Delete** opens the alert dialog. On success the page goes to `/documents`, focus moves to the card `h2`, and a message is announced.
@@ -214,12 +215,14 @@ The new-version dialog has the same zone. It has no Title or Type field, its tit
   - On a push, update or refetch the list and the open detail.
   - After a reconnect, refetch both.
   - The connection notice shows while the connection is reconnecting or has stopped. "Reconnect" restarts the connection and refetches.
+  - "Reconnecting…" shows only after 2 s of reconnecting. The hub closes each connection when its token expires (every 5 minutes) and the client reconnects at once, so without the grace period the notice would flash. "Stopped" shows at once.
+  - While the new connection starts, "Reconnect" stays as an `aria-disabled` button with a spinner (the Try again pattern). Once connected the notice goes and focus moves to the card heading.
 
 ## 6. States and copy (EN)
 
 | State | List | Detail |
 |---|---|---|
-| Loading | Header bars (`h-4 w-40`, `h-3 w-24`), then 5 skeleton rows (title bar and line-2 bar, a pill bar `h-5 w-20`). `aria-busy`, with a visually hidden "Loading documents…". | Title bar `h-6 w-64`, meta bar, then 3 version rows. Visually hidden "Loading document…". |
+| Loading | The card `h2` shows the establishment name (it is known), then a count bar (`h-3 w-24`) and 5 skeleton rows (title bar and line-2 bar, a pill bar `h-5 w-20`). `aria-busy`, with a visually hidden "Loading documents…". | Title bar `h-6 w-64` (or the title, when the list has it), meta bar, then 3 version rows. Visually hidden "Loading document…". |
 | Empty, with upload | `FileText` 20 `text-neutral` · "No documents yet" · "Upload SOPs, licenses, logs and reports for {establishment}. PDF, DOCX, TXT or CSV, up to 10 MB." The header's Upload button stays. | — |
 | Empty, without upload | "No documents yet" · "Documents uploaded for {establishment} appear here." | — |
 | Error | `role="alert"`: "Couldn't load documents" / "Check your connection and try again." and "Try again" (retry pattern from Spec 1 §5). | "Couldn't load this document" with the same body and button. |
@@ -266,7 +269,7 @@ The new-version dialog has the same zone. It has no Title or Type field, its tit
 **Detail**
 - Back link "Documents" · meta "{type} · {establishment}".
 - "Delete" (`aria-label` "Delete document") · "Upload new version".
-- "Versions" · columns "Version", "File", "Status", "Uploaded" · tag "Current".
+- "Versions" · columns "Version", "File", "Status", "Uploaded" · tag "Current" · an uploader without a display name: "Unknown user".
 - Notices: §4.
 
 **Delete dialog**
@@ -305,7 +308,7 @@ Sizes use `Intl.NumberFormat(locale, { style: "unit", unit: "megabyte" | "kiloby
 - One visually hidden polite region for the Documents section. Mount it above both routes, so a "deleted" message survives the navigation.
 - It announces only Indexed and Failed, plus upload and delete confirmations. Waiting and Processing are not announced.
 - Pills and table cells are never live regions.
-- The connection notice uses `role="status"`. Dialog errors use `role="alert"`.
+- The connection notice sits in a `role="status"` region that is always mounted (empty while live), so what arrives in it is announced. Dialog errors use `role="alert"`.
 
 **Fields.** Every field has a visible `<label>`. Errors are linked with `aria-describedby`, and the field gets `aria-invalid`. The drop zone points to the format hint and to its error with `aria-describedby`.
 
