@@ -172,9 +172,13 @@ async def handle(
         return "dead-letter"
 
 
+RETRY_SECONDS = (2, 10, 30, 60)
+
+
 def retry_delay(delivery_count: int) -> float:
-    """Seconds to wait before requeueing: 1, 2, 4, then 8."""
-    return float(min(2**delivery_count, 30))
+    """Seconds to wait before requeueing: 2, 10, 30, then 60. The 102 seconds in all outlast a
+    database or blob storage restart; a dead-lettered message is not replayed."""
+    return float(RETRY_SECONDS[min(delivery_count, len(RETRY_SECONDS) - 1)])
 
 
 def _delivery_count(headers: Mapping[str, Any]) -> int:

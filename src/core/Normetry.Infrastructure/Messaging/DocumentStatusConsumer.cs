@@ -9,7 +9,7 @@ namespace Normetry.Infrastructure.Messaging;
 
 /// <summary>
 /// Consumes <c>core.document-status</c> (declared here with its dead-letter queue, as the contract
-/// says), one message at a time. An error is retried after 1, 2, 4, then 8 seconds by a reject
+/// says), one message at a time. An error is retried after 2, 10, 30, then 60 seconds by a reject
 /// with requeue, which the broker counts; with <c>x-delivery-limit: 4</c> the fifth delivery that
 /// fails goes to <c>core.document-status.dead-letter</c>. A body off the contract is
 /// dead-lettered at once. The client recovers the connection, the queue and the consumer after a
@@ -22,6 +22,9 @@ internal sealed class DocumentStatusConsumer(
 ) : BackgroundService
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
+
+    /// <summary>The waits before each requeue: 102 seconds in all, to outlast a database restart.</summary>
+    private static readonly int[] RequeueSeconds = [2, 10, 30, 60];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -112,7 +115,8 @@ internal sealed class DocumentStatusConsumer(
                 await channel.BasicRejectAsync(delivery.DeliveryTag, false, cancellationToken);
                 break;
             default:
-                await Task.Delay(TimeSpan.FromSeconds(1 << Math.Min(count, 3)), cancellationToken);
+                var seconds = RequeueSeconds[Math.Min(count, RequeueSeconds.Length - 1)];
+                await Task.Delay(TimeSpan.FromSeconds(seconds), cancellationToken);
                 await channel.BasicRejectAsync(delivery.DeliveryTag, true, cancellationToken);
                 break;
         }
