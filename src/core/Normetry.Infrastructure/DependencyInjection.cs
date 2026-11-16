@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IEstablishmentRepository, EstablishmentRepository>();
         services.AddScoped<IChatMessageCounter, ChatMessageCounter>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
         return services;
     }

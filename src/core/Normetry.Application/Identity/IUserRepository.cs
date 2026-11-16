@@ -33,4 +33,29 @@ public interface IUserRepository
         string sub,
         CancellationToken cancellationToken
     );
+
+    /// <summary>
+    /// Every user of the tenant with their profiles, ordered by display name. The one whose
+    /// <c>sub</c> is <paramref name="callerSub"/> is marked as the current user.
+    /// </summary>
+    Task<IReadOnlyList<UserResponse>> ListAsync(
+        string callerSub,
+        CancellationToken cancellationToken
+    );
+
+    Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Gives the user the profile; nothing changes when they already hold it.</summary>
+    Task AssignAsync(
+        Guid tenantId,
+        Guid userId,
+        Guid profileId,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>Takes the profile from the user; nothing changes when they do not hold it.</summary>
+    Task UnassignAsync(Guid userId, Guid profileId, CancellationToken cancellationToken);
+
+    /// <summary>The ids of the users who hold the profile.</summary>
+    Task<IReadOnlyList<Guid>> ListHoldersAsync(Guid profileId, CancellationToken cancellationToken);
 }

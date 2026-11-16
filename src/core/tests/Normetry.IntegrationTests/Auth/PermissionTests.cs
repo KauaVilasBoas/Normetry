@@ -36,6 +36,16 @@ public sealed class PermissionTests
             { "GET", "/chat/quota", Permissions.Chat.Ask },
             { "GET", "/ai/conversations", Permissions.Chat.Ask },
             { "POST", "/ai/establishments/{id}/conversations/c1/messages", Permissions.Chat.Ask },
+            { "GET", "/permissions", Permissions.Profiles.Read },
+            { "GET", "/profiles", Permissions.Profiles.Read },
+            { "GET", "/profiles/{id}", Permissions.Profiles.Read },
+            { "POST", "/profiles", Permissions.Profiles.Manage },
+            { "PATCH", "/profiles/{id}", Permissions.Profiles.Manage },
+            { "DELETE", "/profiles/{id}", Permissions.Profiles.Manage },
+            { "PUT", "/profiles/{id}/permissions", Permissions.Profiles.Manage },
+            { "GET", "/users", Permissions.Profiles.Read },
+            { "PUT", "/users/{id}/profiles/{id}", Permissions.Profiles.Manage },
+            { "DELETE", "/users/{id}/profiles/{id}", Permissions.Profiles.Manage },
         };
 
     [Theory]
@@ -95,17 +105,17 @@ public sealed class PermissionTests
         using var client = db.Api.CreateClient(ApiFactory.CreateToken(tenant.ToString(), sub));
         using var request = new HttpRequestMessage(new HttpMethod(method), path)
         {
-            Content =
-                method == "POST"
-                    ? JsonContent.Create(
-                        new
-                        {
-                            name = "Kitchen",
-                            type = "Restaurant",
-                            jurisdiction = "US",
-                        }
-                    )
-                    : null,
+            Content = method is "POST" or "PATCH" or "PUT"
+                ? JsonContent.Create(
+                    new
+                    {
+                        name = "Kitchen",
+                        type = "Restaurant",
+                        jurisdiction = "US",
+                        permissions = Array.Empty<string>(),
+                    }
+                )
+                : null,
         };
         return await client.SendAsync(request, Ct);
     }

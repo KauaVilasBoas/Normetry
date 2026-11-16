@@ -6,7 +6,10 @@ namespace Normetry.IntegrationTests.Database;
 /// </summary>
 public static class TestTenants
 {
-    /// <summary>A new tenant with its Owner system profile, held by one user per <paramref name="owners"/> sub.</summary>
+    /// <summary>
+    /// A new tenant with its three system profiles, Owner held by one user per
+    /// <paramref name="owners"/> sub.
+    /// </summary>
     public static async Task<Guid> CreateAsync(
         DatabaseFixture db,
         Guid? id = null,
@@ -20,13 +23,18 @@ public static class TestTenants
             "INSERT INTO core.tenants (id, name) VALUES ($1, 'Tenant')",
             tenant
         );
+        // Manager and Auditor exist like in a real tenant, but grant nothing here.
         await session.ExecuteAsync(
             """
             INSERT INTO core.profiles (tenant_id, id, name, system_key, grants_all)
-            VALUES ($1, $2, 'Owner', 'owner', true)
+            VALUES ($1, $2, 'Owner', 'owner', true),
+                   ($1, $3, 'Manager', 'manager', false),
+                   ($1, $4, 'Auditor', 'auditor', false)
             """,
             tenant,
-            owner
+            owner,
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7()
         );
         foreach (var sub in owners)
         {
