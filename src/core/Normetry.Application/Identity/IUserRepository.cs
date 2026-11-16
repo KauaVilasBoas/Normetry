@@ -27,4 +27,10 @@ public interface IUserRepository
         string sub,
         CancellationToken cancellationToken
     );
+
+    /// <summary>The profiles the user holds, ordered by name. Empty for an unknown user.</summary>
+    Task<IReadOnlyList<ProfileSummary>> GetProfilesAsync(
+        string sub,
+        CancellationToken cancellationToken
+    );
 }

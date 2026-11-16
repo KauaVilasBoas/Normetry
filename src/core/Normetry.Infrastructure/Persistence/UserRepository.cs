@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Normetry.Application.Identity;
+using Normetry.Domain.Identity;
 
 namespace Normetry.Infrastructure.Persistence;
 
@@ -28,17 +29,21 @@ internal sealed class UserRepository(CoreDbContext db) : IUserRepository
             cancellationToken
         );
 
+    public async Task<IReadOnlyList<ProfileSummary>> GetProfilesAsync(
+        string sub,
+        CancellationToken cancellationToken
+    ) =>
+        await HeldProfiles(sub)
+            .OrderBy(profile => profile.Name)
+            .Select(profile => new ProfileSummary(profile.Id, profile.Name, profile.SystemKey))
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<string>> GetPermissionsAsync(
         string sub,
         CancellationToken cancellationToken
     )
     {
-        var held = db
-            .UserProfiles.Where(link =>
-                db.Users.Any(user => user.Id == link.UserId && user.Sub == sub)
-            )
-            .Select(link => link.ProfileId);
-        var profiles = db.Profiles.Where(profile => held.Contains(profile.Id));
+        var profiles = HeldProfiles(sub);
         // Owner's grants_all covers every catalog row, present and future.
         return await db
             .Permissions.Where(permission =>
@@ -52,5 +57,15 @@ internal sealed class UserRepository(CoreDbContext db) : IUserRepository
             .Select(permission => permission.Name)
             .OrderBy(name => name)
             .ToListAsync(cancellationToken);
+    }
+
+    private IQueryable<Profile> HeldProfiles(string sub)
+    {
+        var held = db
+            .UserProfiles.Where(link =>
+                db.Users.Any(user => user.Id == link.UserId && user.Sub == sub)
+            )
+            .Select(link => link.ProfileId);
+        return db.Profiles.Where(profile => held.Contains(profile.Id));
     }
 }

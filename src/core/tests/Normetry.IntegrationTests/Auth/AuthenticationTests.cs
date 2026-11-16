@@ -1,13 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using Normetry.Api.Auth;
 using Normetry.Application.Identity.GetCurrentUser;
+using Normetry.Domain.Identity;
 using Normetry.IntegrationTests.Database;
 using Xunit;
 
@@ -31,7 +28,7 @@ public sealed class AuthenticationTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task A_valid_token_gets_its_user_tenant_and_Normetry_roles()
+    public async Task A_valid_token_gets_its_user_tenant_profiles_and_permissions()
     {
         using var client = factory.CreateClient(ApiFactory.CreateToken());
 
@@ -40,8 +37,56 @@ public sealed class AuthenticationTests
         Assert.Equal(ApiFactory.UserId, me!.UserId);
         Assert.Equal(Guid.Parse(ApiFactory.TenantA), me.TenantId);
         Assert.Equal("Demo Bistro", me.TenantName);
-        // offline_access and default-roles-normetry are in the token but are not Normetry roles.
-        Assert.Equal([NormetryRoles.Owner], me.Roles);
+        Assert.Equal(["Owner"], me.Roles);
+        Assert.Equal(
+            ("Owner", Profile.SystemKeys.Owner),
+            (Assert.Single(me.Profiles).Name, me.Profiles[0].SystemKey)
+        );
+        Assert.Equal(Permissions.All.Order(StringComparer.Ordinal), me.Permissions);
+    }
+
+    [Fact]
+    public async Task A_user_without_profiles_gets_403_with_a_code_everywhere_but_me()
+    {
+        // A realm role in the token changes nothing: permissions come from the core database.
+        using var client = factory.CreateClient(
+            ApiFactory.CreateToken(token =>
+            {
+                token.Claims["sub"] = Guid.NewGuid().ToString();
+                token.Claims["realm_access"] = new Dictionary<string, object>
+                {
+                    ["roles"] = new[] { "Owner", "Manager", "Auditor" },
+                };
+            })
+        );
+
+        var me = await client.GetFromJsonAsync<CurrentUserResponse>("/me", Ct);
+
+        Assert.Equal(
+            ("Demo Bistro", 0, 0),
+            (me!.TenantName, me.Permissions.Count, me.Profiles.Count)
+        );
+        foreach (var path in new[] { "/establishments", "/chat/quota", "/ai/conversations" })
+        {
+            var response = await client.GetAsync(path, Ct);
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(Ct);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("permission.denied", problem!.Extensions["code"]!.ToString());
+        }
+    }
+
+    [Fact]
+    public async Task A_token_without_a_tenant_gets_a_403_without_the_permission_code()
+    {
+        using var client = factory.CreateClient(
+            ApiFactory.CreateToken(token => token.Claims.Remove("tenant_id"))
+        );
+
+        var response = await client.GetAsync("/establishments", Ct);
+        var body = await response.Content.ReadAsStringAsync(Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.DoesNotContain("permission.denied", body);
     }
 
     [Fact]
@@ -195,40 +240,5 @@ public sealed class AuthenticationTests
         var response = await client.GetAsync("/me", Ct);
 
         Assert.Equal(expected, response.StatusCode);
-    }
-
-    [Theory]
-    [InlineData(NormetryRoles.Owner, Policies.Owner, true)]
-    [InlineData(NormetryRoles.Manager, Policies.Manager, true)]
-    [InlineData(NormetryRoles.Auditor, Policies.Auditor, true)]
-    [InlineData(NormetryRoles.Owner, Policies.Manager, false)]
-    [InlineData(NormetryRoles.Auditor, Policies.Owner, false)]
-    [InlineData("offline_access", Policies.Auditor, false)]
-    [InlineData(NormetryRoles.Owner, Policies.OwnerOrManager, true)]
-    [InlineData(NormetryRoles.Manager, Policies.OwnerOrManager, true)]
-    [InlineData(NormetryRoles.Auditor, Policies.OwnerOrManager, false)]
-    public async Task A_role_policy_requires_its_realm_role(
-        string realmRole,
-        string policy,
-        bool allowed
-    )
-    {
-        var token = ApiFactory.CreateToken(token =>
-            token.Claims["realm_access"] = new Dictionary<string, object>
-            {
-                ["roles"] = new[] { realmRole },
-            }
-        );
-        using var scope = factory.Services.CreateScope();
-        var context = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
-        context.Request.Headers.Authorization = $"Bearer {token}";
-
-        var authentication = await context.AuthenticateAsync();
-        var authorization = await scope
-            .ServiceProvider.GetRequiredService<IAuthorizationService>()
-            .AuthorizeAsync(authentication.Principal!, policy);
-
-        Assert.True(authentication.Succeeded);
-        Assert.Equal(allowed, authorization.Succeeded);
     }
 }

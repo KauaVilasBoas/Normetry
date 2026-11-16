@@ -20,7 +20,6 @@ namespace Normetry.IntegrationTests;
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     public const string Issuer = "https://issuer.test/realms/normetry";
-    public const string UserId = "0b5a4c8e-7f1d-4e2a-9c3b-6d8e1f2a3b4c";
 
     // The demo tenants: the API's Development seed creates them when a database is attached.
     public const string TenantA = "11111111-1111-4111-8111-111111111111";
@@ -28,6 +27,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     // The demo users (their Keycloak ids, so the token's sub): the seed gives each a system profile.
     public const string BistroOwner = "11111111-0000-4000-8000-000000000001";
+
+    /// <summary>The default token's <c>sub</c>: <c>bistro.owner</c>, the Demo Bistro Owner.</summary>
+    public const string UserId = BistroOwner;
     public const string BistroManager = "11111111-0000-4000-8000-000000000002";
     public const string BakeryOwner = "22222222-0000-4000-8000-000000000001";
     public const string BakeryAuditor = "22222222-0000-4000-8000-000000000002";
@@ -78,20 +80,18 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         });
     }
 
-    /// <summary>A token for <paramref name="tenantId"/> holding only <paramref name="role"/>.</summary>
-    public static string CreateToken(string tenantId, string role) =>
+    /// <summary>A token for the user <paramref name="sub"/> of <paramref name="tenantId"/>.</summary>
+    public static string CreateToken(string tenantId, string sub) =>
         CreateToken(token =>
         {
             token.Claims["tenant_id"] = tenantId;
-            token.Claims["realm_access"] = new Dictionary<string, object>
-            {
-                ["roles"] = new[] { role },
-            };
+            token.Claims["sub"] = sub;
         });
 
     /// <summary>
-    /// An access token shaped like Keycloak's for a Demo Bistro Owner, signed with the trusted
-    /// key. <paramref name="customize"/> changes it for a single test.
+    /// An access token shaped like Keycloak's for the Demo Bistro Owner (<c>bistro.owner</c>),
+    /// signed with the trusted key. Its realm roles are Keycloak's defaults and authorize nothing.
+    /// <paramref name="customize"/> changes it for a single test.
     /// </summary>
     public static string CreateToken(Action<SecurityTokenDescriptor>? customize = null)
     {
@@ -111,7 +111,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["tenant_id"] = TenantA,
                 ["realm_access"] = new Dictionary<string, object>
                 {
-                    ["roles"] = new[] { "Owner", "offline_access", "default-roles-normetry" },
+                    ["roles"] = new[] { "offline_access", "default-roles-normetry" },
                 },
             },
         };

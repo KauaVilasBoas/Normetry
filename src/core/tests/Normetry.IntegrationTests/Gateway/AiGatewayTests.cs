@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Api.Gateway;
+using Normetry.IntegrationTests.Database;
 using Xunit;
 
 namespace Normetry.IntegrationTests.Gateway;
@@ -15,12 +16,22 @@ namespace Normetry.IntegrationTests.Gateway;
 /// <summary>
 /// <c>/ai/*</c> against a stub AI service on a loopback port, found through the same service
 /// discovery setting Aspire injects (<c>Services:ai:http:0</c>). The stub echoes what it received.
+/// The route requires <c>chat.ask</c>, read from the test database, so the caller is the seeded
+/// <c>bistro.owner</c>.
 /// </summary>
+[Collection(DatabaseCollection.Name)]
 public sealed class AiGatewayTests : IAsyncLifetime
 {
+    private readonly DatabaseFixture db;
     private WebApplication? upstream;
     private WebApplicationFactory<Program>? api;
     private int hits;
+
+    public AiGatewayTests(DatabaseFixture db)
+    {
+        db.SkipWithoutDocker();
+        this.db = db;
+    }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -53,9 +64,7 @@ public sealed class AiGatewayTests : IAsyncLifetime
             .Features.Get<IServerAddressesFeature>()!
             .Addresses.Single();
 
-        api = new ApiFactory().WithWebHostBuilder(host =>
-            host.UseSetting("Services:ai:http:0", address)
-        );
+        api = db.Api.WithWebHostBuilder(host => host.UseSetting("Services:ai:http:0", address));
     }
 
     public async ValueTask DisposeAsync()
