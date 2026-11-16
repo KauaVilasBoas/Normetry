@@ -55,6 +55,11 @@ Action = Literal["ack", "retry", "dead-letter"]
 Publish = Callable[[Envelope[Any]], Awaitable[None]]
 
 
+class IndexedNotPublished(Exception):
+    """The version is indexed and current; only publishing its DocumentIndexed failed. The last
+    delivery must not report it as failed, since search already reads it."""
+
+
 def event(tenant_id: UUID, payload: VersionPayload) -> Envelope[Any]:
     """A result event for one document version, with its deterministic message id. The tenant is
     part of it as well: the core's inbox is keyed by (tenant_id, message_id), and an id that differs
@@ -94,7 +99,10 @@ async def _uploaded(
         await publish(event(tenant_id, failed))
         return
     if result is not None:
-        await publish(event(tenant_id, result))
+        try:
+            await publish(event(tenant_id, result))
+        except Exception as error:
+            raise IndexedNotPublished from error
 
 
 async def handle(
@@ -104,8 +112,8 @@ async def handle(
 
     A body that breaks the contract, or a message this queue does not take, is dead-lettered at
     once. A file that cannot be indexed publishes DocumentIngestionFailed and is acknowledged.
-    Any other error is retried; on the last delivery an upload publishes DocumentIngestionFailed
-    (`internal`) first, so the core does not wait for its timeout.
+    Any other error is retried; on the last delivery an upload that is not indexed publishes
+    DocumentIngestionFailed (`internal`) first, so the core does not wait for its timeout.
     """
     try:
         message = parse(body)
@@ -146,7 +154,7 @@ async def handle(
         )
         if not last:
             return "retry"
-        if isinstance(payload, DocumentUploaded):
+        if isinstance(payload, DocumentUploaded) and not isinstance(error, IndexedNotPublished):
             failed = DocumentIngestionFailed(
                 **_version(payload),
                 reason_code="internal",
