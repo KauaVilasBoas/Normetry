@@ -134,7 +134,7 @@ The breakpoint is `md`, 768px, the same as `media.list` in chat. Main scrolls, u
 | `/me` fails | A `/me` that never loaded (not a 403): the list card shows "Couldn't load profiles" with Try again, which refetches `/me`; the editor and Users cards stay hidden until it recovers. A failed background refetch keeps the cached `/me` and changes nothing. A `/me` 403 (no organization) shows "Your account isn't linked to an organization" in the lock card of §6. |
 | Save, create or delete fails | Inline `role="alert"` text in the editor footer or the dialog, above the buttons. The draft is kept. |
 | Lockout refusal (409) | Inside the menu, below a separator shown with it: `CircleAlert` 16 `text-text-secondary` and a 12px white line, "{name} is the organization's last Owner. Give the Owner profile to someone else first." A menu may hold only items, groups and separators, so the line is not `role="alert"`: it sits in a menu group that is itself `aria-live="assertive" aria-atomic="true"`, always present and empty until a refusal. It clears on the next toggle or when the menu closes. |
-| Permission revoked mid-session (403 on an action) | Inline at the action: "You no longer have permission to do this." Then refetch `/me`, which hides the action. |
+| Permission revoked mid-session (403 on an action) | Inline at the action: "You no longer have permission to do this." Then refetch `/me`, which hides the action. When the action is inside a dialog or menu (New profile, Rename, Delete, a user's Profiles menu), the refetch waits until it closes, so the message stays readable next to its control instead of going away with it. |
 | Duplicate name (409) | A field error in the name dialog. |
 | Refused (direct URL without `profiles.read`) | §6. |
 
