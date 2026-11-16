@@ -283,3 +283,27 @@ export const copy = {
 export function format(template: string, values: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);
 }
+
+/** The time today, "Nov 10" this year, "Nov 10, 2025" before. */
+export function shortDate(iso: string, now: Date): string {
+  const date = new Date(iso);
+  const options: Intl.DateTimeFormatOptions =
+    date.toDateString() === now.toDateString()
+      ? { hour: "numeric", minute: "2-digit" }
+      : date.getFullYear() === now.getFullYear()
+        ? { month: "short", day: "numeric" }
+        : { month: "short", day: "numeric", year: "numeric" };
+  return new Intl.DateTimeFormat(locale, options).format(date);
+}
+
+const MEGABYTE = 1024 * 1024;
+
+/** "2.4 MB" from 1 MB, "830 kB" below; 1024-based, as the upload limit is. */
+export function fileSize(bytes: number): string {
+  const mega = bytes >= MEGABYTE;
+  return new Intl.NumberFormat(locale, {
+    style: "unit",
+    unit: mega ? "megabyte" : "kilobyte",
+    maximumFractionDigits: 1,
+  }).format(bytes / (mega ? MEGABYTE : 1024));
+}

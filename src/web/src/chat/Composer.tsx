@@ -3,6 +3,7 @@ import { Clock, SendHorizontal } from "lucide-react";
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import { quotaKey, type ChatQuota } from "../api/queries";
 import { copy, format } from "../copy";
+import { Notice } from "../ui/primitives";
 import { quotaNoticeText } from "./answers";
 
 /** The AI route's limit on a question (chat API, #51). */
@@ -121,12 +122,13 @@ function QuotaNotice({ quota }: { quota: ChatQuota }) {
 
   const { title, body } = quotaNoticeText(quota, now);
   return (
-    <div id={NOTICE_ID} className="mb-3 flex gap-2 rounded-sm bg-inset p-3">
-      <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-text-secondary" />
-      <div>
-        <p className="text-body font-semibold">{title}</p>
-        <p className="text-small text-text-secondary">{body}</p>
-      </div>
-    </div>
+    <Notice
+      id={NOTICE_ID}
+      className="mb-3"
+      icon={<Clock aria-hidden="true" className="size-4" />}
+      title={title}
+    >
+      <p>{body}</p>
+    </Notice>
   );
 }
