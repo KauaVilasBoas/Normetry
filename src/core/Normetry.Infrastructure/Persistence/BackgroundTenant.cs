@@ -10,26 +10,9 @@ namespace Normetry.Infrastructure.Persistence;
 /// <see cref="CoreDatabase.UseTenantScopedCoreDatabase"/> like a request's. An HTTP request never
 /// sets it, so its tenant still comes only from the token.
 /// </summary>
-public sealed class BackgroundTenant : ITenantContext
+public sealed class BackgroundTenant() : SetOnce<Guid>("tenant"), ITenantContext
 {
-    private Guid? tenantId;
-    private bool resolved;
-
-    /// <summary>
-    /// Read once, when the scope resolves <see cref="ITenantContext"/>; from then on the scope's
-    /// tenant source is fixed, so a late <see cref="Set"/> throws instead of being ignored.
-    /// </summary>
-    public bool IsSet
-    {
-        get
-        {
-            resolved = true;
-            return tenantId is not null;
-        }
-    }
-
-    public Guid TenantId =>
-        tenantId ?? throw new InvalidOperationException("The background scope has no tenant.");
+    public Guid TenantId => Value;
 
     internal void Set(Guid tenant)
     {
@@ -40,12 +23,6 @@ public sealed class BackgroundTenant : ITenantContext
                 nameof(tenant)
             );
         }
-        if (tenantId is not null || resolved)
-        {
-            throw new InvalidOperationException(
-                "The background scope already has a tenant, or resolved one before it was set."
-            );
-        }
-        tenantId = tenant;
+        SetValue(tenant);
     }
 }

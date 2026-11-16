@@ -55,13 +55,9 @@ internal sealed class DocumentStatusMessages(
         }
 
         Activity.Current?.SetTag("normetry.tenant_id", message.TenantId.ToString());
-        await using var scope = scopes.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<BackgroundTenant>().Set(message.TenantId);
-        using var log = logger.BeginScope(
-            new Dictionary<string, object> { ["TenantId"] = message.TenantId }
-        );
+        await using var scope = TenantScope.Open(scopes, logger, message.TenantId);
         var result = await scope
-            .ServiceProvider.GetRequiredService<IDispatcher>()
+            .Services.GetRequiredService<IDispatcher>()
             .SendAsync(
                 new RecordIngestionCommand(message.MessageId, message.Type, @event),
                 cancellationToken
@@ -74,7 +70,7 @@ internal sealed class DocumentStatusMessages(
         if (result.Value is { } change)
         {
             await Notify.SafelyAsync(
-                scope.ServiceProvider.GetRequiredService<IDocumentStatusNotifier>(),
+                scope.Services.GetRequiredService<IDocumentStatusNotifier>(),
                 message.TenantId,
                 [change],
                 logger,
