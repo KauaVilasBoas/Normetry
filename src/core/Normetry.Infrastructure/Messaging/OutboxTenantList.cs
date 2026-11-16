@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Normetry.Infrastructure.Messaging;
@@ -30,5 +31,30 @@ internal static class OutboxTenantList
             tenants.Add(reader.GetGuid(0));
         }
         return tenants;
+    }
+
+    /// <summary>
+    /// Runs <paramref name="work"/> for every listed tenant in turn. One tenant's failure is logged
+    /// and does not hold back the tenants after it.
+    /// </summary>
+    public static async Task ForEachAsync(
+        string connectionString,
+        ILogger logger,
+        string workName,
+        Func<Guid, Task> work,
+        CancellationToken cancellationToken
+    )
+    {
+        foreach (var tenantId in await ListAsync(connectionString, cancellationToken))
+        {
+            try
+            {
+                await work(tenantId);
+            }
+            catch (Exception error) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(error, "{Work} failed for tenant {TenantId}", workName, tenantId);
+            }
+        }
     }
 }

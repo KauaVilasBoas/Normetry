@@ -51,36 +51,20 @@ internal sealed class OutboxDispatcher(
 
     public async Task DispatchAllAsync(CancellationToken cancellationToken)
     {
-        // ponytail: every listed tenant is visited on each pass (one short transaction each);
-        // switch to a wake-up signal or a pending flag when there are many tenants.
-        foreach (
-            var tenantId in await OutboxTenantList.ListAsync(
-                tenantListConnectionString,
-                cancellationToken
-            )
-        )
-        {
-            // One tenant's failure must not hold back the tenants after it.
-            try
-            {
-                await DispatchAsync(tenantId, cancellationToken);
-            }
-            catch (Exception error) when (!cancellationToken.IsCancellationRequested)
-            {
-                logger.LogWarning(error, "Outbox dispatch failed for tenant {TenantId}", tenantId);
-            }
-        }
+        await OutboxTenantList.ForEachAsync(
+            tenantListConnectionString,
+            logger,
+            "Outbox dispatch",
+            tenantId => DispatchAsync(tenantId, cancellationToken),
+            cancellationToken
+        );
     }
 
     /// <summary>Publishes one batch of the tenant's pending rows and returns how many were sent.</summary>
     public async Task<int> DispatchAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        await using var scope = scopes.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<BackgroundTenant>().Set(tenantId);
-        using var log = logger.BeginScope(
-            new Dictionary<string, object> { ["TenantId"] = tenantId }
-        );
-        var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+        await using var scope = TenantScope.Open(scopes, logger, tenantId);
+        var db = scope.Services.GetRequiredService<CoreDbContext>();
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var pending = await db
             .OutboxMessages.FromSql(

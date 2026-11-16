@@ -32,27 +32,13 @@ internal sealed class ProcessingTimeoutSweeper(
         {
             try
             {
-                foreach (
-                    var tenantId in await OutboxTenantList.ListAsync(
-                        tenantListConnectionString,
-                        stoppingToken
-                    )
-                )
-                {
-                    // One tenant's failure must not hold back the tenants after it.
-                    try
-                    {
-                        await SweepAsync(tenantId, stoppingToken);
-                    }
-                    catch (Exception error) when (!stoppingToken.IsCancellationRequested)
-                    {
-                        logger.LogWarning(
-                            error,
-                            "Processing timeout sweep failed for tenant {TenantId}",
-                            tenantId
-                        );
-                    }
-                }
+                await OutboxTenantList.ForEachAsync(
+                    tenantListConnectionString,
+                    logger,
+                    "Processing timeout sweep",
+                    tenantId => SweepAsync(tenantId, stoppingToken),
+                    stoppingToken
+                );
             }
             catch (Exception error) when (!stoppingToken.IsCancellationRequested)
             {
@@ -68,19 +54,15 @@ internal sealed class ProcessingTimeoutSweeper(
         CancellationToken cancellationToken
     )
     {
-        await using var scope = scopes.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<BackgroundTenant>().Set(tenantId);
-        using var log = logger.BeginScope(
-            new Dictionary<string, object> { ["TenantId"] = tenantId }
-        );
+        await using var scope = TenantScope.Open(scopes, logger, tenantId);
         var result = await scope
-            .ServiceProvider.GetRequiredService<IDispatcher>()
+            .Services.GetRequiredService<IDispatcher>()
             .SendAsync(new TimeOutProcessingCommand(), cancellationToken);
         if (result.Value.Count > 0)
         {
             logger.LogInformation("Timed out {Count} processing version(s)", result.Value.Count);
             await Notify.SafelyAsync(
-                scope.ServiceProvider.GetRequiredService<IDocumentStatusNotifier>(),
+                scope.Services.GetRequiredService<IDocumentStatusNotifier>(),
                 tenantId,
                 result.Value,
                 logger,
