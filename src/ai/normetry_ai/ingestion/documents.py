@@ -166,7 +166,7 @@ class DocumentWorker:
             row = connection.execute(_SELECT_DOCUMENT, keys).one_or_none()
         verdict = _verdict(row, message.version_number)
         if verdict != "index":
-            self._log("dropped" if verdict == "drop" else "already indexed", message)
+            self._log("dropped" if verdict == "drop" else "already indexed", tenant_id, message)
             return _indexed(message, row) if verdict == "current" else None
 
         on_start()
@@ -188,7 +188,7 @@ class DocumentWorker:
             row = connection.execute(_LOCK_DOCUMENT, keys).one()
             verdict = _verdict(row, message.version_number)
             if verdict != "index":  # changed while this version was being parsed and embedded
-                self._log("dropped" if verdict == "drop" else "already indexed", message)
+                self._log("dropped" if verdict == "drop" else "already indexed", tenant_id, message)
                 return _indexed(message, row) if verdict == "current" else None
             version = {**keys, "version": message.version_number}
             connection.execute(
@@ -225,7 +225,7 @@ class DocumentWorker:
                     "language": language,
                 },
             )
-        self._log("indexed", message, chunks=len(chunks))
+        self._log("indexed", tenant_id, message, chunks=len(chunks))
         return result
 
     def delete(self, tenant_id: UUID, message: DocumentDeleted) -> None:
@@ -237,17 +237,27 @@ class DocumentWorker:
                 _MARK_DELETED, {**keys, "establishment_id": message.establishment_id}
             )
             removed = connection.execute(_DELETE_CHUNKS, keys).rowcount
-        logger.info("Deleted document %s: %d chunks removed", message.document_id, removed)
+        logger.info(
+            "Deleted document %s of tenant %s: %d chunks removed",
+            message.document_id,
+            tenant_id,
+            removed,
+            extra={"tenant_id": str(tenant_id)},
+        )
 
     @staticmethod
-    def _log(what: str, message: DocumentUploaded, chunks: int | None = None) -> None:
+    def _log(
+        what: str, tenant_id: UUID, message: DocumentUploaded, chunks: int | None = None
+    ) -> None:
         # Ids and counts only: never file names (blob paths), text or content.
         logger.info(
-            "Version %d of document %s %s%s",
+            "Version %d of document %s of tenant %s %s%s",
             message.version_number,
             message.document_id,
+            tenant_id,
             what,
             "" if chunks is None else f": {chunks} chunks",
+            extra={"tenant_id": str(tenant_id)},
         )
 
 
