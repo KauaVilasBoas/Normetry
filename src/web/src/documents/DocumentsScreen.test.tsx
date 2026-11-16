@@ -241,9 +241,10 @@ describe("documents list", () => {
     });
 
     // One retry, a second later, before the error shows.
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Try again" }, { timeout: 3000 }),
-    );
+    const retry = await screen.findByRole("button", { name: "Try again" }, { timeout: 3000 });
+    expect(within(card()).getByRole("alert")).toHaveTextContent("Couldn't load documents");
+    await expectNoAxeViolations();
+    await userEvent.click(retry);
 
     await waitFor(() =>
       expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
@@ -426,7 +427,8 @@ describe("live status", () => {
     await waitFor(() => expect(latestHub().invoke).toHaveBeenCalled());
 
     act(() => latestHub().reconnecting());
-    expect(screen.queryByRole("status")).toBeNull();
+    // The status region is always there (so what arrives in it is heard), empty while live.
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
     expect(
       await screen.findByText("Live updates paused. Reconnecting…", {}, { timeout: 3000 }),
     ).toBeVisible();
@@ -438,7 +440,7 @@ describe("live status", () => {
 
     await userEvent.click(within(status).getByRole("button", { name: "Reconnect" }));
 
-    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    await waitFor(() => expect(status).toBeEmptyDOMElement());
     expect(hubs.all).toHaveLength(2);
     expect(latestHub().invoke).toHaveBeenCalledWith("JoinEstablishment", "e-lisboa");
     expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus();
@@ -495,6 +497,7 @@ describe("document detail", () => {
       "“Cold storage SOP” keeps its title and type. Version 3 stays in use until the new one is indexed.",
     );
     expect(within(dialog).queryByRole("textbox")).toBeNull();
+    await expectNoAxeViolations();
     await user.upload(fileInput(), pdf("cold-storage-v4.pdf"));
     await user.click(within(dialog).getByRole("button", { name: "Upload" }));
 
@@ -537,6 +540,7 @@ describe("document detail", () => {
       "The document and all its versions are removed from Bistro Lisboa. This can't be undone.",
     );
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await expectNoAxeViolations();
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(window.location.pathname).toBe("/documents"));
@@ -545,6 +549,29 @@ describe("document detail", () => {
     );
     expect(screen.getByText("“Cold storage SOP” deleted.")).toBeInTheDocument();
     expect(calls(fetch, "/documents/d-cold", "DELETE")).toHaveLength(1);
+  });
+
+  it("shows skeletons while it loads, with the list's title when known", async () => {
+    renderDocuments({ "/documents/d-cold": never }, { path: "/documents/d-cold" });
+
+    expect(await screen.findByText("Loading document…")).toBeInTheDocument();
+    await expectNoAxeViolations();
+  });
+
+  it("shows a load error and recovers with Try again", async () => {
+    renderDocuments(
+      { "/documents/d-cold": [{ status: 500 }, { status: 500 }, { body: processing }] },
+      { path: "/documents/d-cold" },
+    );
+
+    const retry = await screen.findByRole("button", { name: "Try again" }, { timeout: 3000 });
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load this document");
+    await expectNoAxeViolations();
+    await userEvent.click(retry);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Cold storage SOP" })).toHaveFocus(),
+    );
   });
 
   it("shows a document that is gone as not found, with the way back", async () => {

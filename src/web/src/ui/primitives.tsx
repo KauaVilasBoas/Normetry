@@ -603,7 +603,7 @@ export function DropZone({
         className={`flex min-h-32 w-full flex-col items-center justify-center gap-1 rounded-control border p-4 text-center ${
           dragging
             ? "border-solid border-mint bg-teal-deep"
-            : "border-dashed border-teal-border bg-inset"
+            : "border-dashed border-teal-border bg-inset hover:border-solid"
         }`}
       >
         {file && !dragging ? (
