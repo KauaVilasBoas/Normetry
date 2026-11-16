@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/document-ingestion-started.v1.schema.json",
+  "title": "DocumentIngestionStarted, version 1",
+  "description": "ai to core: the AI service started ingesting a document version. The version becomes Processing.",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "type": { "const": "DocumentIngestionStarted" },
+    "version": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "establishmentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "documentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "versionId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "versionNumber": { "$ref": "envelope.v1.schema.json#/$defs/versionNumber" }
+      },
+      "required": ["establishmentId", "documentId", "versionId", "versionNumber"],
+      "additionalProperties": false
+    }
+  }
+}

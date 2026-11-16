@@ -1,0 +1,57 @@
+{
+  "document-deleted.v1": {
+    "type": {"const": "DocumentDeleted"},
+    "version": {"const": 1},
+    "payload.establishmentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.documentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"}
+  },
+  "document-indexed.v1": {
+    "type": {"const": "DocumentIndexed"},
+    "version": {"const": 1},
+    "payload.establishmentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.documentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.versionId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.versionNumber": {"$ref": "envelope.v1.schema.json#/$defs/versionNumber"},
+    "payload.chunkCount": {"type": "integer"},
+    "payload.pageCount": {"type": ["integer", "null"]},
+    "payload.language": {"enum": ["en", "pt"]}
+  },
+  "document-ingestion-failed.v1": {
+    "type": {"const": "DocumentIngestionFailed"},
+    "version": {"const": 1},
+    "payload.establishmentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.documentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.versionId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.versionNumber": {"$ref": "envelope.v1.schema.json#/$defs/versionNumber"},
+    "payload.reasonCode": {"enum": ["unsupported_format", "no_text_layer", "too_many_pages", "too_large", "blob_missing", "blob_path_outside_tenant", "parse_error", "internal"]},
+    "payload.reasonText": {"type": "string"}
+  },
+  "document-ingestion-started.v1": {
+    "type": {"const": "DocumentIngestionStarted"},
+    "version": {"const": 1},
+    "payload.establishmentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.documentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.versionId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.versionNumber": {"$ref": "envelope.v1.schema.json#/$defs/versionNumber"}
+  },
+  "document-uploaded.v1": {
+    "type": {"const": "DocumentUploaded"},
+    "version": {"const": 1},
+    "payload.establishmentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.documentId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.versionId": {"$ref": "envelope.v1.schema.json#/$defs/uuid"},
+    "payload.versionNumber": {"$ref": "envelope.v1.schema.json#/$defs/versionNumber"},
+    "payload.blobPath": {"type": "string"},
+    "payload.contentType": {"type": "string"},
+    "payload.size": {"type": "integer"},
+    "payload.sha256": {"type": "string"}
+  },
+  "envelope.v1": {
+    "messageId": {"$ref": "#/$defs/uuid"},
+    "type": {"type": "string"},
+    "version": {"type": "integer"},
+    "occurredAt": {"$ref": "#/$defs/timestamp"},
+    "tenantId": {"$ref": "#/$defs/tenantId"},
+    "payload": {"type": "object"}
+  }
+}

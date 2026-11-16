@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/document-ingestion-failed.v1.schema.json",
+  "title": "DocumentIngestionFailed, version 1",
+  "description": "ai to core: a document version cannot be ingested. The version becomes Failed with the reason; the previous indexed version stays current.",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "type": { "const": "DocumentIngestionFailed" },
+    "version": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "establishmentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "documentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "versionId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "versionNumber": { "$ref": "envelope.v1.schema.json#/$defs/versionNumber" },
+        "reasonCode": {
+          "description": "What went wrong (README.md, \"Failure reasons\"). Adding a code is a breaking change.",
+          "enum": [
+            "unsupported_format",
+            "no_text_layer",
+            "too_many_pages",
+            "too_large",
+            "blob_missing",
+            "blob_path_outside_tenant",
+            "parse_error",
+            "internal"
+          ]
+        },
+        "reasonText": {
+          "description": "A short English sentence for the user. Never quotes the document.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "establishmentId",
+        "documentId",
+        "versionId",
+        "versionNumber",
+        "reasonCode",
+        "reasonText"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

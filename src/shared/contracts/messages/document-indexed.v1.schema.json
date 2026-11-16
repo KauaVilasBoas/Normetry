@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/document-indexed.v1.schema.json",
+  "title": "DocumentIndexed, version 1",
+  "description": "ai to core: a document version's chunks are stored and searchable, and replaced every other version's. The version becomes Indexed, also after a timeout.",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "type": { "const": "DocumentIndexed" },
+    "version": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "establishmentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "documentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "versionId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "versionNumber": { "$ref": "envelope.v1.schema.json#/$defs/versionNumber" },
+        "chunkCount": {
+          "description": "Chunks stored for the version.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "pageCount": {
+          "description": "Pages of a PDF; null for DOCX, TXT and CSV, which have no fixed pages.",
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "language": {
+          "description": "The document's language, detected from its text.",
+          "enum": ["en", "pt"]
+        }
+      },
+      "required": [
+        "establishmentId",
+        "documentId",
+        "versionId",
+        "versionNumber",
+        "chunkCount",
+        "pageCount",
+        "language"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
