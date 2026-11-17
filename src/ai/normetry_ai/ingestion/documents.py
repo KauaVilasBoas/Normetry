@@ -113,11 +113,13 @@ _DELETE_OTHER_VERSIONS = text(
       AND source_id = :document_id AND source_version <> :version
     """
 )
+# A message without a title or type (older publishers) keeps the ones stored before.
 _SET_INDEXED = text(
     """
     UPDATE ai.tenant_documents
     SET indexed_version = :version, chunk_count = :chunk_count, page_count = :page_count,
-        language = :language, updated_at = now()
+        language = :language, title = coalesce(:title, title),
+        document_type = coalesce(:document_type, document_type), updated_at = now()
     WHERE tenant_id = :tenant_id AND document_id = :document_id
     """
 )
@@ -252,6 +254,8 @@ class DocumentWorker:
                     "chunk_count": result.chunk_count,
                     "page_count": result.page_count,
                     "language": language,
+                    "title": message.title,
+                    "document_type": message.document_type,
                 },
             )
         self._log("indexed", tenant_id, message, chunks=len(chunks))
