@@ -5,6 +5,7 @@ scripts put in place of the worker module (`sandbox.COMMAND`)."""
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -191,3 +192,30 @@ def test_the_worker_moves_on_after_a_parser_crash(
     monkeypatch.setattr(sandbox, "COMMAND", original)
     indexed = worker.ingest(tenant, upload(LINE.encode()), lambda: None)
     assert indexed is not None and indexed.chunk_count == 1
+
+
+# The service process, made non-dumpable, then a child of the same user reading its environment.
+_PROTECTED = """
+import os, subprocess, sys
+from normetry_ai.ingestion.sandbox import protect_service_process
+protect_service_process()
+read = f"open('/proc/{os.getpid()}/environ', 'rb').read()"
+print(subprocess.run([sys.executable, '-c', read], capture_output=True).returncode)
+"""
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="prctl and /proc are Linux only")
+def test_a_child_cannot_read_the_protected_service_processs_environment() -> None:
+    if os.geteuid() == 0:
+        pytest.skip("root reads every process's /proc files")
+    # In a process of its own: pytest itself stays dumpable.
+    result = subprocess.run(  # noqa: S603 (fixed argv)
+        [sys.executable, "-c", _PROTECTED], capture_output=True, text=True, check=True
+    )
+
+    assert result.stdout.strip() == "1"  # PermissionError in the child
+
+
+@pytest.mark.skipif(sys.platform == "linux", reason="Linux makes the process non-dumpable")
+def test_protecting_the_service_process_is_a_no_op_elsewhere() -> None:
+    sandbox.protect_service_process()
