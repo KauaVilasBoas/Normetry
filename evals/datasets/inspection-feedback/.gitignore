@@ -1,0 +1,2 @@
+# Exports hold a tenant's rationales and reviewer notes: commit one only after review, with git add -f.
+*.jsonl
