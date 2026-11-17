@@ -7,13 +7,17 @@ and writes the sections to stdout as JSON. A wall-clock timeout kills it; on POS
 its memory. A crash, hang, memory blow-up or output that is not the expected JSON fails the version
 with `parse_error`, and the consumer moves on to the next message.
 
-On Linux the service process makes itself non-dumpable at startup (`protect_service_process`), so
-a child of the same OS user can no longer read its memory or /proc/<ppid>/environ, which holds
-every credential.
+On Linux the process that runs the app makes itself non-dumpable at startup
+(`protect_service_process`): a child of the same OS user can then not read that process's memory
+or /proc/<pid>/environ. Only that one process: every ancestor holds the same environment and stays
+readable, such as `uv run` and the `uvicorn --reload` supervisor (the AppHost runs both in
+development). So the deploy must exec the venv's python or uvicorn directly, with no wrapper and
+no reloader.
 
 ponytail: the child still runs as the service's OS user, with the network, so code that exploits a
-parser could still read `src/ai/.env` or call out. The real fix is deploy work (phase 3): run it as
-a separate OS user, or in its own container, with no network.
+parser could still read an ancestor's /proc/<pid>/environ, `src/ai/.env`, or call out. The real fix
+is deploy work (phase 3): run the child as a separate OS user, or in its own container, with no
+network.
 """
 
 import ctypes
@@ -64,8 +68,8 @@ _PR_SET_DUMPABLE = 4
 def protect_service_process() -> None:
     """Make this process non-dumpable on Linux (prctl PR_SET_DUMPABLE 0): its /proc/<pid> files
     then belong to root, so another process of the same user, such as a parsing child taken over
-    by its file, can neither read its environment nor attach to it. A no-op elsewhere. Raises
-    OSError when the call fails."""
+    by its file, can neither read its environment nor attach to it. This process only, never its
+    parent (see the module docstring). A no-op elsewhere. Raises OSError when the call fails."""
     if sys.platform != "linux":
         return
     libc = ctypes.CDLL(None, use_errno=True)

@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -24,6 +25,30 @@ from normetry_ai.settings import (
     RetrievalSettings,
     Settings,
 )
+
+# langgraph pulls in langsmith, whose tracing would send prompts and documents to an outside
+# service: the service refuses to start with any of these switched on.
+TRACING_VARIABLES = (
+    "LANGSMITH_TRACING",
+    "LANGSMITH_TRACING_V2",
+    "LANGCHAIN_TRACING",
+    "LANGCHAIN_TRACING_V2",
+)
+
+
+def refuse_tracing() -> None:
+    """Raise RuntimeError naming (never echoing) every tracing variable set to anything but an
+    empty or false value."""
+    on = [
+        name
+        for name in TRACING_VARIABLES
+        if os.environ.get(name, "").strip().lower() not in {"", "0", "false", "no", "off"}
+    ]
+    if on:
+        raise RuntimeError(
+            f"{', '.join(on)} would send prompts and documents to LangSmith. Unset "
+            f"{'it' if len(on) == 1 else 'them'}: the service never traces to an outside service."
+        )
 
 
 def create_app(
@@ -55,6 +80,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        refuse_tracing()
         # Before any parsing child starts (ingestion/sandbox.py); a no-op off Linux.
         protect_service_process()
         # Without a database URL (health-only runs, offline tests) the chat routes answer 503.

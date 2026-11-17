@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from starlette.websockets import WebSocketDisconnect
 
 from normetry_ai.api import create_app
+from normetry_ai.api.app import TRACING_VARIABLES
 from normetry_ai.api.auth import INTERNAL_TOKEN_HEADER
 from normetry_ai.api.context import (
     ESTABLISHMENT_HEADER,
@@ -99,6 +100,32 @@ def test_runtime_settings_never_carry_the_migrations_url() -> None:
 def test_app_starts_without_a_database() -> None:
     settings = Settings(internal_token=TOKEN, database_url=None, _env_file=None)
     with TestClient(create_app(settings)) as client:  # runs the lifespan
+        assert client.get("/health", headers=AUTH).status_code == 200
+
+
+@pytest.mark.parametrize("variable", TRACING_VARIABLES)
+@pytest.mark.parametrize("value", ["true", "TRUE", "1", "yes", "secret-ish-value"])
+def test_app_refuses_to_start_with_langsmith_tracing_on(
+    variable: str, value: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in TRACING_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(variable, value)
+    app = create_app(Settings(internal_token=TOKEN, _env_file=None))
+
+    with pytest.raises(RuntimeError, match=variable) as error, TestClient(app):
+        pass
+
+    assert value not in str(error.value)  # the name only, never the value
+
+
+@pytest.mark.parametrize("value", ["", "false", "False", "0", "no", "off"])
+def test_tracing_switched_off_does_not_stop_the_app(
+    value: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in TRACING_VARIABLES:
+        monkeypatch.setenv(name, value)
+    with TestClient(create_app(Settings(internal_token=TOKEN, _env_file=None))) as client:
         assert client.get("/health", headers=AUTH).status_code == 200
 
 

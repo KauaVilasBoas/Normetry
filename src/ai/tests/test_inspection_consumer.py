@@ -7,6 +7,7 @@ itself: test_rabbitmq.py."""
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -187,6 +188,7 @@ class Establishment:
     engine: Engine
     corpus: Engine
     judge: EchoJudge = field(default_factory=EchoJudge)
+    documents: dict[UUID, UUID] = field(default_factory=dict)  # establishment -> its document
 
     @property
     def worker(self) -> InspectionWorker:
@@ -220,6 +222,7 @@ class Establishment:
         )
         worker = DocumentWorker(self.engine, FakeEmbedder(), BlobStore(blobs))
         assert worker.ingest(tenant, message, lambda: None) is not None
+        self.documents[establishment] = document
         return establishment
 
 
@@ -235,9 +238,12 @@ def establishment(app_ai: Engine, corpus: Engine, regulation: None) -> Establish
 
 @pytest.mark.integration
 def test_an_inspection_reports_its_start_progress_and_findings(
-    establishment: Establishment,
+    establishment: Establishment, caplog: pytest.LogCaptureFixture
 ) -> None:
+    caplog.set_level(logging.INFO, logger="normetry_ai.inspection.judge")
     request = requested(establishment.with_document())
+    # Another establishment of the tenant holds the very same text.
+    establishment.with_document()
 
     action, broker = deliver(establishment.worker, request)
 
@@ -251,9 +257,13 @@ def test_an_inspection_reports_its_start_progress_and_findings(
     assert [p.items_evaluated for _, p in broker.sent[1:-1]] == list(range(1, len(ITEMS) + 1))
     assert sorted(f.item_id for f in completed.findings) == sorted(i.id for i in ITEMS)
     # Evidence only from the inspected establishment's document.
-    assert {c.document_title for f in completed.findings for c in f.evidence_citations} == {
-        "Daily log"
+    assert {c.document_id for f in completed.findings for c in f.evidence_citations} == {
+        establishment.documents[request.establishment_id]
     }
+    # The judge's log lines carry the envelope's tenant, which the judge itself never sees.
+    judged = [r for r in caplog.records if r.name == "normetry_ai.inspection.judge"]
+    assert len(judged) == len(ITEMS)
+    assert {getattr(record, "tenant_id", None) for record in judged} == {str(TENANT)}
     assert completed.input_tokens > 0 and completed.cost_usd > 0
     for message in broker.published:
         body = json.loads(message.model_dump_json())
@@ -319,3 +329,38 @@ def test_the_last_delivery_of_a_failing_inspection_reports_an_error(
     kind, failed = broker.sent[-1]
     assert (kind, failed.reason_code) == ("InspectionFailed", "error")
     assert isinstance(failed, InspectionFailed)
+
+
+@pytest.mark.integration
+def test_an_inspection_id_reused_for_another_establishment_is_dead_lettered(
+    establishment: Establishment,
+) -> None:
+    request = requested(establishment.with_document())
+    deliver(establishment.worker, request)
+    judged = len(establishment.judge.judged)
+    other = request.model_copy(update={"establishment_id": establishment.with_document()})
+
+    action, broker = deliver(establishment.worker, other)
+
+    # Neither the first establishment's findings published again, nor a run mixing both.
+    assert (action, broker.sent) == ("dead-letter", [])
+    assert len(establishment.judge.judged) == judged
+
+
+@pytest.mark.parametrize(
+    "logger", ["normetry_ai.inspection.judge", "normetry_ai.llm.claude", "normetry_ai.db"]
+)
+def test_judge_and_model_logs_carry_the_envelope_tenant_only_while_handled(
+    logger: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    class LoggingWorker(FakeWorker):
+        async def inspect(self, tenant_id: UUID, request: InspectionRequested, publish: Any) -> Any:
+            logging.getLogger(logger).warning("inside")
+            return await super().inspect(tenant_id, request, publish)
+
+    deliver(LoggingWorker(), requested())
+    logging.getLogger(logger).warning("outside")
+
+    stamped = {r.getMessage(): getattr(r, "tenant_id", None) for r in caplog.records}
+    expected = str(TENANT) if logger != "normetry_ai.db" else None  # only the two filtered
+    assert stamped == {"inside": expected, "outside": None}

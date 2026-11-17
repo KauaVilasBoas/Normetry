@@ -55,6 +55,8 @@ Excerpts = Callable[[ChecklistItem], tuple[Sequence[RetrievedChunk], Sequence[Re
 
 
 class State(TypedDict, total=False):
+    # The run's input (`start`): what the message asked for, kept to check later deliveries.
+    establishment_id: str
     jurisdiction: str
     establishment_type: str
     plan: dict[str, list[str]]  # theme -> item ids, in checklist order
@@ -146,6 +148,21 @@ class Saved:
     @property
     def finished(self) -> bool:
         return "findings" in self.values
+
+    def is_for(self, request: InspectionRequested) -> bool:
+        """Whether the stored run was started for the establishment, jurisdiction and type that
+        `request` names. ponytail: the first checkpoint, stored just before the first step,
+        holds no input yet, so a run that died in between is not checked."""
+        return all(self.values.get(key, value) == value for key, value in start(request).items())
+
+
+def start(request: InspectionRequested) -> dict[str, Any]:
+    """The graph's input for an inspection request."""
+    return {
+        "establishment_id": str(request.establishment_id),
+        "jurisdiction": request.jurisdiction,
+        "establishment_type": request.establishment_type,
+    }
 
 
 def config(inspection_id: UUID) -> RunnableConfig:
@@ -356,10 +373,9 @@ async def run(
         record_usage=record_usage,
         on_progress=on_progress,
     ).compile(checkpointer=checkpointer)
-    start = {"jurisdiction": request.jurisdiction, "establishment_type": request.establishment_type}
     # durability="sync": each checkpoint is stored before the next step starts, so a crash loses
     # at most the items in flight.
     await graph.ainvoke(
-        None if saved.exists else start, config(request.inspection_id), durability="sync"
+        None if saved.exists else start(request), config(request.inspection_id), durability="sync"
     )
     return await load(checkpointer, request.inspection_id)
