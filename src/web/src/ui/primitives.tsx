@@ -183,13 +183,16 @@ export function Notice({
 /**
  * Under a card's header: a status region, always there so screen readers hear what arrives in it,
  * that holds the notice while live updates are paused or stopped. `labels`: the screen's copy.
+ * `className` places the notice (inside a card by default).
  */
 export function ConnectionNotice({
   live,
   labels,
+  className = "mx-5 mb-4",
 }: {
   live: Live;
   labels: { reconnecting: string; stopped: string; reconnect: string };
+  className?: string;
 }) {
   const reconnecting = live.state === "reconnecting";
   const retrying = live.state === "retrying";
@@ -197,7 +200,7 @@ export function ConnectionNotice({
     <div role="status">
       {live.state !== "live" && (
         <Notice
-          className="mx-5 mb-4"
+          className={className}
           icon={reconnecting ? <Spinner /> : <WifiOff aria-hidden="true" className="size-4" />}
           title={reconnecting ? labels.reconnecting : labels.stopped}
           action={

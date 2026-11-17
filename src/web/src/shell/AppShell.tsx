@@ -7,28 +7,31 @@ import {
   useConversations,
   useDocument,
   useEstablishments,
+  useInspection,
   useMe,
   type Establishment,
 } from "../api/queries";
 import { ChatScreen } from "../chat/ChatScreen";
-import { copy, format } from "../copy";
+import { copy, dateTime, format } from "../copy";
 import { DocumentsScreen } from "../documents/DocumentsScreen";
 import { EstablishmentPicker } from "../establishments/EstablishmentPicker";
 import { listState, useEstablishmentSelection } from "../establishments/selection";
+import { InspectionsScreen } from "../inspections/InspectionsScreen";
 import { ProfilesScreen } from "../settings/ProfilesScreen";
 import { iconButton, Message } from "../ui/primitives";
 import { Sidebar } from "./Sidebar";
 
-type Screen = "chat" | "documents" | "settings";
+type Screen = "chat" | "documents" | "inspections" | "settings";
 
 const headings: Record<Screen, string> = {
   chat: copy.shell.askTheRegulation,
   documents: copy.shell.documents,
+  inspections: copy.shell.inspections,
   settings: copy.shell.settings,
 };
 
 /** Where an establishment chosen in the switcher leads: the section's root. */
-const sectionRoots = { chat: "/", documents: "/documents" };
+const sectionRoots = { chat: "/", documents: "/documents", inspections: "/inspections" };
 
 /**
  * The app frame: sidebar (a drawer below 1024px), top bar and main. Main shows what `/me`'s
@@ -39,14 +42,21 @@ export function AppShell({ screen }: { screen: Screen }) {
   const me = useMe();
   const chatAllowed = can(me.data, "chat.ask");
   const documentsAllowed = can(me.data, "documents.read");
+  const inspectionsAllowed = can(me.data, "inspections.read");
   const establishmentsAllowed = can(me.data, "establishments.read");
   const establishments = useEstablishments(establishmentsAllowed);
   const state = listState(me, establishments);
   const { selected, select } = useEstablishmentSelection(me.data, establishments.data);
-  const { conversationId, documentId } = useParams();
+  const { conversationId, documentId, inspectionId } = useParams();
   const navigate = useNavigate();
   const conversations = useConversations(chatAllowed && screen === "chat");
   const openDocument = useDocument(documentId, documentsAllowed && screen === "documents");
+  // For the page title; the screen shares the query.
+  const openInspection = useInspection(
+    selected?.id ?? "",
+    inspectionId,
+    inspectionsAllowed && screen === "inspections" && selected !== undefined,
+  );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -84,7 +94,7 @@ export function AppShell({ screen }: { screen: Screen }) {
 
   const chooseInSwitcher = (establishment: Establishment) => {
     select(establishment);
-    // Settings stays where it is; the chat and Documents go to their root for the establishment.
+    // Settings stays where it is; the other screens go to their root for the establishment.
     if (screen === "settings") {
       setDrawerOpen(false);
       setAnnouncement(format(copy.switcher.selected, { name: establishment.name }));
@@ -113,8 +123,15 @@ export function AppShell({ screen }: { screen: Screen }) {
     if (establishments.isError) void establishments.refetch();
   };
 
-  // The screens the user may open. Home goes to the first: the chat, Documents, then Settings.
-  const canOpenAScreen = chatAllowed || documentsAllowed || can(me.data, "profiles.read");
+  // The screens the user may open. Home goes to the first: the chat, Documents, Simulated
+  // Inspection, then Settings.
+  const canOpenAScreen =
+    chatAllowed || documentsAllowed || inspectionsAllowed || can(me.data, "profiles.read");
+  const home = documentsAllowed
+    ? "/documents"
+    : inspectionsAllowed
+      ? "/inspections"
+      : "/settings/profiles";
 
   let content: ReactNode;
   if (me.data && !canOpenAScreen) {
@@ -144,10 +161,17 @@ export function AppShell({ screen }: { screen: Screen }) {
         body={copy.access.refusedBody}
       />
     );
+  } else if (screen === "inspections" && me.data && !inspectionsAllowed) {
+    content = (
+      <AccessCard
+        title={format(copy.access.refusedTitle, { screen: copy.shell.inspections })}
+        body={copy.access.refusedBody}
+      />
+    );
   } else if (screen === "chat" && me.data && !chatAllowed) {
     content =
       conversationId === undefined ? (
-        <Navigate to={documentsAllowed ? "/documents" : "/settings/profiles"} replace />
+        <Navigate to={home} replace />
       ) : (
         <AccessCard
           title={format(copy.access.refusedTitle, { screen: copy.shell.askTheRegulation })}
@@ -163,6 +187,15 @@ export function AppShell({ screen }: { screen: Screen }) {
       <DocumentsScreen
         establishment={selected}
         documentId={documentId}
+        me={me.data}
+        focusKey={focusKey}
+      />
+    );
+  } else if (selected && state === "list" && screen === "inspections") {
+    content = (
+      <InspectionsScreen
+        establishment={selected}
+        inspectionId={inspectionId}
         me={me.data}
         focusKey={focusKey}
       />
@@ -187,6 +220,19 @@ export function AppShell({ screen }: { screen: Screen }) {
     );
   }
 
+  const title = {
+    settings: copy.titles.profiles,
+    chat: copy.titles.app,
+    documents:
+      openDocument.data && documentId !== undefined
+        ? format(copy.titles.document, { title: openDocument.data.title })
+        : copy.titles.documents,
+    inspections:
+      openInspection.data && inspectionId !== undefined
+        ? format(copy.titles.inspection, { date: dateTime(openInspection.data.requestedAt) })
+        : copy.titles.inspections,
+  }[screen];
+
   const sidebarProps = {
     me,
     state,
@@ -197,15 +243,7 @@ export function AppShell({ screen }: { screen: Screen }) {
 
   return (
     <div className="flex h-dvh bg-app">
-      <title>
-        {screen === "settings"
-          ? copy.titles.profiles
-          : screen === "chat"
-            ? copy.titles.app
-            : openDocument.data && documentId !== undefined
-              ? format(copy.titles.document, { title: openDocument.data.title })
-              : copy.titles.documents}
-      </title>
+      <title>{title}</title>
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-control focus:bg-elevated focus:px-4 focus:py-2"

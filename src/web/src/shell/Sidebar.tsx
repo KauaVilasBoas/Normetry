@@ -1,5 +1,13 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { Building2, ChevronDown, FileText, LogOut, MessagesSquare, Settings } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  ClipboardCheck,
+  FileText,
+  LogOut,
+  MessagesSquare,
+  Settings,
+} from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
 import { Link, useMatch } from "react-router";
@@ -37,6 +45,7 @@ export function Sidebar({
   const atNew = useMatch("/") !== null;
   const atConversation = useMatch("/conversations/:conversationId") !== null;
   const atDocuments = useMatch("/documents/*") !== null;
+  const atInspections = useMatch("/inspections/*") !== null;
   const atSettings = useMatch("/settings/*") !== null;
   const items = [
     {
@@ -52,6 +61,13 @@ export function Sidebar({
       Icon: FileText,
       shown: can(me.data, "documents.read"),
       active: atDocuments,
+    },
+    {
+      to: "/inspections",
+      label: copy.shell.inspections,
+      Icon: ClipboardCheck,
+      shown: can(me.data, "inspections.read"),
+      active: atInspections,
     },
     {
       to: "/settings/profiles",

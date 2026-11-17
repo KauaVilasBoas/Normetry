@@ -77,6 +77,9 @@ export const allPermissions = [
   "documents.upload",
   "documents.delete",
   "chat.ask",
+  "inspections.read",
+  "inspections.run",
+  "inspections.review",
   "profiles.read",
   "profiles.manage",
 ];

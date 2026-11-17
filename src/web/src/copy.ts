@@ -13,6 +13,8 @@ export const copy = {
     profiles: "Profiles · Settings · Normetry",
     documents: "Documents · Normetry",
     document: "{title} · Documents · Normetry",
+    inspections: "Simulated Inspection · Normetry",
+    inspection: "Inspection of {date} · Simulated Inspection · Normetry",
   },
   auth: {
     checking: "Signing you in…",
@@ -34,6 +36,7 @@ export const copy = {
     navLabel: "Main",
     askTheRegulation: "Ask the Regulation",
     documents: "Documents",
+    inspections: "Simulated Inspection",
     settings: "Settings",
     navigation: "Navigation",
     loadingNavigation: "Loading navigation…",
@@ -54,7 +57,7 @@ export const copy = {
     refusedBody: "Ask an administrator in your organization for access.",
     establishmentsTitle: "You don't have access to establishments",
     establishmentsBody:
-      "Documents and Ask the Regulation work per establishment. Ask an administrator in your organization for access.",
+      "Documents, Simulated Inspection and Ask the Regulation work per establishment. Ask an administrator in your organization for access.",
   },
   settings: {
     sections: "Settings sections",
@@ -396,6 +399,29 @@ export const copy = {
     },
   },
   inspections: {
+    oneInspection: "1 inspection",
+    count: "{count} inspections",
+    run: "Run inspection",
+    starting: "Starting…",
+    loading: "Loading inspections…",
+    tableCaption: "Inspections of {establishment}",
+    requested: "Requested",
+    status: "Status",
+    results: "Results",
+    resultCounts:
+      "{nonCompliant} non-compliant · {insufficient} insufficient evidence · {compliant} compliant",
+    checked: "{evaluated} of {total} checked",
+    noResults: "No results",
+    emptyTitle: "No inspections yet",
+    emptyBody:
+      "Run an inspection to check {establishment}'s documents against {regulation}. It takes a few minutes.",
+    emptyBodyReadOnly: "Inspections of {establishment} appear here.",
+    errorTitle: "Couldn't load inspections",
+    errorBody: "Check your connection and try again.",
+    tryAgain: "Try again",
+    reconnecting: "Live updates paused. Reconnecting…",
+    stopped: "Live updates stopped. Progress may be out of date.",
+    reconnect: "Reconnect",
     /** Pill labels by API status; an unknown status shows as sent. */
     statuses: {
       Requested: "Waiting",
@@ -403,8 +429,79 @@ export const copy = {
       Completed: "Completed",
       Failed: "Failed",
     } as Record<string, string | undefined>,
+    runningTitle: "An inspection is running.",
+    runningBody: "You can run another one when it finishes.",
+    viewProgress: "View progress",
+    noDocumentsTitle: "{establishment} has no indexed documents yet.",
+    noDocumentsBody:
+      "An inspection checks the establishment's own documents. Upload SOPs, logs or reports, and run it once at least one is indexed.",
+    goToDocuments: "Go to Documents",
+    quotaTitle: "Your organization has run all of today's inspections.",
+    quotaBody: "You can run another inspection {when}.",
+    rateLimitedTitle: "Too many requests right now.",
+    rateLimitedBody: "Try again {when}.",
+    startErrorTitle: "Couldn't start the inspection.",
+    startErrorBody: "Check your connection and try again.",
+    denied: "You no longer have permission to do this.",
+    back: "Simulated Inspection",
+    title: "Inspection of {date}",
+    meta: "{regulation} · {establishment}",
+    loadingInspection: "Loading inspection…",
+    loadErrorTitle: "Couldn't load this inspection",
+    notFoundTitle: "This inspection isn't available",
+    notFoundBody: "It may belong to another establishment, or it no longer exists.",
+    backToInspections: "Back to inspections",
+    stepsLabel: "Inspection steps",
+    steps: ["Analysis", "Findings", "Action plan"],
+    stepDone: "Done:",
+    waitingTitle: "Waiting to start…",
+    waitingBody: "The inspection is queued and starts in a moment.",
+    progressTitle: "Inspection in progress…",
+    progressBody: "Checking {establishment}'s documents against {regulation}.",
+    preparingTitle: "Preparing findings…",
+    preparingBody:
+      "Every requirement is checked. Normetry is writing the findings and the action plan.",
+    progressLabel: "Requirements checked",
+    progress: "{evaluated} of {total} requirements checked",
+    leaveNote: "You can leave this page. The inspection keeps running.",
+    themesLabel: "Themes",
+    themeCount: "{evaluated} of {total}",
+    themeDone: "Done:",
+    themeActive: "In progress:",
+    themePending: "Not started:",
+    failedTitle: "This inspection stopped before it finished.",
+    /** By failure code (the queue contract's reason codes and `timed_out`). */
+    failures: {
+      budget_exceeded: {
+        short: "Processing limit reached",
+        long: "It needed more AI processing than one inspection is allowed, so it stopped. No findings were kept. Run it again, and if it stops again, contact your administrator.",
+      },
+      no_documents: {
+        short: "No indexed documents",
+        long: "No indexed document of this establishment was found when it started. Upload documents, wait until they're indexed, then run it again.",
+      },
+      error: {
+        short: "Internal error",
+        long: "Something went wrong on our side. No findings were kept. Run it again later.",
+      },
+      timed_out: {
+        short: "Timed out",
+        long: "It took too long and was stopped. No findings were kept. Run it again.",
+      },
+    } as Record<string, { short: string; long: string } | undefined>,
+    failureUnknown: {
+      short: "Couldn't finish",
+      long: "It stopped before it finished. No findings were kept. Run it again.",
+    },
+    started: "Inspection started.",
+    milestone: "{evaluated} of {total} requirements checked.",
+    completed: "Inspection complete: {findings}.",
+    failed: "The inspection stopped: {reason}.",
   },
   findings: {
+    title: "Findings",
+    one: "1 finding",
+    count: "{count} findings",
     verdicts: {
       compliant: "Compliant",
       non_compliant: "Non-compliant",
@@ -503,6 +600,13 @@ export function shortDate(iso: string, now: Date): string {
         ? { month: "short", day: "numeric" }
         : { month: "short", day: "numeric", year: "numeric" };
   return new Intl.DateTimeFormat(locale, options).format(date);
+}
+
+/** "Nov 17, 2026, 10:42 AM": a date and time, so two on the same day stay distinct. */
+export function dateTime(iso: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(
+    new Date(iso),
+  );
 }
 
 /** "Portuguese" for "pt"; the code itself when the browser can't name it. */
