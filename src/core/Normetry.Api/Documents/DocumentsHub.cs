@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.SignalR;
 using Normetry.Api.Auth;
 using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
-using Normetry.Application.Establishments.GetEstablishment;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.Domain.Identity;
 
@@ -24,40 +23,13 @@ public sealed class DocumentsHub(IDispatcher dispatcher, ITenantContext tenant) 
     /// <summary>The client method that receives a <see cref="DocumentStatusChange"/>.</summary>
     public const string StatusChanged = "DocumentStatusChanged";
 
-    private const string GroupItem = "documents.group";
-
     /// <summary>
     /// Leaves the previous establishment's group and joins this one's. The establishment is loaded
     /// under the caller's tenant (RLS), so another tenant's id is refused like an unknown one.
     /// </summary>
     [HasPermission(Permissions.Documents.Read)]
-    public async Task JoinEstablishment(Guid establishmentId)
-    {
-        var establishment = await dispatcher.QueryAsync(
-            new GetEstablishmentQuery(establishmentId),
-            Context.ConnectionAborted
-        );
-        if (!establishment.IsSuccess)
-        {
-            throw new HubException(establishment.Error.Code);
-        }
-
-        var group = GroupName(tenant.TenantId, establishmentId);
-        if (Context.Items.TryGetValue(GroupItem, out var previous) && previous is string left)
-        {
-            await Groups.RemoveFromGroupAsync(
-                Context.ConnectionId,
-                left,
-                Context.ConnectionAborted
-            );
-        }
-        await Groups.AddToGroupAsync(Context.ConnectionId, group, Context.ConnectionAborted);
-        Context.Items[GroupItem] = group;
-    }
-
-    /// <summary>The tenant is part of the name, so a group never spans two tenants, even by id.</summary>
-    public static string GroupName(Guid tenantId, Guid establishmentId) =>
-        $"tenants/{tenantId}/establishments/{establishmentId}";
+    public Task JoinEstablishment(Guid establishmentId) =>
+        EstablishmentGroups.JoinAsync(this, dispatcher, tenant, establishmentId);
 }
 
 /// <summary>
@@ -74,6 +46,6 @@ internal sealed class SignalRDocumentStatusNotifier(IHubContext<DocumentsHub> hu
         CancellationToken cancellationToken
     ) =>
         hub
-            .Clients.Group(DocumentsHub.GroupName(tenantId, change.EstablishmentId))
+            .Clients.Group(EstablishmentGroups.Name(tenantId, change.EstablishmentId))
             .SendAsync(DocumentsHub.StatusChanged, change, cancellationToken);
 }

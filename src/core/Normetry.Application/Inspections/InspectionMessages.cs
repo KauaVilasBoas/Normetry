@@ -12,6 +12,14 @@ namespace Normetry.Application.Inspections;
 // Finding.Verdicts, Finding.Confidences) and InspectionFailed.ReasonCodes. A new code is a new
 // message version.
 
+/// <summary>An ai to core event about one inspection: what the status consumer applies.</summary>
+public interface IInspectionEvent
+{
+    Guid EstablishmentId { get; }
+
+    Guid InspectionId { get; }
+}
+
 /// <summary>core to ai: a user started a simulated inspection of an establishment.</summary>
 public sealed record InspectionRequested(
     Guid EstablishmentId,
@@ -40,7 +48,7 @@ public sealed record InspectionStarted(
     Guid InspectionId,
     int ItemsTotal,
     IReadOnlyList<ThemeProgress> Themes
-) : IIntegrationMessage
+) : IIntegrationMessage, IInspectionEvent
 {
     public static string Type => "InspectionStarted";
 
@@ -59,7 +67,7 @@ public sealed record InspectionProgressed(
     int ItemsEvaluated,
     int ItemsTotal,
     IReadOnlyList<ThemeProgress> Themes
-) : IIntegrationMessage
+) : IIntegrationMessage, IInspectionEvent
 {
     public static string Type => "InspectionProgressed";
 
@@ -76,7 +84,7 @@ public sealed record InspectionCompleted(
     int OutputTokens,
     decimal CostUsd,
     IReadOnlyList<FindingResult> Findings
-) : IIntegrationMessage
+) : IIntegrationMessage, IInspectionEvent
 {
     public static string Type => "InspectionCompleted";
 
@@ -91,7 +99,7 @@ public sealed record InspectionFailed(
     Guid InspectionId,
     string ReasonCode,
     string ReasonText
-) : IIntegrationMessage
+) : IIntegrationMessage, IInspectionEvent
 {
     public const int ReasonTextMaxLength = 500;
 

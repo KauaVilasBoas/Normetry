@@ -3,6 +3,7 @@ using Normetry.Api.Auth;
 using Normetry.Api.Chat;
 using Normetry.Api.Documents;
 using Normetry.Api.Gateway;
+using Normetry.Api.Inspections;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.Infrastructure;
 
@@ -13,6 +14,7 @@ builder.AddAuth();
 builder.AddAiGateway();
 builder.AddChat();
 builder.AddDocuments();
+builder.AddInspections();
 builder.Services.AddProblemDetails();
 builder
     .Services.AddControllers(options =>
@@ -44,5 +46,6 @@ app.MapDefaultEndpoints();
 app.MapControllers();
 app.MapAiGateway();
 app.MapDocumentsHub();
+app.MapInspectionsHub();
 
 app.Run();

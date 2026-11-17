@@ -5,6 +5,7 @@ using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 using Normetry.Application.Establishments;
 using Normetry.Application.Identity;
+using Normetry.Application.Inspections;
 using Normetry.Application.Tenancy;
 using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
@@ -46,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IInspectionRepository, InspectionRepository>();
         var blobConnectionString = configuration.GetConnectionString(
             BlobDocumentStore.ConnectionStringName
         )
@@ -71,6 +73,8 @@ public static class DependencyInjection
         services.AddScoped<IInbox, Inbox>();
         services.AddSingleton<DocumentStatusMessages>();
         services.AddHostedService<DocumentStatusConsumer>();
+        services.AddSingleton<InspectionStatusMessages>();
+        services.AddHostedService<InspectionStatusConsumer>();
         services.AddHostedService<ProcessingTimeoutSweeper>();
         return services;
     }

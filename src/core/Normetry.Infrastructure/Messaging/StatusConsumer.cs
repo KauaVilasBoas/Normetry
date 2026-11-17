@@ -11,27 +11,78 @@ using RabbitMQ.Client.Events;
 namespace Normetry.Infrastructure.Messaging;
 
 /// <summary>
-/// Consumes <c>core.document-status</c> (declared here with its dead-letter queue, as the contract
-/// says), one message at a time. An error is retried after 2, 10, 30, then 60 seconds by a reject
-/// with requeue, which the broker counts; with <c>x-delivery-limit: 4</c> the fifth delivery that
-/// fails goes to <c>core.document-status.dead-letter</c>. A body off the contract is
-/// dead-lettered at once. When the broker cancels the consumer (its queue was deleted) or closes
-/// the channel, the channel and the consumer are created again. While the database does not
-/// answer, a failed message is held (unacknowledged, so it spends none of its deliveries) and
-/// handled again every 10 seconds; RabbitMQ's consumer timeout (30 minutes by default) bounds one
-/// hold.
+/// Consumes <c>core.document-status</c> (<see cref="DocumentStatusMessages"/>).
 /// </summary>
 internal sealed class DocumentStatusConsumer(
     RabbitMqConnection broker,
     DocumentStatusMessages messages,
     IConfiguration configuration,
     ILogger<DocumentStatusConsumer> logger
+) : StatusConsumer(broker, configuration, logger)
+{
+    protected override string Queue => Topology.StatusQueue;
+
+    protected override Task DeclareAsync(IChannel channel, CancellationToken cancellationToken) =>
+        Topology.DeclareStatusQueueAsync(channel, cancellationToken);
+
+    protected override Task<ConsumeOutcome> HandleAsync(
+        ReadOnlyMemory<byte> body,
+        CancellationToken cancellationToken
+    ) => messages.HandleAsync(body, cancellationToken);
+}
+
+/// <summary>
+/// Consumes <c>core.inspection-status</c> (<see cref="InspectionStatusMessages"/>).
+/// </summary>
+internal sealed class InspectionStatusConsumer(
+    RabbitMqConnection broker,
+    InspectionStatusMessages messages,
+    IConfiguration configuration,
+    ILogger<InspectionStatusConsumer> logger
+) : StatusConsumer(broker, configuration, logger)
+{
+    protected override string Queue => Topology.InspectionStatusQueue;
+
+    protected override Task DeclareAsync(IChannel channel, CancellationToken cancellationToken) =>
+        Topology.DeclareInspectionStatusQueueAsync(channel, cancellationToken);
+
+    protected override Task<ConsumeOutcome> HandleAsync(
+        ReadOnlyMemory<byte> body,
+        CancellationToken cancellationToken
+    ) => messages.HandleAsync(body, cancellationToken);
+}
+
+/// <summary>
+/// Consumes one of the core's status queues (declared here with its dead-letter queue, as the
+/// contract says), one message at a time. An error is retried after 2, 10, 30, then 60 seconds by
+/// a reject with requeue, which the broker counts; with <c>x-delivery-limit: 4</c> the fifth
+/// delivery that fails goes to the queue's <c>.dead-letter</c>. A body off the contract is
+/// dead-lettered at once. When the broker cancels the consumer (its queue was deleted) or closes
+/// the channel, the channel and the consumer are created again. While the database does not
+/// answer, a failed message is held (unacknowledged, so it spends none of its deliveries) and
+/// handled again every 10 seconds; RabbitMQ's consumer timeout (30 minutes by default) bounds one
+/// hold.
+/// </summary>
+internal abstract class StatusConsumer(
+    RabbitMqConnection broker,
+    IConfiguration configuration,
+    ILogger logger
 ) : BackgroundService
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan OutageWait = TimeSpan.FromSeconds(10);
 
     private readonly string connectionString = CoreDatabase.GetConnectionString(configuration);
+
+    protected abstract string Queue { get; }
+
+    /// <summary>Declares the queue, its dead-letter queue and their bindings.</summary>
+    protected abstract Task DeclareAsync(IChannel channel, CancellationToken cancellationToken);
+
+    protected abstract Task<ConsumeOutcome> HandleAsync(
+        ReadOnlyMemory<byte> body,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>The waits before each requeue: 102 seconds in all, to outlast a database restart.</summary>
     private static readonly int[] RequeueSeconds = [2, 10, 30, 60];
@@ -46,7 +97,7 @@ internal sealed class DocumentStatusConsumer(
             }
             catch (Exception error) when (!stoppingToken.IsCancellationRequested)
             {
-                logger.LogWarning(error, "Cannot consume {Queue}; retrying", Topology.StatusQueue);
+                logger.LogWarning(error, "Cannot consume {Queue}; retrying", Queue);
                 await Task.Delay(RetryDelay, stoppingToken)
                     .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             }
@@ -59,7 +110,7 @@ internal sealed class DocumentStatusConsumer(
         await using var channel = await connection.CreateChannelAsync(
             cancellationToken: stoppingToken
         );
-        await Topology.DeclareStatusQueueAsync(channel, stoppingToken);
+        await DeclareAsync(channel, stoppingToken);
         await channel.BasicQosAsync(0, 1, false, stoppingToken);
         var consumer = new AsyncEventingBasicConsumer(channel);
         consumer.ReceivedAsync += (_, delivery) =>
@@ -67,12 +118,7 @@ internal sealed class DocumentStatusConsumer(
         var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         consumer.UnregisteredAsync += (_, _) => Stop(stopped);
         consumer.ShutdownAsync += (_, _) => Stop(stopped);
-        await channel.BasicConsumeAsync(
-            Topology.StatusQueue,
-            autoAck: false,
-            consumer,
-            stoppingToken
-        );
+        await channel.BasicConsumeAsync(Queue, autoAck: false, consumer, stoppingToken);
         await stopped
             .Task.WaitAsync(stoppingToken)
             .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
@@ -105,7 +151,7 @@ internal sealed class DocumentStatusConsumer(
             out var parent
         );
         using var activity = MessagingTelemetry.Source.StartActivity(
-            $"{Topology.StatusQueue} process",
+            $"{Queue} process",
             ActivityKind.Consumer,
             parent
         );
@@ -117,7 +163,7 @@ internal sealed class DocumentStatusConsumer(
         {
             try
             {
-                outcome = await messages.HandleAsync(delivery.Body, cancellationToken);
+                outcome = await HandleAsync(delivery.Body, cancellationToken);
                 break;
             }
             catch (Exception error) when (!cancellationToken.IsCancellationRequested)

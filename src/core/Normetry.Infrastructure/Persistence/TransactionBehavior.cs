@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Normetry.Application.Identity;
+using Normetry.Application.Inspections;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 using Npgsql;
@@ -24,6 +25,8 @@ internal sealed class TransactionBehavior<TRequest, TResult>(
     private static readonly Dictionary<string, Error> UniqueRefusals = new()
     {
         ["ix_profiles_tenant_id_name"] = IdentityErrors.NameTaken,
+        // One inspection in flight per establishment: two concurrent starts.
+        ["ix_inspections_tenant_id_establishment_id"] = InspectionErrors.Running,
     };
 
     private static readonly bool IsQuery = typeof(TRequest)

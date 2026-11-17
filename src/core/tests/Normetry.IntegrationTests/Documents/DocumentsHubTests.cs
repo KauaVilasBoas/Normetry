@@ -31,7 +31,7 @@ public sealed class DocumentsHubTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     /// <summary>A bound on every wait, so a missing push fails the test instead of hanging it.</summary>
-    private static readonly TimeSpan Wait = TimeSpan.FromSeconds(10);
+    internal static readonly TimeSpan Wait = TimeSpan.FromSeconds(10);
 
     [Fact]
     public async Task A_client_gets_its_own_establishments_changes_and_never_another_tenants()
@@ -155,13 +155,21 @@ public sealed class DocumentsHubTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    /// <summary>A started connection whose WebSocket carries the token in the query string.</summary>
-    private async Task<HubConnection> ConnectAsync(Guid tenant, string sub)
+    private Task<HubConnection> ConnectAsync(Guid tenant, string sub) =>
+        ConnectAsync(db.Api, "hubs/documents", tenant, sub);
+
+    /// <summary>A started connection to <paramref name="path"/> whose WebSocket carries the token in the query string.</summary>
+    internal static async Task<HubConnection> ConnectAsync(
+        ApiFactory api,
+        string path,
+        Guid tenant,
+        string sub
+    )
     {
         var token = ApiFactory.CreateToken(tenant.ToString(), sub);
-        var server = db.Api.Server;
+        var server = api.Server;
         var connection = new HubConnectionBuilder()
-            .WithUrl(new Uri(server.BaseAddress, "hubs/documents"), options =>
+            .WithUrl(new Uri(server.BaseAddress, path), options =>
             {
                 options.Transports = HttpTransportType.WebSockets;
                 options.SkipNegotiation = true;
