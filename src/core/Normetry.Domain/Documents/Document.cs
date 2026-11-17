@@ -42,6 +42,9 @@ public sealed class Document
 
     public DateTimeOffset? DeletedAt { get; private set; }
 
+    /// <summary>The last day the document is valid (a license, a certificate); none for most documents.</summary>
+    public DateOnly? ExpiresOn { get; private set; }
+
     public bool IsDeleted => DeletedAt is not null;
 
     public IReadOnlyCollection<DocumentVersion> Versions => versions;
@@ -103,6 +106,16 @@ public sealed class Document
         var version = DocumentVersion.Create(this, Newest.Number + 1, file, uploadedBy, now);
         versions.Add(version);
         return version;
+    }
+
+    /// <summary>Sets or clears the expiry date. A past date is allowed: the document is expired.</summary>
+    public void SetExpiry(DateOnly? expiresOn)
+    {
+        if (IsDeleted)
+        {
+            throw new InvalidOperationException("A deleted document keeps its expiry date.");
+        }
+        ExpiresOn = expiresOn;
     }
 
     /// <summary>Soft delete: the rows and blobs stay. Deleting again changes nothing.</summary>

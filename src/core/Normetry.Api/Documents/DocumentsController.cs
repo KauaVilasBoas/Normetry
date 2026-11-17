@@ -1,12 +1,15 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Normetry.Api.Auth;
 using Normetry.Application.Documents;
 using Normetry.Application.Documents.DeleteDocument;
 using Normetry.Application.Documents.GetDocument;
 using Normetry.Application.Documents.ListDocuments;
+using Normetry.Application.Documents.SetDocumentExpiry;
 using Normetry.Application.Documents.UploadDocument;
 using Normetry.Application.Documents.UploadDocumentVersion;
 using Normetry.BuildingBlocks.Cqrs;
+using Normetry.BuildingBlocks.Results;
 using Normetry.Domain.Documents;
 using Normetry.Domain.Identity;
 
@@ -24,7 +27,22 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
     // over 10 MiB still reaches the check and gets document.too_large.
     private const long UploadRequestLimit = DocumentFiles.MaxSize + 1024 * 1024;
 
-    /// <summary>A new document with its first version (form fields <c>file</c>, <c>title</c>, <c>type</c>).</summary>
+    private static readonly Error InvalidExpiresOn = new(
+        "validation",
+        "One or more validation errors occurred.",
+        ErrorType.Validation
+    )
+    {
+        FieldErrors = new Dictionary<string, string[]>
+        {
+            ["ExpiresOn"] = ["Give the expiry date as YYYY-MM-DD."],
+        },
+    };
+
+    /// <summary>
+    /// A new document with its first version (form fields <c>file</c>, <c>title</c>, <c>type</c>
+    /// and an optional <c>expiresOn</c>, <c>YYYY-MM-DD</c>).
+    /// </summary>
     [HttpPost("establishments/{establishmentId:guid}/documents")]
     [HasPermission(Permissions.Documents.Upload)]
     [RequestSizeLimit(UploadRequestLimit)]
@@ -35,12 +53,17 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        if (!TryParseDate(form.ExpiresOn, out var expiresOn))
+        {
+            return Result.Failure(InvalidExpiresOn).ToActionResult();
+        }
         var result = await dispatcher.SendAsync(
             new UploadDocumentCommand(
                 establishmentId,
                 form.Title ?? "",
                 TypeByName(form.Type),
-                await ReadAsync(form.File, cancellationToken)
+                await ReadAsync(form.File, cancellationToken),
+                expiresOn
             ),
             cancellationToken
         );
@@ -72,15 +95,41 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
             : result.ToActionResult();
     }
 
+    /// <summary>
+    /// The establishment's documents; <c>expired=true</c> keeps those past their expiry date,
+    /// <c>expiringWithinDays=N</c> (1 to 365) those expiring from today to today plus N days (UTC).
+    /// </summary>
     [HttpGet("establishments/{establishmentId:guid}/documents")]
     [HasPermission(Permissions.Documents.Read)]
-    public async Task<IActionResult> List(Guid establishmentId, CancellationToken cancellationToken)
+    public async Task<IActionResult> List(
+        Guid establishmentId,
+        CancellationToken cancellationToken,
+        bool expired = false,
+        int? expiringWithinDays = null
+    )
     {
         var result = await dispatcher.QueryAsync(
-            new ListDocumentsQuery(establishmentId),
+            new ListDocumentsQuery(establishmentId, expired, expiringWithinDays),
             cancellationToken
         );
         return result.IsSuccess ? Ok(result.Value) : result.ToActionResult();
+    }
+
+    /// <summary>Sets or, with <c>null</c>, clears the document's expiry date. 204.</summary>
+    [HttpPatch("establishments/{establishmentId:guid}/documents/{documentId:guid}")]
+    [HasPermission(Permissions.Documents.Upload)]
+    public async Task<IActionResult> SetExpiry(
+        Guid establishmentId,
+        Guid documentId,
+        SetDocumentExpiryRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = await dispatcher.SendAsync(
+            new SetDocumentExpiryCommand(establishmentId, documentId, request.ExpiresOn),
+            cancellationToken
+        );
+        return result.IsSuccess ? NoContent() : result.ToActionResult();
     }
 
     [HttpGet("documents/{documentId:guid}")]
@@ -112,6 +161,30 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
             ? Enum.Parse<DocumentType>(name!)
             : default;
 
+    // Strict ISO dates only, whatever the server's culture; an empty field means no date.
+    private static bool TryParseDate(string? value, out DateOnly? date)
+    {
+        date = null;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+        if (
+            !DateOnly.TryParseExact(
+                value,
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var parsed
+            )
+        )
+        {
+            return false;
+        }
+        date = parsed;
+        return true;
+    }
+
     private static async Task<UploadedFile?> ReadAsync(
         IFormFile? file,
         CancellationToken cancellationToken
@@ -135,9 +208,18 @@ public sealed class UploadDocumentForm
 
     /// <summary>A <see cref="DocumentType"/> name: <c>Sop</c>, <c>License</c>, <c>Log</c>, <c>Report</c> or <c>Other</c>.</summary>
     public string? Type { get; init; }
+
+    /// <summary>Optional expiry date, <c>YYYY-MM-DD</c>.</summary>
+    public string? ExpiresOn { get; init; }
 }
 
 public sealed class UploadDocumentVersionForm
 {
     public IFormFile? File { get; init; }
+}
+
+/// <summary><c>{ "expiresOn": "YYYY-MM-DD" | null }</c>; the field is required, so <c>{}</c> clears nothing.</summary>
+public sealed class SetDocumentExpiryRequest
+{
+    public required DateOnly? ExpiresOn { get; init; }
 }

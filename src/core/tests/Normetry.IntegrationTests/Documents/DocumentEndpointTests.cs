@@ -1,9 +1,12 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Normetry.Application.Documents;
 using Normetry.Infrastructure.Messaging;
 using Normetry.IntegrationTests.Database;
@@ -29,6 +32,8 @@ public sealed class DocumentEndpointTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private sealed record Tenant(Guid Id, Guid Establishment, string Owner);
+
+    private const string PastDate = "2020-01-31";
 
     [Fact]
     public async Task An_upload_answers_202_stores_the_file_under_its_tenant_and_announces_it()
@@ -394,6 +399,192 @@ public sealed class DocumentEndpointTests
         );
     }
 
+    [Fact]
+    public async Task An_expiry_date_is_set_at_upload_then_changed_and_cleared()
+    {
+        var tenant = await NewTenantAsync();
+        using var client = Client(tenant);
+
+        // A past date is allowed: the document is expired.
+        var (document, _) = await UploadPdfAsync(client, tenant.Establishment, "License", PastDate);
+        Assert.Equal(PastDate, await ExpiresOnAsync(client, document));
+
+        using var changed = await SetExpiryAsync(
+            client,
+            tenant.Establishment,
+            document,
+            "2027-06-30"
+        );
+        Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
+        Assert.Equal("2027-06-30", await ExpiresOnAsync(client, document));
+        var list = await client.GetFromJsonAsync<JsonElement>(
+            $"/establishments/{tenant.Establishment}/documents",
+            Ct
+        );
+        Assert.Equal("2027-06-30", list[0].GetProperty("expiresOn").GetString());
+
+        using var cleared = await SetExpiryAsync(client, tenant.Establishment, document, null);
+        Assert.Equal(HttpStatusCode.NoContent, cleared.StatusCode);
+        Assert.Null(await ExpiresOnAsync(client, document));
+        // The date is the core's alone: only the upload was announced.
+        Assert.Single(await OutboxAsync(tenant.Id));
+    }
+
+    [Fact]
+    public async Task An_expiry_date_that_is_not_an_iso_date_is_a_400()
+    {
+        var tenant = await NewTenantAsync();
+        using var client = Client(tenant);
+
+        using var upload = await UploadAsync(
+            client,
+            tenant.Establishment,
+            "license.pdf",
+            "application/pdf",
+            SampleFiles.Pdf,
+            expiresOn: "31/12/2026"
+        );
+
+        Assert.Equal(HttpStatusCode.BadRequest, upload.StatusCode);
+        var problem = await upload.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Equal("validation", problem.GetProperty("code").GetString());
+        Assert.True(problem.GetProperty("errors").TryGetProperty("ExpiresOn", out _));
+        Assert.Empty(await OutboxAsync(tenant.Id));
+
+        // A PATCH body needs the field, holding an ISO date or null.
+        var (document, _) = await UploadPdfAsync(client, tenant.Establishment);
+        foreach (
+            var body in new[]
+            {
+                "{\"expiresOn\":\"2026-13-01\"}",
+                "{\"expiresOn\":\"31/12/2026\"}",
+                "{}",
+            }
+        )
+        {
+            using var content = new StringContent(body, Encoding.UTF8, "application/json");
+            using var refused = await client.PatchAsync(
+                $"/establishments/{tenant.Establishment}/documents/{document}",
+                content,
+                Ct
+            );
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        }
+        Assert.Null(await ExpiresOnAsync(client, document));
+    }
+
+    [Fact]
+    public async Task The_list_filters_expired_documents_and_documents_expiring_within_n_days()
+    {
+        var tenant = await NewTenantAsync();
+        var today = new DateOnly(2030, 6, 15);
+        await using var api = db.Api.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+                services.AddSingleton<TimeProvider>(new FixedClock(today))
+            )
+        );
+        using var client = api.CreateClient(
+            ApiFactory.CreateToken(tenant.Id.ToString(), tenant.Owner)
+        );
+        foreach (
+            var (title, days) in new (string, int?)[]
+            {
+                ("Yesterday", -1),
+                ("Today", 0),
+                ("In 10 days", 10),
+                ("In 11 days", 11),
+                ("In 90 days", 90),
+                ("No date", null),
+            }
+        )
+        {
+            await UploadPdfAsync(
+                client,
+                tenant.Establishment,
+                title,
+                days is { } offset ? today.AddDays(offset).ToString("yyyy-MM-dd") : null
+            );
+        }
+
+        Assert.Equal(
+            ["Yesterday"],
+            await TitlesAsync(client, tenant.Establishment, "expired=true")
+        );
+        Assert.Equal(
+            ["In 10 days", "Today"],
+            await TitlesAsync(client, tenant.Establishment, "expiringWithinDays=10")
+        );
+        Assert.Equal(
+            ["In 10 days", "In 11 days", "In 90 days", "Today"],
+            await TitlesAsync(client, tenant.Establishment, "expiringWithinDays=90")
+        );
+        Assert.Equal(6, (await TitlesAsync(client, tenant.Establishment, "expired=false")).Count);
+
+        foreach (
+            var query in new[]
+            {
+                "expiringWithinDays=0",
+                "expiringWithinDays=366",
+                "expired=true&expiringWithinDays=30",
+            }
+        )
+        {
+            using var refused = await client.GetAsync(
+                $"/establishments/{tenant.Establishment}/documents?{query}",
+                Ct
+            );
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Equal("validation", await CodeAsync(refused));
+        }
+    }
+
+    [Fact]
+    public async Task Expiry_filters_and_changes_stay_within_the_tenant_and_the_establishment()
+    {
+        var a = await NewTenantAsync();
+        var b = await NewTenantAsync();
+        var otherEstablishment = await TestTenants.CreateEstablishmentAsync(db, a.Id);
+        using var clientA = Client(a);
+        using var clientB = Client(b);
+        var (document, _) = await UploadPdfAsync(clientA, a.Establishment, "A", PastDate);
+        var (elsewhere, _) = await UploadPdfAsync(clientA, otherEstablishment, "A other", PastDate);
+        var (deleted, _) = await UploadPdfAsync(clientA, a.Establishment, "A deleted", PastDate);
+        using (await clientA.DeleteAsync($"/documents/{deleted}", Ct)) { }
+        await UploadPdfAsync(clientB, b.Establishment, "B", PastDate);
+
+        // A filtered list holds its own tenant's and establishment's documents only.
+        Assert.Equal(["A"], await TitlesAsync(clientA, a.Establishment, "expired=true"));
+        Assert.Equal(["A other"], await TitlesAsync(clientA, otherEstablishment, "expired=true"));
+        Assert.Equal(["B"], await TitlesAsync(clientB, b.Establishment, "expired=true"));
+        using var foreignList = await clientB.GetAsync(
+            $"/establishments/{a.Establishment}/documents?expired=true",
+            Ct
+        );
+        Assert.Equal(HttpStatusCode.NotFound, foreignList.StatusCode);
+
+        // Another tenant's document (under its own or the caller's establishment), a document of
+        // another establishment and a deleted document are not found.
+        using var foreign = await SetExpiryAsync(clientB, a.Establishment, document, null);
+        using var foreignHere = await SetExpiryAsync(clientB, b.Establishment, document, null);
+        using var wrongEstablishment = await SetExpiryAsync(
+            clientA,
+            a.Establishment,
+            elsewhere,
+            null
+        );
+        using var gone = await SetExpiryAsync(clientA, a.Establishment, deleted, null);
+        foreach (var response in new[] { foreign, foreignHere, wrongEstablishment, gone })
+        {
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.Equal("document.not_found", await CodeAsync(response));
+        }
+        await using var session = await Session.BeginAsync(db.ConnectionString("app_core"), a.Id);
+        Assert.Equal(
+            [PastDate, PastDate, PastDate],
+            await session.ColumnAsync<string>("SELECT expires_on::text FROM core.documents")
+        );
+    }
+
     private async Task<Tenant> NewTenantAsync()
     {
         var owner = Guid.NewGuid().ToString();
@@ -421,7 +612,8 @@ public sealed class DocumentEndpointTests
         string contentType,
         byte[] content,
         string title = "Cold storage SOP",
-        string type = "Sop"
+        string type = "Sop",
+        string? expiresOn = null
     )
     {
         using var form = new MultipartFormDataContent
@@ -430,6 +622,10 @@ public sealed class DocumentEndpointTests
             { new StringContent(title), "title" },
             { new StringContent(type), "type" },
         };
+        if (expiresOn is not null)
+        {
+            form.Add(new StringContent(expiresOn), "expiresOn");
+        }
         return await client.PostAsync($"/establishments/{establishment}/documents", form, Ct);
     }
 
@@ -449,7 +645,8 @@ public sealed class DocumentEndpointTests
     internal static async Task<(Guid Document, Guid Version)> UploadPdfAsync(
         HttpClient client,
         Guid establishment,
-        string title = "Cold storage SOP"
+        string title = "Cold storage SOP",
+        string? expiresOn = null
     )
     {
         using var response = await UploadAsync(
@@ -458,7 +655,8 @@ public sealed class DocumentEndpointTests
             "sop.pdf",
             "application/pdf",
             SampleFiles.Pdf,
-            title
+            title,
+            expiresOn: expiresOn
         );
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
@@ -473,6 +671,41 @@ public sealed class DocumentEndpointTests
         Tenant tenant,
         string title = "Cold storage SOP"
     ) => UploadPdfAsync(client, tenant.Establishment, title);
+
+    private static Task<HttpResponseMessage> SetExpiryAsync(
+        HttpClient client,
+        Guid establishment,
+        Guid document,
+        string? expiresOn
+    ) =>
+        client.PatchAsync(
+            $"/establishments/{establishment}/documents/{document}",
+            JsonContent.Create(new { expiresOn }),
+            Ct
+        );
+
+    private static async Task<string?> ExpiresOnAsync(HttpClient client, Guid document) =>
+        (await client.GetFromJsonAsync<JsonElement>($"/documents/{document}", Ct))
+            .GetProperty("expiresOn")
+            .GetString();
+
+    /// <summary>The titles a list request answers with, sorted.</summary>
+    private static async Task<List<string>> TitlesAsync(
+        HttpClient client,
+        Guid establishment,
+        string query
+    ) =>
+        [
+            .. (
+                await client.GetFromJsonAsync<JsonElement>(
+                    $"/establishments/{establishment}/documents?{query}",
+                    Ct
+                )
+            )
+                .EnumerateArray()
+                .Select(item => item.GetProperty("title").GetString()!)
+                .Order(StringComparer.Ordinal),
+        ];
 
     private static ByteArrayContent File(byte[] content, string contentType)
     {
@@ -507,4 +740,10 @@ public sealed class DocumentEndpointTests
 
     private static async Task<string?> CodeAsync(HttpResponseMessage response) =>
         (await response.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("code").GetString();
+
+    private sealed class FixedClock(DateOnly today) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() =>
+            new(today.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero);
+    }
 }
