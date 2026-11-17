@@ -1,0 +1,429 @@
+{
+  "code": "food-code",
+  "jurisdiction": "US",
+  "items": [
+    {
+      "id": "us.certified-person-in-charge",
+      "theme": "documentation_training",
+      "title": "A certified food protection manager is the person in charge during all hours of operation",
+      "section_paths": ["2-101.11", "2-102.12"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "certified food protection manager certificates with expiry dates; manager shift schedules"
+    },
+    {
+      "id": "us.active-managerial-control",
+      "theme": "documentation_training",
+      "title": "The person in charge monitors handwashing, receiving, cooking, cooling, holding and sanitizing",
+      "section_paths": ["2-103.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "daily manager checklists; signed monitoring logs; food safety plan naming who verifies each step"
+    },
+    {
+      "id": "us.employee-health-reporting",
+      "theme": "personal_hygiene",
+      "title": "Food employees are informed of, and report, illness symptoms and diagnoses to the person in charge",
+      "section_paths": ["2-201.11", "2-103.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "signed employee health reporting agreements; illness reporting log; onboarding records"
+    },
+    {
+      "id": "us.ill-employee-exclusion",
+      "theme": "personal_hygiene",
+      "title": "Employees with listed symptoms or diagnoses are excluded or restricted from food work",
+      "section_paths": ["2-201.12"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "exclusion and restriction log; return-to-work notes; staff schedules on the dates of reported illness"
+    },
+    {
+      "id": "us.employee-illness-policy",
+      "theme": "personal_hygiene",
+      "title": "A written employee illness policy covers symptoms, diagnoses, exclusion and reinstatement",
+      "section_paths": ["2-501.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "written employee illness policy; employee handbook health section"
+    },
+    {
+      "id": "us.vomit-diarrhea-cleanup",
+      "theme": "cleaning_sanitizing",
+      "title": "Written procedures exist for cleaning up vomiting and diarrheal events",
+      "section_paths": ["2-502.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "vomit and diarrhea clean-up procedure; clean-up kit contents list; staff training records"
+    },
+    {
+      "id": "us.handwashing",
+      "theme": "personal_hygiene",
+      "title": "Food employees wash hands for at least 20 seconds, after toilet use and between tasks",
+      "section_paths": ["2-301.12", "2-301.14"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "handwashing SOP; hygiene training records; manager handwashing observation checklists"
+    },
+    {
+      "id": "us.no-bare-hand-contact",
+      "theme": "personal_hygiene",
+      "title": "Exposed RTE food is not touched with bare hands, except under 3-301.11(D) or an approved (E) plan",
+      "section_paths": ["3-301.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "food handling SOP on gloves and utensils; regulatory approval and written procedures for any bare hand contact under 3-301.11(E)"
+    },
+    {
+      "id": "us.handwashing-sinks",
+      "theme": "personal_hygiene",
+      "title": "Handwashing sinks are accessible, used only for handwashing, and have soap and towels or a dryer",
+      "section_paths": ["5-205.11", "6-301.11", "6-301.12"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "opening and closing checklists; supply restocking log; facility cleaning plan"
+    },
+    {
+      "id": "us.approved-source",
+      "theme": "cross_contamination_allergens",
+      "title": "Food comes from approved sources that comply with law, never from a private home",
+      "section_paths": ["3-201.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "approved supplier list; supplier licenses; delivery invoices"
+    },
+    {
+      "id": "us.receiving-temperatures",
+      "theme": "temperature_control",
+      "title": "Refrigerated TCS food arrives at 5°C (41°F) or below, unless law sets another (milk, shellstock)",
+      "section_paths": ["3-202.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "receiving logs with delivery temperatures (frozen food received frozen); rejected delivery records; receiving SOP"
+    },
+    {
+      "id": "us.shellfish-fish-records",
+      "theme": "documentation_training",
+      "title": "Shellstock tags and fish parasite-destruction records are kept for 90 days",
+      "section_paths": ["3-203.12", "3-402.12"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "shellstock tag file; fish freezing logs or supplier freezing statements"
+    },
+    {
+      "id": "us.raw-rte-separation",
+      "theme": "cross_contamination_allergens",
+      "title": "Raw animal foods are kept separate from ready-to-eat food in storage and preparation",
+      "section_paths": ["3-302.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "refrigerator storage order chart; food storage and preparation SOP"
+    },
+    {
+      "id": "us.food-contact-cleaning",
+      "theme": "cleaning_sanitizing",
+      "title": "Food-contact surfaces are cleaned and sanitized between raw and RTE use and every 4 h with TCS food",
+      "section_paths": ["4-602.11", "4-703.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cleaning and sanitizing schedule (4-602.11(D) exceptions such as refrigerated prep rooms); master cleaning plan; completed cleaning checklists"
+    },
+    {
+      "id": "us.sanitizer-concentration",
+      "theme": "cleaning_sanitizing",
+      "title": "Chemical sanitizer is used at its label concentration, checked with a test kit",
+      "section_paths": ["4-501.19", "4-302.14"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "sanitizer concentration test logs; sanitizer product label or safety data sheet; warewashing SOP"
+    },
+    {
+      "id": "us.cooking-temperatures",
+      "theme": "temperature_control",
+      "title": "Raw animal foods are cooked to the Code's minimum internal temperatures and times",
+      "section_paths": ["3-401.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cooking temperature logs; recipes or HACCP plan with final cooking temperatures"
+    },
+    {
+      "id": "us.reheating",
+      "theme": "temperature_control",
+      "title": "Food cooked and cooled on site is reheated for hot holding to 74°C (165°F) for 15 s within 2 hours",
+      "section_paths": ["3-403.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "reheating temperature logs; reheating SOP (commercially processed, packaged RTE food: 57°C (135°F))"
+    },
+    {
+      "id": "us.cooling",
+      "theme": "temperature_control",
+      "title": "Cooked TCS food cools to 21°C (70°F) in 2 hours and to 5°C (41°F) within 6 hours",
+      "section_paths": ["3-501.14"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cooling logs with times and temperatures; cooling SOP"
+    },
+    {
+      "id": "us.hot-holding",
+      "theme": "temperature_control",
+      "title": "Hot-held TCS food stays at 57°C (135°F) or above, or 54°C (130°F) for roasts cooked per 3-401.11(B)",
+      "section_paths": ["3-501.16"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "hot holding temperature logs; steam table, hot cabinet or carving station checks"
+    },
+    {
+      "id": "us.cold-holding",
+      "theme": "temperature_control",
+      "title": "Cold-held TCS food is kept at 5°C (41°F) or less",
+      "section_paths": ["3-501.16"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cold holding or refrigerator temperature logs; HACCP or food safety plan"
+    },
+    {
+      "id": "us.date-marking",
+      "theme": "temperature_control",
+      "title": "Refrigerated RTE TCS food held over 24 hours is date marked and used or discarded within 7 days",
+      "section_paths": ["3-501.17", "3-501.18"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "date marking SOP and label system; discard log (exempt per 3-501.17(E)-(G): meal portions, shellstock, plant-made deli salads, hard and semi-soft cheeses, cultured dairy)"
+    },
+    {
+      "id": "us.time-as-public-health-control",
+      "theme": "temperature_control",
+      "title": "Food held under time as a public health control has written procedures and time marks",
+      "section_paths": ["3-501.19"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "written time-as-control procedure; time-marking labels or logs; discard records"
+    },
+    {
+      "id": "us.consumer-advisory",
+      "theme": "documentation_training",
+      "title": "Raw or undercooked animal foods on the menu carry a consumer advisory disclosure and reminder",
+      "section_paths": ["3-603.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "menus; menu boards; table tents or placards"
+    },
+    {
+      "id": "us.toxic-materials",
+      "theme": "cross_contamination_allergens",
+      "title": "Poisonous or toxic materials are labeled and stored apart from food, never above it",
+      "section_paths": ["7-101.11", "7-102.11", "7-201.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "chemical inventory and safety data sheets; chemical storage SOP; storage area layout"
+    },
+    {
+      "id": "us.allergen-awareness",
+      "theme": "cross_contamination_allergens",
+      "title": "The person in charge and employees know the major food allergens and allergic reaction symptoms",
+      "section_paths": ["2-103.11", "2-102.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "food allergy awareness training records; allergen SOP; manager certification"
+    },
+    {
+      "id": "us.allergen-notification",
+      "theme": "cross_contamination_allergens",
+      "title": "Consumers get written notice of major food allergens in unpackaged food",
+      "section_paths": ["3-602.12"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "menu allergen statements; allergen matrix or chart; signage"
+    },
+    {
+      "id": "us.allergen-labeling",
+      "theme": "cross_contamination_allergens",
+      "title": "Food packaged on site is labeled with its ingredients and the source of each major allergen",
+      "section_paths": ["3-602.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "product labels; label templates; recipe and ingredient specifications"
+    },
+    {
+      "id": "us.thawing",
+      "theme": "temperature_control",
+      "title": "TCS food is thawed in the fridge, under running water at 21°C (70°F) or less, or as part of cooking",
+      "section_paths": ["3-501.13"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "thawing SOP; prep lists; thawing logs (3-501.13(D): any method for an RTE portion thawed for one consumer's order)"
+    },
+    {
+      "id": "us.thermometers",
+      "theme": "temperature_control",
+      "title": "Accurate food thermometers are available and calibrated per manufacturer instructions",
+      "section_paths": ["4-302.12", "4-502.11", "4-203.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "thermometer calibration log; thermometer inventory"
+    },
+    {
+      "id": "us.food-safety-training",
+      "theme": "documentation_training",
+      "title": "Employees are trained in food safety for their assigned duties",
+      "section_paths": ["2-103.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "training records and sign-in sheets; food handler cards; training plan"
+    },
+    {
+      "id": "us.hot-water-sanitizing",
+      "theme": "cleaning_sanitizing",
+      "title": "Hot-water sanitizing reaches 77°C (171°F) by manual immersion or a 71°C (160°F) utensil surface",
+      "section_paths": ["4-501.19", "4-703.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "three-compartment sink sanitizing temperature logs; dishwasher logs or irreversible temperature indicator records"
+    },
+    {
+      "id": "us.warewashing-temperatures",
+      "theme": "cleaning_sanitizing",
+      "title": "Warewashing wash solutions and the machine hot-water rinse stay within the Code temperature limits",
+      "section_paths": ["4-501.19"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "dishwasher temperature logs (final rinse 82-90°C, 180-194°F); manual wash at 43°C (110°F) or more; dishwasher service reports"
+    },
+    {
+      "id": "us.wiping-cloths",
+      "theme": "cleaning_sanitizing",
+      "title": "Wet wiping cloths are held in sanitizer between uses and laundered daily",
+      "section_paths": ["3-304.14"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cleaning SOP for wiping cloths; sanitizer bucket check log; laundry records"
+    },
+    {
+      "id": "us.facility-cleaning",
+      "theme": "cleaning_sanitizing",
+      "title": "Nonfood-contact surfaces and physical facilities are cleaned as often as needed",
+      "section_paths": ["4-602.13", "6-501.12"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "master cleaning schedule; completed daily and weekly cleaning checklists"
+    },
+    {
+      "id": "us.pest-control",
+      "theme": "pest_control",
+      "title": "The premises are kept free of pests by routine inspection and control measures",
+      "section_paths": ["6-501.19"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "pest control service reports; pest sighting log; delivery inspection records"
+    },
+    {
+      "id": "us.pesticide-application",
+      "theme": "pest_control",
+      "title": "Pesticides are used per label, and restricted-use pesticides only by or under a certified applicator",
+      "section_paths": ["7-202.12"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "pest control service reports listing products, label use and applicator license"
+    },
+    {
+      "id": "us.rodent-bait-stations",
+      "theme": "pest_control",
+      "title": "Rodent bait is kept in covered, tamper-resistant bait stations",
+      "section_paths": ["7-206.12"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "pest control service reports; bait station map"
+    },
+    {
+      "id": "us.outer-openings",
+      "theme": "pest_control",
+      "title": "Outer openings are protected against the entry of insects and rodents",
+      "section_paths": ["6-202.15"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "pest control report findings on entry points; maintenance work orders"
+    },
+    {
+      "id": "us.approved-water-source",
+      "theme": "water_premises",
+      "title": "Drinking water comes from an approved public or regulated non-public water system",
+      "section_paths": ["5-101.11", "5-102.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "water utility bill or service statement; well permit for a private supply"
+    },
+    {
+      "id": "us.water-testing",
+      "theme": "water_premises",
+      "title": "Non-public water is tested at least annually and the latest report is kept on file",
+      "section_paths": ["5-102.13", "5-102.14"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "water sample laboratory reports"
+    },
+    {
+      "id": "us.backflow-prevention",
+      "theme": "water_premises",
+      "title": "Backflow is prevented by air gaps or approved devices, with no cross connections",
+      "section_paths": ["5-203.14", "5-205.12"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "plumbing inspection reports; backflow preventer test certificates"
+    },
+    {
+      "id": "us.water-device-service",
+      "theme": "water_premises",
+      "title": "Backflow preventers and water treatment devices are serviced on schedule, with records kept",
+      "section_paths": ["5-205.13"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "backflow test reports; water filter or softener service records"
+    },
+    {
+      "id": "us.facility-repair",
+      "theme": "water_premises",
+      "title": "Physical facilities and equipment are maintained in good repair",
+      "section_paths": ["6-501.11", "4-501.11"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "maintenance log; repair work orders and invoices; equipment service records"
+    },
+    {
+      "id": "us.sewage-disposal",
+      "theme": "waste",
+      "title": "Sewage is disposed of through a public sewer or an approved individual system",
+      "section_paths": ["5-403.11"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "sewer service bill; septic system permit and pumping records"
+    },
+    {
+      "id": "us.refuse-receptacles",
+      "theme": "waste",
+      "title": "Refuse receptacles are durable, pest-resistant, leakproof, kept clean and covered when required",
+      "section_paths": ["5-501.13", "5-501.19"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "waste management SOP; cleaning schedule for bins and the refuse area"
+    },
+    {
+      "id": "us.refuse-removal",
+      "theme": "waste",
+      "title": "Refuse is removed often enough to prevent odors and pest attraction",
+      "section_paths": ["5-502.11"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "waste hauler contract; pickup schedule or invoices"
+    },
+    {
+      "id": "us.valid-permit",
+      "theme": "documentation_training",
+      "title": "The establishment holds a valid operating permit, posted where consumers can see it",
+      "section_paths": ["8-301.11", "8-304.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "food establishment permit or license with its expiry date"
+    }
+  ]
+}
