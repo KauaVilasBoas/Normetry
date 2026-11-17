@@ -35,7 +35,7 @@ There is one line per rejected or edited finding, ordered by item id (UTF-8, `\n
 - `reviewer` is the latest reviewer's `sub`, with no name or email.
 - `actionText` and `dueOn` are null when the finding has no action.
 
-Review exported files before committing them: they hold a tenant's rationales and notes. The folder is kept in git by `.gitkeep`.
+Review exported files before committing them: they hold a tenant's rationales and notes. The folder's `.gitignore` ignores `*.jsonl`, so a reviewed export is committed on purpose with `git add -f`.
 
 ## Retrieval eval
 
