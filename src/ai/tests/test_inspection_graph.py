@@ -8,6 +8,7 @@ Offline but for the database: no test calls the Anthropic API.
 """
 
 import asyncio
+import gc
 import hashlib
 import json
 import time
@@ -30,6 +31,7 @@ from normetry_ai.inspection.checklist import SEVERITIES, ChecklistItem, items_fo
 from normetry_ai.inspection.checkpoints import TenantCheckpointSaver
 from normetry_ai.inspection.guard import UNVERIFIED_RATIONALE
 from normetry_ai.inspection.worker import InspectionWorker
+from normetry_ai.llm.claude import ModelUnavailable
 from normetry_ai.llm.embeddings import Embedder, SentenceTransformerEmbedder
 from normetry_ai.llm.reranker import CrossEncoderReranker
 from normetry_ai.llm.usage import Usage
@@ -254,6 +256,22 @@ def test_a_low_ceiling_fails_budget_exceeded_with_no_findings(ceiling: int) -> N
     # A redelivery finds it finished: nothing more is spent.
     again = asyncio.run(graph.load(run.checkpointer, run.request.inspection_id))
     assert again.finished and again.values["budget_exceeded"] is True
+
+
+def test_an_items_error_is_never_logged_with_its_text(caplog: pytest.LogCaptureFixture) -> None:
+    # Every item past the first theme fails, with text that could quote stored rows: the run
+    # stops on the first error and cancels the other branches before they read their futures.
+    first_theme = {item.title for item in PLAN[THEMES[0]]}
+
+    def fail(title: str) -> Exception | None:
+        return None if title in first_theme else ModelUnavailable("SECRET stored row text")
+
+    with pytest.raises(ModelUnavailable):
+        Run(InMemorySaver(), request())(EchoJudge(fail=fail))
+    gc.collect()  # asyncio logs an unread future's error when the future is collected
+
+    assert "SECRET" not in caplog.text
+    assert "never retrieved" not in caplog.text
 
 
 # --- Resume from the checkpoints on PostgreSQL ------------------------------------------------

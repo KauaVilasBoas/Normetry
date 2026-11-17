@@ -54,6 +54,11 @@ NO_DOCUMENTS = "The establishment has no indexed document to use as evidence."
 BUDGET_EXCEEDED = "The inspection stopped before a model call that could pass its token ceiling."
 
 
+class InspectionMismatch(ValueError):
+    """The inspection's checkpoints were started for another establishment, jurisdiction or type:
+    neither resumed nor published again, since they would mix or report another's evidence."""
+
+
 class InspectionWorker:
     """Runs inspections; shares the service's embedder and re-ranker with the chat and ingestion."""
 
@@ -90,10 +95,13 @@ class InspectionWorker:
         """The inspection's result: its findings, or its failure (`budget_exceeded`,
         `no_documents`). Publishes InspectionStarted, then an InspectionProgressed after each item
         evaluated, through `publish`; a finished inspection publishes nothing and returns its
-        stored result. Raises on anything else, for the consumer to retry: the next delivery
-        resumes from the last checkpoint."""
+        stored result. Raises InspectionMismatch when the inspection's checkpoints are for
+        another establishment; raises on anything else, for the consumer to retry: the next
+        delivery resumes from the last checkpoint."""
         saver = TenantCheckpointSaver(self.engine, tenant_id)
         saved = await graph.load(saver, request.inspection_id)
+        if saved.exists and not saved.is_for(request):
+            raise InspectionMismatch("the checkpoints are for another establishment")
         ids = {"establishment_id": request.establishment_id, "inspection_id": request.inspection_id}
         if saved.finished:
             self._log("already finished", tenant_id, request)

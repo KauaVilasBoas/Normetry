@@ -10,6 +10,7 @@ publishes its result again. The tenant of every transaction comes from the messa
 
 import logging
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from typing import Any, Protocol
 from uuid import UUID, uuid5
 
@@ -17,6 +18,7 @@ import anyio
 from aio_pika.abc import AbstractRobustConnection
 from opentelemetry import trace
 
+from normetry_ai.inspection.worker import InspectionMismatch
 from normetry_ai.messaging.consumer import (
     DELIVERY_LIMIT,
     EVENT_IDS,
@@ -44,6 +46,22 @@ QUEUE = "ai.inspections"
 DEAD_LETTER_QUEUE = "ai.inspections.dead-letter"
 QUEUE_ARGUMENTS = queue_arguments(QUEUE)
 ERROR = "The inspection could not be completed. Try running it again."
+
+# The envelope's tenant while a delivery is handled. The judge and the Claude adapter log without
+# a tenant of their own; this filter stamps it on their records as the `tenant_id` field.
+TENANT_ID: ContextVar[str | None] = ContextVar("tenant_id", default=None)
+
+
+class _TenantFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        tenant = TENANT_ID.get()
+        if tenant is not None and not hasattr(record, "tenant_id"):
+            record.tenant_id = tenant
+        return True
+
+
+for _name in ("normetry_ai.inspection.judge", "normetry_ai.llm.claude"):
+    logging.getLogger(_name).addFilter(_TenantFilter())
 
 
 class Worker(Protocol):
@@ -73,8 +91,10 @@ async def handle(body: bytes, delivery_count: int, worker: Worker, publish: Publ
     """Process one delivery of a message from the ai.inspections queue.
 
     A body that breaks the contract, or a message this queue does not take, is dead-lettered at
-    once. The inspection's result (completed, or failed `budget_exceeded` or `no_documents`) is
-    published and the message acknowledged. Any other error waits while the database is
+    once, and so is a request whose inspection id already has checkpoints for another
+    establishment (`InspectionMismatch`), with nothing published. The inspection's result
+    (completed, or failed `budget_exceeded` or `no_documents`) is published and the message
+    acknowledged. Any other error waits while the database is
     unreachable (`wait`) and is retried otherwise; the last delivery publishes InspectionFailed
     (`error`) first, so the core does not wait for its timeout.
     """
@@ -95,19 +115,46 @@ async def handle(body: bytes, delivery_count: int, worker: Worker, publish: Publ
             extra={"tenant_id": str(tenant_id)},
         )
         return "dead-letter"
+    token = TENANT_ID.set(str(tenant_id))
+    try:
+        return await _inspect(
+            tenant_id, request, message.message_id, delivery_count, worker, publish
+        )
+    finally:
+        TENANT_ID.reset(token)
 
+
+async def _inspect(
+    tenant_id: UUID,
+    request: InspectionRequested,
+    message_id: UUID,
+    delivery_count: int,
+    worker: Worker,
+    publish: Publish,
+) -> Action:
     async def emit(payload: InspectionPayload) -> None:
         await publish(event(tenant_id, payload))
 
     try:
         await emit(await worker.inspect(tenant_id, request, emit))
         return "ack"
+    except InspectionMismatch:
+        # The core sent another establishment for an inspection id it already used: nothing to
+        # resume or publish, and no retry would change that.
+        logger.warning(
+            "Dead-lettered inspection %s of tenant %s: its checkpoints are for another "
+            "establishment",
+            request.inspection_id,
+            tenant_id,
+            extra={"tenant_id": str(tenant_id)},
+        )
+        return "dead-letter"
     except Exception as error:
         if not await anyio.to_thread.run_sync(worker.reachable):
             logger.warning(
                 "Holding %s %s of tenant %s: the database is unreachable (%s)",
-                message.type,
-                message.message_id,
+                request.TYPE,
+                message_id,
                 tenant_id,
                 type(error).__name__,
                 extra={"tenant_id": str(tenant_id)},
