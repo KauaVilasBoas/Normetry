@@ -41,7 +41,8 @@ There is one card and no page header, as on the Documents list.
  │ │   You can run another one when it finishes.                              │ │
  │ └──────────────────────────────────────────────────────────────────────────┘ │
  │ REQUESTED                    STATUS               RESULTS                    │ (inset header)
- │ Nov 17, 2026, 10:42 AM       (◌ Running)          27 of 43 checked           │
+ │ Nov 17, 2026, 10:42 AM       (◌ Running)          —                          │
+ │                              27 of 43 checked                                │
  │ Nov 16, 2026, 4:05 PM        (✓ Completed)        6 non-compliant · 4 insuf- │
  │                                                   ficient evidence · 33 comp…│
  │ Nov 16, 2026, 9:12 AM        (◆ Failed)           —                          │
@@ -51,7 +52,7 @@ There is one card and no page header, as on the Documents list.
 
 ### History, at 375px
 
-The header wraps and the button goes full width (`w-full sm:w-auto`). The Results column is hidden (`hidden md:table-cell`), and its text becomes the second line of the Requested cell.
+The header wraps and the button goes full width (`w-full sm:w-auto`). The Results column is hidden (`hidden md:table-cell`), and a completed row's results become the second line of the Requested cell. The running count and the failure reason stay under the pill in the Status cell at every width.
 
 ```
 ┌─────────────────────────────┐
@@ -65,7 +66,7 @@ The header wraps and the button goes full width (`w-full sm:w-auto`). The Result
 ││   [View progress]         ││
 ││ REQUESTED          STATUS ││
 ││ Nov 17, 2026, 1… (◌ Runni…││
-││ 27 of 43 checked          ││
+││                  27 of 43 …││
 ││ Nov 16, 2026, 4… (✓ Compl…││
 ││ 6 non-compliant · 4 insu… ││
 │└───────────────────────────┘│
@@ -84,7 +85,8 @@ The header has no actions.
 ### Running (Requested or Running), from 768px
 
 The mock's panel as one card:
-- the stepper strip on top;
+- the connection notice first, only while live updates are paused or stopped (`mb-5`), as in the Documents cards;
+- the stepper strip;
 - below it, two columns split by a 1px `--border` divider: the radial progress column (`w-60`, centered) and the theme checklist (`flex-1`);
 - the "You can leave this page" caption at the bottom.
 
@@ -92,8 +94,9 @@ The mock's panel as one card:
  ← Simulated Inspection
  Inspection of Nov 17, 2026, 10:42 AM
  Anvisa RDC 216/2004 · Bistro São Paulo   (◌ Running)
- ┌ ◌ Live updates paused. Reconnecting…                                       ┐   (only while disconnected)
  ┌──────────────────────────────────────────────────────────────────────────────┐
+ │ ┌ ◌ Live updates paused. Reconnecting…                                     ┐ │ (only while disconnected)
+ │ └──────────────────────────────────────────────────────────────────────────┘ │
  │ ┌ (1) Analysis ──────────── (2) Findings ──────────── (3) Action plan ─────┐ │ stepper strip (inset)
  │ └──────────────────────────────────────────────────────────────────────────┘ │
  │        ╭─────╮         │  ● Personal hygiene                        6 of 6  │
@@ -110,7 +113,7 @@ The mock's panel as one card:
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Below 768px the columns stack: the stepper, then the radial centered, then the checklist at full width, then the caption. The stepper fits at 375px because its connector lines shrink first (`flex-1 min-w-3`).
+Below 768px the columns stack: the stepper, then the radial centered, then the checklist at full width, then the caption. Below 640px the stepper shows only the current step's label next to the three numbered circles; the other labels stay for screen readers (`sr-only sm:not-sr-only`, with "Done:" kept), so it fits at 320px.
 
 ### Failed
 
@@ -251,15 +254,15 @@ Verdict and Severity sit side by side from 640px (`sm:grid-cols-2`) and stack be
 | Inspections card | The Documents list card. Header `p-5 flex flex-wrap items-start justify-between gap-3`. `h2` (`id="inspections-title"`, `tabIndex={-1}`, `text-title font-semibold`). Caption `text-small text-text-secondary tabular-nums`. |
 | Run inspection | **Primary** `Button` with `Play` 16, `w-full sm:w-auto`. While posting: `aria-disabled`, `Spinner surface="mint"`, "Starting…". While unavailable (§4): `aria-disabled` and `aria-describedby` pointing at the notice's body. |
 | Run notice | The `Notice` primitive (`mx-5 mb-4`) inside an always-mounted `role="status"` wrapper. Icon per reason (§4). Its action is a link styled with `secondaryButton`: "View progress" or "Go to Documents". |
-| Connection notice | Move `ConnectionNotice` from `documents/parts.tsx` to `ui/` with `title` props, and generalize `useLiveStatus` (§8.7). Reconnecting and stopped copy is in §6. It shows on the list and on a Requested or Running inspection only. |
+| Connection notice | Move `ConnectionNotice` from `documents/parts.tsx` to `ui/` with `title` props, and generalize `useLiveStatus` (§8.7). Reconnecting and stopped copy is in §6. It shows on the list and on a Requested or Running inspection only; there it is the running card's first child (`mb-5`), as in the Documents cards. |
 | Inspection table | The Documents table classes: `thead bg-inset`, `th scope="col"` (move `th` to `ui/`), rows `relative border-t border-border hover:bg-elevated`, `min-h-14 py-2.5`, a visually hidden `<caption>`. |
 | Requested cell | A stretched `Link` (13/500, truncated, inset focus ring on `::after`). Text: the requested date and time (`dateTime()`, §5). Below 768px its second line is the Results text (12px secondary, tabular). |
 | Status cell | The status pill, then an optional 11px `text-text-secondary` caption: "{evaluated} of {total} checked" while Running, the short reason when Failed. |
 | Results cell | 12px `text-text-secondary tabular-nums`, wrapping: the verdict counts when Completed. Otherwise "—" (`aria-hidden`) with the visually hidden "No results". |
 | Status pill (**Proposal**: one primitive) | Generalize `IngestionPill` into `StatusPill({ variant, label })`, keeping the shape `inline-flex h-5 items-center gap-1 rounded-pill border px-2 text-caption font-medium whitespace-nowrap`. The variants are in §4. `IngestionPill` becomes a mapping onto it. |
 | Detail header | The Documents detail header: back link with `ArrowLeft` 16, `h2` (`id="inspection-title"`, `text-greeting font-semibold break-words`, `tabIndex={-1}`), then a meta row `mt-1 flex flex-wrap items-center gap-2` with 13px secondary text and the status pill. Below it, cards start `mt-5`. |
-| Running card | Card `p-5`. Stepper strip, then `mt-5 flex flex-col md:flex-row gap-5 md:gap-0`. Radial column `md:w-60 md:pr-5 md:border-r md:border-border flex flex-col items-center text-center`. Checklist `md:pl-5 flex-1`. Caption `mt-5 text-small text-text-secondary`. |
-| Stepper (**Proposal**: `ui/Stepper`) | `<ol aria-label="Inspection steps">` on a strip `rounded-sm bg-inset px-3 py-2 flex items-center gap-2`. Each step is a `<li class="flex items-center gap-2">`: a 20px circle (`size-5 rounded-pill`, number `text-caption font-semibold tabular-nums`), then the label (`text-small`). Connectors: `h-px flex-1 min-w-3`. **Done:** `bg-mint` disc with `Check` 12 `text-on-mint`, label `text-text-secondary`, a visually hidden "Done:" first, and a `bg-mint` connector after it. **Current:** `border border-mint` circle with a white number, label `text-text-primary font-semibold`, `aria-current="step"`. **Upcoming:** `bg-elevated` disc, `text-text-secondary` number and label, `bg-neutral` connector. |
+| Running card | Card `p-5`. The connection notice (only while disconnected), the stepper strip, then `mt-5 flex flex-col md:flex-row gap-5 md:gap-0`. Radial column `md:w-60 md:pr-5 md:border-r md:border-border flex flex-col items-center text-center`. Checklist `md:pl-5 flex-1`. Caption `mt-5 text-small text-text-secondary`. |
+| Stepper (**Proposal**: `ui/Stepper`) | `<ol aria-label="Inspection steps">` on a strip `rounded-sm bg-inset px-3 py-2 flex items-center gap-2`. Each step is a `<li class="flex items-center gap-2">`: a 20px circle (`size-5 rounded-pill`, number `text-caption font-semibold tabular-nums`), then the label (`text-small`). Connectors: `h-px flex-1 min-w-3`. **Done:** `bg-mint` disc with `Check` 12 `text-on-mint`, label `text-text-secondary`, a visually hidden "Done:" first, and a `bg-mint` connector after it. **Current:** `border border-mint` circle with a white number, label `text-text-primary font-semibold`, `aria-current="step"`. **Upcoming:** `bg-elevated` disc, `text-text-secondary` number and label, `bg-neutral` connector. Below 640px only the current step's label shows; the others are `sr-only sm:not-sr-only`. |
 | Radial progress (**Proposal**: `ui/RadialProgress`) | An SVG of 120px (`size-30`): a circle with r=55 and stroke 10 in `stroke-chart-track`, and a mint arc with round caps, starting at 12 o'clock, offset by `evaluated / total`. The arc animates with `motion-safe:transition-[stroke-dashoffset] motion-safe:duration-300`. Centered: the percentage, `text-value font-bold tabular-nums` (new token, §8.5), rounded down so 100% shows only once every item is done. The wrapper is `role="progressbar"`, `aria-label` "Requirements checked", `aria-valuemin=0`, `aria-valuemax={total}`, `aria-valuenow={evaluated}`, `aria-valuetext` "{evaluated} of {total} requirements checked". Under it: a title `mt-3 text-body font-semibold`, a body `text-small text-text-secondary`, and the count line `text-small text-text-secondary tabular-nums`. |
 | Theme checklist (**Proposal**: `ui/ChecklistRow`) | `<ul aria-label="Themes">`. Rows `flex min-h-9 items-center gap-3`: a 16px glyph, the label `flex-1 text-body text-text-secondary`, and a count `text-small text-text-secondary tabular-nums`. **Done:** a `size-4 rounded-pill bg-mint` disc with `Check` 12 `text-on-mint`. **In progress:** `Spinner` (16px, static under reduced motion). **Not started:** `Circle` 16 `text-neutral`. A visually hidden state prefix (§6). Themes with no items are left out. |
 | Failed card | Card `p-5` with the `Message` primitive: `CircleAlert` 20 `text-text-secondary`, `h3` title, body = the long reason. |
@@ -762,7 +765,7 @@ Inside the sheet, its own polite region announces `accepted`, `rejected`, `edite
    - §5 Ingestion status pill. Append: "An inspection's status reuses the four variants: Waiting (Requested), Running (the Processing style), Completed (the Indexed style), Failed."
    - §5, a new row **Review status pill**: "A finding's review state, not compliance, so no green or red; the Ingestion pill's shape. **Pending**: the Waiting style. **Accepted**: the Indexed style. **Edited**: the Indexed style with a mint `Pencil`. **Rejected**: `--teal-border` border, `--text-secondary` text, transparent fill, `CircleX` in `--text-secondary`."
    - §5 Radial progress. Replace the row with: "A 120px ring with a 10px stroke and round caps: `--chart-track` track, mint arc from 12 o'clock. Centered %: white, `--text-value`, tabular, rounded down. Below it, a 13px/600 white status line and 12px `--text-secondary` lines. `role="progressbar"` with the count as `aria-valuetext`. The arc animates between values (300ms; none under reduced motion)."
-   - §5 Stepper. Replace the row with: "An `<ol>` of 20px numbered circles joined by 1px lines on an `--bg-inset` strip (`--radius-sm`, padding 8/12). **Done:** mint disc with an `--on-mint` `Check`, then a mint line. **Current:** 1px mint ring, white number, 13px/600 white label, `aria-current="step"`. **Upcoming:** `--bg-elevated` disc, `--text-secondary` number and label, `--neutral` line. Hidden "Done:" before done labels."
+   - §5 Stepper. Replace the row with: "An `<ol>` of 20px numbered circles joined by 1px lines on an `--bg-inset` strip (`--radius-sm`, padding 8/12). **Done:** mint disc with an `--on-mint` `Check`, then a mint line. **Current:** 1px mint ring, white number, 12px/600 white label, `aria-current="step"`. **Upcoming:** `--bg-elevated` disc, `--text-secondary` number and label, `--neutral` line. Hidden "Done:" before done labels. Below 640px only the current label shows; the others stay for screen readers."
    - §5 Checklist. Replace the row with: "A 16px glyph, a 13px `--text-secondary` label, and an optional 12px `--text-secondary` tabular count on the right ("4 of 7"). **Done:** mint disc with an `--on-mint` `Check`. **In progress:** the 16px Small ring. **Not started:** `Circle` in `--neutral`. A hidden "Done:", "In progress:" or "Not started:" before the label."
    - §5 Dropdown / select. Append: "36px tall, padding 0/10, 12px/500 white text. A native `<select>`; without a visible label it gets an `aria-label` ("Filter by verdict")."
    - §5 Text field. Append: "A multi-line field (`<textarea>`) has the same border and fill, a minimum height of 88px, padding 10/12, and resizes vertically."
