@@ -98,7 +98,7 @@ As for documents, the core's own "timed out" is not a code here.
 How an inspection runs:
 
 - The AI service consumes `ai.inspections` with prefetch 1 on a channel of its own. The message stays unacknowledged while the inspection runs (minutes, not seconds) and is acknowledged once its `InspectionCompleted` or `InspectionFailed` is confirmed by the broker. RabbitMQ's consumer timeout (30 minutes by default) bounds one run; the core's running timeout marks a stuck inspection failed, and a later `InspectionCompleted` still applies.
-- The run saves checkpoints in schema `ai`, keyed by the inspection id. A redelivery (after a crash, a lost connection or a retry) resumes from the last checkpoint without judging finished items again. A redelivery of an inspection whose result was already published publishes the same result again and acknowledges.
+- The run saves checkpoints in schema `ai`, keyed by (tenant id, inspection id) under RLS, with the tenant taken from the envelope. A redelivery (after a crash, a lost connection or a retry) resumes from the last checkpoint without judging finished items again. A redelivery of an inspection whose result was already published publishes the same result again and acknowledges.
 - Retries and the delivery limit follow `ai.documents` ("Delivery and retries"): on its last delivery the AI service publishes `InspectionFailed` with `error` before the message is dead-lettered.
 - Event ids are UUIDv5 of tenant id, type and inspection id, plus `itemsEvaluated` for `InspectionProgressed`, so the core's inbox drops a re-published event, each progress step still gets its own id, and two tenants' events never share one.
 
