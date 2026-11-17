@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, ClipboardCheck, Clock, FileText, Play } from "lucide-react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { Live } from "../api/live";
 import {
@@ -88,6 +88,14 @@ export function InspectionList({
   }, [until]);
 
   const blocked = canRun && (running !== undefined || until !== undefined);
+
+  // Run goes when /me stops granting it (a 403): focus, lost with the button, goes to the heading.
+  const hadRun = useRef(canRun);
+  useEffect(() => {
+    if (hadRun.current && !canRun && document.activeElement === document.body)
+      document.getElementById(LIST_TITLE_ID)?.focus();
+    hadRun.current = canRun;
+  }, [canRun]);
 
   const run = async () => {
     setRefusal(undefined);
@@ -183,7 +191,7 @@ export function InspectionList({
           // aria-disabled, not disabled: it stays focusable and names its reason.
           <Button
             variant="primary"
-            className={`w-full sm:w-auto ${blocked ? "opacity-50 aria-disabled:hover:bg-mint" : ""}`}
+            className={`w-full aria-disabled:hover:bg-mint sm:w-auto ${blocked ? "opacity-50" : ""}`}
             aria-disabled={blocked || posting}
             aria-describedby={blocked ? bodyId : undefined}
             onClick={blocked || posting ? undefined : () => void run()}
@@ -274,7 +282,7 @@ function RefusalNotice({
           title={format(copy.inspections.noDocumentsTitle, { establishment: establishment.name })}
           action={
             canReadDocuments && (
-              <Link to="/documents" className={secondaryButton}>
+              <Link to="/documents" state={{ focusTitle: true }} className={secondaryButton}>
                 {copy.inspections.goToDocuments}
               </Link>
             )

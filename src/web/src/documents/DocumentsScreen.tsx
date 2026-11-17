@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useLiveStatus } from "../api/live";
 import {
   documentKey,
@@ -50,6 +50,16 @@ export function DocumentsScreen({
     if (focusKey > 0)
       (document.getElementById(LIST_TITLE_ID) ?? document.getElementById(DETAIL_TITLE_ID))?.focus();
   }, [focusKey]);
+
+  // A link from another screen ("Go to Documents") asks for the list heading with its state.
+  const location = useLocation();
+  const focusArrival =
+    (location.state as { focusTitle?: unknown } | null)?.focusTitle === true
+      ? location.key
+      : undefined;
+  useEffect(() => {
+    if (focusArrival) focusById(LIST_TITLE_ID);
+  }, [focusArrival]);
 
   const refetch = (id: string | undefined, options = {}) => {
     void queryClient.invalidateQueries({ queryKey: documentsKey(establishment.id) }, options);

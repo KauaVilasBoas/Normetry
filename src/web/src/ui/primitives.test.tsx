@@ -69,6 +69,21 @@ describe("Stepper", () => {
     expect(steps.map(spoken)).toEqual(["Done: Analysis", "Findings", "Action plan"]);
     expect(steps.map((step) => step.getAttribute("aria-current"))).toEqual([null, "step", null]);
   });
+
+  it("shows only the current label below 640px, keeping the others for screen readers", () => {
+    render(
+      <Stepper
+        label="Steps"
+        steps={["Analysis", "Findings", "Action plan"]}
+        current={1}
+        doneLabel="Done:"
+      />,
+    );
+
+    expect(screen.getByText("Findings")).not.toHaveClass("sr-only");
+    for (const other of ["Analysis", "Action plan"])
+      expect(screen.getByText(other)).toHaveClass("sr-only", "sm:not-sr-only");
+  });
 });
 
 describe("RadialProgress", () => {
@@ -112,6 +127,9 @@ describe("RadialProgress", () => {
 
     expect(bar).toHaveTextContent("0%");
     expect(bar.querySelectorAll("circle")).toHaveLength(1);
+    // Indeterminate: no value until there is a total.
+    expect(bar).not.toHaveAttribute("aria-valuenow");
+    expect(bar).not.toHaveAttribute("aria-valuemax");
   });
 });
 

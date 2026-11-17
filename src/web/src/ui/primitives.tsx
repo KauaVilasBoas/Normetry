@@ -869,7 +869,8 @@ export function FormDialog({
 
 /**
  * Numbered steps on an inset strip (DESIGN.md Stepper). The steps before `current` are done
- * (`doneLabel`, "Done:", is read before them); `current` has `aria-current="step"`.
+ * (`doneLabel`, "Done:", is read before them); `current` has `aria-current="step"`. Below 640px
+ * only the current step's label is visible.
  */
 export function Stepper({
   label,
@@ -907,8 +908,9 @@ export function Stepper({
             >
               {done ? <Check className="size-3 text-on-mint" /> : index + 1}
             </span>
+            {/* Below 640px only the current step shows its label; the others stay readable. */}
             <span
-              className={`text-small whitespace-nowrap ${now ? "font-semibold text-text-primary" : "text-text-secondary"}`}
+              className={`text-small whitespace-nowrap ${now ? "font-semibold text-text-primary" : "sr-only text-text-secondary sm:not-sr-only"}`}
             >
               {done && <span className="sr-only">{doneLabel} </span>}
               {step}
@@ -960,9 +962,10 @@ export function RadialProgress({
       <div
         role="progressbar"
         aria-label={label}
+        // Indeterminate (no value) until there is a total.
         aria-valuemin={0}
-        aria-valuemax={max}
-        aria-valuenow={done}
+        aria-valuemax={max > 0 ? max : undefined}
+        aria-valuenow={max > 0 ? done : undefined}
         aria-valuetext={valueText}
         className="relative size-30 shrink-0"
       >
