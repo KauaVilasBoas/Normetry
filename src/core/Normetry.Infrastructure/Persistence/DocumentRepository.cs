@@ -48,6 +48,17 @@ internal sealed class DocumentRepository(CoreDbContext db) : IDocumentRepository
             cancellationToken
         );
 
+    public Task<bool> HasIndexedAsync(Guid establishmentId, CancellationToken cancellationToken) =>
+        db.Documents.AnyAsync(
+            document =>
+                document.EstablishmentId == establishmentId
+                && document.DeletedAt == null
+                && document.Versions.Any(version =>
+                    version.Status == DocumentVersionStatus.Indexed
+                ),
+            cancellationToken
+        );
+
     public async Task<IReadOnlyList<Document>> ListProcessingSinceForUpdateAsync(
         DateTimeOffset before,
         CancellationToken cancellationToken

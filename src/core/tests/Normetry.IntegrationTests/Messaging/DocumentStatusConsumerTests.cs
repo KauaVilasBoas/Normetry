@@ -1,9 +1,13 @@
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Application.Documents;
+using Normetry.Application.Inspections;
 using Normetry.Infrastructure.Messaging;
 using Normetry.IntegrationTests.Database;
 using Normetry.IntegrationTests.Documents;
+using Normetry.IntegrationTests.Inspections;
 using RabbitMQ.Client;
 using Xunit;
 
@@ -169,6 +173,61 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
                     is not null
             )
         );
+    }
+
+    [Fact]
+    public async Task Inspection_events_published_by_the_AI_service_are_applied_and_bad_ones_dead_lettered()
+    {
+        var target = await InspectionEndpointTests.NewTargetAsync(db);
+        using var client = InspectionEndpointTests.Client(db.Api, target);
+        var inspection = await InspectionEndpointTests.StartAsync(client, target);
+        await using var api = new ApiFactory
+        {
+            CoreConnectionString = db.ConnectionString("app_core"),
+            DispatcherConnectionString = db.ConnectionString("core_dispatcher"),
+            RabbitMqConnectionString = broker.ConnectionString,
+        };
+        var consumer = ActivatorUtilities.CreateInstance<InspectionStatusConsumer>(api.Services);
+        await using var connection = await broker.ConnectAsync();
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: Ct);
+        await Topology.DeclareInspectionStatusQueueAsync(channel, Ct);
+        await consumer.StartAsync(Ct);
+        try
+        {
+            await PublishAsync(
+                channel,
+                InspectionStarted.RoutingKey,
+                DocumentStatusTests.Body(
+                    target.Tenant,
+                    new InspectionStarted(target.Establishment, inspection, 4, [])
+                )
+            );
+            await PublishAsync(channel, InspectionFailed.RoutingKey, "not json"u8.ToArray());
+
+            Assert.True(
+                await EventuallyAsync(async () =>
+                    (
+                        await client.GetFromJsonAsync<JsonElement>(
+                            $"{InspectionEndpointTests.StartPath(target)}/{inspection}",
+                            Ct
+                        )
+                    )
+                        .GetProperty("status")
+                        .GetString() == "Running"
+                )
+            );
+            Assert.True(
+                await EventuallyAsync(async () =>
+                    await channel.BasicGetAsync(Topology.InspectionStatusDeadLetterQueue, true, Ct)
+                        is { } dead
+                    && Encoding.UTF8.GetString(dead.Body.Span) == "not json"
+                )
+            );
+        }
+        finally
+        {
+            await consumer.StopAsync(Ct);
+        }
     }
 
     /// <summary>Whether a consumer is on the status queue (declared again if it was deleted).</summary>

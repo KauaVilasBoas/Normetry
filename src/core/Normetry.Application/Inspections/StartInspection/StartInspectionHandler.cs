@@ -1,0 +1,81 @@
+using Normetry.Application.Abstractions;
+using Normetry.Application.Documents;
+using Normetry.Application.Establishments;
+using Normetry.Application.Establishments.GetEstablishment;
+using Normetry.Application.Usage;
+using Normetry.BuildingBlocks.Cqrs;
+using Normetry.BuildingBlocks.Results;
+using Normetry.Domain.Inspections;
+
+namespace Normetry.Application.Inspections.StartInspection;
+
+internal sealed class StartInspectionHandler(
+    IEstablishmentRepository establishments,
+    IDocumentRepository documents,
+    IInspectionRepository inspections,
+    IOutbox outbox,
+    ICurrentUser currentUser,
+    ITenantContext tenant,
+    InspectionsOptions options,
+    ChatOptions plans,
+    TimeProvider clock
+) : ICommandHandler<StartInspectionCommand, StartedInspectionResponse>
+{
+    public async Task<Result<StartedInspectionResponse>> HandleAsync(
+        StartInspectionCommand request,
+        CancellationToken cancellationToken
+    )
+    {
+        if (
+            await establishments.GetAsync(request.EstablishmentId, cancellationToken)
+            is not { } establishment
+        )
+        {
+            return GetEstablishmentHandler.NotFound;
+        }
+        // A concurrent start that passes this check ends at the partial unique index, which
+        // TransactionBehavior turns into the same refusal.
+        if (await inspections.HasInFlightAsync(establishment.Id, cancellationToken))
+        {
+            return InspectionErrors.Running;
+        }
+        if (!await documents.HasIndexedAsync(establishment.Id, cancellationToken))
+        {
+            return InspectionErrors.NoIndexedDocuments;
+        }
+
+        var now = clock.GetUtcNow();
+        if (
+            await inspections.TryCountStartAsync(
+                tenant.TenantId,
+                DateOnly.FromDateTime(now.UtcDateTime),
+                options.DailyQuotaOf(plans.PlanOf(tenant.TenantId)),
+                cancellationToken
+            )
+            is null
+        )
+        {
+            return InspectionErrors.QuotaExceeded;
+        }
+
+        var inspection = Inspection.Request(
+            tenant.TenantId,
+            establishment.Id,
+            currentUser.UserId,
+            now
+        );
+        inspections.Add(inspection);
+        await outbox.EnqueueAsync(
+            new InspectionRequested(
+                establishment.Id,
+                inspection.Id,
+                establishment.Jurisdiction,
+                establishment.Type,
+                options.TokenCeiling,
+                currentUser.UserId
+            ),
+            cancellationToken
+        );
+        return new StartedInspectionResponse(inspection.Id);
+    }
+}

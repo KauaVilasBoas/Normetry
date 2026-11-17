@@ -18,9 +18,12 @@ public sealed class ChatOptions
     public Dictionary<string, string> TenantPlans { get; init; } =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The tenant's plan: its entry in <see cref="TenantPlans"/>, else <see cref="DefaultPlan"/>.</summary>
+    public string PlanOf(Guid tenantId) =>
+        TenantPlans.GetValueOrDefault(tenantId.ToString(), DefaultPlan);
+
     /// <summary>The tenant's daily limit per user; <c>null</c> means no limit.</summary>
-    public int? DailyMessagesPerUser(Guid tenantId) =>
-        Plans[TenantPlans.GetValueOrDefault(tenantId.ToString(), DefaultPlan)].DailyMessagesPerUser;
+    public int? DailyMessagesPerUser(Guid tenantId) => Plans[PlanOf(tenantId)].DailyMessagesPerUser;
 
     /// <summary>Throws when a plan name is unknown, a tenant id is not a UUID or a limit is below 1.</summary>
     public void Validate()

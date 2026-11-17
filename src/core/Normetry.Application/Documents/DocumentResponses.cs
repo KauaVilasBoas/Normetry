@@ -1,3 +1,4 @@
+using Normetry.Application.Identity;
 using Normetry.Domain.Documents;
 
 namespace Normetry.Application.Documents;
@@ -78,7 +79,7 @@ public sealed record DocumentVersionResponse(
     DocumentVersionStatus Status,
     string? FailureCode,
     string? FailureReason,
-    UploaderResponse UploadedBy,
+    UserReference UploadedBy,
     DateTimeOffset UploadedAt,
     DateTimeOffset StatusChangedAt,
     int? ChunkCount,
@@ -99,10 +100,7 @@ public sealed record DocumentVersionResponse(
             version.Status,
             version.FailureCode,
             version.FailureReason,
-            new UploaderResponse(
-                version.UploadedBy,
-                uploaders.GetValueOrDefault(version.UploadedBy)
-            ),
+            new UserReference(version.UploadedBy, uploaders.GetValueOrDefault(version.UploadedBy)),
             version.UploadedAt,
             version.StatusChangedAt,
             version.ChunkCount,
@@ -110,6 +108,3 @@ public sealed record DocumentVersionResponse(
             version.Language
         );
 }
-
-/// <summary>The uploader's <c>core.users</c> id and display name (from their token, display only).</summary>
-public sealed record UploaderResponse(Guid Id, string? DisplayName);

@@ -105,6 +105,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                         && (
                             type == typeof(OutboxDispatcher)
                             || type == typeof(DocumentStatusConsumer)
+                            || type == typeof(InspectionStatusConsumer)
                             || type == typeof(ProcessingTimeoutSweeper)
                         )
                     )
