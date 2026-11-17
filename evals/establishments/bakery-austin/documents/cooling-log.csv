@@ -1,0 +1,16 @@
+date,product,quantity,cooling_method,start_time,start_temp_f,time_at_2h,temp_at_2h_f,time_at_6h,temp_at_6h_f,initials,corrective_action
+2026-10-02,Tomato basil soup,3 gal,Ice wand then shallow pans in walk-in,09:30,140,11:30,68,15:30,39,LO,
+2026-10-05,Pastry cream,2 gal,Ice bath then shallow pans in walk-in,07:00,150,09:00,62,13:00,38,PR,
+2026-10-06,Cooked chicken breast,12 lb,Sliced on sheet pans in walk-in,08:00,145,10:00,58,14:00,37,LO,
+2026-10-08,Chicken tortilla soup,3 gal,Ice wand then shallow pans in walk-in,09:30,142,11:30,69,15:30,40,LO,
+2026-10-09,Spinach and cheddar quiche,4 pies,Cut into portions on sheet pans in walk-in,07:30,138,09:30,66,13:30,40,PR,
+2026-10-12,Pastry cream,2 gal,Ice bath then shallow pans in walk-in,07:00,148,09:00,64,13:00,39,PR,
+2026-10-13,Tomato basil soup,3 gal,Ice wand then shallow pans in walk-in,09:30,141,11:30,67,15:30,40,LO,
+2026-10-16,Chicken stock,4 gal,Stock pot on prep table then walk-in,09:00,135,11:00,84,15:00,45,LO,
+2026-10-19,Cooked chicken breast,12 lb,Sliced on sheet pans in walk-in,08:00,146,10:00,60,14:00,38,LO,
+2026-10-20,Black bean soup,3 gal,Ice wand then shallow pans in walk-in,09:30,140,11:30,68,15:30,39,LO,
+2026-10-22,Pastry cream,2 gal,Ice bath then shallow pans in walk-in,07:00,149,09:00,63,13:00,37,PR,
+2026-10-26,Chicken tortilla soup,3 gal,Ice wand then shallow pans in walk-in,09:30,143,11:30,69,15:30,40,LO,
+2026-10-27,Spinach and cheddar quiche,4 pies,Cut into portions on sheet pans in walk-in,07:30,139,09:30,65,13:30,39,PR,
+2026-10-29,Pastry cream,2 gal,Ice bath then shallow pans in walk-in,07:00,151,09:00,61,13:00,38,PR,
+Fictional document for demonstration: it describes no real business.
