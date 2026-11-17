@@ -7,14 +7,45 @@
       "file": "manual-de-boas-praticas.pdf"
     },
     {
-      "title": "Procedimento de higienização de superfícies",
+      "title": "Procedimentos Operacionais Padronizados (POP 01 a POP 04)",
       "type": "Sop",
-      "file": "procedimento-de-higienizacao.txt"
+      "file": "procedimentos-operacionais-padronizados.docx"
     },
     {
-      "title": "Registro de temperatura da câmara fria e do freezer",
+      "title": "Registro de temperaturas dos equipamentos",
       "type": "Log",
       "file": "registro-de-temperatura.csv"
+    },
+    {
+      "title": "Registro de higienização periódica",
+      "type": "Log",
+      "file": "registro-de-higienizacao-periodica.csv"
+    },
+    {
+      "title": "Comprovante de execução e laudo de controle de pragas",
+      "type": "Report",
+      "file": "laudo-controle-de-pragas.pdf"
+    },
+    {
+      "title": "Registro de higienização do reservatório de água",
+      "type": "Log",
+      "file": "registro-higienizacao-reservatorio.txt"
+    },
+    {
+      "title": "Registro de capacitação dos manipuladores",
+      "type": "Log",
+      "file": "registro-de-capacitacao.docx"
+    },
+    {
+      "title": "Licença Sanitária de Funcionamento",
+      "type": "License",
+      "file": "licenca-sanitaria.pdf",
+      "expiresOn": "2026-12-15"
+    },
+    {
+      "title": "Comunicado do fornecedor Laticínios Campo Sereno",
+      "type": "Other",
+      "file": "comunicado-fornecedor-laticinios.txt"
     }
   ]
 }
