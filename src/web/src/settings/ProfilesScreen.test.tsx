@@ -159,7 +159,7 @@ describe("profiles tab", () => {
         "System profile. You can change its permissions, but you can't delete it.",
       ),
     ).toBeVisible();
-    expect(await within(managers).findAllByRole("checkbox")).toHaveLength(8);
+    expect(await within(managers).findAllByRole("checkbox")).toHaveLength(11);
     expect(within(managers).queryByRole("button", { name: "Rename profile" })).toBeNull();
     expect(within(managers).queryByRole("button", { name: "Delete profile" })).toBeNull();
   });
@@ -290,7 +290,7 @@ describe("profiles tab", () => {
     expect(window.location.pathname).toBe("/settings/profiles/p-bar");
     expect(sentJson(fetch, "POST")).toEqual({ name: "Bar staff" });
     expect(screen.getByText("“Bar staff” created. Choose its permissions.")).toBeInTheDocument();
-    expect(await screen.findAllByRole("checkbox", { checked: false })).toHaveLength(8);
+    expect(await screen.findAllByRole("checkbox", { checked: false })).toHaveLength(11);
   });
 
   it("renames a custom profile and returns focus to Rename", async () => {

@@ -29,6 +29,7 @@ export function App({ auth }: { auth: Auth }) {
             <Route path="/" element={<AppShell screen="chat" />} />
             <Route path="/conversations/:conversationId" element={<AppShell screen="chat" />} />
             <Route path="/documents/:documentId?" element={<AppShell screen="documents" />} />
+            <Route path="/inspections/:inspectionId?" element={<AppShell screen="inspections" />} />
             <Route path="/settings" element={<Navigate to="/settings/profiles" replace />} />
             <Route path="/settings/profiles/:profileId?" element={<AppShell screen="settings" />} />
             <Route path="*" element={<Navigate to="/" replace />} />

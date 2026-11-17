@@ -1,6 +1,6 @@
 import { QueryCache, QueryClient, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
-import { ApiError } from "./client";
+import { ApiError, type ApiClient } from "./client";
 
 /** The permission catalog the UI knows (the server may add more; unknown ones show as sent). */
 export type Permission =
@@ -10,6 +10,9 @@ export type Permission =
   | "documents.upload"
   | "documents.delete"
   | "chat.ask"
+  | "inspections.read"
+  | "inspections.run"
+  | "inspections.review"
   | "profiles.read"
   | "profiles.manage";
 
@@ -243,6 +246,82 @@ export function useDocument(id: string | undefined, enabled: boolean) {
   return useQuery({
     queryKey: documentKey(id ?? ""),
     queryFn: () => api.get<DocumentDetail>(`/documents/${encodeURIComponent(id ?? "")}`),
+    enabled: enabled && id !== undefined,
+  });
+}
+
+/** An inspection's progress in one checklist theme (a contract code, "temperature_control"). */
+export interface ThemeProgress {
+  theme: string;
+  itemsTotal: number;
+  itemsEvaluated: number;
+}
+
+/**
+ * A row of GET /establishments/{e}/inspections (newest first). `status` is Requested (shown as
+ * Waiting), Running, Completed or Failed; `failureReasonCode` a queue contract reason code or
+ * `timed_out`. Unknown values show as sent (statuses) or with the generic reason (codes).
+ */
+export interface InspectionSummary {
+  id: string;
+  status: string;
+  regulation: string;
+  requestedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  itemsTotal: number;
+  itemsEvaluated: number;
+  verdictCounts: { compliant: number; nonCompliant: number; insufficientEvidence: number };
+  failureReasonCode: string | null;
+}
+
+/** GET /establishments/{e}/inspections/{id}. `findings` are typed by the findings review (#105). */
+export interface InspectionDetail {
+  id: string;
+  establishmentId: string;
+  status: string;
+  regulation: string;
+  requestedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  itemsTotal: number;
+  itemsEvaluated: number;
+  themes: ThemeProgress[];
+  failureReasonCode: string | null;
+  findings: unknown[];
+}
+
+const inspectionsPath = (establishmentId: string) =>
+  `/establishments/${encodeURIComponent(establishmentId)}/inspections`;
+
+export const inspectionsKey = (establishmentId: string) => ["inspections", establishmentId];
+export const inspectionKey = (establishmentId: string, id: string) => [
+  "inspection",
+  establishmentId,
+  id,
+];
+
+/** The list's query, for `useQuery` and for a `fetchQuery` that needs its answer. */
+export const inspectionsQuery = (api: Pick<ApiClient, "get">, establishmentId: string) => ({
+  queryKey: inspectionsKey(establishmentId),
+  queryFn: () => api.get<InspectionSummary[]>(inspectionsPath(establishmentId)),
+});
+
+/** `enabled` (here and below): the user holds `inspections.read`. */
+export function useInspections(establishmentId: string, enabled: boolean) {
+  const { api } = useSession();
+  return useQuery({ ...inspectionsQuery(api, establishmentId), enabled });
+}
+
+/** Always for the selected establishment: another one's inspection answers 404. */
+export function useInspection(establishmentId: string, id: string | undefined, enabled: boolean) {
+  const { api } = useSession();
+  return useQuery({
+    queryKey: inspectionKey(establishmentId, id ?? ""),
+    queryFn: () =>
+      api.get<InspectionDetail>(
+        `${inspectionsPath(establishmentId)}/${encodeURIComponent(id ?? "")}`,
+      ),
     enabled: enabled && id !== undefined,
   });
 }

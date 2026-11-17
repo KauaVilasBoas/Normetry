@@ -54,6 +54,7 @@ describe("groupPermissions", () => {
     expect(groups.map((group) => [group.legend, group.names])).toEqual([
       ["Establishments", ["establishments.read", "establishments.manage"]],
       ["Documents", ["documents.read", "documents.upload", "documents.delete", "documents.share"]],
+      ["Simulated Inspection", ["inspections.read", "inspections.run", "inspections.review"]],
       ["Ask the Regulation", ["chat.ask"]],
       ["Profiles", ["profiles.read", "profiles.manage"]],
       ["reports", ["reports.read"]],
