@@ -45,11 +45,15 @@ public sealed class CatalogTests
 
         Assert.Equal(
             [
+                "action_items",
                 "chat_message_counts",
                 "document_versions",
                 "documents",
                 "establishments",
+                "findings",
                 "inbox_messages",
+                "inspection_counts",
+                "inspections",
                 "outbox_messages",
                 "outbox_tenants",
                 "permissions",
@@ -77,11 +81,15 @@ public sealed class CatalogTests
 
         Assert.Equal(
             [
+                "action_items.action_items_tenant ALL app_core",
                 "chat_message_counts.chat_message_counts_tenant ALL app_core",
                 "document_versions.document_versions_tenant ALL app_core",
                 "documents.documents_tenant ALL app_core",
                 "establishments.establishments_tenant ALL app_core",
+                "findings.findings_tenant ALL app_core",
                 "inbox_messages.inbox_messages_tenant ALL app_core",
+                "inspection_counts.inspection_counts_tenant ALL app_core",
+                "inspections.inspections_tenant ALL app_core",
                 "outbox_messages.outbox_messages_tenant ALL app_core",
                 "outbox_tenants.outbox_tenants_dispatcher SELECT core_dispatcher",
                 "outbox_tenants.outbox_tenants_insert INSERT app_core",
@@ -112,6 +120,9 @@ public sealed class CatalogTests
 
         Assert.Equal(
             [
+                "action_items app_core INSERT",
+                "action_items app_core SELECT",
+                "action_items app_core UPDATE",
                 "chat_message_counts app_core INSERT",
                 "chat_message_counts app_core SELECT",
                 "chat_message_counts app_core UPDATE",
@@ -125,8 +136,17 @@ public sealed class CatalogTests
                 "establishments app_core INSERT",
                 "establishments app_core SELECT",
                 "establishments app_core UPDATE",
+                "findings app_core INSERT",
+                "findings app_core SELECT",
+                "findings app_core UPDATE",
                 "inbox_messages app_core INSERT",
                 "inbox_messages app_core SELECT",
+                "inspection_counts app_core INSERT",
+                "inspection_counts app_core SELECT",
+                "inspection_counts app_core UPDATE",
+                "inspections app_core INSERT",
+                "inspections app_core SELECT",
+                "inspections app_core UPDATE",
                 "outbox_messages app_core INSERT",
                 "outbox_messages app_core SELECT",
                 "outbox_messages app_core UPDATE",
@@ -216,6 +236,10 @@ public sealed class CatalogTests
     [InlineData("SELECT * FROM core.inbox_messages")]
     [InlineData("SELECT * FROM core.documents")]
     [InlineData("SELECT * FROM core.document_versions")]
+    [InlineData("SELECT * FROM core.inspections")]
+    [InlineData("SELECT * FROM core.findings")]
+    [InlineData("SELECT * FROM core.action_items")]
+    [InlineData("SELECT * FROM core.inspection_counts")]
     [InlineData("SELECT * FROM core.users")]
     [InlineData("SELECT * FROM core.tenants")]
     [InlineData("SELECT * FROM core.establishments")]
@@ -268,6 +292,8 @@ public sealed class CatalogTests
         Assert.Contains(applied, id => id.EndsWith("_CreateOutboxAndInbox"));
         Assert.Contains(applied, id => id.EndsWith("_CreateDocuments"));
         Assert.Contains(applied, id => id.EndsWith("_RestrictTenantListToCoreDispatcher"));
+        Assert.Contains(applied, id => id.EndsWith("_CreateInspections"));
+        Assert.Contains(applied, id => id.EndsWith("_AddInspectionPermissions"));
     }
 
     [Fact]

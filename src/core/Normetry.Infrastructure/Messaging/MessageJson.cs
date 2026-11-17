@@ -6,6 +6,7 @@ using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 using Normetry.Application.Inspections;
 using Normetry.Domain.Establishments;
+using Normetry.Domain.Inspections;
 
 namespace Normetry.Infrastructure.Messaging;
 
@@ -212,14 +213,11 @@ internal static partial class MessageJson
             // Nullable annotations do not reach list elements, so a null one is checked here.
             Require(finding is not null, "a finding must not be null");
             RequireLength(finding.ItemId, 1, 100, "itemId");
-            Require(InspectionThemeProgress.Themes.Contains(finding.Theme), "unknown theme");
+            Require(ThemeProgress.Themes.Contains(finding.Theme), "unknown theme");
             RequireLength(finding.Title, 1, 200, "title");
-            Require(InspectionFinding.Severities.Contains(finding.Severity), "unknown severity");
-            Require(InspectionFinding.Verdicts.Contains(finding.Verdict), "unknown verdict");
-            Require(
-                InspectionFinding.Confidences.Contains(finding.Confidence),
-                "unknown confidence"
-            );
+            Require(Finding.Severities.Contains(finding.Severity), "unknown severity");
+            Require(Finding.Verdicts.Contains(finding.Verdict), "unknown verdict");
+            Require(Finding.Confidences.Contains(finding.Confidence), "unknown confidence");
             RequireLength(finding.Rationale, 1, 4000, "rationale");
             Require(finding.RegulationCitations.Count >= 1, "a finding cites the regulation");
             foreach (var citation in finding.RegulationCitations)
@@ -260,12 +258,12 @@ internal static partial class MessageJson
         return message;
     }
 
-    private static void RequireThemes(IReadOnlyList<InspectionThemeProgress> themes)
+    private static void RequireThemes(IReadOnlyList<ThemeProgress> themes)
     {
         foreach (var theme in themes)
         {
             Require(theme is not null, "a theme must not be null");
-            Require(InspectionThemeProgress.Themes.Contains(theme.Theme), "unknown theme");
+            Require(ThemeProgress.Themes.Contains(theme.Theme), "unknown theme");
             Require(theme.ItemsTotal >= 0, "a theme's itemsTotal must not be negative");
             Require(theme.ItemsEvaluated >= 0, "a theme's itemsEvaluated must not be negative");
         }

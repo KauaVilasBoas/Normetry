@@ -14,7 +14,7 @@ namespace Normetry.Infrastructure.Persistence;
 /// when the API starts in Development, each in one transaction with its system profiles (Owner,
 /// Manager, Auditor), its demo users and their profiles, and its demo establishments, one per
 /// jurisdiction across the two. For a tenant that exists, it is also the startup step that adds
-/// the system profiles it lacks. Idempotent: a tenant, system profile, user (by <c>sub</c>) or
+/// the system profiles it lacks and the inspection permissions its system profiles predate. Idempotent: a tenant, system profile, user (by <c>sub</c>) or
 /// establishment name that exists is left alone. It connects as <c>app_core</c> like any request,
 /// scoped to each tenant: the <c>core.tenants</c> policies let a session read and insert only its
 /// own row, so no owner role or RLS bypass is involved.
@@ -95,7 +95,8 @@ public sealed class DemoTenantSeed(
 
             // RLS shows only this tenant's rows from here on.
             var profiles = await db
-                .Profiles.Where(profile => profile.SystemKey != null)
+                .Profiles.Include(profile => profile.GrantedPermissions)
+                .Where(profile => profile.SystemKey != null)
                 .ToListAsync(cancellationToken);
             foreach (var key in Profile.SystemKeys.All)
             {
@@ -106,6 +107,10 @@ public sealed class DemoTenantSeed(
                     profiles.Add(profile);
                     logger.LogInformation("Seeding system profile {ProfileName}", profile.Name);
                 }
+            }
+            foreach (var profile in profiles)
+            {
+                GrantInspectionDefaults(profile);
             }
 
             var existingUsers = await db
@@ -150,6 +155,33 @@ public sealed class DemoTenantSeed(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// A system profile seeded before the inspection permissions existed gets its defaults of
+    /// them. One that holds any inspection permission is left as the tenant set it, so a later
+    /// change in Settings survives the next start.
+    /// </summary>
+    private void GrantInspectionDefaults(Profile profile)
+    {
+        const string Area = "inspections.";
+        var granted = profile.GrantedPermissions.Select(granted => granted.Permission).ToList();
+        if (
+            profile.GrantsAll
+            || granted.Any(name => name.StartsWith(Area, StringComparison.Ordinal))
+        )
+        {
+            return;
+        }
+        var defaults = Profile
+            .DefaultPermissions(profile.SystemKey!)
+            .Where(name => name.StartsWith(Area, StringComparison.Ordinal))
+            .ToList();
+        profile.SetPermissions(granted.Concat(defaults));
+        logger.LogInformation(
+            "Granting the inspection permissions to system profile {ProfileName}",
+            profile.Name
+        );
+    }
 
     internal sealed record DemoTenant(
         Guid Id,

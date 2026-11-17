@@ -111,6 +111,7 @@ public sealed class CurrentUserTests
                 Permissions.Chat.Ask,
                 Permissions.Documents.Read,
                 Permissions.Establishments.Read,
+                Permissions.Inspections.Read,
                 Permissions.Profiles.Read,
             ],
             await PermissionsAsync(ApiFactory.TenantB, ApiFactory.BakeryAuditor)
