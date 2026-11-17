@@ -311,6 +311,7 @@ Full records are in [`docs/adr/`](docs/adr/).
 | [010](docs/adr/010-daily-chat-quota-by-plan.md) | Daily chat quota per user by plan, counted in PostgreSQL | Model calls cost money, and the limit must survive restarts and hold across API instances | One database write per chat message, and old count rows need a cleanup job |
 | [011](docs/adr/011-web-app-is-a-vite-spa.md) | The web app is a Vite single-page app with in-memory tokens, calling only the core API | All data and rules already sit behind the .NET API, so a second server would have nothing to do; no token is kept in web storage | No server rendering, and a reload goes back through Keycloak |
 | [012](docs/adr/012-authorization-by-permissions-in-the-core-database.md) | Authorization by permissions in the core database: tenant profiles grant `area.action` permissions, checked with `[HasPermission]`; Keycloak only authenticates | Tenants manage their own profiles, changes apply on the next request, and RLS isolates the data | One query per protected request, and authorization depends on the core database |
+| [013](docs/adr/013-inspection-checks-a-curated-checklist.md) | The simulated inspection checks a curated checklist per regulation (40 to 47 reviewed items, each tied to its sections) | One judge call per item keeps an inspection to cents and minutes, and a fixed list makes precision and recall measurable | Requirements outside the checklist are never reported, and the lists need upkeep when a regulation changes |
 
 <details>
 <summary>Why PostgreSQL and not SQL Server?</summary>
