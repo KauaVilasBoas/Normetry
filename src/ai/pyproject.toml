@@ -61,6 +61,7 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "fpdf2==2.9.0",
     "httpx2>=2.16.0",
     "jsonschema>=4.26.0",
     "pytest>=9.2.0",
