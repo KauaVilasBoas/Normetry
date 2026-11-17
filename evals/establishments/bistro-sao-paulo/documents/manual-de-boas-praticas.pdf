@@ -1,58 +1,327 @@
-%PDF-1.4
-%âãÏÓ
+%PDF-1.3
+%éëñ¿
 1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
+<<
+/Count 3
+/Kids [3 0 R
+5 0 R
+7 0 R]
+/MediaBox [0 0 595.28 841.89]
+/Type /Pages
+>>
 endobj
 2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+<<
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+/Pages 1 0 R
+/Type /Catalog
+>>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+<<
+/Contents 4 0 R
+/Parent 1 0 R
+/Resources 11 0 R
+/Type /Page
+>>
 endobj
 4 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
-endobj
-5 0 obj
-<< /Length 1061 >>
+<<
+/Length 5450
+>>
 stream
-BT /F1 15 Tf 56 770 Td (Manual de Boas Práticas - Bistro São Paulo) Tj ET
-BT /F1 10 Tf 14 TL 56 738 Td
-(Documento fictício de demonstração do Normetry. Não descreve um estabelecimento real.) Tj T*
-() Tj T*
-(1. Higiene pessoal: lavar as mãos ao entrar na cozinha, depois de usar o banheiro e a) Tj T*
-(cada troca de tarefa. Unhas curtas, sem adornos, cabelos presos e touca.) Tj T*
-() Tj T*
-(2. Recebimento: conferir a temperatura dos refrigerados \(até 5 °C\) e dos congelados \(-18) Tj T*
-(°C ou menos\). Recusar embalagens violadas ou sem rótulo.) Tj T*
-() Tj T*
-(3. Armazenamento: identificar cada produto aberto com nome, data de abertura e validade.) Tj T*
-(O primeiro que vence é o primeiro que sai.) Tj T*
-() Tj T*
-(4. Preparo: descongelar sob refrigeração. Cozinhar até pelo menos 70 °C no centro do) Tj T*
-(alimento e manter quentes acima de 60 °C.) Tj T*
-() Tj T*
-(5. Registros: temperaturas da câmara fria e do freezer duas vezes ao dia, na planilha de) Tj T*
-(controle.) Tj T*
-() Tj T*
-(Responsável: Olivia Owner. Revisão: anual.) Tj T*
-() Tj T*
-ET
+2 J
+0.57 w
+BT /F1 16.00 Tf ET
+BT 59.53 769.06 Td (Manual de Boas Práticas) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 746.76 Td 2.147 Tw (Bistro São Paulo, restaurante à la carte com prato executivo no almoço. Rua das Acácias, 120, São) Tj ET Q
+BT 59.53 732.59 Td (Paulo/SP.) Tj ET
+BT 59.53 712.75 Td (Documento fictício para demonstração: não descreve nenhum estabelecimento real.) Tj ET
+q BT 59.53 692.91 Td 0.687 Tw (Revisão 4, de 5 de outubro de 2026. Elaborado por Juliana Prado, sócia proprietária e responsável pelas) Tj ET Q
+BT 59.53 678.73 Td (atividades de manipulação dos alimentos, com Carlos Menezes, chefe de cozinha.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 647.36 Td (1. Objetivo e uso deste manual) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 626.29 Td 1.061 Tw (Este manual descreve como o Bistro São Paulo aplica no dia a dia as Boas Práticas da RDC Anvisa nº) Tj ET Q
+q BT 59.53 612.12 Td 2.215 Tw (216/2004. Uma cópia impressa fica na pasta azul da cozinha, junto aos Procedimentos Operacionais) Tj ET Q
+q BT 59.53 597.95 Td 0.095 Tw (Padronizados POP 01 a POP 04, acessível a todos os funcionários, e é apresentada à autoridade sanitária) Tj ET Q
+BT 59.53 583.77 Td (sempre que solicitada.) Tj ET
+q BT 59.53 563.93 Td 1.385 Tw (Equipe: Juliana Prado \(gerência\), Carlos Menezes \(chefe de cozinha\), Ana Ribeiro \(cozinheira\), Marcos) Tj ET Q
+q BT 59.53 549.76 Td 0.036 Tw (Alves e Diego Ramos \(auxiliares de cozinha\), Patrícia Lopes e Rafael Souza \(atendentes\). Funcionamento:) Tj ET Q
+BT 59.53 535.58 Td (almoço de segunda a sábado, das 11h30 às 15h; jantar de quinta a sábado, das 19h às 23h.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 504.21 Td (2. Edificação, instalações e equipamentos) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 483.14 Td 0.390 Tw (Na cozinha e no estoque, o piso é de granilite, as paredes são revestidas de azulejo branco até o teto e o) Tj ET Q
+q BT 59.53 468.97 Td 1.073 Tw (forro é de PVC liso: superfícies lisas, impermeáveis e laváveis. Na vistoria interna de setembro de 2026) Tj ET Q
+BT 59.53 454.80 Td (não foram encontradas rachaduras, goteiras, infiltrações nem bolor.) Tj ET
+q BT 59.53 434.95 Td 0.342 Tw (As janelas da cozinha e a saída do sistema de exaustão têm telas milimetradas removíveis, retiradas para) Tj ET Q
+BT 59.53 420.78 Td (limpeza a cada 15 dias. As portas da cozinha e do estoque têm mola de fechamento automático.) Tj ET
+q BT 59.53 400.94 Td 1.661 Tw (A cozinha tem duas pias exclusivas para lavagem das mãos, uma na entrada e outra junto à área de) Tj ET Q
+q BT 59.53 386.76 Td 1.531 Tw (pré-preparo, com sabonete líquido inodoro antisséptico, papel toalha não reciclado e lixeira com tampa) Tj ET Q
+BT 59.53 372.59 Td (acionada por pedal. Os sanitários dos funcionários ficam fora da área de preparo.) Tj ET
+BT /F1 11.00 Tf ET
+BT 59.53 343.24 Td (Manutenção e calibração) Tj ET
+56.69 318.90 120.47 14.17 re S
+BT /F1 9.00 Tf ET
+BT 59.53 323.28 Td (Equipamento) Tj ET
+177.17 318.90 120.47 14.17 re S
+BT /F1 9.00 Tf ET
+BT 180.00 323.28 Td (Atividade) Tj ET
+297.64 318.90 120.47 14.17 re S
+BT /F1 9.00 Tf ET
+BT 300.47 323.28 Td (Frequência) Tj ET
+418.11 318.90 120.47 14.17 re S
+BT /F1 9.00 Tf ET
+BT 420.95 323.28 Td (Última realização) Tj ET
+56.69 290.55 120.47 28.35 re S
+BT /F2 9.00 Tf ET
+BT 59.53 302.02 Td (Câmara fria e freezer) Tj ET
+177.17 290.55 120.47 28.35 re S
+BT /F2 9.00 Tf ET
+BT 180.00 309.11 Td (Manutenção preventiva da) Tj ET
+BT 180.00 294.94 Td (refrigeração) Tj ET
+297.64 290.55 120.47 28.35 re S
+BT /F2 9.00 Tf ET
+BT 300.47 302.02 Td (Semestral) Tj ET
+418.11 290.55 120.47 28.35 re S
+BT /F2 9.00 Tf ET
+BT 420.95 302.02 Td (18/08/2026) Tj ET
+56.69 276.38 120.47 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 280.76 Td (Balcão térmico) Tj ET
+177.17 276.38 120.47 14.17 re S
+BT /F2 9.00 Tf ET
+BT 180.00 280.76 Td (Manutenção preventiva) Tj ET
+297.64 276.38 120.47 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 280.76 Td (Anual) Tj ET
+418.11 276.38 120.47 14.17 re S
+BT /F2 9.00 Tf ET
+BT 420.95 280.76 Td (10/03/2026) Tj ET
+56.69 248.03 120.47 28.35 re S
+BT /F2 9.00 Tf ET
+BT 59.53 259.50 Td (Coifa e exaustor) Tj ET
+177.17 248.03 120.47 28.35 re S
+BT /F2 9.00 Tf ET
+BT 180.00 266.59 Td (Manutenção e troca de) Tj ET
+BT 180.00 252.42 Td (filtros) Tj ET
+297.64 248.03 120.47 28.35 re S
+BT /F2 9.00 Tf ET
+BT 300.47 259.50 Td (Trimestral) Tj ET
+418.11 248.03 120.47 28.35 re S
+BT /F2 9.00 Tf ET
+BT 420.95 259.50 Td (22/09/2026) Tj ET
+56.69 233.86 120.47 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 238.25 Td (Termômetros tipo espeto \(2\)) Tj ET
+177.17 233.86 120.47 14.17 re S
+BT /F2 9.00 Tf ET
+BT 180.00 238.25 Td (Calibração) Tj ET
+297.64 233.86 120.47 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 238.25 Td (Anual) Tj ET
+418.11 233.86 120.47 14.17 re S
+BT /F2 9.00 Tf ET
+BT 420.95 238.25 Td (14/02/2025) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 215.27 Td 1.487 Tw (A manutenção é feita por técnicos contratados, e cada visita gera uma ordem de serviço arquivada no) Tj ET Q
+BT 59.53 201.09 Td (escritório.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 169.72 Td (3. Higienização de instalações, equipamentos e utensílios) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 148.65 Td 1.543 Tw (A higienização segue o POP 01. A área de preparo é higienizada ao fim de cada turno e sempre que) Tj ET Q
+q BT 59.53 134.48 Td 1.735 Tw (necessário durante o trabalho. As higienizações que não são diárias \(câmara fria, coifa, filtros, telas e) Tj ET Q
+BT 59.53 120.31 Td (caixa de gordura\) são anotadas na planilha de higienização periódica.) Tj ET
+
 endstream
 endobj
+5 0 obj
+<<
+/Contents 6 0 R
+/Parent 1 0 R
+/Resources 12 0 R
+/Type /Page
+>>
+endobj
 6 0 obj
-<< /Title (Manual de Boas Práticas - Bistro São Paulo) /Producer (Normetry demo placeholder) >>
+<<
+/Length 4472
+>>
+stream
+2 J
+0.57 w
+BT /F1 13.00 Tf ET
+BT 59.53 772.08 Td (4. Controle integrado de vetores e pragas) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 751.02 Td 0.793 Tw (As medidas preventivas e corretivas estão no POP 02. O controle químico é feito somente pela empresa) Tj ET Q
+q BT 59.53 736.84 Td 2.818 Tw (especializada contratada, em visitas mensais, e os comprovantes de execução ficam arquivados no) Tj ET Q
+BT 59.53 722.67 Td (escritório.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 691.30 Td (5. Abastecimento de água) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 670.23 Td 2.102 Tw (O restaurante usa somente água da rede pública de abastecimento; não há poço nem outra solução) Tj ET Q
+q BT 59.53 656.06 Td 2.890 Tw (alternativa. A água fica em um reservatório de polietileno de 1.000 litros, tampado, higienizado por) Tj ET Q
+BT 59.53 641.88 Td (empresa contratada a cada seis meses, conforme o POP 03.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 610.51 Td (6. Manejo de resíduos) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 589.44 Td 0.958 Tw (As lixeiras são identificadas \(orgânico e reciclável\), de plástico lavável e com tampa acionada por pedal,) Tj ET Q
+q BT 59.53 575.27 Td 0.199 Tw (em número suficiente em cada área. Os sacos são fechados e retirados ao fim de cada turno e levados ao) Tj ET Q
+q BT 59.53 561.09 Td 1.510 Tw (abrigo de resíduos, um compartimento fechado na área externa, separado da cozinha e do estoque. A) Tj ET Q
+BT 59.53 546.92 Td (coleta municipal passa todas as noites.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 515.55 Td (7. Manipuladores) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 494.48 Td 0.647 Tw (Os uniformes \(dólmã, calça, avental e sapato fechado\) são de cor clara, trocados todos os dias e usados) Tj ET Q
+BT 59.53 480.31 Td (somente dentro do restaurante. Roupas e objetos pessoais ficam nos armários do vestiário.) Tj ET
+q BT 59.53 460.46 Td 2.356 Tw (Na cozinha, todos usam cabelos presos e cobertos por touca, sem barba, com unhas curtas e sem) Tj ET Q
+BT 59.53 446.29 Td (esmalte, sem adornos e sem maquiagem.) Tj ET
+q BT 59.53 426.45 Td 1.762 Tw (Lavagem das mãos, controle de saúde e afastamento de quem está doente seguem o POP 04. Todo) Tj ET Q
+q BT 59.53 412.28 Td 0.812 Tw (manipulador faz o curso de Boas Práticas na admissão e uma reciclagem por ano; as listas de presença) Tj ET Q
+q BT 59.53 398.10 Td 0.845 Tw (ficam no registro de capacitação. O chefe de cozinha supervisiona diariamente as práticas de higiene da) Tj ET Q
+BT 59.53 383.93 Td (equipe.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 352.56 Td (8. Recebimento e armazenamento) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 331.49 Td 0.188 Tw (Cada entrega é conferida na área coberta de recebimento, nos fundos: integridade das embalagens, prazo) Tj ET Q
+q BT 59.53 317.32 Td 1.614 Tw (de validade, aspecto e temperatura. Refrigerados devem chegar a até 5 °C e congelados a -18 °C ou) Tj ET Q
+BT 59.53 303.14 Td (menos; a temperatura é medida com termômetro espeto e anotada no canhoto da nota de entrega.) Tj ET
+q BT 59.53 283.30 Td 1.286 Tw (Produto reprovado é devolvido ao entregador na hora. Quando a devolução não for possível, o produto) Tj ET Q
+q BT 59.53 269.13 Td 0.585 Tw (recebe a etiqueta REPROVADO, NÃO USAR e fica na prateleira de devolução do estoque, separado dos) Tj ET Q
+BT 59.53 254.95 Td (demais, até ser trocado pelo fornecedor ou descartado.) Tj ET
+q BT 59.53 235.11 Td 1.992 Tw (Ingredientes abertos e não usados por inteiro e preparações guardadas na câmara fria ou no freezer) Tj ET Q
+BT 59.53 220.94 Td (recebem etiqueta com nome do produto, data de abertura ou de preparo e prazo de validade.) Tj ET
+q BT 59.53 201.09 Td 1.700 Tw (Na câmara fria, as preparações prontas ficam nas prateleiras de cima, em recipientes tampados, e as) Tj ET Q
+q BT 59.53 186.92 Td 0.237 Tw (carnes cruas nas de baixo, em caixas fechadas. Os produtos secos ficam no estoque, sobre prateleiras de) Tj ET Q
+BT 59.53 172.75 Td (aço, afastados do piso e das paredes.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 141.38 Td (9. Preparo dos alimentos) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 120.31 Td 0.377 Tw (Tábuas e facas têm cores por uso: vermelha para carnes cruas, azul para pescados, verde para hortifrutis) Tj ET Q
+q BT 59.53 106.13 Td 1.032 Tw (e branca para alimentos prontos. Alimentos crus e prontos nunca dividem a mesma bancada ao mesmo) Tj ET Q
+BT 59.53 91.96 Td (tempo.) Tj ET
+q BT 59.53 72.12 Td 0.202 Tw (O descongelamento é feito na geladeira da cozinha, abaixo de 5 °C, ou no micro-ondas quando a peça vai) Tj ET Q
+
+endstream
+endobj
+7 0 obj
+<<
+/Contents 8 0 R
+/Parent 1 0 R
+/Resources 13 0 R
+/Type /Page
+>>
+endobj
+8 0 obj
+<<
+/Length 2655
+>>
+stream
+2 J
+0.57 w
+BT /F2 10.00 Tf ET
+q BT 59.53 775.11 Td 3.659 Tw (direto para a cocção. Alimento descongelado que não for usado logo fica refrigerado e nunca é) Tj ET Q
+BT 59.53 760.94 Td (recongelado.) Tj ET
+q BT 59.53 741.09 Td 3.392 Tw (Na cocção, todas as partes do alimento devem atingir no mínimo 70 °C. O cozinheiro confere a) Tj ET Q
+q BT 59.53 726.92 Td 0.055 Tw (temperatura no centro da peça com o termômetro espeto e o tempo de cocção indicado na ficha técnica de) Tj ET Q
+BT 59.53 712.75 Td (cada prato.) Tj ET
+q BT 59.53 692.91 Td 0.181 Tw (Folhas, legumes e frutas servidos crus são lavados em água corrente e ficam de molho por 15 minutos em) Tj ET Q
+q BT 59.53 678.73 Td 0.097 Tw (solução de hipoclorito de sódio a 200 ppm, produto regularizado no Ministério da Saúde e diluído conforme) Tj ET Q
+BT 59.53 664.56 Td (o rótulo; depois são enxaguados em água potável.) Tj ET
+q BT 59.53 644.72 Td 1.618 Tw (Resfriamento: as preparações cozidas que sobram do almoço ficam sobre a bancada, em temperatura) Tj ET Q
+BT 59.53 630.54 Td (ambiente, até amornar, o que leva cerca de três horas, e só então vão para a câmara fria.) Tj ET
+q BT 59.53 610.70 Td 1.153 Tw (Preparações resfriadas ficam na câmara fria, que deve ficar abaixo de 5 °C, ou no freezer, a -18 °C ou) Tj ET Q
+q BT 59.53 596.53 Td 0.216 Tw (menos. Preparações conservadas na câmara fria a 4 °C ou menos são consumidas em até 3 dias; quando) Tj ET Q
+BT 59.53 582.35 Td (a câmara estiver entre 4 °C e 5 °C, o prazo cai para 2 dias.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 550.98 Td (10. Distribuição) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 529.91 Td 0.932 Tw (No almoço, o prato executivo é servido no balcão térmico de distribuição, que deve manter os alimentos) Tj ET Q
+q BT 59.53 515.74 Td 1.073 Tw (acima de 60 °C por no máximo 6 horas. A temperatura do alimento nas cubas é medida às 11h30 e às) Tj ET Q
+BT 59.53 501.57 Td (14h30 e anotada na planilha de temperaturas.) Tj ET
+q BT 59.53 481.72 Td 1.660 Tw (Na montagem dos pratos e no balcão térmico, os alimentos prontos são manipulados com pegadores,) Tj ET Q
+BT 59.53 467.55 Td (colheres ou luvas descartáveis, e as mãos são higienizadas com álcool 70% antes do serviço.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 436.18 Td (11. Registros) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 415.11 Td 0.188 Tw (A câmara fria e a geladeira da cozinha são medidas às 8h e às 16h, o freezer às 8h, e o balcão térmico às) Tj ET Q
+q BT 59.53 400.94 Td 1.504 Tw (11h30 e às 14h30, com anotação na planilha de temperaturas. Toda planilha traz a data e o nome de) Tj ET Q
+BT 59.53 386.76 Td (quem a preencheu, e os registros são mantidos por no mínimo 90 dias.) Tj ET
+
+endstream
+endobj
+9 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+10 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+11 0 obj
+<<
+/Font <</F1 9 0 R
+/F2 10 0 R>>
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+>>
+endobj
+12 0 obj
+<<
+/Font <</F1 9 0 R
+/F2 10 0 R>>
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+>>
+endobj
+13 0 obj
+<<
+/Font <</F1 9 0 R
+/F2 10 0 R>>
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+>>
+endobj
+14 0 obj
+<<
+/CreationDate (D:20260101000000Z)
+/Creator (Normetry build_documents.py)
+/Producer (Normetry build_documents.py)
+/Title <feff004d0061006e00750061006c00200064006500200042006f0061007300200050007200e1007400690063006100730020002d002000420069007300740072006f0020005300e3006f0020005000610075006c006f>
+>>
 endobj
 xref
-0 7
+0 15
 0000000000 65535 f 
 0000000015 00000 n 
-0000000064 00000 n 
-0000000121 00000 n 
-0000000247 00000 n 
-0000000344 00000 n 
-0000001456 00000 n 
+0000000114 00000 n 
+0000000217 00000 n 
+0000000298 00000 n 
+0000005800 00000 n 
+0000005881 00000 n 
+0000010405 00000 n 
+0000010486 00000 n 
+0000013193 00000 n 
+0000013295 00000 n 
+0000013393 00000 n 
+0000013492 00000 n 
+0000013591 00000 n 
+0000013690 00000 n 
 trailer
-<< /Size 7 /Root 1 0 R /Info 6 0 R >>
+<<
+/Size 15
+/Root 2 0 R
+/Info 14 0 R
+/ID [<5DCBDBA93A64AA18B003327923BCA15B><5DCBDBA93A64AA18B003327923BCA15B>]
+>>
 startxref
-1567
+14007
 %%EOF

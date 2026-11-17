@@ -1,0 +1,18 @@
+REGISTRO DE HIGIENIZAÇÃO DO RESERVATÓRIO DE ÁGUA
+Bistro São Paulo - Rua das Acácias, 120, São Paulo/SP
+
+Documento fictício para demonstração: não descreve nenhum estabelecimento real.
+
+Reservatório: caixa de água de polietileno de 1.000 litros, com tampa, sobre a laje da cozinha.
+Frequência definida no POP 03: a cada seis meses, no máximo.
+Empresa contratada: Fonte Serena Serviços de Higienização Ltda.
+Acompanhamento pelo restaurante: Carlos Menezes, chefe de cozinha.
+
+Data       | Serviço                          | Certificado  | Acompanhou      | Observações
+2025-03-18 | Limpeza e desinfecção            | FS-2025-0412 | Carlos Menezes  | Sem anormalidades
+2025-09-16 | Limpeza e desinfecção            | FS-2025-1187 | Carlos Menezes  | Sem anormalidades
+2026-03-20 | Limpeza e desinfecção            | FS-2026-0398 | Carlos Menezes  | Tampa substituída por uma nova
+
+Situação em 10/11/2026: a higienização semestral prevista para setembro de 2026 não foi realizada. A empresa remarcou o serviço para 24/11/2026. A última higienização do reservatório foi em 20/03/2026.
+
+Registro preenchido por Carlos Menezes em 10/11/2026.
