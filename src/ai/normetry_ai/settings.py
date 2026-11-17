@@ -176,6 +176,17 @@ class ConversationSettings(BaseSettings):
     rewrite_max_tokens: int = Field(default=1024, gt=0)
 
 
+class InspectionSettings(BaseSettings):
+    """The simulated inspection's judge (inspection/judge.py): one call per checklist item."""
+
+    model_config = _CONFIG
+
+    # Needs a price in NORMETRY_MODEL_PRICES (AnswerSettings), checked when the model is built.
+    inspection_model: str = "claude-haiku-5-5"
+    # Thinking counts toward it. A reply cut short holds no finding, and the call is still paid.
+    inspection_max_tokens: int = Field(default=8192, gt=0)
+
+
 class CorpusSettings(BaseSettings):
     """Read only by the corpus ingestion command, as corpus_ingestor: never by the service.
 

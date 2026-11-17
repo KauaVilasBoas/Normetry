@@ -47,18 +47,33 @@ def check_claim(
     for citation in citations:
         if not isinstance(citation, dict):
             return None
-        excerpt_id, quote = citation.get("excerpt_id"), citation.get("quote")
-        if not isinstance(excerpt_id, str) or not isinstance(quote, str):
+        verified = verify_quote(
+            citation.get("excerpt_id"), citation.get("quote"), excerpts, min_quote_words
+        )
+        if verified is None:
             return None
-        chunk = excerpts.get(excerpt_id)
-        if chunk is None:
-            return None
-        # The prompt XML-escapes chunk text, so a quote copied from it may carry "&amp;".
-        quote = normalize_text(html.unescape(quote))
-        if len(quote.split()) < min_quote_words or quote not in normalize_text(chunk.content):
-            return None
-        start, end = locate(chunk.content, quote) or (None, None)
-        checked.append(Citation(chunk, quote, start, end))
+        checked.append(verified)
     if not checked:
         return None
     return Claim(text.strip(), tuple(checked))
+
+
+def verify_quote(
+    excerpt_id: object,
+    quote: object,
+    excerpts: Mapping[str, RetrievedChunk],
+    min_quote_words: int,
+) -> Citation | None:
+    """The citation when `excerpt_id` was in the prompt and `quote` (model output, so of any type)
+    is at least `min_quote_words` long and in that chunk's text; None otherwise."""
+    if not isinstance(excerpt_id, str) or not isinstance(quote, str):
+        return None
+    chunk = excerpts.get(excerpt_id)
+    if chunk is None:
+        return None
+    # The prompt XML-escapes chunk text, so a quote copied from it may carry "&amp;".
+    quote = normalize_text(html.unescape(quote))
+    if len(quote.split()) < min_quote_words or quote not in normalize_text(chunk.content):
+        return None
+    start, end = locate(chunk.content, quote) or (None, None)
+    return Citation(chunk, quote, start, end)

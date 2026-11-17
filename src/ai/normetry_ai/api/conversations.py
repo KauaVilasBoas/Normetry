@@ -227,7 +227,7 @@ async def answer_turn(
             turn.history,
             model=chat.rewrite_model,
             settings=chat.conversation_settings,
-            record_usage=record,
+            record_usage=partial(record, feature="rewrite"),
         )
         # The claims are written in the question's language, detected as retrieval detects it;
         # a citation keeps its chunk's, which can differ (BR and US corpora have one language).
@@ -238,7 +238,7 @@ async def answer_turn(
             chunks,
             model=chat.claim_model,
             settings=chat.answer_settings,
-            record_usage=record,
+            record_usage=partial(record, feature="chat"),
         )
         async with aclosing(events):
             async for event in events:

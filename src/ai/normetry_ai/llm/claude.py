@@ -1,5 +1,6 @@
-"""Claude through the Anthropic SDK: the chat model, answering in claims, and the rewrite model,
-turning a follow-up into a standalone question. Both use structured outputs.
+"""Claude through the Anthropic SDK: the chat model, answering in claims, the rewrite model,
+turning a follow-up into a standalone question, and the inspection judge, giving one checklist
+item a verdict. All three use structured outputs.
 
 The answer comes back as JSON constrained by CLAIMS_SCHEMA and is streamed: each claim object is
 handed on as soon as it is complete, so the citation guard can check it while the rest is still
@@ -57,6 +58,42 @@ QUESTION_SCHEMA: dict[str, object] = {
     "type": "object",
     "properties": {"question": {"type": "string"}},
     "required": ["question"],
+    "additionalProperties": False,
+}
+
+_QUOTES: dict[str, object] = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "quote": {"type": "string"}},
+        "required": ["id", "quote"],
+        "additionalProperties": False,
+    },
+}
+# What the inspection judge must return for one checklist item. Quotes and the rationale come
+# before the verdict, so the verdict is written after the evidence. Severity, theme and title are
+# not asked for: they come from the checklist. The guard (inspection/guard.py) checks it all again.
+JUDGE_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "regulation_quotes": _QUOTES,
+        "evidence_quotes": _QUOTES,
+        "rationale": {"type": "string"},
+        "verdict": {
+            "type": "string",
+            "enum": ["compliant", "non_compliant", "insufficient_evidence"],
+        },
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "action": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+    },
+    "required": [
+        "regulation_quotes",
+        "evidence_quotes",
+        "rationale",
+        "verdict",
+        "confidence",
+        "action",
+    ],
     "additionalProperties": False,
 }
 
@@ -147,8 +184,8 @@ class ClaudeClaimModel:
         yield _usage(settings.chat_model, message.usage)
 
 
-class ClaudeRewriteModel:
-    """The standalone question for a follow-up, from a configured Claude model (QUESTION_SCHEMA)."""
+class _StructuredModel:
+    """One non-streaming call to a configured Claude model whose reply is constrained JSON."""
 
     def __init__(
         self,
@@ -163,12 +200,13 @@ class ClaudeRewriteModel:
         self._model, self._max_tokens = model, max_tokens
         self._client = client or _client(settings)
 
-    async def complete(self, system: str, user: str) -> tuple[str, Usage]:
-        """The question, stripped, and the call's Usage. Raises ModelUnavailable.
+    async def _call(
+        self, system: str, user: str, effort: str, schema: dict[str, object]
+    ) -> tuple[Any, Usage, str | None]:
+        """The decoded JSON reply (None when it does not decode: cut by max_tokens, a refusal),
+        the call's Usage, also then, since the call was paid for, and the stop reason.
 
-        The question is "" when the reply does not hold one (cut by max_tokens, a refusal): the
-        call was still paid for, so its Usage comes back with it.
-        """
+        Raises ModelUnavailable."""
         if self._client is None:
             raise ModelUnavailable("no Anthropic API key")
         try:
@@ -176,9 +214,8 @@ class ClaudeRewriteModel:
                 model=self._model,
                 max_tokens=self._max_tokens,
                 output_config={
-                    # A rewrite needs little thought; low effort keeps it fast and cheap.
-                    "effort": "low",
-                    "format": {"type": "json_schema", "schema": QUESTION_SCHEMA},
+                    "effort": effort,
+                    "format": {"type": "json_schema", "schema": schema},
                 },
                 system=system,
                 messages=[{"role": "user", "content": user}],
@@ -187,11 +224,39 @@ class ClaudeRewriteModel:
             raise _unavailable(error) from error
         text = "".join(block.text for block in message.content if block.type == "text")
         try:
-            question = json.loads(text)["question"]
-        except (json.JSONDecodeError, KeyError, TypeError):
-            question = None
-        question = question.strip() if isinstance(question, str) else ""
-        return question, _usage(self._model, message.usage)
+            reply = json.loads(text)
+        except json.JSONDecodeError:
+            reply = None
+        return reply, _usage(self._model, message.usage), message.stop_reason
+
+
+class ClaudeRewriteModel(_StructuredModel):
+    """The standalone question for a follow-up, from a configured Claude model (QUESTION_SCHEMA)."""
+
+    async def complete(self, system: str, user: str) -> tuple[str, Usage]:
+        """The question, stripped, and the call's Usage. Raises ModelUnavailable.
+
+        The question is "" when the reply does not hold one (cut by max_tokens, a refusal): the
+        call was still paid for, so its Usage comes back with it.
+        """
+        # A rewrite needs little thought; low effort keeps it fast and cheap.
+        reply, usage, _ = await self._call(system, user, "low", QUESTION_SCHEMA)
+        question = reply.get("question") if isinstance(reply, dict) else None
+        return (question.strip() if isinstance(question, str) else ""), usage
+
+
+class ClaudeJudgeModel(_StructuredModel):
+    """The inspection judge (inspection/judge.py): one verdict per checklist item (JUDGE_SCHEMA).
+    It has no tools: its only output is the JSON reply, which the inspection guard checks."""
+
+    async def judge(self, system: str, user: str) -> tuple[Any, Usage]:
+        """The decoded reply (untrusted: inspection/guard.py checks it; None when the reply holds
+        no JSON) and the call's Usage. Raises ModelUnavailable."""
+        # ponytail: effort fixed at the model's default; make it a setting if the eval asks.
+        reply, usage, stop_reason = await self._call(system, user, "medium", JUDGE_SCHEMA)
+        if stop_reason != "end_turn":
+            logger.warning("Claude %s stopped with %s", self._model, stop_reason)
+        return reply, usage
 
 
 def _client(settings: AnswerSettings) -> anthropic.AsyncAnthropic | None:

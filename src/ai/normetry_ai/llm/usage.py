@@ -3,12 +3,16 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import Engine, text
 
 from normetry_ai.db import tenant_transaction
 from normetry_ai.settings import ModelPrice
+
+# What made a call: the chat answer, the follow-up rewrite, or an inspection's judge.
+Feature = Literal["chat", "rewrite", "inspection"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,9 +37,10 @@ class Usage:
 _INSERT = text(
     """
     INSERT INTO ai.model_usage (tenant_id, user_id, model, input_tokens, output_tokens,
-                                cache_creation_input_tokens, cache_read_input_tokens, cost_usd)
+                                cache_creation_input_tokens, cache_read_input_tokens, cost_usd,
+                                feature)
     VALUES (:tenant_id, :user_id, :model, :input_tokens, :output_tokens,
-            :cache_creation_input_tokens, :cache_read_input_tokens, :cost_usd)
+            :cache_creation_input_tokens, :cache_read_input_tokens, :cost_usd, :feature)
     """
 )
 
@@ -47,8 +52,10 @@ def record_usage(
     tenant_id: UUID,
     user_id: str,
     prices: Mapping[str, ModelPrice],
+    feature: Feature | None = None,
 ) -> None:
-    """Store one call's tokens and cost for the tenant and user from the internal headers.
+    """Store one call's tokens and cost for the tenant and user from the internal headers (or the
+    queue message), labelled with the feature that made the call.
 
     Raises KeyError for a model with no price: a cost is never recorded as zero by mistake.
     """
@@ -65,5 +72,6 @@ def record_usage(
                 "cache_creation_input_tokens": usage.cache_creation_input_tokens,
                 "cache_read_input_tokens": usage.cache_read_input_tokens,
                 "cost_usd": cost,
+                "feature": feature,
             },
         )
