@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FileText, Upload } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 import { Link } from "react-router";
+import type { Live } from "../api/live";
 import {
   can,
   documentsKey,
@@ -12,9 +13,17 @@ import {
   type Me,
 } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
-import { Button, ErrorMessage, IngestionPill, Message, Skeleton } from "../ui/primitives";
+import {
+  Button,
+  ConnectionNotice,
+  ErrorMessage,
+  IngestionPill,
+  Message,
+  Skeleton,
+  th,
+} from "../ui/primitives";
 import { rowCaption, statusLabel, toSummary, typeLabel } from "./documents";
-import { ConnectionNotice, LIST_TITLE_ID, th, VersionText, type Live } from "./parts";
+import { LIST_TITLE_ID, VersionText } from "./parts";
 import { UploadDialog } from "./UploadDialog";
 
 const draggingFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
@@ -103,7 +112,7 @@ export function DocumentList({
           </Button>
         )}
       </div>
-      <ConnectionNotice live={live} />
+      <ConnectionNotice live={live} labels={copy.documents} />
 
       {failed ? (
         <div className="px-5 pb-5">

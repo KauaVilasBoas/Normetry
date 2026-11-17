@@ -2,6 +2,23 @@ import type { Sent } from "../settings/profiles";
 import type { DocumentDetail, DocumentSummary, DocumentVersion } from "../api/queries";
 import { copy, format } from "../copy";
 
+/** The core's documents hub and its event (spec §5). */
+export const HUB_URL = "/hubs/documents";
+export const HUB_EVENT = "DocumentStatusChanged";
+
+/** What the hub pushes for each status change of a version (DocumentStatusChange in the core). */
+export interface DocumentStatusChange {
+  establishmentId: string;
+  documentId: string;
+  versionId: string;
+  versionNumber: number;
+  status: string;
+  failureCode: string | null;
+  failureReason: string | null;
+  currentVersionNumber: number | null;
+  changedAt: string;
+}
+
 /** DocumentFiles.MaxSize in the core: 10 MiB, the AI service's limit too. */
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 

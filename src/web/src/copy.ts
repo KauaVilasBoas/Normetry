@@ -113,6 +113,7 @@ export const copy = {
   areas: {
     establishments: "Establishments",
     documents: "Documents",
+    inspections: "Simulated Inspection",
     chat: "Ask the Regulation",
     profiles: "Profiles",
   } as Record<string, string | undefined>,
@@ -137,6 +138,18 @@ export const copy = {
     "documents.delete": {
       label: "Delete documents",
       description: "Delete documents and all their versions.",
+    },
+    "inspections.read": {
+      label: "View inspections",
+      description: "See inspections, their progress, findings and action plans.",
+    },
+    "inspections.run": {
+      label: "Run inspections",
+      description: "Start a simulated inspection of an establishment.",
+    },
+    "inspections.review": {
+      label: "Review findings",
+      description: "Accept, reject or edit findings, and mark actions done.",
     },
     "chat.ask": {
       label: "Ask questions",
@@ -382,6 +395,43 @@ export const copy = {
       long: "Something went wrong while processing this file. Upload it again.",
     },
   },
+  inspections: {
+    /** Pill labels by API status; an unknown status shows as sent. */
+    statuses: {
+      Requested: "Waiting",
+      Running: "Running",
+      Completed: "Completed",
+      Failed: "Failed",
+    } as Record<string, string | undefined>,
+  },
+  findings: {
+    verdicts: {
+      compliant: "Compliant",
+      non_compliant: "Non-compliant",
+      insufficient_evidence: "Insufficient evidence",
+    } as Record<string, string | undefined>,
+    reviews: {
+      Pending: "Pending",
+      Accepted: "Accepted",
+      Rejected: "Rejected",
+      Edited: "Edited",
+    } as Record<string, string | undefined>,
+    severities: { critical: "Critical", major: "Major", minor: "Minor" } as Record<
+      string,
+      string | undefined
+    >,
+  },
+  /** Checklist themes in display order; an unknown theme shows as sent. */
+  themes: {
+    personal_hygiene: "Personal hygiene",
+    temperature_control: "Temperature control",
+    cross_contamination_allergens: "Cross-contamination and allergens",
+    cleaning_sanitizing: "Cleaning and sanitizing",
+    pest_control: "Pest control",
+    water_premises: "Water and premises",
+    waste: "Waste",
+    documentation_training: "Documentation and training",
+  } as Record<string, string | undefined>,
   upload: {
     title: "Upload document",
     description: "Add a document to {establishment}.",
@@ -453,6 +503,15 @@ export function shortDate(iso: string, now: Date): string {
         ? { month: "short", day: "numeric" }
         : { month: "short", day: "numeric", year: "numeric" };
   return new Intl.DateTimeFormat(locale, options).format(date);
+}
+
+/** "Portuguese" for "pt"; the code itself when the browser can't name it. */
+export function languageName(code: string): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
 }
 
 const MEGABYTE = 1024 * 1024;

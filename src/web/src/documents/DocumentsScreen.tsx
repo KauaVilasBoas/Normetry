@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { useLiveStatus } from "../api/live";
 import {
   documentKey,
   documentsKey,
@@ -11,8 +12,7 @@ import {
 import { copy, format } from "../copy";
 import { DocumentDetailView } from "./DocumentDetail";
 import { DocumentList } from "./DocumentList";
-import { failureText } from "./documents";
-import { useLiveStatus, type DocumentStatusChange } from "./live";
+import { failureText, HUB_EVENT, HUB_URL, type DocumentStatusChange } from "./documents";
 import { DETAIL_TITLE_ID, LIST_TITLE_ID } from "./parts";
 
 const focusById = (id: string) => document.getElementById(id)?.focus();
@@ -80,7 +80,7 @@ export function DocumentsScreen({
   };
 
   // A request already in flight is new enough: it is not restarted.
-  const live = useLiveStatus(establishment.id, changed, () =>
+  const live = useLiveStatus(HUB_URL, HUB_EVENT, establishment.id, changed, () =>
     refetch(documentId, { cancelRefetch: false }),
   );
 

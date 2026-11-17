@@ -25,9 +25,14 @@
   --text-secondary: #a9b8cc;
   --text-muted: #6b7f99;
 
+  --success: #03da96;
   --warning: #f2ae13;
+  --danger: #ed3f45;
   --neutral: #5b6b82;
+  --info: #0decff;
+  --info-bg: #06315e;
   --chart-2: #23b6fd;
+  --chart-track: #0c1e36;
 
   color-scheme: dark;
 }
@@ -50,6 +55,9 @@
   --text-title--line-height: 20px;
   --text-greeting: 22px;
   --text-greeting--line-height: 28px;
+  /* The radial progress percentage. */
+  --text-value: 20px;
+  --text-value--line-height: 28px;
   /* Form fields below 640px: iOS zooms into smaller text on focus. */
   --text-field: 16px;
   --text-field--line-height: 24px;
@@ -99,9 +107,14 @@
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
+  --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-danger: var(--danger);
   --color-neutral: var(--neutral);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
   --color-chart-2: var(--chart-2);
+  --color-chart-track: var(--chart-track);
 }
 
 /* Auth screens: canvas with the subtle glow toward the bottom right. */

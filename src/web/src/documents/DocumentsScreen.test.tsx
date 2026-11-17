@@ -12,7 +12,7 @@ import {
   mockViewport,
   stubApi,
 } from "../test/fakes";
-import type { DocumentStatusChange } from "./live";
+import type { DocumentStatusChange } from "./documents";
 
 // A hub per connection the screen opens; the test plays the server's side.
 const hubs = vi.hoisted(() => {

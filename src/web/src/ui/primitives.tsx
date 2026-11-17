@@ -2,17 +2,21 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  Circle,
   CircleAlert,
   CircleCheck,
+  CircleX,
   Clock,
   Diamond,
   FileText,
   Minus,
+  Pencil,
   Pill,
   Stethoscope,
   Store,
   Upload,
   UtensilsCrossed,
+  WifiOff,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
 import {
@@ -26,6 +30,10 @@ import {
   type ReactNode,
 } from "react";
 import { Link } from "react-router";
+import type { Live } from "../api/live";
+import { quoteFound, type Citation } from "../api/queries";
+import { copy, locale } from "../copy";
+import { pillVariant, type PillVariant } from "./statuses";
 
 const buttonVariants = {
   primary: "bg-mint text-on-mint font-semibold hover:bg-mint-hover",
@@ -92,34 +100,58 @@ export function Spinner({
   );
 }
 
-// Ingestion is not a compliance state: no green or red (DESIGN.md Ingestion status pill).
-const pills: Record<string, { className: string; glyph: ReactNode } | undefined> = {
-  Uploaded: {
+// DESIGN.md Status, Ingestion and Review status pills. Process and review states (waiting to
+// rejected) use no green or red; only compliance does. Glyphs are 12px; the filled diamond is
+// 10px and the dot 8px, which balances the outline glyphs.
+const pills: Record<PillVariant, { className: string; glyph: ReactNode }> = {
+  waiting: {
     className: "border-neutral bg-neutral/10 text-text-secondary",
     glyph: <Clock aria-hidden="true" className="size-3 shrink-0" />,
   },
-  Processing: { className: "border-mint bg-mint/10 text-mint", glyph: <Spinner small /> },
-  Indexed: {
+  processing: { className: "border-mint bg-mint/10 text-mint", glyph: <Spinner small /> },
+  done: {
     className: "border-teal-border text-text-primary",
     glyph: <CircleCheck aria-hidden="true" className="size-3 shrink-0 text-mint" />,
   },
-  Failed: {
+  attention: {
     className: "border-warning bg-warning/10 text-warning",
     glyph: <Diamond aria-hidden="true" className="size-2.5 shrink-0 fill-current" />,
   },
+  compliant: {
+    className: "border-success bg-success/10 text-success",
+    glyph: <Diamond aria-hidden="true" className="size-2.5 shrink-0 fill-current" />,
+  },
+  // White text: --danger on its own 10% fill is only 4.3:1.
+  nonCompliant: {
+    className: "border-danger bg-danger/10 text-text-primary",
+    glyph: <Circle aria-hidden="true" className="size-2 shrink-0 fill-current text-danger" />,
+  },
+  edited: {
+    className: "border-teal-border text-text-primary",
+    glyph: <Pencil aria-hidden="true" className="size-3 shrink-0 text-mint" />,
+  },
+  rejected: {
+    className: "border-teal-border text-text-secondary",
+    glyph: <CircleX aria-hidden="true" className="size-3 shrink-0" />,
+  },
 };
 
-/** A document version's ingestion status: glyph and label. An unknown status looks like Uploaded. */
-export function IngestionPill({ status, label }: { status: string; label: string }) {
-  const pill = pills[status] ?? pills.Uploaded;
+/** A status pill: glyph and label, never color alone. `pillVariant()` maps an API status. */
+export function StatusPill({ variant, label }: { variant: PillVariant; label: string }) {
+  const pill = pills[variant];
   return (
     <span
-      className={`inline-flex h-5 items-center gap-1 rounded-pill border px-2 text-caption font-medium whitespace-nowrap ${pill?.className}`}
+      className={`inline-flex h-5 items-center gap-1 rounded-pill border px-2 text-caption font-medium whitespace-nowrap ${pill.className}`}
     >
-      {pill?.glyph}
+      {pill.glyph}
       {label}
     </span>
   );
+}
+
+/** A document version's ingestion status. An unknown status looks like Uploaded. */
+export function IngestionPill({ status, label }: { status: string; label: string }) {
+  return <StatusPill variant={pillVariant("ingestion", status)} label={label} />;
 }
 
 /** A note inside a card (DESIGN.md Inline notice): an icon, a title, its lines, an optional action. */
@@ -147,6 +179,48 @@ export function Notice({
     </div>
   );
 }
+
+/**
+ * Under a card's header: a status region, always there so screen readers hear what arrives in it,
+ * that holds the notice while live updates are paused or stopped. `labels`: the screen's copy.
+ */
+export function ConnectionNotice({
+  live,
+  labels,
+}: {
+  live: Live;
+  labels: { reconnecting: string; stopped: string; reconnect: string };
+}) {
+  const reconnecting = live.state === "reconnecting";
+  const retrying = live.state === "retrying";
+  return (
+    <div role="status">
+      {live.state !== "live" && (
+        <Notice
+          className="mx-5 mb-4"
+          icon={reconnecting ? <Spinner /> : <WifiOff aria-hidden="true" className="size-4" />}
+          title={reconnecting ? labels.reconnecting : labels.stopped}
+          action={
+            !reconnecting && (
+              // aria-disabled, not disabled, while it reconnects: focus stays on the button.
+              <Button
+                variant="secondary"
+                aria-disabled={retrying}
+                onClick={retrying ? undefined : live.reconnect}
+              >
+                {retrying && <Spinner />}
+                {labels.reconnect}
+              </Button>
+            )
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+/** A table header cell (DESIGN.md Table, on the inset header row). */
+export const th = "h-9 px-3 text-left text-caption font-medium text-text-muted";
 
 /** Loading placeholder bar; pulses gently unless reduced motion is on. */
 export function Skeleton({ className }: { className: string }) {
@@ -488,6 +562,63 @@ export function TextField({
   );
 }
 
+/** The text field with a `<textarea>`: at least 88px tall, resizing vertically. */
+export function TextAreaField({
+  label,
+  hint,
+  error,
+  ...textarea
+}: ComponentProps<"textarea"> & { label: string; hint?: string; error?: string }) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-small text-text-primary">
+        {label}
+      </label>
+      <textarea
+        id={id}
+        {...fieldAria(id, hint, error)}
+        className="min-h-22 w-full resize-y rounded-control border border-teal-border bg-inset px-3 py-2.5 text-field sm:text-body"
+        {...textarea}
+      />
+      <FieldNotes id={id} hint={hint} error={error} />
+    </div>
+  );
+}
+
+/**
+ * A compact filter in a card header (DESIGN.md Dropdown / select): a native select with no
+ * visible label, so `label` names it.
+ */
+export function FilterSelect({
+  label,
+  options,
+  ...select
+}: Omit<ComponentProps<"select">, "children"> & {
+  label: string;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="relative w-full sm:w-auto">
+      <select
+        aria-label={label}
+        className="h-9 w-full appearance-none rounded-sm border border-teal-border bg-inset pr-8 pl-2.5 text-small font-medium"
+        {...select}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-text-secondary"
+      />
+    </div>
+  );
+}
+
 /**
  * A native select as a form field (DESIGN.md Form select): the text field's look with a chevron.
  * `placeholder` is the empty option, shown in secondary text and never chosen again.
@@ -656,7 +787,7 @@ export const uploadDialogPanel = `${dialogSurface} max-h-[calc(100dvh-2rem)] max
 /**
  * A dialog with a form: title, fields, an inline error, then Cancel and the primary submit. It
  * cannot be dismissed while `submitting`. Focus returns to `trigger` unless `onCloseAutoFocus`
- * prevents it.
+ * prevents it. `wide`: 480px and scrolling inside itself, for more than three fields.
  */
 export function FormDialog({
   trigger,
@@ -669,6 +800,7 @@ export function FormDialog({
   error,
   onSubmit,
   onCloseAutoFocus,
+  wide = false,
   children,
 }: {
   trigger: ReactNode;
@@ -681,6 +813,7 @@ export function FormDialog({
   error: string | undefined;
   onSubmit: () => void;
   onCloseAutoFocus?: (event: Event) => void;
+  wide?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -696,7 +829,7 @@ export function FormDialog({
         <Dialog.Content
           aria-describedby={undefined}
           onCloseAutoFocus={onCloseAutoFocus}
-          className={dialogPanel}
+          className={wide ? uploadDialogPanel : dialogPanel}
         >
           <Dialog.Title className="text-title font-semibold">{title}</Dialog.Title>
           <form
@@ -728,5 +861,253 @@ export function FormDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * Numbered steps on an inset strip (DESIGN.md Stepper). The steps before `current` are done
+ * (`doneLabel`, "Done:", is read before them); `current` has `aria-current="step"`.
+ */
+export function Stepper({
+  label,
+  steps,
+  current,
+  doneLabel,
+}: {
+  label: string;
+  steps: string[];
+  current: number;
+  doneLabel: string;
+}) {
+  return (
+    <ol aria-label={label} className="flex items-center gap-2 rounded-sm bg-inset px-3 py-2">
+      {steps.map((step, index) => {
+        const done = index < current;
+        const now = index === current;
+        const last = index === steps.length - 1;
+        return (
+          <li
+            key={step}
+            aria-current={now ? "step" : undefined}
+            className={`flex items-center gap-2 ${last ? "" : "flex-1"}`}
+          >
+            {/* The list numbers its items for screen readers. */}
+            <span
+              aria-hidden="true"
+              className={`flex size-5 shrink-0 items-center justify-center rounded-pill text-caption font-semibold tabular-nums ${
+                done
+                  ? "bg-mint"
+                  : now
+                    ? "border border-mint text-text-primary"
+                    : "bg-elevated text-text-secondary"
+              }`}
+            >
+              {done ? <Check className="size-3 text-on-mint" /> : index + 1}
+            </span>
+            <span
+              className={`text-small whitespace-nowrap ${now ? "font-semibold text-text-primary" : "text-text-secondary"}`}
+            >
+              {done && <span className="sr-only">{doneLabel} </span>}
+              {step}
+            </span>
+            {/* Connectors shrink first, so three steps fit at 375px. */}
+            {!last && (
+              <span
+                aria-hidden="true"
+                className={`h-px min-w-3 flex-1 ${done ? "bg-mint" : "bg-neutral"}`}
+              />
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+const RING_RADIUS = 55;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
+/**
+ * A 120px ring (DESIGN.md Radial progress): a mint arc from 12 o'clock and the percentage of
+ * `value` out of `max`, rounded down so 100% shows only once all is done. The ring is a
+ * progressbar named `label` that reads `valueText`, not a live region. Below it, `title` and its
+ * `lines`.
+ */
+export function RadialProgress({
+  value,
+  max,
+  label,
+  valueText,
+  title,
+  lines,
+}: {
+  value: number;
+  max: number;
+  label: string;
+  valueText: string;
+  title: string;
+  lines: string[];
+}) {
+  const done = Math.min(Math.max(value, 0), max);
+  const ratio = max > 0 ? done / max : 0;
+  // Integers first: 29 * 100 / 100 is 29, while 0.29 * 100 floors to 28.
+  const percent = max > 0 ? Math.floor((done * 100) / max) : 0;
+  return (
+    <>
+      <div
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={max}
+        aria-valuenow={done}
+        aria-valuetext={valueText}
+        className="relative size-30 shrink-0"
+      >
+        <svg viewBox="0 0 120 120" aria-hidden="true" className="size-full -rotate-90">
+          <circle
+            cx="60"
+            cy="60"
+            r={RING_RADIUS}
+            strokeWidth="10"
+            className="fill-none stroke-chart-track"
+          />
+          {/* None at 0: a round cap would still draw a dot. */}
+          {ratio > 0 && (
+            <circle
+              cx="60"
+              cy="60"
+              r={RING_RADIUS}
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={RING_LENGTH}
+              strokeDashoffset={RING_LENGTH * (1 - ratio)}
+              className="fill-none stroke-mint motion-safe:transition-[stroke-dashoffset] motion-safe:duration-300"
+            />
+          )}
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-value font-bold tabular-nums">
+          {new Intl.NumberFormat(locale, { style: "percent" }).format(percent / 100)}
+        </span>
+      </div>
+      <p className="mt-3 text-body font-semibold">{title}</p>
+      {lines.map((line) => (
+        <p key={line} className="text-small text-text-secondary tabular-nums">
+          {line}
+        </p>
+      ))}
+    </>
+  );
+}
+
+const checklistGlyphs = {
+  done: (
+    <span
+      aria-hidden="true"
+      className="flex size-4 shrink-0 items-center justify-center rounded-pill bg-mint"
+    >
+      <Check className="size-3 text-on-mint" />
+    </span>
+  ),
+  active: <Spinner />,
+  pending: <Circle aria-hidden="true" className="size-4 shrink-0 text-neutral" />,
+};
+
+/**
+ * A row of a checklist `<ul>` (DESIGN.md Checklist): the glyph for its `progress`, then `state`
+ * ("Done:", "In progress:", "Not started:") for screen readers, the label and an optional count.
+ */
+export function ChecklistRow({
+  progress,
+  state,
+  label,
+  count,
+}: {
+  progress: keyof typeof checklistGlyphs;
+  state: string;
+  label: string;
+  count?: string;
+}) {
+  return (
+    <li className="flex min-h-9 items-center gap-3">
+      {checklistGlyphs[progress]}
+      <span className="flex-1 text-body text-text-secondary">
+        <span className="sr-only">{state} </span>
+        {label}
+      </span>
+      {count && <span className="text-small text-text-secondary tabular-nums">{count}</span>}
+    </li>
+  );
+}
+
+/** A relative time (DESIGN.md Time badge): `label` ("Due in 7 days") for `dateTime`. */
+export function TimeBadge({ dateTime, label }: { dateTime: string; label: string }) {
+  return (
+    <time
+      dateTime={dateTime}
+      className="inline-flex h-5 items-center rounded-sm bg-info-bg px-2 text-caption whitespace-nowrap text-info tabular-nums"
+    >
+      {label}
+    </time>
+  );
+}
+
+/**
+ * A stored passage in its original language, its quote highlighted (DESIGN.md Quote highlight).
+ * `quote` shows the quote alone (the stored `quote` when the offsets don't map); `passage` the
+ * whole text, the quote marked when they do. `markRef` gets the highlight, to scroll it into view.
+ */
+export function QuotedPassage({
+  citation,
+  mode,
+  markRef,
+  className = "",
+}: {
+  citation: Pick<Citation, "text" | "quote" | "quoteStart" | "quoteEnd" | "language">;
+  mode: "quote" | "passage";
+  markRef?: Ref<HTMLElement>;
+  className?: string;
+}) {
+  const { text, language } = citation;
+  const found = quoteFound(citation);
+  const start = citation.quoteStart ?? 0;
+  const end = citation.quoteEnd ?? 0;
+  // The markers are read in the interface language, around a quote in its own.
+  const quoted = (content: string) => (
+    <>
+      <span lang={locale} className="sr-only">
+        {copy.source.quoteStart}
+      </span>
+      <mark ref={markRef} className="box-decoration-clone bg-teal-deep text-text-primary">
+        {content}
+      </mark>
+      <span lang={locale} className="sr-only">
+        {copy.source.quoteEnd}
+      </span>
+    </>
+  );
+  if (mode === "quote")
+    return (
+      <blockquote
+        lang={language}
+        className={`rounded-sm bg-inset p-3 text-body whitespace-pre-line ${className}`}
+      >
+        {quoted(found ? text.slice(start, end) : citation.quote)}
+      </blockquote>
+    );
+  return (
+    <div
+      lang={language}
+      className={`rounded-sm bg-inset p-4 text-body whitespace-pre-line ${className}`}
+    >
+      {found ? (
+        <>
+          {text.slice(0, start)}
+          {quoted(text.slice(start, end))}
+          {text.slice(end)}
+        </>
+      ) : (
+        text
+      )}
+    </div>
   );
 }

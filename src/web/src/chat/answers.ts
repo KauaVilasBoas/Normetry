@@ -188,7 +188,7 @@ export async function streamAnswer(
 }
 
 /** Seconds from a header, or undefined when absent or malformed. */
-function seconds(headers: Headers, name: string): number | undefined {
+export function seconds(headers: Headers, name: string): number | undefined {
   const value = headers.get(name);
   return value !== null && /^\d+$/.test(value) ? Number(value) : undefined;
 }

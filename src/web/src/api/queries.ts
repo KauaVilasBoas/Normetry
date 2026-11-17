@@ -111,6 +111,14 @@ export interface Citation {
   officialUrl: string | null;
 }
 
+/** The quote's offsets map onto `text`, so it can be highlighted there. */
+export const quoteFound = ({
+  text,
+  quoteStart: start,
+  quoteEnd: end,
+}: Pick<Citation, "text" | "quoteStart" | "quoteEnd">) =>
+  start !== null && end !== null && start >= 0 && start < end && end <= text.length;
+
 export interface Claim {
   text: string;
   citations: Citation[];

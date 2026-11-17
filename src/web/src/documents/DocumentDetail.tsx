@@ -4,6 +4,7 @@ import { AlertDialog } from "radix-ui";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "../api/client";
+import type { Live } from "../api/live";
 import {
   can,
   documentKey,
@@ -19,6 +20,7 @@ import { copy, fileSize, format, shortDate } from "../copy";
 import { useSend } from "../settings/profiles";
 import {
   Button,
+  ConnectionNotice,
   dialogPanel,
   IngestionPill,
   Notice,
@@ -26,9 +28,10 @@ import {
   Skeleton,
   Spinner,
   Tag,
+  th,
 } from "../ui/primitives";
 import { failureText, inFlight, statusLabel, typeLabel, versionNotice } from "./documents";
-import { ConnectionNotice, DETAIL_TITLE_ID, th, VersionText, type Live } from "./parts";
+import { DETAIL_TITLE_ID, VersionText } from "./parts";
 import { UploadDialog } from "./UploadDialog";
 
 /**
@@ -252,7 +255,7 @@ function Versions({
       <h2 id={`${id}-title`} className="p-5 text-title font-semibold">
         {copy.documents.versions}
       </h2>
-      <ConnectionNotice live={live} />
+      <ConnectionNotice live={live} labels={copy.documents} />
       {notice && (
         <Notice
           className="mx-5 mb-4"
