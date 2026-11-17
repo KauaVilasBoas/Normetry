@@ -18,17 +18,23 @@ from fakes import FakeContainer, FakeEmbedder
 from fastapi.testclient import TestClient
 from sample_files import LINE
 from sqlalchemy import Engine
+from test_inspection_consumer import FakeWorker
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from normetry_ai.api import create_app
 from normetry_ai.ingestion.documents import BlobStore, DocumentWorker
-from normetry_ai.messaging import consumer
+from normetry_ai.messaging import consumer, inspections
 from normetry_ai.messaging.contracts import (
     DocumentIndexed,
     DocumentIngestionFailed,
     DocumentIngestionStarted,
     DocumentUploaded,
+    InspectionCompleted,
+    InspectionFailed,
+    InspectionProgressed,
+    InspectionRequested,
+    InspectionStarted,
     envelope,
     parse,
 )
@@ -86,8 +92,19 @@ def upload(blobs: FakeContainer, tenant: UUID, data: bytes) -> DocumentUploaded:
     )
 
 
+INSPECTION_KEYS = [
+    payload.ROUTING_KEY
+    for payload in (InspectionStarted, InspectionProgressed, InspectionCompleted, InspectionFailed)
+]
+
+
 async def exchange(
-    url: str, outgoing: list[tuple[str, bytes]], results: int, dead_letters: int
+    url: str,
+    outgoing: list[tuple[str, bytes]],
+    results: int,
+    dead_letters: int,
+    result_keys: list[str] = RESULT_KEYS,  # noqa: B006 (never mutated)
+    dead_letter_queue_name: str = consumer.DEAD_LETTER_QUEUE,
 ) -> tuple[list[aio_pika.abc.AbstractIncomingMessage], list[bytes]]:
     """Publish (routing key, body) pairs as the core would, then collect `results` result events
     and `dead_letters` messages from the dead-letter queue."""
@@ -99,7 +116,7 @@ async def exchange(
         )
         # Stands in for the core's queue: it must exist before results are published.
         inbox = await channel.declare_queue(exclusive=True)
-        for key in RESULT_KEYS:
+        for key in result_keys:
             await inbox.bind(events, key)
         headers = {"traceparent": f"00-{TRACE_ID}-00f067aa0ba902b7-01"}
         for key, body in outgoing:
@@ -113,7 +130,7 @@ async def exchange(
                     received.append(message)
                     if len(received) == results:
                         break
-        dead_letter_queue = await channel.get_queue(consumer.DEAD_LETTER_QUEUE)
+        dead_letter_queue = await channel.get_queue(dead_letter_queue_name)
         dead: list[bytes] = []
         async with asyncio.timeout(10):
             while len(dead) < dead_letters:
@@ -143,6 +160,10 @@ def test_the_service_ingests_an_upload_and_reports_it_over_the_queue(
         worker: DocumentWorker = client.app.state.documents
         # The worker shares the chat retriever's embedder (swapped here for a fake one).
         assert worker.embedder is client.app.state.retriever.embedder
+        # So do the inspections, with its re-ranker too: each model loads once per process.
+        inspector = client.app.state.inspections
+        assert inspector.embedder is worker.embedder
+        assert inspector.reranker is client.app.state.retriever.reranker
         worker.embedder, worker.blobs = FakeEmbedder(), BlobStore(blobs)
         received, dead = asyncio.run(
             exchange(
@@ -197,3 +218,60 @@ def test_a_failing_upload_gets_five_deliveries_then_fails_and_is_dead_lettered(
     assert parse(received[-1].body).payload.reason_code == "internal"
     assert len(embedder.embedded) == 1 + consumer.DELIVERY_LIMIT
     assert dead == [body]
+
+
+def test_the_inspection_consumer_declares_its_queues_and_reports_over_them(
+    amqp_url: str,
+) -> None:
+    tenant, worker = uuid4(), FakeWorker()
+    request = InspectionRequested(
+        establishment_id=uuid4(),
+        inspection_id=uuid4(),
+        jurisdiction="US",
+        establishment_type="Restaurant",
+        token_ceiling=1000,
+        requested_by="user-1",
+    )
+    body = envelope(tenant, request).model_dump_json().encode()
+
+    async def run() -> tuple[list[Any], list[bytes]]:
+        connection = await inspections.start(amqp_url, worker, delay=lambda _: 0)
+        async with connection:
+            received, dead = await exchange(
+                amqp_url,
+                [("inspection.requested.v1", b"not a message"), ("inspection.requested.v1", body)],
+                results=3,
+                dead_letters=1,
+                result_keys=INSPECTION_KEYS,
+                dead_letter_queue_name=inspections.DEAD_LETTER_QUEUE,
+            )
+            # The contract's arguments, declared again: a mismatch closes the channel with
+            # PRECONDITION_FAILED.
+            channel = await connection.channel()
+            await channel.declare_queue(
+                "ai.inspections",
+                durable=True,
+                arguments={
+                    "x-queue-type": "quorum",
+                    "x-dead-letter-exchange": "normetry.dead-letter",
+                    "x-dead-letter-routing-key": "ai.inspections",
+                    "x-delivery-limit": 4,
+                },
+            )
+            await channel.declare_queue(
+                "ai.inspections.dead-letter", durable=True, arguments={"x-queue-type": "quorum"}
+            )
+            return received, dead
+
+    received, dead = asyncio.run(run())
+
+    assert [parse(m.body).type for m in received] == [
+        "InspectionStarted",
+        "InspectionProgressed",
+        "InspectionCompleted",
+    ]
+    assert worker.calls == [(tenant, request)]
+    for m in received:
+        assert (m.message_id, m.type) == (str(parse(m.body).message_id), parse(m.body).type)
+        assert m.headers["traceparent"].split("-")[1] == TRACE_ID
+    assert dead == [b"not a message"]

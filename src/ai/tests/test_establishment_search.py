@@ -4,12 +4,11 @@ of `tests/fakes.py`. Every document that must stay out holds the query word for 
 exact embedding, so a leak would be returned."""
 
 import hashlib
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
 import pytest
-from fakes import FakeContainer, FakeEmbedder
+from fakes import FakeContainer, FakeEmbedder, FakeReranker
 from sqlalchemy import Engine, text
 
 from normetry_ai.db import tenant_transaction
@@ -23,11 +22,6 @@ from normetry_ai.settings import RetrievalSettings
 pytestmark = pytest.mark.integration
 
 QUERY = "Keep cold food at five degrees and below in the walk in cooler."
-
-
-class FakeReranker:
-    def score(self, query: str, texts: Sequence[str]) -> list[float]:
-        return [1.0 if text == query else 0.5 for text in texts]
 
 
 @dataclass
@@ -164,6 +158,27 @@ def test_only_the_establishments_current_documents_are_returned(documents: Docum
     )
     assert (found[superseded].document_title, found[superseded].source_title) == (None, "")
     assert search(documents.engine, other_tenant, establishment) != []  # its own, not ours
+
+
+def test_two_tenants_with_the_same_document_and_establishment_ids_each_see_their_own(
+    documents: Documents,
+) -> None:
+    # The ids come from the core, so another tenant can hold the very same ones: the tenant alone
+    # must keep both the chunks and the titles apart.
+    tenant_a, tenant_b, establishment, document = uuid4(), uuid4(), uuid4(), uuid4()
+    documents.index(tenant_a, establishment, document, title="A's cold holding SOP")
+    documents.index(tenant_b, establishment, document, title="B's cold holding SOP")
+
+    [chunk_a] = search(documents.engine, tenant_a, establishment)
+    [chunk_b] = search(documents.engine, tenant_b, establishment)
+
+    assert chunk_a.chunk_id != chunk_b.chunk_id
+    assert (chunk_a.document_id, chunk_a.document_title, chunk_a.source_title) == (
+        document,
+        "A's cold holding SOP",
+        "A's cold holding SOP",
+    )
+    assert (chunk_b.document_id, chunk_b.document_title) == (document, "B's cold holding SOP")
 
 
 def test_a_new_versions_title_and_type_replace_the_old_ones_unless_it_has_none(

@@ -5,12 +5,13 @@ Topology, AMQP properties, headers and retries are the contract's
 the CPU the chat also uses, so a second message in parallel would only slow both down.
 
 `handle` decides what a message gets (ack, retry or dead-letter) and publishes the result events;
-`start` wires it to RabbitMQ. The tenant of every transaction comes from the message's envelope.
+`start` wires it to RabbitMQ through `consume`, which the inspection consumer (`inspections.py`)
+shares. The tenant of every transaction comes from the message's envelope.
 """
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from typing import Any, Literal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -42,20 +43,30 @@ QUEUE = "ai.documents"
 DEAD_LETTER_QUEUE = "ai.documents.dead-letter"
 # Five deliveries in all: RabbitMQ dead-letters a message whose x-delivery-count passes this.
 DELIVERY_LIMIT = 4
-QUEUE_ARGUMENTS = {
-    "x-queue-type": "quorum",
-    "x-dead-letter-exchange": DEAD_LETTER_EXCHANGE,
-    "x-dead-letter-routing-key": QUEUE,
-    "x-delivery-limit": DELIVERY_LIMIT,
-}
+
+
+def queue_arguments(queue: str) -> dict[str, Any]:
+    """The arguments of a consumed queue (the contract's topology table): quorum, dead-lettered
+    to `normetry.dead-letter` with its own name after DELIVERY_LIMIT redeliveries."""
+    return {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": DEAD_LETTER_EXCHANGE,
+        "x-dead-letter-routing-key": queue,
+        "x-delivery-limit": DELIVERY_LIMIT,
+    }
+
+
+QUEUE_ARGUMENTS = queue_arguments(QUEUE)
 # Result events get an id derived from the version, so the core's inbox drops a re-published one.
-_EVENT_IDS = uuid5(NAMESPACE_URL, "https://contracts.normetry.example/messages/")
+EVENT_IDS = uuid5(NAMESPACE_URL, "https://contracts.normetry.example/messages/")
 
 Action = Literal["ack", "retry", "dead-letter", "wait"]
 # While the database or blob storage is down, a message waits here, unacknowledged, and spends
 # none of its deliveries. RabbitMQ's consumer timeout (30 minutes by default) bounds one wait.
 OUTAGE_WAIT_SECONDS = 10.0
 Publish = Callable[[Envelope[Any]], Awaitable[None]]
+# A queue's `handle`: (body, delivery count, publish) -> what the delivery gets.
+Handler = Callable[[bytes, int, Publish], Awaitable[Action]]
 
 
 class IndexedNotPublished(Exception):
@@ -67,7 +78,7 @@ def event(tenant_id: UUID, payload: VersionPayload) -> Envelope[Any]:
     """A result event for one document version, with its deterministic message id. The tenant is
     part of it as well: the core's inbox is keyed by (tenant_id, message_id), and an id that differs
     per tenant keeps two tenants' events apart wherever an id is compared alone."""
-    message_id = uuid5(_EVENT_IDS, f"{tenant_id}:{payload.TYPE}:{payload.version_id}")
+    message_id = uuid5(EVENT_IDS, f"{tenant_id}:{payload.TYPE}:{payload.version_id}")
     return envelope(tenant_id, payload, message_id)
 
 
@@ -205,7 +216,26 @@ def _delivery_count(headers: Mapping[str, Any]) -> int:
 async def start(
     url: str, worker: DocumentWorker, delay: Callable[[int], float] = retry_delay
 ) -> AbstractRobustConnection:
-    """Connect, declare the topology and start consuming. The caller closes the connection."""
+    """Connect, declare the topology and start consuming ai.documents. The caller closes the
+    connection."""
+
+    async def handler(body: bytes, delivery_count: int, publish: Publish) -> Action:
+        return await handle(body, delivery_count, worker, publish)
+
+    return await consume(url, QUEUE, (DocumentUploaded, DocumentDeleted), handler, delay)
+
+
+async def consume(
+    url: str,
+    queue_name: str,
+    consumed: Iterable[type[Payload]],
+    handler: Handler,
+    delay: Callable[[int], float] = retry_delay,
+) -> AbstractRobustConnection:
+    """Open a connection of its own, declare both exchanges, `queue_name` (bound to the routing
+    keys of `consumed`) and its dead-letter queue, and consume it one message at a time. The
+    caller closes the connection."""
+    dead_letter_name = f"{queue_name}.dead-letter"
     connection = await aio_pika.connect_robust(url)
     try:
         # Publisher confirms, and a mandatory publish the broker cannot route raises: a result
@@ -216,13 +246,15 @@ async def start(
         dead_letters = await channel.declare_exchange(
             DEAD_LETTER_EXCHANGE, aio_pika.ExchangeType.DIRECT, durable=True
         )
-        queue = await channel.declare_queue(QUEUE, durable=True, arguments=QUEUE_ARGUMENTS)
-        for consumed in (DocumentUploaded, DocumentDeleted):
-            await queue.bind(events, consumed.ROUTING_KEY)
-        dead_letter_queue = await channel.declare_queue(
-            DEAD_LETTER_QUEUE, durable=True, arguments={"x-queue-type": "quorum"}
+        queue = await channel.declare_queue(
+            queue_name, durable=True, arguments=queue_arguments(queue_name)
         )
-        await dead_letter_queue.bind(dead_letters, QUEUE)
+        for payload_type in consumed:
+            await queue.bind(events, payload_type.ROUTING_KEY)
+        dead_letter_queue = await channel.declare_queue(
+            dead_letter_name, durable=True, arguments={"x-queue-type": "quorum"}
+        )
+        await dead_letter_queue.bind(dead_letters, queue_name)
 
         async def publish(message: Envelope[Any]) -> None:
             headers: dict[str, Any] = {}
@@ -246,19 +278,19 @@ async def start(
             count = _delivery_count(headers)
             parent = propagate.extract({k: v for k, v in headers.items() if isinstance(v, str)})
             with tracer.start_as_current_span(
-                f"process {QUEUE}",
+                f"process {queue_name}",
                 context=parent,
                 kind=trace.SpanKind.CONSUMER,
                 attributes={
                     "messaging.system": "rabbitmq",
-                    "messaging.destination.name": QUEUE,
+                    "messaging.destination.name": queue_name,
                     "messaging.message.id": incoming.message_id or "",
                 },
             ):
-                action = await handle(incoming.body, count, worker, publish)
+                action = await handler(incoming.body, count, publish)
                 while action == "wait":
                     await asyncio.sleep(OUTAGE_WAIT_SECONDS)
-                    action = await handle(incoming.body, count, worker, publish)
+                    action = await handler(incoming.body, count, publish)
             if action == "ack":
                 await incoming.ack()
             elif action == "retry":
@@ -271,5 +303,5 @@ async def start(
     except BaseException:
         await connection.close()
         raise
-    logger.info("Consuming %s", QUEUE)
+    logger.info("Consuming %s", queue_name)
     return connection

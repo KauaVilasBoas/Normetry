@@ -185,6 +185,8 @@ class InspectionSettings(BaseSettings):
     inspection_model: str = "claude-haiku-5-5"
     # Thinking counts toward it. A reply cut short holds no finding, and the call is still paid.
     inspection_max_tokens: int = Field(default=8192, gt=0)
+    # Checklist items evaluated at once per inspection (evidence search and judge call).
+    inspection_concurrency: int = Field(default=4, ge=1)
 
 
 class CorpusSettings(BaseSettings):

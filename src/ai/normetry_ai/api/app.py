@@ -8,15 +8,19 @@ from normetry_ai.api import conversations, health
 from normetry_ai.api.auth import InternalTokenMiddleware
 from normetry_ai.db import check_runtime_role, create_db_engine
 from normetry_ai.ingestion.documents import BlobStore, DocumentWorker
-from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeRewriteModel
+from normetry_ai.ingestion.sandbox import protect_service_process
+from normetry_ai.inspection.worker import InspectionWorker
+from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeJudgeModel, ClaudeRewriteModel
 from normetry_ai.llm.embeddings import SentenceTransformerEmbedder
 from normetry_ai.llm.reranker import CrossEncoderReranker
+from normetry_ai.messaging import inspections
 from normetry_ai.messaging.consumer import start as start_consumer
 from normetry_ai.retrieval import hybrid
 from normetry_ai.settings import (
     AnswerSettings,
     ConversationSettings,
     EmbeddingSettings,
+    InspectionSettings,
     RetrievalSettings,
     Settings,
 )
@@ -29,7 +33,8 @@ def create_app(
     conversation_settings: ConversationSettings | None = None,
 ) -> FastAPI:
     """Build the API. Raises pydantic's ValidationError when the internal token is missing or
-    short, and ValueError when the rewrite model has no price.
+    short, and ValueError when the rewrite model has no price (the lifespan raises it too for the
+    inspection judge, when the consumers start).
 
     Run with: uv run uvicorn normetry_ai.api:create_app --factory
     """
@@ -50,6 +55,8 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Before any parsing child starts (ingestion/sandbox.py); a no-op off Linux.
+        protect_service_process()
         # Without a database URL (health-only runs, offline tests) the chat routes answer 503.
         engine = None
         if settings.database_url is not None:
@@ -67,16 +74,13 @@ def create_app(
         embedder = SentenceTransformerEmbedder(
             embedding.embedding_model, embedding.embedding_model_revision
         )
-        app.state.retriever = hybrid.Retriever(
-            embedder,
-            CrossEncoderReranker(
-                retrieval.reranker_model,
-                retrieval.reranker_model_revision,
-                retrieval.reranker_max_length,
-            ),
-            retrieval,
+        reranker = CrossEncoderReranker(
+            retrieval.reranker_model,
+            retrieval.reranker_model_revision,
+            retrieval.reranker_max_length,
         )
-        consumer = None
+        app.state.retriever = hybrid.Retriever(embedder, reranker, retrieval)
+        consumers = []
         try:
             # Without a RabbitMQ URL (offline tests, health-only runs) nothing is consumed. The
             # settings guarantee the database and blob storage when it is set.
@@ -90,12 +94,28 @@ def create_app(
                         settings.blob_container,
                     ),
                 )
-                consumer = await start_consumer(
-                    settings.rabbitmq_url.get_secret_value(), app.state.documents
+                url = settings.rabbitmq_url.get_secret_value()
+                consumers.append(await start_consumer(url, app.state.documents))
+                # The same embedder and re-ranker: each model loads once per process. A judge
+                # model without a price raises ValueError here.
+                inspection = InspectionSettings()
+                app.state.inspections = InspectionWorker(
+                    engine,
+                    embedder,
+                    reranker,
+                    ClaudeJudgeModel(
+                        answer_settings,
+                        inspection.inspection_model,
+                        inspection.inspection_max_tokens,
+                    ),
+                    answers=answer_settings,
+                    retrieval=retrieval,
+                    inspection=inspection,
                 )
+                consumers.append(await inspections.start(url, app.state.inspections))
             yield
         finally:
-            if consumer is not None:
+            for consumer in consumers:
                 await consumer.close()
             if engine is not None:
                 engine.dispose()
