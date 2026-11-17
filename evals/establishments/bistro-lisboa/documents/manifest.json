@@ -7,14 +7,50 @@
       "file": "plano-haccp.docx"
     },
     {
-      "title": "Plano de limpeza e desinfeção",
+      "title": "Manual de Boas Práticas de Higiene",
       "type": "Sop",
-      "file": "plano-de-limpeza.txt"
+      "file": "manual-de-boas-praticas.pdf"
+    },
+    {
+      "title": "Plano de higienização",
+      "type": "Sop",
+      "file": "plano-de-higienizacao.txt"
     },
     {
       "title": "Registo de temperaturas",
       "type": "Log",
       "file": "registo-de-temperaturas.csv"
+    },
+    {
+      "title": "Registo de formação dos manipuladores",
+      "type": "Log",
+      "file": "registo-de-formacao.docx"
+    },
+    {
+      "title": "Relatório de controlo de pragas 2026",
+      "type": "Report",
+      "file": "relatorio-controlo-de-pragas.pdf"
+    },
+    {
+      "title": "Auditoria interna de higiene, outubro de 2026",
+      "type": "Report",
+      "file": "auditoria-interna-outubro-2026.pdf"
+    },
+    {
+      "title": "Boletim de análise da água",
+      "type": "Report",
+      "file": "analise-da-agua.pdf"
+    },
+    {
+      "title": "Registo do estabelecimento e licenças",
+      "type": "License",
+      "file": "registo-do-estabelecimento.pdf",
+      "expiresOn": "2026-12-31"
+    },
+    {
+      "title": "Nota do fornecedor: entregas de dezembro",
+      "type": "Other",
+      "file": "nota-do-fornecedor.txt"
     }
   ]
 }
