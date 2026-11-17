@@ -132,6 +132,74 @@ public sealed class InspectionEndpointTests
     }
 
     [Fact]
+    public async Task A_tenant_runs_at_most_two_inspections_at_once_and_other_tenants_go_on()
+    {
+        var first = await NewTargetAsync(db);
+        var (second, third) = (await SiblingAsync(db, first), await SiblingAsync(db, first));
+        var other = await NewTargetAsync(db);
+        using var client = Client(db.Api, first);
+        var running = await StartAsync(client, first);
+        await StartAsync(client, second);
+
+        using var refused = await client.PostAsync(StartPath(third), null, Ct);
+        using var otherClient = Client(db.Api, other);
+        using var accepted = await otherClient.PostAsync(StartPath(other), null, Ct);
+
+        await AssertProblemAsync(refused, HttpStatusCode.Conflict, "inspection_capacity");
+        Assert.Empty(await ListAsync(client, third));
+        Assert.Equal(2, await CountAsync(db, first.Tenant));
+        Assert.Equal(HttpStatusCode.Accepted, accepted.StatusCode);
+        // Once one ends, the third starts.
+        await HandleAsync(
+            db.Api,
+            first.Tenant,
+            new InspectionFailed(first.Establishment, running, "error", "Boom.")
+        );
+        await StartAsync(client, third);
+    }
+
+    [Fact]
+    public async Task Concurrent_starts_across_establishments_never_pass_the_tenants_cap()
+    {
+        // Each start passes its establishment's check, so only the tenant's day row, which the
+        // count locks, keeps them from all seeing fewer than two in flight.
+        var first = await NewTargetAsync(db);
+        Target[] targets =
+        [
+            first,
+            await SiblingAsync(db, first),
+            await SiblingAsync(db, first),
+            await SiblingAsync(db, first),
+        ];
+        using var client = Client(db.Api, first);
+
+        var responses = await Task.WhenAll(
+            targets.Select(target => client.PostAsync(StartPath(target), null, Ct))
+        );
+
+        Assert.Equal(
+            2,
+            responses.Count(response => response.StatusCode == HttpStatusCode.Accepted)
+        );
+        foreach (var refused in responses.Where(r => r.StatusCode != HttpStatusCode.Accepted))
+        {
+            await AssertProblemAsync(refused, HttpStatusCode.Conflict, "inspection_capacity");
+        }
+        Assert.Equal(2, await CountAsync(db, first.Tenant));
+    }
+
+    /// <summary>Another establishment of <paramref name="target"/>'s tenant, with its indexed document.</summary>
+    private static async Task<Target> SiblingAsync(DatabaseFixture db, Target target)
+    {
+        var sibling = target with
+        {
+            Establishment = await TestTenants.CreateEstablishmentAsync(db, target.Tenant),
+        };
+        await AddDocumentAsync(db, sibling, "Indexed", id: sibling.Establishment);
+        return sibling;
+    }
+
+    [Fact]
     public async Task An_establishment_without_an_indexed_document_cannot_be_inspected()
     {
         var target = await NewTargetAsync(db, indexed: false);
@@ -341,7 +409,10 @@ public sealed class InspectionEndpointTests
         );
     }
 
-    /// <summary>A new tenant with its Owner and a US establishment, with one indexed document unless told otherwise.</summary>
+    /// <summary>
+    /// A new tenant with its Owner and a US establishment, with one indexed document unless told
+    /// otherwise. That document's id is the establishment's, so <see cref="Completed"/> can cite it.
+    /// </summary>
     internal static async Task<Target> NewTargetAsync(DatabaseFixture db, bool indexed = true)
     {
         var owner = Guid.NewGuid().ToString();
@@ -353,20 +424,21 @@ public sealed class InspectionEndpointTests
         );
         if (indexed)
         {
-            await AddDocumentAsync(db, target, "Indexed");
+            await AddDocumentAsync(db, target, "Indexed", id: target.Establishment);
         }
         return target;
     }
 
-    /// <summary>A document of the establishment whose one version has <paramref name="status"/>.</summary>
-    internal static async Task AddDocumentAsync(
+    /// <summary>A document of the establishment whose one version has <paramref name="status"/>. Returns its id.</summary>
+    internal static async Task<Guid> AddDocumentAsync(
         DatabaseFixture db,
         Target target,
         string status,
-        bool deleted = false
+        bool deleted = false,
+        Guid? id = null
     )
     {
-        var document = Guid.CreateVersion7();
+        var document = id ?? Guid.CreateVersion7();
         await using var session = await Session.BeginAsync(
             db.ConnectionString("app_core"),
             target.Tenant
@@ -395,6 +467,7 @@ public sealed class InspectionEndpointTests
             target.Owner
         );
         await session.CommitAsync();
+        return document;
     }
 
     internal static HttpClient Client(WebApplicationFactory<Program> api, Target target) =>
@@ -430,7 +503,10 @@ public sealed class InspectionEndpointTests
             .Services.GetRequiredService<InspectionStatusMessages>()
             .HandleAsync(DocumentStatusTests.Body(tenant, payload, messageId), Ct);
 
-    /// <summary>Three findings, one per verdict; the non-compliant one has an action due in 7 days.</summary>
+    /// <summary>
+    /// Three findings, one per verdict; the non-compliant one has an action due in 7 days. Each
+    /// cites the indexed document <see cref="NewTargetAsync"/> made (its id is the establishment's).
+    /// </summary>
     internal static InspectionCompleted Completed(Guid establishment, Guid inspection)
     {
         RegulationCitation regulation = new(
@@ -455,7 +531,7 @@ public sealed class InspectionEndpointTests
                 [regulation],
                 [
                     new(
-                        Guid.NewGuid(),
+                        establishment,
                         "Cooler log",
                         DocumentType.Log,
                         2,

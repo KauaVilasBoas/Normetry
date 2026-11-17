@@ -17,6 +17,12 @@ public interface IInspectionRepository
     /// </summary>
     Task<Inspection?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Tracked with its findings and their action items, and locked until the transaction ends, so
+    /// the reviews of one inspection run one at a time.
+    /// </summary>
+    Task<Inspection?> GetForReviewAsync(Guid id, CancellationToken cancellationToken);
+
     /// <summary>With its findings and their action items.</summary>
     Task<Inspection?> GetAsync(Guid id, CancellationToken cancellationToken);
 
@@ -31,6 +37,9 @@ public interface IInspectionRepository
 
     /// <summary>An inspection of the establishment is Requested or Running.</summary>
     Task<bool> HasInFlightAsync(Guid establishmentId, CancellationToken cancellationToken);
+
+    /// <summary>The tenant's inspections that are Requested or Running, across its establishments.</summary>
+    Task<int> CountInFlightAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Inspections Running since before <paramref name="before"/>, tracked and locked; the ones

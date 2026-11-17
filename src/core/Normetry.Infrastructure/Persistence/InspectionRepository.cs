@@ -21,6 +21,19 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
         );
     }
 
+    public async Task<Inspection?> GetForReviewAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlAsync(
+            $"SELECT FROM core.inspections WHERE id = {id} FOR UPDATE",
+            cancellationToken
+        );
+        return await db
+            .Inspections.Include(inspection => inspection.Findings)
+                .ThenInclude(finding => finding.ActionItem)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(inspection => inspection.Id == id, cancellationToken);
+    }
+
     public Task<Inspection?> GetAsync(Guid id, CancellationToken cancellationToken) =>
         db
             .Inspections.AsNoTracking()
@@ -63,6 +76,15 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
                     inspection.Status == InspectionStatus.Requested
                     || inspection.Status == InspectionStatus.Running
                 ),
+            cancellationToken
+        );
+
+    // The partial unique index on (tenant_id, establishment_id) for these statuses serves it.
+    public Task<int> CountInFlightAsync(CancellationToken cancellationToken) =>
+        db.Inspections.CountAsync(
+            inspection =>
+                inspection.Status == InspectionStatus.Requested
+                || inspection.Status == InspectionStatus.Running,
             cancellationToken
         );
 

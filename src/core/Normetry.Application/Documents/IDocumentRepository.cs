@@ -31,6 +31,13 @@ public interface IDocumentRepository
     /// <summary>A document of the establishment that is not deleted has a current (indexed) version.</summary>
     Task<bool> HasIndexedAsync(Guid establishmentId, CancellationToken cancellationToken);
 
+    /// <summary>The ids among <paramref name="ids"/> that are documents of the establishment, deleted ones too.</summary>
+    Task<IReadOnlyList<Guid>> FindOfEstablishmentAsync(
+        Guid establishmentId,
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken
+    );
+
     /// <summary>
     /// Documents with a version Processing since before <paramref name="before"/>, tracked with
     /// their versions and locked; documents another transaction holds are skipped.

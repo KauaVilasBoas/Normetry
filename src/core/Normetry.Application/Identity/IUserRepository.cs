@@ -54,6 +54,12 @@ public interface IUserRepository
         CancellationToken cancellationToken
     );
 
+    /// <summary>The <c>sub</c> of each of <paramref name="ids"/> that exists.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetSubsAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken
+    );
+
     /// <summary>Gives the user the profile; nothing changes when they already hold it.</summary>
     Task AssignAsync(
         Guid tenantId,

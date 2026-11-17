@@ -42,6 +42,36 @@ public sealed class PermissionTests
             { "POST", "/establishments/{id}/inspections", Permissions.Inspections.Run },
             { "GET", "/establishments/{id}/inspections", Permissions.Inspections.Read },
             { "GET", "/establishments/{id}/inspections/{id}", Permissions.Inspections.Read },
+            {
+                "POST",
+                "/establishments/{id}/inspections/{id}/findings/{id}/accept",
+                Permissions.Inspections.Review
+            },
+            {
+                "POST",
+                "/establishments/{id}/inspections/{id}/findings/{id}/reject",
+                Permissions.Inspections.Review
+            },
+            {
+                "PATCH",
+                "/establishments/{id}/inspections/{id}/findings/{id}",
+                Permissions.Inspections.Review
+            },
+            {
+                "POST",
+                "/establishments/{id}/inspections/{id}/action-items/{id}/done",
+                Permissions.Inspections.Review
+            },
+            {
+                "POST",
+                "/establishments/{id}/inspections/{id}/action-items/{id}/reopen",
+                Permissions.Inspections.Review
+            },
+            {
+                "POST",
+                "/establishments/{id}/inspections/{id}/feedback-export",
+                Permissions.Inspections.Review
+            },
             { "GET", "/chat/quota", Permissions.Chat.Ask },
             { "GET", "/ai/conversations", Permissions.Chat.Ask },
             { "POST", "/ai/establishments/{id}/conversations/c1/messages", Permissions.Chat.Ask },

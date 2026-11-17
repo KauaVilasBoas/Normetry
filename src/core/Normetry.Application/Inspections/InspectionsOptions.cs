@@ -23,11 +23,17 @@ public sealed class InspectionsOptions
     /// <summary>How long an inspection may stay Running before it fails with <c>timed_out</c>.</summary>
     public TimeSpan RunningTimeout { get; init; } = TimeSpan.FromMinutes(30);
 
+    /// <summary>
+    /// The most inspections one tenant may have Requested or Running at once, across its
+    /// establishments, so one tenant cannot fill the shared queue in front of the others.
+    /// </summary>
+    public int MaxInFlightPerTenant { get; init; } = 2;
+
     /// <summary>The plan's daily quota; null means no limit.</summary>
     public int? DailyQuotaOf(string plan) =>
         DailyQuota.TryGetValue(plan, out var quota) ? quota : DefaultDailyQuota;
 
-    /// <summary>Throws on a plan <paramref name="chat"/> does not define, a quota below 1, a ceiling below 1 or a timeout that is not positive.</summary>
+    /// <summary>Throws on a plan <paramref name="chat"/> does not define, a quota, ceiling or in-flight cap below 1, or a timeout that is not positive.</summary>
     public void Validate(ChatOptions chat)
     {
         foreach (var (plan, quota) in DailyQuota)
@@ -55,6 +61,12 @@ public sealed class InspectionsOptions
         {
             throw new InvalidOperationException(
                 $"{Section}:{nameof(RunningTimeout)} must be positive."
+            );
+        }
+        if (MaxInFlightPerTenant < 1)
+        {
+            throw new InvalidOperationException(
+                $"{Section}:{nameof(MaxInFlightPerTenant)} must be at least 1."
             );
         }
     }

@@ -59,6 +59,21 @@ internal sealed class DocumentRepository(CoreDbContext db) : IDocumentRepository
             cancellationToken
         );
 
+    public async Task<IReadOnlyList<Guid>> FindOfEstablishmentAsync(
+        Guid establishmentId,
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken
+    )
+    {
+        var wanted = ids.ToArray();
+        return await db
+            .Documents.Where(document =>
+                document.EstablishmentId == establishmentId && wanted.Contains(document.Id)
+            )
+            .Select(document => document.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Document>> ListProcessingSinceForUpdateAsync(
         DateTimeOffset before,
         CancellationToken cancellationToken

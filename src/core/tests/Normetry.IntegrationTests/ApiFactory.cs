@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using Normetry.Api.Inspections;
 using Normetry.Application.Documents;
 using Normetry.Infrastructure.Messaging;
 using Normetry.Infrastructure.Persistence;
@@ -65,6 +66,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Stands in for Azure Blob Storage.</summary>
     public InMemoryBlobStore Blobs { get; } = new();
 
+    /// <summary>Where the feedback export writes: a folder of this factory's own.</summary>
+    public string FeedbackDirectory { get; } =
+        Path.Combine(Path.GetTempPath(), $"normetry-feedback-{Guid.NewGuid():N}");
+
     public static SecurityKey NewSigningKey() =>
         new RsaSecurityKey(RSA.Create(2048)) { KeyId = "test-key" };
 
@@ -86,6 +91,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             DemoDocumentSeed.DirectorySetting,
             Path.Combine(Path.GetTempPath(), $"normetry-no-demo-documents-{Guid.NewGuid():N}")
         );
+        // The feedback export never writes into the repository from a test.
+        builder.UseSetting(InspectionsController.FeedbackDirectorySetting, FeedbackDirectory);
         builder.UseSetting("Ai:InternalToken", InternalToken);
         // Nothing listens there; the gateway tests point it at a stub AI service.
         builder.UseSetting("Services:ai:http:0", "http://127.0.0.1:9");

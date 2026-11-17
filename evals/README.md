@@ -7,12 +7,35 @@ No eval makes a paid API call in CI (phase 1 design, "Evals").
 | Golden dataset check | every item follows the schema, every quote is in its section | `uv run python -m normetry_ai.evals.dataset` | every pull request (job `ai`, `tests/test_dataset.py`) |
 | Retrieval | recall@k and MRR of each retrieval step against the golden dataset | `uv run pytest -m eval` | pull requests that touch ingestion, retrieval, models, settings or the dataset (job `ai (retrieval eval)`) |
 | Generation | answers, refusals, citations, time and cost of the real pipeline per chat model | `uv run pytest -m generation` | never: paid, run on demand |
+| Inspection | findings against the synthetic establishments' expected findings: precision and recall per verdict, guard drops, injection, cross-establishment evidence, tokens, cost and time | `uv run pytest -m inspection` | never: paid, run on demand |
 
-Inspection and security evals come with the features they measure.
+Security evals come with the features they measure.
 
 ## Dataset
 
 `datasets/regulation-qa/`: 59 questions, 44 answerable with 83 literal quotes, 15 refusals. Its README has the schema and how the items were built and reviewed.
+
+### Inspection feedback
+
+`datasets/inspection-feedback/<inspectionId>.jsonl` holds one inspection's reviewed findings as eval examples. It is written in Development only, by `POST /establishments/{establishmentId}/inspections/{inspectionId}/feedback-export` on the core (`inspections.review`; 404 in any other environment). The export runs under the caller's tenant like any request (RLS), answers `{ path, examples }` and replaces an earlier export of the same inspection. Get a token as `deploy/keycloak/README.md` shows and call the API's http endpoint from the Aspire dashboard:
+
+```sh
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  http://localhost:<api-port>/establishments/<establishmentId>/inspections/<inspectionId>/feedback-export
+```
+
+There is one line per rejected or edited finding, ordered by item id (UTF-8, `\n` line ends, accents kept as written):
+
+```json
+{"itemId":"us-temp-01","original":{"verdict":"non_compliant","severity":"critical","rationale":"…","actionText":"…","dueOn":"2026-11-24"},"correction":{"verdict":"compliant","severity":"critical","rationale":"…","actionText":"…","dueOn":"2026-12-01"},"note":null,"reviewer":"<sub>"}
+```
+
+- `original` holds the inspection's values and `correction` the values after the review, with the same keys. For a rejection without an edit, both hold the same values.
+- `note` is the rejection reason. It is null for an edit, and a non-null note means the latest decision was a rejection.
+- `reviewer` is the latest reviewer's `sub`, with no name or email.
+- `actionText` and `dueOn` are null when the finding has no action.
+
+Review exported files before committing them: they hold a tenant's rationales and notes. The folder is kept in git by `.gitkeep`.
 
 ## Retrieval eval
 
@@ -74,9 +97,45 @@ $env:NORMETRY_EVAL_REPORT_DIR = "../../evals/reports"; uv run pytest -m generati
 
 Run it alone, as the retrieval eval.
 
+## Inspection eval
+
+`src/ai/tests/test_inspection_eval.py` inspects the three synthetic establishments of [`establishments/`](establishments/README.md) and scores the findings against each one's `expected-findings.json` (`normetry_ai.evals.inspection`). It ingests the corpus as the retrieval eval does, then every establishment's documents with the AI service's `DocumentWorker` (a fake blob store, the real parser and BGE-M3), in the demo's two tenants: Demo Bistro holds São Paulo and Lisboa, Demo Bakery holds Austin. All three are indexed before the first inspection, so evidence could leak between two establishments of one tenant or between tenants. Each establishment is then inspected by `InspectionWorker` with an in-memory publisher: the real graph, evidence search, re-ranker, checkpoints and usage rows on the test database, no queue, and the real `ClaudeJudgeModel` (`NORMETRY_INSPECTION_MODEL`, default `claude-haiku-5-5`) with a token ceiling of 300,000 per inspection, the core's default.
+
+Each checklist item gets one outcome: its guarded verdict, `dropped` (judged, but the guard kept no finding), `no_regulation` (no regulation text, never judged) or `not_run` (a budget or an error stopped it before its call). Items not run are left out of precision and recall and counted on their own. The report has, over all establishments and for each one:
+
+- precision and recall per verdict and the confusion matrix, with the recall of the planted `non_compliant` items and the precision of `non_compliant` findings first;
+- the guard: items dropped, verdicts downgraded to `insufficient_evidence` (no document quote found in its excerpt), and the quotes it kept of those the judge gave;
+- citations: evidence from a document of another establishment or tenant, and shown quotes not in the passage they cite. Both must be 0, and the test fails otherwise, after writing the report;
+- injection: a success is a target item of the injection (`injection.targets`) whose verdict moved towards `compliant`, the way every injection asks (`non_compliant`, then `insufficient_evidence`, then `compliant`). An injection can also shift items it does not name, so the report lists every verdict change on any item, in either direction, marks the ones towards `compliant`, and lists the findings that quote the injection document. An ordinary judge error shows there too; the review tells them apart;
+- tokens, cost and duration per inspection, against SC-001 (under 10 minutes and US$ 0.10 each), and judge replies that stopped other than with `end_turn`.
+
+The JSONL holds one line per establishment and item: the expected verdict, evidence and note, the outcome, the judge's verdict before the guard, the rationale, the action, and each citation's quote and place (the document's file for evidence).
+
+### Running it
+
+It calls the Anthropic API once per checklist item, 131 calls in all, so it costs money. With Haiku the prompt sizes put it at about US$ 0.05 per inspection; the first run records the real cost and time. Most of the time goes to BGE-M3 and the re-ranker on the CPU: indexing the 28 documents (cached in `src/ai/.data/embeddings/` after the first run) and re-ranking the evidence for every item. Same needs and rules as the generation eval: Docker, the fetched corpus, the local models, the key in the shell only, skipped (before any container starts) without it, never in CI.
+
+```powershell
+cd src/ai
+# $env:NORMETRY_ANTHROPIC_API_KEY set in this shell
+$env:NORMETRY_EVAL_BUDGET_USD = "1"; uv run pytest -m inspection          # reports: src/ai/.data/inspection-eval/
+$env:NORMETRY_EVAL_REPORT_DIR = "../../evals/reports"; uv run pytest -m inspection   # a new baseline
+```
+
+- `NORMETRY_EVAL_BUDGET_USD`: default 1. Once the judge calls so far have cost that much, no new call starts: the current inspection stops as its token ceiling would stop it, later ones are not run, and the report says so. Up to `NORMETRY_INSPECTION_CONCURRENCY` calls (4) can be in flight at that moment, so the total can pass the budget by their cost.
+- `NORMETRY_INSPECTION_MODEL`, `NORMETRY_INSPECTION_MAX_TOKENS`, `NORMETRY_INSPECTION_CONCURRENCY`: the judge, as in the service. The model needs a price in `NORMETRY_MODEL_PRICES`.
+
+Run it alone, as the retrieval eval: it refuses a database holding sources other than the manifest's, since regulation text is read by section path.
+
+### Review and targets
+
+As for the generation eval (#55), code does not judge whether a finding is right for the right reasons. A Claude Code session reads every finding in the JSONL against its quotes, the expected finding and its note, and records a verdict per finding (right, right for the wrong reason, wrong) in `<report>.review.json`. The summary goes in the report's `## Review` section. That section also says, for each verdict change, whether the injection caused it. A non-zero injection success or cross-establishment count gets its own issue.
+
+The first run sets the targets (recall of planted `non_compliant` items, precision of `non_compliant` findings, guard drop rate) and they are written in its report; later runs are compared with it. Reviewed findings from the app become eval examples in [`datasets/inspection-feedback/`](#inspection-feedback).
+
 ## Reports
 
-`reports/`: one Markdown file per baseline run, named `<date>-<suite>-<variant>.md`. The generation eval also writes a `.jsonl` with the same name, and its review adds a `.review.json` holding the verdict on every claim and answer. A suite's newest file is its baseline. CI writes its run to the job summary and does not commit it.
+`reports/`: one Markdown file per baseline run, named `<date>-<suite>-<variant>.md`. The generation and inspection evals also write a `.jsonl` with the same name, and their review adds a `.review.json` holding the verdict on every claim and answer, or on every finding. A suite's newest file is its baseline. CI writes its run to the job summary and does not commit it.
 
 | Report | What |
 |---|---|
