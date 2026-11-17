@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { problemCode, type RequestOptions } from "../api/client";
 import { meKey, type ProfileListItem, type ProfileSummary } from "../api/queries";
 import { useSession } from "../auth/session";
+import { seconds } from "../chat/answers";
 import { copy, format, locale } from "../copy";
 
 // Matched by system key, never by name, so the names can be translated.
@@ -71,11 +72,13 @@ export const sameSet = (a: string[], b: string[]) =>
   a.length === b.length && a.every((item) => b.includes(item));
 
 export type Sent =
-  { ok: true; response: Response } | { ok: false; status: number; code: string | undefined };
+  | { ok: true; response: Response }
+  | { ok: false; status: number; code: string | undefined; retryAfter?: number };
 
 /**
- * Sends a change and reads its refusal. A 403 means a permission was taken away mid-session:
- * /me is fetched again, which hides the action. A network failure is status 0.
+ * Sends a change and reads its refusal, with its `Retry-After` seconds when it has them (a 429).
+ * A 403 means a permission was taken away mid-session: /me is fetched again, which hides the
+ * action. A network failure is status 0.
  *
  * For a change made `inside` a dialog or menu, that refetch waits for `closed()`: it would remove
  * the dialog or menu, and the refusal shown in it, before anyone could read it.
@@ -94,7 +97,12 @@ export function useSend({ inside = false } = {}) {
         if (inside) denied.current = true;
         else refetchMe();
       }
-      return { ok: false, status: response.status, code: await problemCode(response) };
+      return {
+        ok: false,
+        status: response.status,
+        code: await problemCode(response),
+        retryAfter: seconds(response.headers, "Retry-After"),
+      };
     } catch {
       return { ok: false, status: 0, code: undefined };
     }

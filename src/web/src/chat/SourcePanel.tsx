@@ -1,18 +1,10 @@
 import { ExternalLink, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef } from "react";
-import type { Citation } from "../api/queries";
-import { copy, format, locale } from "../copy";
-import { iconButton } from "../ui/primitives";
+import { quoteFound, type Citation } from "../api/queries";
+import { copy, format, languageName } from "../copy";
+import { iconButton, QuotedPassage } from "../ui/primitives";
 import { SOURCE_PANEL_ID } from "./Answer";
-
-function languageName(code: string): string {
-  try {
-    return new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
 
 /**
  * The cited passage as stored with the answer, quote highlighted. Inline from 1280px (`<aside>`),
@@ -36,8 +28,7 @@ export function SourcePanel({
     mark.current?.scrollIntoView({ block: "center" });
   }, [citation.id]);
 
-  const { text, quoteStart: start, quoteEnd: end } = citation;
-  const found = start !== null && end !== null && start >= 0 && start < end && end <= text.length;
+  const found = quoteFound(citation);
 
   const title = (
     // In a sheet, Dialog.Title gives it the id that names the dialog; even `id={undefined}` here
@@ -81,28 +72,7 @@ export function SourcePanel({
             </p>
           </div>
         )}
-        <div
-          lang={citation.language}
-          className="mt-4 rounded-sm bg-inset p-4 text-body whitespace-pre-line"
-        >
-          {found ? (
-            <>
-              {text.slice(0, start)}
-              <span lang={locale} className="sr-only">
-                {copy.source.quoteStart}
-              </span>
-              <mark ref={mark} className="box-decoration-clone bg-teal-deep text-text-primary">
-                {text.slice(start, end)}
-              </mark>
-              <span lang={locale} className="sr-only">
-                {copy.source.quoteEnd}
-              </span>
-              {text.slice(end)}
-            </>
-          ) : (
-            text
-          )}
-        </div>
+        <QuotedPassage citation={citation} mode="passage" markRef={mark} className="mt-4" />
       </div>
       <footer className="border-t border-border px-5 py-4">
         {citation.officialUrl && (

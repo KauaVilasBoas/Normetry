@@ -8,45 +8,38 @@ import {
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useSession } from "../auth/session";
 
-/** The core's documents hub (WebSockets only); the dev server forwards /hubs to the API. */
-export const HUB_URL = "/hubs/documents";
-
-/** What the hub pushes for each status change of a version (DocumentStatusChange in the core). */
-export interface DocumentStatusChange {
-  establishmentId: string;
-  documentId: string;
-  versionId: string;
-  versionNumber: number;
-  status: string;
-  failureCode: string | null;
-  failureReason: string | null;
-  currentVersionNumber: number | null;
-  changedAt: string;
-}
-
 /** `retrying`: Reconnect was chosen and the new connection is starting. */
 export type LiveState = "live" | "reconnecting" | "stopped" | "retrying";
+
+/** What a screen's live connection gives its connection notice. */
+export interface Live {
+  state: LiveState;
+  reconnect: () => void;
+}
 
 // The hub closes a connection when its access token expires and the client reconnects at once
 // with a fresh one, so "Reconnecting…" shows only once a reconnect takes longer than this.
 const RECONNECTING_NOTICE_DELAY = 2000;
 
 /**
- * Live document status (spec §5): one hub connection while the screen is open, in the group of
- * `establishmentId`. `onChange` hears that establishment's changes. `onResync` runs after every
- * join (connect, establishment change, reconnect), when changes may have been missed.
+ * Live status from a core hub (WebSockets only; the dev server forwards /hubs to the API): one
+ * connection while the screen is open, in the group of `establishmentId`. `onChange` hears that
+ * establishment's `event`s. `onResync` runs after every join (connect, establishment change,
+ * reconnect), when changes may have been missed.
  */
-export function useLiveStatus(
+export function useLiveStatus<T extends { establishmentId: string }>(
+  hubUrl: string,
+  event: string,
   establishmentId: string,
-  onChange: (change: DocumentStatusChange) => void,
+  onChange: (change: T) => void,
   onResync: () => void,
-) {
+): Live {
   const { api } = useSession();
   const [state, setState] = useState<LiveState>("live");
   const [attempt, setAttempt] = useState(0);
   const hub = useRef<HubConnection | null>(null);
 
-  const changed = useEffectEvent((change: DocumentStatusChange) => {
+  const changed = useEffectEvent((change: T) => {
     if (change.establishmentId === establishmentId) onChange(change);
   });
   const join = useEffectEvent((connection: HubConnection) => {
@@ -58,7 +51,7 @@ export function useLiveStatus(
     let disposed = false;
     let notice: ReturnType<typeof setTimeout> | undefined;
     const connection = new HubConnectionBuilder()
-      .withUrl(HUB_URL, {
+      .withUrl(hubUrl, {
         transport: HttpTransportType.WebSockets,
         skipNegotiation: true,
         accessTokenFactory: async () => (await api.accessToken()) ?? "",
@@ -66,7 +59,7 @@ export function useLiveStatus(
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
       .build();
-    connection.on("DocumentStatusChanged", (change: DocumentStatusChange) => changed(change));
+    connection.on(event, (change: T) => changed(change));
     connection.onreconnecting(() => {
       notice = setTimeout(() => setState("reconnecting"), RECONNECTING_NOTICE_DELAY);
     });
@@ -96,7 +89,7 @@ export function useLiveStatus(
       clearTimeout(notice);
       void connection.stop();
     };
-  }, [api, attempt]);
+  }, [api, attempt, hubUrl, event]);
 
   // The connection stays; it moves to the new establishment's group.
   useEffect(() => {
