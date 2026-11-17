@@ -46,9 +46,9 @@ def system_prompt(min_quote_words: int) -> str:
     return _SYSTEM_PROMPT.format(min_quote_words=min_quote_words)
 
 
-def excerpt_ids(chunks: Sequence[RetrievedChunk]) -> dict[str, RetrievedChunk]:
+def excerpt_ids(chunks: Sequence[RetrievedChunk], prefix: str = "E") -> dict[str, RetrievedChunk]:
     """The id each chunk gets in the prompt. Claims cite these ids, never chunk UUIDs."""
-    return {f"E{number}": chunk for number, chunk in enumerate(chunks, start=1)}
+    return {f"{prefix}{number}": chunk for number, chunk in enumerate(chunks, start=1)}
 
 
 def user_message(question: str, excerpts: Mapping[str, RetrievedChunk]) -> str:
