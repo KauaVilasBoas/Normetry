@@ -1,0 +1,366 @@
+{
+  "code": "reg-852-2004",
+  "jurisdiction": "EU",
+  "items": [
+    {
+      "id": "eu.haccp-procedures",
+      "theme": "documentation_training",
+      "title": "A permanent procedure based on HACCP principles is put in place, implemented and maintained",
+      "section_paths": ["Article 5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "HACCP plan or food safety management system manual; HACCP team and scope"
+    },
+    {
+      "id": "eu.haccp-critical-limits",
+      "theme": "documentation_training",
+      "title": "Critical control points are identified for the hazards found and each has a critical limit",
+      "section_paths": ["Article 5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "HACCP plan: hazard analysis table, critical control points and their critical limits"
+    },
+    {
+      "id": "eu.haccp-monitoring",
+      "theme": "documentation_training",
+      "title": "Effective monitoring procedures are implemented at each critical control point",
+      "section_paths": ["Article 5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "HACCP plan monitoring section; temperature and cooking logs filled in at each critical control point"
+    },
+    {
+      "id": "eu.haccp-corrective-actions",
+      "theme": "documentation_training",
+      "title": "Corrective actions are set for when monitoring shows a critical control point is out of control",
+      "section_paths": ["Article 5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "HACCP plan corrective action section; corrective action entries in temperature or cooking logs"
+    },
+    {
+      "id": "eu.haccp-verification",
+      "theme": "documentation_training",
+      "title": "Procedures are carried out regularly to verify that the HACCP measures work effectively",
+      "section_paths": ["Article 5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "verification schedule; internal audit reports; thermometer calibration records; supervisor sign-off of logs"
+    },
+    {
+      "id": "eu.haccp-records",
+      "theme": "documentation_training",
+      "title": "HACCP records commensurate with the business's nature and size show the measures are applied",
+      "section_paths": ["Article 5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "completed monitoring logs (temperature, cooling, cleaning, deliveries) kept with the HACCP plan"
+    },
+    {
+      "id": "eu.haccp-documents-up-to-date",
+      "theme": "documentation_training",
+      "title": "HACCP procedure documents are kept up to date and reviewed when a product or process changes",
+      "section_paths": ["Article 5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "HACCP plan revision history and version dates; review records after menu, supplier or equipment changes"
+    },
+    {
+      "id": "eu.establishment-registration",
+      "theme": "documentation_training",
+      "title": "Each establishment is notified to the competent authority for registration, and changes are notified",
+      "section_paths": ["Article 6"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "notification for registration and the authority's acknowledgement or registration number; operating licence; notifications of changes in activity or closure"
+    },
+    {
+      "id": "eu.food-hygiene-training",
+      "theme": "documentation_training",
+      "title": "Food handlers are supervised and instructed or trained in food hygiene for their work activity",
+      "section_paths": ["Annex II, Chapter XII"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "training records and certificates; induction checklist; training plan; supervision or on-the-job instruction records"
+    },
+    {
+      "id": "eu.haccp-training",
+      "theme": "documentation_training",
+      "title": "Staff who maintain the HACCP procedure or operate relevant guides have adequate HACCP training",
+      "section_paths": ["Annex II, Chapter XII"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "HACCP training certificates for the manager or HACCP team; training on the national good hygiene practice guide applied; training records"
+    },
+    {
+      "id": "eu.food-safety-culture",
+      "theme": "documentation_training",
+      "title": "The operator establishes, maintains and can evidence an appropriate food safety culture",
+      "section_paths": ["Annex II, Chapter XIa"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "food safety policy signed by management; roles and responsibilities chart; staff briefing or meeting minutes"
+    },
+    {
+      "id": "eu.personal-cleanliness",
+      "theme": "personal_hygiene",
+      "title": "Every person working in a food-handling area maintains a high degree of personal cleanliness",
+      "section_paths": ["Annex II, Chapter VIII"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "personal hygiene policy or SOP (hand washing, nails, jewellery); hygiene audit or supervision checklists"
+    },
+    {
+      "id": "eu.protective-clothing",
+      "theme": "personal_hygiene",
+      "title": "All who work in food-handling areas wear suitable, clean and, where necessary, protective clothing",
+      "section_paths": ["Annex II, Chapter VIII"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "dress code or uniform policy; protective clothing and laundry arrangements; hygiene audit checklists"
+    },
+    {
+      "id": "eu.ill-handlers-excluded",
+      "theme": "personal_hygiene",
+      "title": "Anyone ill with or carrying a foodborne disease is kept out of food areas if contamination is likely",
+      "section_paths": ["Annex II, Chapter VIII"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "fitness-to-work or exclusion policy (diarrhoea, infected wounds, skin infections, sores, carriers); staff health declarations; exclusion and return-to-work records"
+    },
+    {
+      "id": "eu.illness-reporting",
+      "theme": "personal_hygiene",
+      "title": "Food handlers report illness or symptoms immediately to the food business operator",
+      "section_paths": ["Annex II, Chapter VIII"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "illness reporting procedure; staff health declarations; illness or sickness reporting log"
+    },
+    {
+      "id": "eu.hand-washing-facilities",
+      "theme": "personal_hygiene",
+      "title": "Hand washbasins have hot and cold running water, materials for cleaning hands and hygienic drying",
+      "section_paths": ["Annex II, Chapter I"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "description of hand-washing stations in the good-practice manual; hygiene audit or maintenance records"
+    },
+    {
+      "id": "eu.cold-chain",
+      "theme": "temperature_control",
+      "title": "The cold chain is unbroken except limited periods out of temperature control posing no health risk",
+      "section_paths": ["Annex II, Chapter IX", "Article 4"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "refrigerator and freezer temperature logs; goods-in temperature checks; HACCP critical limits for chilled storage and maximum time out of refrigeration during preparation and service"
+    },
+    {
+      "id": "eu.rapid-cooling",
+      "theme": "temperature_control",
+      "title": "Foods held or served chilled are cooled as quickly as possible after cooking or final preparation",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cooling logs (time and temperature); blast chiller records; HACCP cooling procedure"
+    },
+    {
+      "id": "eu.safe-thawing",
+      "theme": "temperature_control",
+      "title": "Foods are thawed so as to minimise pathogen growth, with risky run-off liquid drained",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "thawing procedure or SOP; thawing logs; thawing step in the HACCP plan"
+    },
+    {
+      "id": "eu.cold-storage-monitoring",
+      "theme": "temperature_control",
+      "title": "Cold storage lets temperatures be monitored and, where necessary, recorded, and has enough capacity",
+      "section_paths": ["Annex II, Chapter I"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "equipment list with fridge and freezer thermometers or probes; temperature logs; refrigeration maintenance records"
+    },
+    {
+      "id": "eu.allergen-equipment-cleaning",
+      "theme": "cross_contamination_allergens",
+      "title": "Equipment used for a listed allergen is cleaned and checked before use for food free of it",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "allergen management procedure covering the allergens in Annex II to Regulation (EU) No 1169/2011; allergen matrix; cleaning and visible-debris check records for shared equipment"
+    },
+    {
+      "id": "eu.food-protected-from-contamination",
+      "theme": "cross_contamination_allergens",
+      "title": "Food is protected against contamination at all stages of production, processing and distribution",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "food handling SOPs (covering, labelling, storage order, colour-coded boards); hygiene audit reports"
+    },
+    {
+      "id": "eu.raw-materials-acceptance",
+      "theme": "cross_contamination_allergens",
+      "title": "Raw materials contaminated beyond what normal sorting or preparation can make fit are not accepted",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "goods-in or delivery records with acceptance and rejection checks; approved supplier list; supplier specifications"
+    },
+    {
+      "id": "eu.raw-processed-separation",
+      "theme": "cross_contamination_allergens",
+      "title": "Rooms allow raw materials to be stored apart from processed food, with enough separate cold storage",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "storage plan or SOP separating raw and ready-to-eat food; fridge layout; HACCP plan"
+    },
+    {
+      "id": "eu.ingredient-storage-conditions",
+      "theme": "cross_contamination_allergens",
+      "title": "Raw materials and ingredients are stored to prevent harmful deterioration and contamination",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "storage SOP (covered, labelled, off the floor, first in first out); stock rotation records; dry store checks"
+    },
+    {
+      "id": "eu.hazardous-substances-labelled",
+      "theme": "cross_contamination_allergens",
+      "title": "Hazardous and inedible substances are labelled and stored in separate, secure containers",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "chemical inventory and safety data sheets; chemical storage procedure; labelling of decanted products"
+    },
+    {
+      "id": "eu.premises-clean",
+      "theme": "cleaning_sanitizing",
+      "title": "Food premises are kept clean and maintained in good repair and condition",
+      "section_paths": ["Annex II, Chapter I"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cleaning schedule and signed cleaning records; maintenance log; hygiene audit reports"
+    },
+    {
+      "id": "eu.equipment-cleaning-frequency",
+      "theme": "cleaning_sanitizing",
+      "title": "Food-contact items are cleaned and, where necessary, disinfected often enough to avoid contamination",
+      "section_paths": ["Annex II, Chapter V"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cleaning and disinfection plan with frequencies for food-contact equipment; signed cleaning records"
+    },
+    {
+      "id": "eu.cleaning-chemicals-storage",
+      "theme": "cleaning_sanitizing",
+      "title": "Cleaning agents and disinfectants are not stored in areas where food is handled",
+      "section_paths": ["Annex II, Chapter I"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "chemical storage procedure; cleaning plan stating where products are kept; premises layout"
+    },
+    {
+      "id": "eu.pest-control-procedures",
+      "theme": "pest_control",
+      "title": "Adequate procedures are in place to control pests",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "pest control contract; pest control visit reports; bait station map; pest sighting log"
+    },
+    {
+      "id": "eu.domestic-animals-excluded",
+      "theme": "pest_control",
+      "title": "Domestic animals are kept from food areas or, where the authority allows it, from contaminating food",
+      "section_paths": ["Annex II, Chapter IX"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "hygiene policy or good-practice manual rule on animals; any permission from the competent authority and its conditions; hygiene audit reports"
+    },
+    {
+      "id": "eu.insect-screens",
+      "theme": "pest_control",
+      "title": "Openable windows in food rooms have removable insect-proof screens where necessary",
+      "section_paths": ["Annex II, Chapter II"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "pest control reports (proofing recommendations); maintenance records; premises description"
+    },
+    {
+      "id": "eu.potable-water-supply",
+      "theme": "water_premises",
+      "title": "An adequate supply of potable water is used wherever needed to keep food from contamination",
+      "section_paths": ["Annex II, Chapter VII"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "water analysis reports; public water supply contract or bill; water tank cleaning records"
+    },
+    {
+      "id": "eu.ice-potable-water",
+      "theme": "water_premises",
+      "title": "Ice that touches or may contaminate food is made from potable water (or clean water for whole fish)",
+      "section_paths": ["Annex II, Chapter VII"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "ice machine cleaning and descaling records; water analysis reports; cleaning plan"
+    },
+    {
+      "id": "eu.ventilation",
+      "theme": "water_premises",
+      "title": "Ventilation is adequate and its filters and parts are accessible for cleaning or replacement",
+      "section_paths": ["Annex II, Chapter I"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "extraction hood and filter cleaning records; ventilation maintenance contract or service reports"
+    },
+    {
+      "id": "eu.floors-walls-condition",
+      "theme": "water_premises",
+      "title": "Floors and walls in food rooms are sound and easy to clean and, where necessary, to disinfect",
+      "section_paths": ["Annex II, Chapter II"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "maintenance log; hygiene audit or inspection reports; premises description"
+    },
+    {
+      "id": "eu.equipment-good-repair",
+      "theme": "water_premises",
+      "title": "Equipment in contact with food is kept in good order, repair and condition",
+      "section_paths": ["Annex II, Chapter V"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "equipment maintenance log; repair records; hygiene audit reports"
+    },
+    {
+      "id": "eu.waste-closable-containers",
+      "theme": "waste",
+      "title": "Food waste goes in closable containers unless other containers or systems are shown to be suitable",
+      "section_paths": ["Annex II, Chapter VI"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "waste management procedure (lidded bins or a food waste disposal unit); bin cleaning in the cleaning plan; hygiene audit reports"
+    },
+    {
+      "id": "eu.refuse-store-pest-free",
+      "theme": "waste",
+      "title": "Refuse stores are managed so they can be kept clean and, where necessary, free of animals and pests",
+      "section_paths": ["Annex II, Chapter VI"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "waste area cleaning records; pest control reports covering the refuse area"
+    },
+    {
+      "id": "eu.waste-hygienic-disposal",
+      "theme": "waste",
+      "title": "Waste is disposed of hygienically and does not become a source of contamination",
+      "section_paths": ["Annex II, Chapter VI"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "waste collection contract; used cooking oil collection certificates; waste transfer records"
+    }
+  ]
+}

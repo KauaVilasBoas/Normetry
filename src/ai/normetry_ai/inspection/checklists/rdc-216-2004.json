@@ -1,0 +1,402 @@
+{
+  "code": "rdc-216-2004",
+  "jurisdiction": "BR",
+  "items": [
+    {
+      "id": "br.handler-health-control",
+      "theme": "personal_hygiene",
+      "title": "Food handler health checks are carried out and recorded as the specific law requires",
+      "section_paths": ["4.6.1"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "occupational health exam records (ASO, PCMSO); handler health control records"
+    },
+    {
+      "id": "br.ill-handler-exclusion",
+      "theme": "personal_hygiene",
+      "title": "Handlers with lesions or symptoms that may affect food safety stay off food prep while they last",
+      "section_paths": ["4.6.2", "4.11.8"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "POP for handler hygiene and health; sick leave or exclusion records; Manual de Boas Práticas"
+    },
+    {
+      "id": "br.handwashing",
+      "theme": "personal_hygiene",
+      "title": "Hands are washed on arrival, before/after handling food, after breaks, toilet or soiling, as needed",
+      "section_paths": ["4.6.4"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "POP for handler hygiene and health; handwashing posters; training records"
+    },
+    {
+      "id": "br.handwashing-sinks",
+      "theme": "personal_hygiene",
+      "title": "Prep areas have enough hand-only sinks with antiseptic liquid soap, safe drying and hands-free bins",
+      "section_paths": ["4.1.14"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "Manual de Boas Práticas (premises description); hygiene supply checklists"
+    },
+    {
+      "id": "br.handler-attire",
+      "theme": "personal_hygiene",
+      "title": "Handlers wear clean uniforms, changed at least daily and worn only on the premises",
+      "section_paths": ["4.6.3"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "Manual de Boas Práticas; POP for handler hygiene and health; uniform change records"
+    },
+    {
+      "id": "br.handler-grooming",
+      "theme": "personal_hygiene",
+      "title": "Handlers keep hair tied and covered, no beard, short unpolished nails, and no adornments or makeup",
+      "section_paths": ["4.6.6"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "Manual de Boas Práticas; POP for handler hygiene and health; hygiene checklists"
+    },
+    {
+      "id": "br.handler-hygiene-pop",
+      "theme": "personal_hygiene",
+      "title": "A handler hygiene and health POP covers handwashing, illness, medical exams and training",
+      "section_paths": ["4.11.4", "4.11.8"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "POP for handler hygiene and health"
+    },
+    {
+      "id": "br.cooking-70c",
+      "theme": "temperature_control",
+      "title": "All parts of food reach 70°C, or a lower but safe time-temperature, checked by time and temperature",
+      "section_paths": ["4.8.8", "4.8.9"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cooking temperature logs; Manual de Boas Práticas or POP for cooking"
+    },
+    {
+      "id": "br.thawing",
+      "theme": "temperature_control",
+      "title": "Food is thawed below 5°C, or by microwave if cooked at once, then chilled until used, never refrozen",
+      "section_paths": ["4.8.13", "4.8.14"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "thawing procedure in the Manual de Boas Práticas; refrigerator temperature logs"
+    },
+    {
+      "id": "br.hot-holding",
+      "theme": "temperature_control",
+      "title": "Hot-held food is kept above 60°C for no more than 6 hours",
+      "section_paths": ["4.8.15"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "hot holding or bain-marie temperature logs; Manual de Boas Práticas"
+    },
+    {
+      "id": "br.cooling",
+      "theme": "temperature_control",
+      "title": "Cooked food is cooled from 60°C to 10°C within two hours",
+      "section_paths": ["4.8.16"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cooling logs with times and temperatures; Manual de Boas Práticas or POP for cooling"
+    },
+    {
+      "id": "br.cold-holding",
+      "theme": "temperature_control",
+      "title": "Cooled prepared food is kept below 5°C or frozen at -18°C or lower",
+      "section_paths": ["4.8.16"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "refrigerator and freezer temperature logs; POP for cold storage"
+    },
+    {
+      "id": "br.storage-temperature-records",
+      "theme": "temperature_control",
+      "title": "Refrigerated and frozen storage temperatures are monitored regularly and recorded",
+      "section_paths": ["4.8.18"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "refrigerator and freezer temperature logs"
+    },
+    {
+      "id": "br.chilled-use-by",
+      "theme": "temperature_control",
+      "title": "Prepared food chilled at 4°C or less is consumed within 5 days, and sooner when kept above 4°C",
+      "section_paths": ["4.8.17"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "shelf-life rules in the Manual de Boas Práticas; labels; refrigerator temperature logs"
+    },
+    {
+      "id": "br.date-labelling",
+      "theme": "temperature_control",
+      "title": "Opened ingredients and stored prepared food are labelled with name, date and use-by date",
+      "section_paths": ["4.8.6", "4.8.18", "4.9.1"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "labelling procedure in the Manual de Boas Práticas; label templates; storage checklists"
+    },
+    {
+      "id": "br.receiving-inspection",
+      "theme": "temperature_control",
+      "title": "Deliveries are inspected; chilled or frozen goods are temperature-checked on receipt and in storage",
+      "section_paths": ["4.7.3"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "receiving logs with temperatures; storage temperature logs; receiving procedure in the Manual de Boas Práticas"
+    },
+    {
+      "id": "br.frying-oil",
+      "theme": "temperature_control",
+      "title": "Frying oil is kept at 180°C or less and replaced at once if its smell, taste or look clearly changes",
+      "section_paths": ["4.8.10", "4.8.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "frying oil change records; frying procedure in the Manual de Boas Práticas"
+    },
+    {
+      "id": "br.raw-ready-separation",
+      "theme": "cross_contamination_allergens",
+      "title": "Raw, semi-prepared and ready-to-eat foods are kept from direct or indirect contact",
+      "section_paths": ["4.8.3"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "Manual de Boas Práticas; storage layout; colour-coded board and utensil rules"
+    },
+    {
+      "id": "br.raw-handler-hand-antisepsis",
+      "theme": "cross_contamination_allergens",
+      "title": "Staff handling raw food wash and sanitize their hands before touching prepared food",
+      "section_paths": ["4.8.4"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "POP for handler hygiene and health; Manual de Boas Práticas; training records"
+    },
+    {
+      "id": "br.produce-sanitizing",
+      "theme": "cross_contamination_allergens",
+      "title": "Where applicable, food eaten raw is sanitized with approved products, leaving no residue",
+      "section_paths": ["4.8.19"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "produce sanitizing procedure with product, concentration and contact time; sanitizer registration"
+    },
+    {
+      "id": "br.serving-hand-protection",
+      "theme": "cross_contamination_allergens",
+      "title": "Servers sanitize their hands and handle prepared food with utensils or disposable gloves",
+      "section_paths": ["4.10.2"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "service and display procedure in the Manual de Boas Práticas; training records"
+    },
+    {
+      "id": "br.rejected-goods",
+      "theme": "cross_contamination_allergens",
+      "title": "Rejected or expired goods are returned at once or else labelled, kept apart and given a destination",
+      "section_paths": ["4.7.4"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "receiving logs; return or non-conformity records"
+    },
+    {
+      "id": "br.premises-equipment-cleaning",
+      "theme": "cleaning_sanitizing",
+      "title": "Premises, equipment and utensils stay sanitized, prep areas as often as needed and right after work",
+      "section_paths": ["4.2.1", "4.2.4"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cleaning plan or schedule; cleaning checklists"
+    },
+    {
+      "id": "br.cleaning-records",
+      "theme": "cleaning_sanitizing",
+      "title": "Non-routine cleaning and disinfection of premises and equipment is recorded",
+      "section_paths": ["4.2.3"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "deep-cleaning records; cleaning logs"
+    },
+    {
+      "id": "br.sanitizer-use-storage",
+      "theme": "cleaning_sanitizing",
+      "title": "Cleaning products are registered, used per label dilution and contact time, and stored apart",
+      "section_paths": ["4.2.5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "cleaning product list with registration numbers; POP for cleaning; dilution instructions"
+    },
+    {
+      "id": "br.cleaning-pop",
+      "theme": "cleaning_sanitizing",
+      "title": "A cleaning POP states surface, method, active agent, concentration, contact time and temperature",
+      "section_paths": ["4.11.4", "4.11.5"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "POP for cleaning premises, equipment and furniture"
+    },
+    {
+      "id": "br.pest-free",
+      "theme": "pest_control",
+      "title": "Premises and equipment are free of pests under continuous preventive control",
+      "section_paths": ["4.3.1"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "pest control service reports; pest sighting records; POP for pest control"
+    },
+    {
+      "id": "br.pest-control-company",
+      "theme": "pest_control",
+      "title": "Chemical pest control is done by a specialized company, with proof of each service on file",
+      "section_paths": ["4.3.2", "4.11.6"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "pest control service certificates (comprovante de execução); contractor licence"
+    },
+    {
+      "id": "br.pest-control-pop",
+      "theme": "pest_control",
+      "title": "A pest control POP describes the preventive and corrective measures",
+      "section_paths": ["4.11.4", "4.11.6"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "POP for integrated pest control"
+    },
+    {
+      "id": "br.insect-screens",
+      "theme": "pest_control",
+      "title": "External openings of food areas have removable insect screens and doors close automatically",
+      "section_paths": ["4.1.4"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "Manual de Boas Práticas (premises); maintenance records; pest control reports"
+    },
+    {
+      "id": "br.potable-water",
+      "theme": "water_premises",
+      "title": "Only potable water is used; an alternative supply has lab potability reports every six months",
+      "section_paths": ["4.4.1"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "water supply description in the Manual de Boas Práticas; laboratory potability reports"
+    },
+    {
+      "id": "br.ice-steam-potable",
+      "theme": "water_premises",
+      "title": "Ice and steam that touch food are made from potable water",
+      "section_paths": ["4.4.2", "4.4.3"],
+      "severity": "critical",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "water control section of the Manual de Boas Práticas; ice supplier or ice machine records"
+    },
+    {
+      "id": "br.reservoir-cleaning",
+      "theme": "water_premises",
+      "title": "The covered, sound water tank is cleaned and disinfected at least every six months, with records",
+      "section_paths": ["4.4.4"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "water tank cleaning certificates or records with dates"
+    },
+    {
+      "id": "br.reservoir-pop",
+      "theme": "water_premises",
+      "title": "A water tank cleaning POP exists, with a service certificate when the cleaning is outsourced",
+      "section_paths": ["4.11.4", "4.11.7"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "POP for water tank cleaning; service certificate"
+    },
+    {
+      "id": "br.premises-surfaces",
+      "theme": "water_premises",
+      "title": "Floors, walls and ceilings are smooth, impermeable and washable, and free of cracks, leaks and mould",
+      "section_paths": ["4.1.3"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "maintenance records; Manual de Boas Práticas (premises); self-inspection checklists"
+    },
+    {
+      "id": "br.equipment-maintenance-calibration",
+      "theme": "water_premises",
+      "title": "Equipment gets scheduled maintenance and measuring instruments are calibrated, with records",
+      "section_paths": ["4.1.16"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "maintenance plan and records; thermometer calibration certificates"
+    },
+    {
+      "id": "br.waste-containers",
+      "theme": "waste",
+      "title": "Waste bins are identified and sufficient, with hands-free lids in food areas",
+      "section_paths": ["4.5.1", "4.5.2"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "waste handling section of the Manual de Boas Práticas"
+    },
+    {
+      "id": "br.waste-storage",
+      "theme": "waste",
+      "title": "Waste is collected often and stored in a closed area isolated from food areas",
+      "section_paths": ["4.5.3"],
+      "severity": "minor",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "waste handling section of the Manual de Boas Práticas; collection schedule or contractor records"
+    },
+    {
+      "id": "br.good-practices-manual",
+      "theme": "documentation_training",
+      "title": "A Good Practices Manual covering the required topics and POPs are available to staff",
+      "section_paths": ["4.11.1", "2.11"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "Manual de Boas Práticas; list of POPs"
+    },
+    {
+      "id": "br.pop-approval",
+      "theme": "documentation_training",
+      "title": "POPs give steps, frequency and responsible staff, and are approved, dated and signed",
+      "section_paths": ["4.11.2"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "POPs (approval, date and signature block)"
+    },
+    {
+      "id": "br.records-retention",
+      "theme": "documentation_training",
+      "title": "Records are dated, name who filled them in and are kept for at least 30 days",
+      "section_paths": ["4.11.3", "2.14"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "temperature, cleaning and receiving logs"
+    },
+    {
+      "id": "br.handler-training",
+      "theme": "documentation_training",
+      "title": "Handlers are supervised and trained periodically in hygiene and foodborne disease, with records",
+      "section_paths": ["4.6.7", "4.11.8"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "training records with attendee names, hours and content; training programme"
+    },
+    {
+      "id": "br.responsible-person",
+      "theme": "documentation_training",
+      "title": "The person in charge of food handling has taken a course on the required good-practice topics",
+      "section_paths": ["4.12.1", "4.12.2"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "course certificate of the person in charge; designation in the Manual de Boas Práticas"
+    },
+    {
+      "id": "br.supplier-criteria",
+      "theme": "documentation_training",
+      "title": "Written criteria exist for evaluating and selecting suppliers of ingredients and packaging",
+      "section_paths": ["4.7.1"],
+      "severity": "major",
+      "applies_to": ["Restaurant"],
+      "evidence_hint": "supplier selection criteria or approved supplier list; Manual de Boas Práticas"
+    }
+  ]
+}
