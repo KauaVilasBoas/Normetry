@@ -11,6 +11,7 @@ dependencies = [
     "anyio>=4.16.0",
     "azure-storage-blob>=12.31.1",
     "fastapi>=0.162.5",
+    "langgraph>=1.2.22",
     "opentelemetry-exporter-otlp-proto-grpc>=1.45.2",
     "opentelemetry-instrumentation-fastapi>=0.66b2",
     "opentelemetry-sdk>=1.45.2",

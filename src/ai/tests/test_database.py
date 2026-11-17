@@ -383,6 +383,9 @@ def test_app_ai_cannot_touch_the_migration_history(app_ai: Engine, statement: st
             "ai.tenant_documents",
             {("app_ai", privilege) for privilege in ("SELECT", "INSERT", "UPDATE")},
         ),
+        # Append-only: a checkpoint id is new on every step, a stored write is kept.
+        ("ai.inspection_checkpoints", {("app_ai", "SELECT"), ("app_ai", "INSERT")}),
+        ("ai.inspection_checkpoint_writes", {("app_ai", "SELECT"), ("app_ai", "INSERT")}),
     ],
 )
 def test_grants_are_exactly_what_the_roles_need(
@@ -422,6 +425,20 @@ def test_policies_are_scoped_to_roles_never_public(owner: Engine) -> None:
         ("messages", "messages_read", "SELECT", ("app_ai",)),
         ("messages", "messages_insert", "INSERT", ("app_ai",)),
         ("tenant_documents", "tenant_documents_tenant", "ALL", ("app_ai",)),
+        ("inspection_checkpoints", "inspection_checkpoints_read", "SELECT", ("app_ai",)),
+        ("inspection_checkpoints", "inspection_checkpoints_insert", "INSERT", ("app_ai",)),
+        (
+            "inspection_checkpoint_writes",
+            "inspection_checkpoint_writes_read",
+            "SELECT",
+            ("app_ai",),
+        ),
+        (
+            "inspection_checkpoint_writes",
+            "inspection_checkpoint_writes_insert",
+            "INSERT",
+            ("app_ai",),
+        ),
     }
 
 
@@ -448,6 +465,8 @@ def test_every_ai_table_the_app_roles_can_use_forces_rls(owner: Engine) -> None:
         "conversations",
         "messages",
         "tenant_documents",
+        "inspection_checkpoints",
+        "inspection_checkpoint_writes",
     } <= forced.keys()
     assert all(forced.values()), forced
 
@@ -551,7 +570,16 @@ def test_app_starts_as_app_ai_and_refuses_the_owner(urls: dict[str, str]) -> Non
 
 
 def test_downgrade_to_base_and_upgrade_again(urls: dict[str, str], owner: Engine) -> None:
-    names = ("chunks", "sources", "model_usage", "conversations", "messages", "tenant_documents")
+    names = (
+        "chunks",
+        "sources",
+        "model_usage",
+        "conversations",
+        "messages",
+        "tenant_documents",
+        "inspection_checkpoints",
+        "inspection_checkpoint_writes",
+    )
     tables = text("SELECT " + ", ".join(f"to_regclass('ai.{name}') IS NOT NULL" for name in names))
 
     migrate(urls["ai_owner"], "downgrade", "base")
