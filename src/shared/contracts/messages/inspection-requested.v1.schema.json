@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/inspection-requested.v1.schema.json",
+  "title": "InspectionRequested, version 1",
+  "description": "core to ai: a user started a simulated inspection of an establishment. The AI service runs it and reports with the ai to core inspection events.",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "type": { "const": "InspectionRequested" },
+    "version": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "establishmentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "inspectionId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "jurisdiction": {
+          "description": "The establishment's jurisdiction; it picks the checklist and the regulation.",
+          "enum": ["US", "EU", "BR"]
+        },
+        "establishmentType": {
+          "description": "Picks the checklist items that apply.",
+          "enum": ["Restaurant", "Pharmacy", "Clinic"]
+        },
+        "tokenCeiling": {
+          "description": "Model tokens (input and output) the inspection may spend. It fails with budget_exceeded before a call that could pass it.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "requestedBy": {
+          "description": "The requesting user's sub, recorded with each model call's usage.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      "required": [
+        "establishmentId",
+        "inspectionId",
+        "jurisdiction",
+        "establishmentType",
+        "tokenCeiling",
+        "requestedBy"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

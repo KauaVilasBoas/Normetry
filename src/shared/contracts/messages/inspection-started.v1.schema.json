@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/inspection-started.v1.schema.json",
+  "title": "InspectionStarted, version 1",
+  "description": "ai to core: the AI service started running an inspection. The inspection becomes Running.",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "type": { "const": "InspectionStarted" },
+    "version": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "establishmentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "inspectionId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "itemsTotal": {
+          "description": "Checklist items the inspection evaluates.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "themes": {
+          "description": "A snapshot of every theme the inspection evaluates, in checklist order, never a delta: a consumer replaces what it holds, so a redelivered or late event never counts twice.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "theme": {
+                "description": "A checklist theme id. Adding one is a breaking change.",
+                "enum": [
+                  "personal_hygiene",
+                  "temperature_control",
+                  "cross_contamination_allergens",
+                  "cleaning_sanitizing",
+                  "pest_control",
+                  "water_premises",
+                  "waste",
+                  "documentation_training"
+                ]
+              },
+              "itemsTotal": {
+                "description": "The theme's items in this inspection.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "itemsEvaluated": {
+                "description": "The theme's items evaluated so far.",
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": ["theme", "itemsTotal", "itemsEvaluated"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["establishmentId", "inspectionId", "itemsTotal", "themes"],
+      "additionalProperties": false
+    }
+  }
+}

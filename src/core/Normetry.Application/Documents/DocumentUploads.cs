@@ -39,7 +39,9 @@ internal static class DocumentUploads
                 version.BlobPath,
                 version.ContentType,
                 version.Size,
-                version.Sha256
+                version.Sha256,
+                document.Title,
+                document.Type
             ),
             cancellationToken
         );

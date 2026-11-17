@@ -1,0 +1,13 @@
+{
+  "messageId": "ae9f8071-6c5d-5e4f-9a2b-3c4d5e6f7a81",
+  "type": "InspectionFailed",
+  "version": 1,
+  "occurredAt": "2026-11-17T09:02:00Z",
+  "tenantId": "3f0c2a9e-6b1d-4c8e-9a57-2d4e8b1c7f60",
+  "payload": {
+    "establishmentId": "8a1e5b77-0c3d-4f29-b6a4-91d2e3c4f5a6",
+    "inspectionId": "7e3d2c1b-0a9f-4e8d-b7c6-a5f4e3d2c1b0",
+    "reasonCode": "budget_exceeded",
+    "reasonText": "The inspection would have passed its token ceiling."
+  }
+}

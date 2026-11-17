@@ -1,0 +1,91 @@
+{
+  "messageId": "9d8e7f60-5b4c-5d3e-8f1a-2b3c4d5e6f71",
+  "type": "InspectionCompleted",
+  "version": 1,
+  "occurredAt": "2026-11-17T09:04:10-03:00",
+  "tenantId": "3f0c2a9e-6b1d-4c8e-9a57-2d4e8b1c7f60",
+  "payload": {
+    "establishmentId": "8a1e5b77-0c3d-4f29-b6a4-91d2e3c4f5a6",
+    "inspectionId": "7e3d2c1b-0a9f-4e8d-b7c6-a5f4e3d2c1b0",
+    "inputTokens": 182340,
+    "outputTokens": 9120,
+    "costUsd": 0.0647,
+    "findings": [
+      {
+        "itemId": "us.cold-holding",
+        "theme": "temperature_control",
+        "title": "Cold-held TCS food is kept at 5 °C (41 °F) or below",
+        "severity": "critical",
+        "verdict": "non_compliant",
+        "confidence": "high",
+        "rationale": "The cooler log records 8 °C and 9 °C with no corrective action.",
+        "regulationCitations": [
+          {
+            "sourceTitle": "FDA Food Code",
+            "sourceVersion": "2026",
+            "sectionPath": "3-501.16",
+            "language": "en",
+            "text": "(A) Except during preparation, cooking, or cooling, TIME/TEMPERATURE CONTROL FOR SAFETY FOOD shall be maintained: (1) At 57°C (135°F) or above; or (2) At 5°C (41°F) or less.",
+            "quote": "At 5°C (41°F) or less",
+            "quoteStart": 151,
+            "quoteEnd": 172
+          }
+        ],
+        "evidenceCitations": [
+          {
+            "documentId": "c4b2a1f0-9e8d-4c7b-a6f5-e4d3c2b1a0f9",
+            "documentTitle": "Walk-in cooler log",
+            "documentType": "Log",
+            "versionNumber": 2,
+            "sectionPath": "Page 1",
+            "language": "en",
+            "text": "Walk-in cooler log, week 44. Monday 6:00 8°C, Monday 14:00 9°C. Corrective action: none recorded.",
+            "quote": "Monday 14:00 9°C",
+            "quoteStart": 46,
+            "quoteEnd": 62
+          }
+        ],
+        "action": {
+          "text": "Repair the walk-in cooler and record corrective actions for readings above 5 °C.",
+          "dueInDays": 7
+        }
+      },
+      {
+        "itemId": "us.handwashing",
+        "theme": "personal_hygiene",
+        "title": "Food employees wash their hands when required",
+        "severity": "minor",
+        "verdict": "compliant",
+        "confidence": "medium",
+        "rationale": "The posted procedure requires handwashing on arrival and before handling food.",
+        "regulationCitations": [
+          {
+            "sourceTitle": "FDA Food Code",
+            "sourceVersion": "2026",
+            "sectionPath": "2-301.14",
+            "language": "en",
+            "text": "Food employees shall wash their hands as specified under 2-301.12 before engaging in food preparation.",
+            "quote": "wash their hands",
+            "quoteStart": null,
+            "quoteEnd": null
+          }
+        ],
+        "evidenceCitations": [
+          {
+            "documentId": "d5c3b2a1-0f9e-4d8c-b7a6-f5e4d3c2b1a0",
+            "documentTitle": null,
+            "documentType": null,
+            "versionNumber": 1,
+            "sectionPath": "",
+            "language": "en",
+            "text": "All kitchen staff wash hands on arrival and before handling food, as posted at each sink.",
+            "quote": "wash hands on arrival and before handling food",
+            "quoteStart": null,
+            "quoteEnd": null
+          }
+        ],
+        "action": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/inspection-failed.v1.schema.json",
+  "title": "InspectionFailed, version 1",
+  "description": "ai to core: an inspection stopped without findings. The inspection becomes Failed with the reason; no partial findings are kept.",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "type": { "const": "InspectionFailed" },
+    "version": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "establishmentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "inspectionId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "reasonCode": {
+          "description": "What went wrong (README.md, \"Inspections\"). Adding a code is a breaking change.",
+          "enum": ["budget_exceeded", "no_documents", "error"]
+        },
+        "reasonText": {
+          "description": "A short English sentence for the user. Never quotes a document.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "required": ["establishmentId", "inspectionId", "reasonCode", "reasonText"],
+      "additionalProperties": false
+    }
+  }
+}

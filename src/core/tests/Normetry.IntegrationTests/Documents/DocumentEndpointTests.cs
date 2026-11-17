@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Application.Documents;
+using Normetry.Domain.Documents;
 using Normetry.Infrastructure.Messaging;
 using Normetry.IntegrationTests.Database;
 using Xunit;
@@ -88,7 +89,9 @@ public sealed class DocumentEndpointTests
                 SampleFiles.Pdf.Length,
                 Convert.ToHexStringLower(
                     System.Security.Cryptography.SHA256.HashData(SampleFiles.Pdf)
-                )
+                ),
+                "Cold storage SOP",
+                DocumentType.Sop
             ),
             uploaded
         );
@@ -203,7 +206,15 @@ public sealed class DocumentEndpointTests
                     )
                 )
         );
-        Assert.Equal(2, (await OutboxAsync(tenant.Id)).Count);
+        var messages = await OutboxAsync(tenant.Id);
+        Assert.Equal(2, messages.Count);
+        // A new version is announced with the document's title and type too.
+        Assert.All(messages, message =>
+        {
+            var uploaded = Assert.IsType<DocumentUploaded>(message.Payload);
+            Assert.Equal("Cold storage SOP", uploaded.Title);
+            Assert.Equal(DocumentType.Sop, uploaded.DocumentType);
+        });
 
         // A failed newest version allows the next one too.
         await SetStatusAsync(
