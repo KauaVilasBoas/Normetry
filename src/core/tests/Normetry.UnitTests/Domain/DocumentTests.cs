@@ -112,4 +112,21 @@ public sealed class DocumentTests
         Assert.True(document.IsDeleted);
         Assert.Throws<InvalidOperationException>(() => document.AddVersion(Pdf, Uploader, Now));
     }
+
+    [Fact]
+    public void The_expiry_date_is_optional_any_date_and_can_be_cleared_until_the_document_is_deleted()
+    {
+        var document = NewDocument();
+        Assert.Null(document.ExpiresOn);
+
+        document.SetExpiry(new DateOnly(2020, 1, 31)); // in the past: allowed, the document is expired
+        Assert.Equal(new DateOnly(2020, 1, 31), document.ExpiresOn);
+        document.SetExpiry(null);
+        Assert.Null(document.ExpiresOn);
+
+        document.SetExpiry(new DateOnly(2027, 6, 30));
+        document.Delete(Now);
+        Assert.Throws<InvalidOperationException>(() => document.SetExpiry(null));
+        Assert.Equal(new DateOnly(2027, 6, 30), document.ExpiresOn);
+    }
 }

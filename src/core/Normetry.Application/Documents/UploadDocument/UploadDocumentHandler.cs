@@ -54,6 +54,7 @@ internal sealed class UploadDocumentHandler(
             await DocumentUploads.UploaderAsync(users, currentUser, cancellationToken),
             clock.GetUtcNow()
         );
+        document.SetExpiry(request.ExpiresOn);
         await DocumentUploads.StoreAsync(
             blobs,
             outbox,

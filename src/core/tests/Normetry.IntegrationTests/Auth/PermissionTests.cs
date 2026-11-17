@@ -35,6 +35,7 @@ public sealed class PermissionTests
             { "POST", "/establishments", Permissions.Establishments.Manage },
             { "POST", "/establishments/{id}/documents", Permissions.Documents.Upload },
             { "GET", "/establishments/{id}/documents", Permissions.Documents.Read },
+            { "PATCH", "/establishments/{id}/documents/{id}", Permissions.Documents.Upload },
             { "GET", "/documents/{id}", Permissions.Documents.Read },
             { "POST", "/documents/{id}/versions", Permissions.Documents.Upload },
             { "DELETE", "/documents/{id}", Permissions.Documents.Delete },

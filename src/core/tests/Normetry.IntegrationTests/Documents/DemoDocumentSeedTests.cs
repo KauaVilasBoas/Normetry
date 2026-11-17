@@ -94,6 +94,32 @@ public sealed class DemoDocumentSeedTests : IDisposable
     }
 
     [Fact]
+    public async Task The_expiry_date_follows_the_manifest_without_a_new_version()
+    {
+        var sub = Guid.NewGuid().ToString();
+        var tenant = await TestTenants.CreateAsync(db, owners: sub);
+        await TestTenants.CreateEstablishmentAsync(db, tenant); // named Kitchen
+        Directory.CreateDirectory(Documents);
+        await WriteAsync("license.txt", "Operating license.");
+        DemoDocumentSeed.DemoEstablishment[] targets = [new(tenant, "Kitchen", sub)];
+        var seed = NewSeed();
+
+        await WriteLicenseManifestAsync(", \"expiresOn\": \"2027-03-31\"");
+        Assert.Equal(1, await seed.SeedAsync(folder.FullName, targets, Ct));
+        Assert.Equal(["2027-03-31 1"], await ExpiryAsync(tenant));
+
+        // A new date in the manifest changes the document's, with no upload.
+        await WriteLicenseManifestAsync(", \"expiresOn\": \"2028-03-31\"");
+        Assert.Equal(0, await seed.SeedAsync(folder.FullName, targets, Ct));
+        Assert.Equal(["2028-03-31 1"], await ExpiryAsync(tenant));
+
+        // No date in the manifest clears it.
+        await WriteLicenseManifestAsync("");
+        Assert.Equal(0, await seed.SeedAsync(folder.FullName, targets, Ct));
+        Assert.Equal(["none 1"], await ExpiryAsync(tenant));
+    }
+
+    [Fact]
     public async Task The_placeholder_documents_pass_the_upload_commands()
     {
         // evals/establishments, copied next to the tests, uploaded into a test tenant that has
@@ -181,6 +207,33 @@ public sealed class DemoDocumentSeedTests : IDisposable
 
     private Task WriteAsync(string file, string text) =>
         File.WriteAllTextAsync(Path.Combine(Documents, file), text, Ct);
+
+    private Task WriteLicenseManifestAsync(string extraFields) =>
+        WriteAsync(
+            "manifest.json",
+            $$"""
+            {
+              "establishment": "Kitchen",
+              "documents": [
+                { "title": "License", "type": "License", "file": "license.txt"{{extraFields}} }
+              ]
+            }
+            """
+        );
+
+    /// <summary>"expiry versions" of every document of the tenant.</summary>
+    private async Task<List<string>> ExpiryAsync(Guid tenant)
+    {
+        await using var session = await Session.BeginAsync(db.ConnectionString("app_core"), tenant);
+        return await session.ColumnAsync<string>(
+            """
+            SELECT coalesce(d.expires_on::text, 'none') || ' ' || count(v.id)
+            FROM core.documents d
+            JOIN core.document_versions v ON v.tenant_id = d.tenant_id AND v.document_id = d.id
+            GROUP BY d.tenant_id, d.id
+            """
+        );
+    }
 
     /// <summary>"title type number uploader-sub" of every version of the tenant.</summary>
     private async Task<List<string>> VersionsAsync(Guid tenant)

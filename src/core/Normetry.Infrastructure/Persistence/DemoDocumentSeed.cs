@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Normetry.Application.Documents;
+using Normetry.Application.Documents.SetDocumentExpiry;
 using Normetry.Application.Documents.UploadDocument;
 using Normetry.Application.Documents.UploadDocumentVersion;
 using Normetry.BuildingBlocks.Cqrs;
@@ -21,8 +22,9 @@ namespace Normetry.Infrastructure.Persistence;
 /// through the upload commands, as the establishment's tenant with its demo Owner as uploader:
 /// blob, version and outbox message, then the AI service ingests them like any upload.
 /// Idempotent: a document (matched by title) whose current or newest version already has the
-/// file's SHA-256 is skipped, and a changed file becomes a new version. A failure is logged and
-/// never stops the API.
+/// file's SHA-256 is skipped, and a changed file becomes a new version. The document's expiry date
+/// follows the manifest's <c>expiresOn</c> (none when absent) without a new version. A failure is
+/// logged and never stops the API.
 /// </summary>
 public sealed class DemoDocumentSeed(
     IServiceScopeFactory scopes,
@@ -150,6 +152,10 @@ public sealed class DemoDocumentSeed(
             var content = await File.ReadAllBytesAsync(file, cancellationToken);
             var sha256 = Convert.ToHexStringLower(SHA256.HashData(content));
             var document = existing.FirstOrDefault(document => document.Title == entry.Title);
+            if (document is not null && document.ExpiresOn != entry.ExpiresOn)
+            {
+                await SetExpiryAsync(target, establishmentId, document, entry, cancellationToken);
+            }
             if (
                 document is not null
                 && (document.Current?.Sha256 == sha256 || document.Newest.Sha256 == sha256)
@@ -167,7 +173,13 @@ public sealed class DemoDocumentSeed(
             var dispatcher = scope.ServiceProvider.GetRequiredService<IDispatcher>();
             var result = document is null
                 ? await dispatcher.SendAsync(
-                    new UploadDocumentCommand(establishmentId, entry.Title, entry.Type, upload),
+                    new UploadDocumentCommand(
+                        establishmentId,
+                        entry.Title,
+                        entry.Type,
+                        upload,
+                        entry.ExpiresOn
+                    ),
                     cancellationToken
                 )
                 : await dispatcher.SendAsync(
@@ -191,6 +203,31 @@ public sealed class DemoDocumentSeed(
             uploads++;
         }
         return uploads;
+    }
+
+    private async Task SetExpiryAsync(
+        DemoEstablishment target,
+        Guid establishmentId,
+        Document document,
+        ManifestDocument entry,
+        CancellationToken cancellationToken
+    )
+    {
+        await using var scope = NewScope(target);
+        var result = await scope
+            .ServiceProvider.GetRequiredService<IDispatcher>()
+            .SendAsync(
+                new SetDocumentExpiryCommand(establishmentId, document.Id, entry.ExpiresOn),
+                cancellationToken
+            );
+        if (!result.IsSuccess)
+        {
+            logger.LogWarning(
+                "Could not set the expiry date of the demo document {Title}: {Code}",
+                entry.Title,
+                result.Error.Code
+            );
+        }
     }
 
     /// <summary>The establishment's id and its documents with their versions, under its tenant.</summary>
@@ -230,5 +267,10 @@ public sealed class DemoDocumentSeed(
     private sealed record Manifest(string Establishment, ManifestDocument[] Documents);
 
     /// <summary><paramref name="File"/> is relative to the manifest's folder.</summary>
-    private sealed record ManifestDocument(string Title, DocumentType Type, string File);
+    private sealed record ManifestDocument(
+        string Title,
+        DocumentType Type,
+        string File,
+        DateOnly? ExpiresOn = null
+    );
 }

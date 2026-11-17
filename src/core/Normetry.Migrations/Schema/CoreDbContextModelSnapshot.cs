@@ -45,6 +45,10 @@ namespace Normetry.Migrations.Schema
                         .HasColumnType("uuid")
                         .HasColumnName("establishment_id");
 
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date")
+                        .HasColumnName("expires_on");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
