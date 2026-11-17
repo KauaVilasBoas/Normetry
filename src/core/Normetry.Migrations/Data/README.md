@@ -17,3 +17,4 @@ data migration can fill a table that an earlier schema migration created.
 
 - `InsertPermissionCatalog`: the permission catalog (`core.permissions`, global, no RLS). A new
   permission is a new data migration; Owner gets it through `grants_all` with no other change.
+- `AddInspectionPermissions`: `inspections.read`, `inspections.run` and `inspections.review`.

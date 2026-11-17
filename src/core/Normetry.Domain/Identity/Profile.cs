@@ -62,28 +62,12 @@ public sealed class Profile
     public static Profile CreateSystem(Guid tenantId, string systemKey)
     {
         Names.RequiredId(tenantId, nameof(tenantId));
-        var (name, permissions) = systemKey switch
+        var permissions = DefaultPermissions(systemKey);
+        var name = systemKey switch
         {
-            SystemKeys.Owner => ("Owner", Array.Empty<string>()),
-            SystemKeys.Manager => (
-                "Manager",
-                Permissions.All.Where(name => name != Permissions.Profiles.Manage).ToArray()
-            ),
-            SystemKeys.Auditor => (
-                "Auditor",
-                new[]
-                {
-                    Permissions.Establishments.Read,
-                    Permissions.Documents.Read,
-                    Permissions.Chat.Ask,
-                    Permissions.Profiles.Read,
-                }
-            ),
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(systemKey),
-                systemKey,
-                "Unknown system profile."
-            ),
+            SystemKeys.Owner => "Owner",
+            SystemKeys.Manager => "Manager",
+            _ => "Auditor",
         };
         var profile = new Profile(
             Guid.CreateVersion7(),
@@ -95,6 +79,33 @@ public sealed class Profile
         profile.Grant(permissions);
         return profile;
     }
+
+    /// <summary>
+    /// What the system profile for <paramref name="systemKey"/> grants when it is created: nothing
+    /// for Owner, which grants everything through <see cref="GrantsAll"/>.
+    /// </summary>
+    public static IReadOnlyList<string> DefaultPermissions(string systemKey) =>
+        systemKey switch
+        {
+            SystemKeys.Owner => [],
+            SystemKeys.Manager =>
+            [
+                .. Permissions.All.Where(name => name != Permissions.Profiles.Manage),
+            ],
+            SystemKeys.Auditor =>
+            [
+                Permissions.Establishments.Read,
+                Permissions.Documents.Read,
+                Permissions.Chat.Ask,
+                Permissions.Inspections.Read,
+                Permissions.Profiles.Read,
+            ],
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(systemKey),
+                systemKey,
+                "Unknown system profile."
+            ),
+        };
 
     public void Rename(string name)
     {

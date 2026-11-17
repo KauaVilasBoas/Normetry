@@ -34,10 +34,21 @@ public sealed class ProfileTests
                 Permissions.Chat.Ask,
                 Permissions.Documents.Read,
                 Permissions.Establishments.Read,
+                Permissions.Inspections.Read,
                 Permissions.Profiles.Read,
             ],
             Granted(auditor)
         );
+        // Manager can run and review inspections; Auditor only reads them.
+        Assert.Contains(Permissions.Inspections.Run, Granted(manager));
+        Assert.Contains(Permissions.Inspections.Review, Granted(manager));
+        foreach (var profile in new[] { owner, manager, auditor })
+        {
+            Assert.Equal(
+                Profile.DefaultPermissions(profile.SystemKey!).Order(StringComparer.Ordinal),
+                Granted(profile)
+            );
+        }
     }
 
     [Fact]

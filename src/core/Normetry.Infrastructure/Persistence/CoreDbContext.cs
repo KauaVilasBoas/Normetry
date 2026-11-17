@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Normetry.Domain.Documents;
 using Normetry.Domain.Establishments;
 using Normetry.Domain.Identity;
+using Normetry.Domain.Inspections;
 using Normetry.Domain.Tenancy;
 using Normetry.Domain.Usage;
 using Normetry.Infrastructure.Messaging;
@@ -32,6 +33,14 @@ public sealed class CoreDbContext(DbContextOptions<CoreDbContext> options) : DbC
     public DbSet<Document> Documents => Set<Document>();
 
     public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
+
+    public DbSet<Inspection> Inspections => Set<Inspection>();
+
+    public DbSet<Finding> Findings => Set<Finding>();
+
+    public DbSet<ActionItem> ActionItems => Set<ActionItem>();
+
+    public DbSet<InspectionCount> InspectionCounts => Set<InspectionCount>();
 
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

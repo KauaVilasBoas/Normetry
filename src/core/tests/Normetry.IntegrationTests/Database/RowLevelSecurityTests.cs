@@ -6,8 +6,9 @@ namespace Normetry.IntegrationTests.Database;
 /// <summary>
 /// RLS on core.tenants, core.establishments, core.chat_message_counts, the identity tables
 /// (profiles, profile_permissions, users, user_profiles), the messaging tables
-/// (outbox_messages, inbox_messages, outbox_tenants) and the document tables (documents,
-/// document_versions), in plain SQL as app_core (the rls-table skill), plus core_dispatcher's
+/// (outbox_messages, inbox_messages, outbox_tenants), the document tables (documents,
+/// document_versions) and the inspection tables (inspections, findings, action_items,
+/// inspection_counts), in plain SQL as app_core (the rls-table skill), plus core_dispatcher's
 /// read of the tenant list.
 /// Every test makes its own tenants, so tests never see each other's rows.
 /// </summary>
@@ -1058,5 +1059,329 @@ public sealed class RowLevelSecurityTests
             );
             Assert.Equal("23503", error.SqlState); // foreign_key_violation
         }
+    }
+
+    /// <summary>
+    /// The inspection rows of one tenant: a user, a completed inspection of its establishment, a
+    /// finding with an action item and a spare finding without one, and a day's count.
+    /// </summary>
+    private sealed record Inspections(
+        Guid Tenant,
+        Guid Establishment,
+        Guid User,
+        Guid Inspection,
+        Guid Finding,
+        Guid SpareFinding,
+        Guid ActionItem
+    );
+
+    private static readonly DateOnly CountedDay = new(2031, 1, 1);
+
+    private const string InsertInspection = """
+        INSERT INTO core.inspections (id, tenant_id, establishment_id, status, requested_by,
+            requested_at, items_total, items_evaluated, themes)
+        VALUES ($1, $2, $3, $4, 'user', now(), 0, 0, '[]')
+        """;
+    private const string InsertFinding = """
+        INSERT INTO core.findings (id, tenant_id, inspection_id, item_id, theme, title, severity,
+            verdict, confidence, rationale, review_status, regulation_citations, evidence_citations)
+        VALUES ($1, $2, $3, 'us-temp-01', 'temperature_control', 'Cold holding', 'critical',
+            'non_compliant', 'high', 'The log shows 45 F.', 'Pending', '[]', '[]')
+        """;
+    private const string InsertActionItem = """
+        INSERT INTO core.action_items (id, tenant_id, finding_id, text, due_on, status)
+        VALUES ($1, $2, $3, 'Recalibrate the cooler.', DATE '2031-01-08', 'Open')
+        """;
+    private const string InsertInspectionCount =
+        "INSERT INTO core.inspection_counts (tenant_id, day, count) VALUES ($1, $2, 1)";
+
+    /// <summary>Two new tenants with their inspection rows, written by app_core.</summary>
+    private async Task<(Inspections A, Inspections B)> SeedInspectionsAsync()
+    {
+        var (tenantA, tenantB, establishmentA, establishmentB) = await SeedAsync();
+        var seeded = new List<Inspections>();
+        foreach (
+            var (tenant, establishment) in new[]
+            {
+                (tenantA, establishmentA),
+                (tenantB, establishmentB),
+            }
+        )
+        {
+            var rows = new Inspections(
+                tenant,
+                establishment,
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7()
+            );
+            await using var session = await Session.BeginAsync(AppCore, tenant);
+            await session.ExecuteAsync(
+                "INSERT INTO core.users (tenant_id, id, sub) VALUES ($1, $2, 'user')",
+                tenant,
+                rows.User
+            );
+            await session.ExecuteAsync(
+                InsertInspection,
+                rows.Inspection,
+                tenant,
+                establishment,
+                "Completed"
+            );
+            await session.ExecuteAsync(InsertFinding, rows.Finding, tenant, rows.Inspection);
+            await session.ExecuteAsync(InsertFinding, rows.SpareFinding, tenant, rows.Inspection);
+            await session.ExecuteAsync(InsertActionItem, rows.ActionItem, tenant, rows.Finding);
+            await session.ExecuteAsync(InsertInspectionCount, tenant, CountedDay);
+            await session.CommitAsync();
+            seeded.Add(rows);
+        }
+        return (seeded[0], seeded[1]);
+    }
+
+    /// <summary>A new row for <paramref name="table"/> carrying <paramref name="target"/>'s tenant and ids.</summary>
+    private static (string Sql, object[] Parameters) InsertInspectionRow(
+        string table,
+        Inspections target
+    ) =>
+        table switch
+        {
+            "inspections" => (
+                InsertInspection,
+                [Guid.CreateVersion7(), target.Tenant, target.Establishment, "Completed"]
+            ),
+            "findings" => (
+                InsertFinding,
+                [Guid.CreateVersion7(), target.Tenant, target.Inspection]
+            ),
+            "action_items" => (
+                InsertActionItem,
+                [Guid.CreateVersion7(), target.Tenant, target.SpareFinding]
+            ),
+            _ => (InsertInspectionCount, [target.Tenant, CountedDay.AddDays(1)]),
+        };
+
+    [Theory]
+    [InlineData("inspections")]
+    [InlineData("findings")]
+    [InlineData("action_items")]
+    [InlineData("inspection_counts")]
+    public async Task Each_tenant_reads_only_its_own_inspection_rows(string table)
+    {
+        var (a, b) = await SeedInspectionsAsync();
+        var visible = $"SELECT DISTINCT tenant_id FROM core.{table} WHERE tenant_id = ANY($1)";
+        Guid[] both = [a.Tenant, b.Tenant];
+
+        await using (var session = await Session.BeginAsync(AppCore, a.Tenant))
+        {
+            Assert.Equal([a.Tenant], await session.ColumnAsync<Guid>(visible, both));
+        }
+        await using (var session = await Session.BeginAsync(AppCore, b.Tenant))
+        {
+            Assert.Equal([b.Tenant], await session.ColumnAsync<Guid>(visible, both));
+        }
+    }
+
+    [Theory]
+    [InlineData("UPDATE core.inspections SET status = 'Failed' WHERE tenant_id = $1")]
+    [InlineData("UPDATE core.findings SET review_status = 'Rejected' WHERE tenant_id = $1")]
+    [InlineData("UPDATE core.action_items SET status = 'Done' WHERE tenant_id = $1")]
+    [InlineData("UPDATE core.inspection_counts SET count = 99 WHERE tenant_id = $1")]
+    public async Task A_tenant_cannot_update_another_tenants_inspection_rows(string sql)
+    {
+        var (a, b) = await SeedInspectionsAsync();
+
+        await using (var session = await Session.BeginAsync(AppCore, b.Tenant))
+        {
+            Assert.Equal(0, await session.ExecuteAsync(sql, a.Tenant));
+            await session.CommitAsync();
+        }
+
+        await using var sessionA = await Session.BeginAsync(AppCore, a.Tenant);
+        Assert.Equal(
+            ("Completed", 2L, "Open", 1),
+            (
+                await sessionA.ScalarAsync<string>("SELECT status FROM core.inspections"),
+                await sessionA.ScalarAsync<long>(
+                    "SELECT count(*) FROM core.findings WHERE review_status = 'Pending'"
+                ),
+                await sessionA.ScalarAsync<string>("SELECT status FROM core.action_items"),
+                await sessionA.ScalarAsync<int>("SELECT count FROM core.inspection_counts")
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData("inspections")]
+    [InlineData("findings")]
+    [InlineData("action_items")]
+    [InlineData("inspection_counts")]
+    public async Task App_core_cannot_delete_inspection_rows_even_its_own(string table)
+    {
+        var (a, _) = await SeedInspectionsAsync();
+
+        await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+        await session.AssertDeniedAsync($"DELETE FROM core.{table} WHERE tenant_id = $1", a.Tenant);
+    }
+
+    [Theory]
+    [InlineData("inspections")]
+    [InlineData("findings")]
+    [InlineData("action_items")]
+    [InlineData("inspection_counts")]
+    public async Task A_tenant_cannot_insert_or_move_inspection_rows_into_another_tenant(
+        string table
+    )
+    {
+        var (a, b) = await SeedInspectionsAsync();
+        var (sql, parameters) = InsertInspectionRow(table, b);
+
+        await using (var session = await Session.BeginAsync(AppCore, a.Tenant))
+        {
+            await session.AssertDeniedAsync(sql, parameters);
+        }
+        await using (var session = await Session.BeginAsync(AppCore, a.Tenant))
+        {
+            await session.AssertDeniedAsync(
+                $"UPDATE core.{table} SET tenant_id = $1 WHERE tenant_id = $2",
+                b.Tenant,
+                a.Tenant
+            );
+        }
+    }
+
+    [Theory]
+    [InlineData("inspections")]
+    [InlineData("findings")]
+    [InlineData("action_items")]
+    [InlineData("inspection_counts")]
+    public async Task Without_a_tenant_no_inspection_row_is_visible_and_writes_fail(string table)
+    {
+        var (a, b) = await SeedInspectionsAsync();
+        var (sql, parameters) = InsertInspectionRow(table, a);
+
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            Assert.Empty(
+                await session.ColumnAsync<Guid>(
+                    $"SELECT tenant_id FROM core.{table} WHERE tenant_id = ANY($1)",
+                    new[] { a.Tenant, b.Tenant }
+                )
+            );
+            Assert.Equal(
+                0,
+                await session.ExecuteAsync($"UPDATE core.{table} SET tenant_id = tenant_id")
+            );
+        }
+        await using (var session = await Session.BeginAsync(AppCore))
+        {
+            await session.AssertDeniedAsync(sql, parameters);
+        }
+    }
+
+    [Fact]
+    public async Task An_inspection_row_cannot_point_at_another_tenants_rows()
+    {
+        // Row-level security accepts these rows (their tenant is the session's), but the composite
+        // foreign keys find no establishment, inspection, finding or user with that id here.
+        var (a, b) = await SeedInspectionsAsync();
+
+        foreach (
+            var (sql, parameters) in new (string, object[])[]
+            {
+                (InsertInspection, [Guid.CreateVersion7(), a.Tenant, b.Establishment, "Completed"]),
+                (InsertFinding, [Guid.CreateVersion7(), a.Tenant, b.Inspection]),
+                (InsertActionItem, [Guid.CreateVersion7(), a.Tenant, b.SpareFinding]),
+                ("UPDATE core.findings SET reviewed_by = $2 WHERE id = $1", [a.Finding, b.User]),
+                (
+                    "UPDATE core.action_items SET updated_by = $2 WHERE id = $1",
+                    [a.ActionItem, b.User]
+                ),
+            }
+        )
+        {
+            await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+            var error = await Assert.ThrowsAsync<Npgsql.PostgresException>(() =>
+                session.ExecuteAsync(sql, parameters)
+            );
+            Assert.Equal("23503", error.SqlState); // foreign_key_violation
+        }
+    }
+
+    [Theory]
+    [InlineData("Requested", "Requested")]
+    [InlineData("Requested", "Running")]
+    [InlineData("Running", "Requested")]
+    public async Task An_establishment_has_one_inspection_in_flight_at_most(
+        string first,
+        string second
+    )
+    {
+        var (a, _) = await SeedInspectionsAsync();
+        await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+        await session.ExecuteAsync(
+            InsertInspection,
+            Guid.CreateVersion7(),
+            a.Tenant,
+            a.Establishment,
+            first
+        );
+
+        var error = await Assert.ThrowsAsync<Npgsql.PostgresException>(() =>
+            session.ExecuteAsync(
+                InsertInspection,
+                Guid.CreateVersion7(),
+                a.Tenant,
+                a.Establishment,
+                second
+            )
+        );
+        // unique_violation, on the index a concurrent start maps to its refusal
+        Assert.Equal(
+            ("23505", "ix_inspections_tenant_id_establishment_id"),
+            (error.SqlState, error.ConstraintName)
+        );
+    }
+
+    [Fact]
+    public async Task Ended_inspections_and_other_establishments_do_not_count_as_in_flight()
+    {
+        // The seeded inspection is Completed already.
+        var (a, _) = await SeedInspectionsAsync();
+        var other = Guid.CreateVersion7();
+        await using var session = await Session.BeginAsync(AppCore, a.Tenant);
+        await session.ExecuteAsync(InsertEstablishment, other, a.Tenant);
+
+        foreach (
+            var (establishment, status) in new[]
+            {
+                (a.Establishment, "Failed"),
+                (a.Establishment, "Running"),
+                (other, "Requested"),
+            }
+        )
+        {
+            await session.ExecuteAsync(
+                InsertInspection,
+                Guid.CreateVersion7(),
+                a.Tenant,
+                establishment,
+                status
+            );
+        }
+        // Once the run ends, the next one may start.
+        await session.ExecuteAsync(
+            "UPDATE core.inspections SET status = 'Completed' WHERE status = 'Running'"
+        );
+        await session.ExecuteAsync(
+            InsertInspection,
+            Guid.CreateVersion7(),
+            a.Tenant,
+            a.Establishment,
+            "Requested"
+        );
+
+        Assert.Equal(5L, await session.ScalarAsync<long>("SELECT count(*) FROM core.inspections"));
     }
 }

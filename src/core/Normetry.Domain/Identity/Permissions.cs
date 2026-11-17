@@ -30,6 +30,16 @@ public static class Permissions
         public const string Ask = "chat.ask";
     }
 
+    public static class Inspections
+    {
+        /// <summary>Also covers watching a run's progress.</summary>
+        public const string Read = "inspections.read";
+        public const string Run = "inspections.run";
+
+        /// <summary>Accepting, rejecting and editing findings, and marking actions done.</summary>
+        public const string Review = "inspections.review";
+    }
+
     public static class Profiles
     {
         public const string Read = "profiles.read";
@@ -46,6 +56,9 @@ public static class Permissions
         Documents.Upload,
         Documents.Delete,
         Chat.Ask,
+        Inspections.Read,
+        Inspections.Run,
+        Inspections.Review,
         Profiles.Read,
         Profiles.Manage,
     ];

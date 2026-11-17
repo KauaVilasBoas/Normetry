@@ -243,6 +243,7 @@ public sealed class TenantTransactionTests
                 "auditor chat.ask",
                 "auditor documents.read",
                 "auditor establishments.read",
+                "auditor inspections.read",
                 "auditor profiles.read",
                 "manager chat.ask",
                 "manager documents.delete",
@@ -250,10 +251,98 @@ public sealed class TenantTransactionTests
                 "manager documents.upload",
                 "manager establishments.manage",
                 "manager establishments.read",
+                "manager inspections.read",
+                "manager inspections.review",
+                "manager inspections.run",
                 "manager profiles.read",
             ],
             granted
         );
+    }
+
+    [Fact]
+    public async Task The_demo_seed_gives_older_system_profiles_the_inspection_permissions_once()
+    {
+        // Bakery's Auditor as seeded before the inspection permissions existed, and Bistro's
+        // Manager after someone took inspections.run away in Settings.
+        var seed = db.Api.Services.GetServices<IHostedService>().OfType<DemoTenantSeed>().Single();
+        const string Granted = """
+            SELECT pp.permission FROM core.profile_permissions pp
+            JOIN core.profiles p ON p.id = pp.profile_id
+            WHERE p.system_key = $1 AND pp.permission LIKE 'inspections.%'
+            ORDER BY pp.permission COLLATE "C"
+            """;
+        const string Revoke = """
+            DELETE FROM core.profile_permissions pp USING core.profiles p
+            WHERE p.id = pp.profile_id AND p.system_key = $1 AND pp.permission LIKE $2
+            """;
+        var (bakery, bistro) = (Guid.Parse(ApiFactory.TenantB), Guid.Parse(ApiFactory.TenantA));
+        await using (
+            var session = await Session.BeginAsync(db.ConnectionString("app_core"), bakery)
+        )
+        {
+            await session.ExecuteAsync(Revoke, "auditor", "inspections.%");
+            await session.CommitAsync();
+        }
+        await using (
+            var session = await Session.BeginAsync(db.ConnectionString("app_core"), bistro)
+        )
+        {
+            await session.ExecuteAsync(Revoke, "manager", "inspections.run");
+            await session.CommitAsync();
+        }
+
+        try
+        {
+            await seed.StartAsync(Ct);
+            await seed.StartAsync(Ct);
+
+            await using (
+                var session = await Session.BeginAsync(db.ConnectionString("app_core"), bakery)
+            )
+            {
+                Assert.Equal(
+                    ["inspections.read"],
+                    await session.ColumnAsync<string>(Granted, "auditor")
+                );
+            }
+            await using (
+                var session = await Session.BeginAsync(db.ConnectionString("app_core"), bistro)
+            )
+            {
+                Assert.Equal(
+                    ["inspections.read", "inspections.review"],
+                    await session.ColumnAsync<string>(Granted, "manager")
+                );
+            }
+        }
+        finally
+        {
+            // Back to the defaults, for the tests that read the demo profiles.
+            foreach (
+                var (tenant, key, permission) in new[]
+                {
+                    (bistro, "manager", "inspections.run"),
+                    (bakery, "auditor", "inspections.read"),
+                }
+            )
+            {
+                await using var session = await Session.BeginAsync(
+                    db.ConnectionString("app_core"),
+                    tenant
+                );
+                await session.ExecuteAsync(
+                    """
+                    INSERT INTO core.profile_permissions
+                    SELECT tenant_id, id, $2 FROM core.profiles WHERE system_key = $1
+                    ON CONFLICT DO NOTHING
+                    """,
+                    key,
+                    permission
+                );
+                await session.CommitAsync();
+            }
+        }
     }
 
     [Fact]
