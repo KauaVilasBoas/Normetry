@@ -24,10 +24,12 @@ from sqlalchemy import Engine, text
 
 from normetry_ai.db import tenant_transaction
 from normetry_ai.ingestion.chunking import chunk_sections
-from normetry_ai.ingestion.parsers import MAX_BYTES, Rejected, parse_file
+from normetry_ai.ingestion.parsers import MAX_BYTES, Rejected
+from normetry_ai.ingestion.sandbox import parse_in_subprocess
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.messaging.contracts import DocumentDeleted, DocumentIndexed, DocumentUploaded
 from normetry_ai.retrieval.language import detect_language
+from normetry_ai.settings import ParseSettings
 
 logger = logging.getLogger(__name__)
 # azure-core logs every request URL at INFO, and a blob URL holds the uploaded file's name.
@@ -36,8 +38,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(l
 # Chunks per version. The design allows 100 pages; a dense page is about 3,000 characters, two
 # chunks, so 500 leaves room and keeps embedding a version to a few minutes of CPU. A 10 MiB text
 # file would otherwise take thousands of chunks, and the queue it holds up serves every tenant.
-# ponytail: bounds embedding only; a file that hangs a parser still holds the queue. Upgrade: run
-# parse and embed in a subprocess with a wall-clock limit.
+# Parsing has its own wall-clock limit (sandbox.py, NORMETRY_PARSE_TIMEOUT_SECONDS).
 MAX_CHUNKS = 500
 
 # A segment that HTTP clients would resolve ("." and ".."), an empty one, a backslash (which some
@@ -153,10 +154,17 @@ def _verdict(row: Any, version: int) -> Verdict:
 class DocumentWorker:
     """Indexes and deletes one tenant's document versions; shares the service's embedder."""
 
-    def __init__(self, engine: Engine, embedder: Embedder, blobs: BlobStore) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        embedder: Embedder,
+        blobs: BlobStore,
+        parsing: ParseSettings | None = None,
+    ) -> None:
         self.engine = engine
         self.embedder = embedder
         self.blobs = blobs
+        self.parsing = parsing or ParseSettings()
 
     def reachable(self) -> bool:
         """Whether the database and blob storage answer. A failure while one of them does not is
@@ -188,7 +196,13 @@ class DocumentWorker:
         data = self.blobs.download(tenant_id, message.blob_path)
         if hashlib.sha256(data).hexdigest() != message.sha256:
             raise Rejected("internal", "The stored file does not match the uploaded file.")
-        parsed = parse_file(data, message.content_type)
+        # In a child process without credentials (sandbox.py): the file is untrusted.
+        parsed = parse_in_subprocess(
+            data,
+            message.content_type,
+            timeout_s=self.parsing.parse_timeout_seconds,
+            memory_mb=self.parsing.parse_memory_mb,
+        )
         chunks = chunk_sections(parsed.parts)
         if len(chunks) > MAX_CHUNKS:
             raise Rejected("too_large", "The document holds more text than 100 pages.")

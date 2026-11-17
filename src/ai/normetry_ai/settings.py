@@ -50,6 +50,17 @@ class Settings(BaseSettings):
         return self
 
 
+class ParseSettings(BaseSettings):
+    """The child process that parses each upload (ingestion/sandbox.py)."""
+
+    model_config = _CONFIG
+
+    # Wall-clock limit: the child is killed and the version fails with parse_error.
+    parse_timeout_seconds: float = Field(default=60, gt=0)
+    # Address space of the child (RLIMIT_AS), POSIX only; Windows has no memory limit.
+    parse_memory_mb: int = Field(default=512, gt=0)
+
+
 class EmbeddingSettings(BaseSettings):
     """The embedding model (ADR 008), pinned to a Hub commit so every run embeds the same way."""
 
