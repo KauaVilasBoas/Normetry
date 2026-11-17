@@ -35,6 +35,16 @@
           "description": "SHA-256 of the file, lower-case hex.",
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "title": {
+          "description": "Optional, added in v1 without a new version: the document's title, shown on the findings that cite it.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "documentType": {
+          "description": "Optional, added in v1 without a new version: what kind of document it is.",
+          "enum": ["Sop", "License", "Log", "Report", "Other"]
         }
       },
       "required": [

@@ -1,11 +1,17 @@
+using System.Text.Json.Serialization;
 using Normetry.Application.Abstractions;
+using Normetry.Domain.Documents;
 
 namespace Normetry.Application.Documents;
 
 // The payloads of the document messages (src/shared/contracts/messages, version 1). The envelope
 // carries the message id, the tenant and the time; the payload never carries a tenant.
 
-/// <summary>core to ai: a version was stored in blob storage and waits for ingestion.</summary>
+/// <summary>
+/// core to ai: a version was stored in blob storage and waits for ingestion. <see cref="Title"/>
+/// and <see cref="DocumentType"/> were added to v1 later: optional, so a message without them is
+/// still valid, and left out when null, since the schema has no null for them.
+/// </summary>
 public sealed record DocumentUploaded(
     Guid EstablishmentId,
     Guid DocumentId,
@@ -14,7 +20,10 @@ public sealed record DocumentUploaded(
     string BlobPath,
     string ContentType,
     long Size,
-    string Sha256
+    string Sha256,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Title = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        DocumentType? DocumentType = null
 ) : IIntegrationMessage
 {
     public static string Type => "DocumentUploaded";

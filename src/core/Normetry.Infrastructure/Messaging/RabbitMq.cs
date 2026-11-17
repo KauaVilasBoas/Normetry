@@ -12,6 +12,8 @@ internal static class Topology
     public const string DeadLetter = "normetry.dead-letter";
     public const string StatusQueue = "core.document-status";
     public const string StatusDeadLetterQueue = "core.document-status.dead-letter";
+    public const string InspectionStatusQueue = "core.inspection-status";
+    public const string InspectionStatusDeadLetterQueue = "core.inspection-status.dead-letter";
 
     /// <summary>A message gets five deliveries, then goes to the dead-letter queue.</summary>
     public const int DeliveryLimit = 4;
@@ -21,6 +23,14 @@ internal static class Topology
         Application.Documents.DocumentIngestionStarted.RoutingKey,
         Application.Documents.DocumentIndexed.RoutingKey,
         Application.Documents.DocumentIngestionFailed.RoutingKey,
+    ];
+
+    public static readonly string[] InspectionStatusRoutingKeys =
+    [
+        Application.Inspections.InspectionStarted.RoutingKey,
+        Application.Inspections.InspectionProgressed.RoutingKey,
+        Application.Inspections.InspectionCompleted.RoutingKey,
+        Application.Inspections.InspectionFailed.RoutingKey,
     ];
 
     /// <summary>Both exchanges. Idempotent, as long as the arguments match the contract.</summary>
@@ -43,15 +53,44 @@ internal static class Topology
         );
     }
 
-    /// <summary>The queue the core consumes, its dead-letter queue and their bindings.</summary>
-    public static async Task DeclareStatusQueueAsync(
+    /// <summary>The document status queue, its dead-letter queue and their bindings.</summary>
+    public static Task DeclareStatusQueueAsync(
         IChannel channel,
+        CancellationToken cancellationToken
+    ) =>
+        DeclareConsumedQueueAsync(
+            channel,
+            StatusQueue,
+            StatusDeadLetterQueue,
+            StatusRoutingKeys,
+            cancellationToken
+        );
+
+    /// <summary>The inspection status queue, its dead-letter queue and their bindings.</summary>
+    public static Task DeclareInspectionStatusQueueAsync(
+        IChannel channel,
+        CancellationToken cancellationToken
+    ) =>
+        DeclareConsumedQueueAsync(
+            channel,
+            InspectionStatusQueue,
+            InspectionStatusDeadLetterQueue,
+            InspectionStatusRoutingKeys,
+            cancellationToken
+        );
+
+    /// <summary>A queue the core consumes, its dead-letter queue and their bindings.</summary>
+    private static async Task DeclareConsumedQueueAsync(
+        IChannel channel,
+        string queue,
+        string deadLetterQueue,
+        string[] routingKeys,
         CancellationToken cancellationToken
     )
     {
         await DeclareExchangesAsync(channel, cancellationToken);
         await channel.QueueDeclareAsync(
-            StatusQueue,
+            queue,
             durable: true,
             exclusive: false,
             autoDelete: false,
@@ -59,22 +98,17 @@ internal static class Topology
             {
                 ["x-queue-type"] = "quorum",
                 ["x-dead-letter-exchange"] = DeadLetter,
-                ["x-dead-letter-routing-key"] = StatusQueue,
+                ["x-dead-letter-routing-key"] = queue,
                 ["x-delivery-limit"] = DeliveryLimit,
             },
             cancellationToken: cancellationToken
         );
-        foreach (var key in StatusRoutingKeys)
+        foreach (var key in routingKeys)
         {
-            await channel.QueueBindAsync(
-                StatusQueue,
-                Events,
-                key,
-                cancellationToken: cancellationToken
-            );
+            await channel.QueueBindAsync(queue, Events, key, cancellationToken: cancellationToken);
         }
         await channel.QueueDeclareAsync(
-            StatusDeadLetterQueue,
+            deadLetterQueue,
             durable: true,
             exclusive: false,
             autoDelete: false,
@@ -82,9 +116,9 @@ internal static class Topology
             cancellationToken: cancellationToken
         );
         await channel.QueueBindAsync(
-            StatusDeadLetterQueue,
+            deadLetterQueue,
             DeadLetter,
-            StatusQueue,
+            queue,
             cancellationToken: cancellationToken
         );
     }

@@ -130,6 +130,47 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
         }
     }
 
+    [Fact]
+    public async Task The_inspection_status_queue_takes_the_four_inspection_events_and_dead_letters_them_apart()
+    {
+        await using var connection = await broker.ConnectAsync();
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: Ct);
+        // Twice: a declaration with other arguments than the first closes the channel.
+        await Topology.DeclareInspectionStatusQueueAsync(channel, Ct);
+        await Topology.DeclareInspectionStatusQueueAsync(channel, Ct);
+        foreach (var key in Topology.InspectionStatusRoutingKeys)
+        {
+            await PublishAsync(channel, key, "{}"u8.ToArray());
+        }
+
+        var keys = new List<string>();
+        ulong last = 0;
+        Assert.True(
+            await EventuallyAsync(async () =>
+            {
+                while (
+                    await channel.BasicGetAsync(Topology.InspectionStatusQueue, false, Ct)
+                        is { } got
+                )
+                {
+                    keys.Add(got.RoutingKey);
+                    last = got.DeliveryTag;
+                }
+                return keys.Count == Topology.InspectionStatusRoutingKeys.Length;
+            })
+        );
+        Assert.Equal(Topology.InspectionStatusRoutingKeys.Order(), keys.Order());
+
+        // Rejected without requeue: it goes to the queue's own dead-letter queue.
+        await channel.BasicRejectAsync(last, false, Ct);
+        Assert.True(
+            await EventuallyAsync(async () =>
+                await channel.BasicGetAsync(Topology.InspectionStatusDeadLetterQueue, true, Ct)
+                    is not null
+            )
+        );
+    }
+
     /// <summary>Whether a consumer is on the status queue (declared again if it was deleted).</summary>
     private static async Task<bool> ConsumedAsync(IChannel channel)
     {

@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.normetry.example/messages/inspection-completed.v1.schema.json",
+  "title": "InspectionCompleted, version 1",
+  "description": "ai to core: an inspection finished. The inspection becomes Completed, also after a timeout marked it Failed, and the core stores its findings and action items.",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "type": { "const": "InspectionCompleted" },
+    "version": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "establishmentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "inspectionId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "inputTokens": {
+          "description": "Input tokens of every model call of the inspection.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "description": "Output tokens of every model call of the inspection.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "costUsd": {
+          "description": "What the model calls cost, in US dollars.",
+          "type": "number",
+          "minimum": 0
+        },
+        "findings": {
+          "description": "One per checklist item whose regulation quote was verified, sorted by severity. Items without one are dropped.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        }
+      },
+      "required": [
+        "establishmentId",
+        "inspectionId",
+        "inputTokens",
+        "outputTokens",
+        "costUsd",
+        "findings"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "description": "The checklist item's id, such as us.handwashing.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "theme": { "$ref": "#/$defs/theme" },
+        "title": {
+          "description": "The checklist item's title.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "severity": {
+          "description": "From the checklist item.",
+          "enum": ["critical", "major", "minor"]
+        },
+        "verdict": {
+          "description": "A compliant or non_compliant verdict always has at least one verified evidence quote.",
+          "enum": ["compliant", "non_compliant", "insufficient_evidence"]
+        },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "rationale": {
+          "description": "Why the verdict, in English.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "regulationCitations": {
+          "description": "The regulation passages the item checks, at least one.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/regulationCitation" }
+        },
+        "evidenceCitations": {
+          "description": "The establishment's document passages behind the verdict; empty when there is no evidence.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceCitation" }
+        },
+        "action": {
+          "description": "What to do and by when, for non_compliant and insufficient_evidence; null for compliant.",
+          "type": ["object", "null"],
+          "properties": {
+            "text": {
+              "description": "In English.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "dueInDays": {
+              "description": "Days from completion: 7 for critical, 30 for major, 90 for minor.",
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": ["text", "dueInDays"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "itemId",
+        "theme",
+        "title",
+        "severity",
+        "verdict",
+        "confidence",
+        "rationale",
+        "regulationCitations",
+        "evidenceCitations",
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    "regulationCitation": {
+      "description": "A copy of a corpus passage, so a finding still opens after its source gets a new version.",
+      "type": "object",
+      "properties": {
+        "sourceTitle": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "sectionPath": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "language": { "enum": ["en", "pt"] },
+        "text": { "$ref": "#/$defs/passage" },
+        "quote": { "$ref": "#/$defs/quote" },
+        "quoteStart": { "$ref": "#/$defs/offset" },
+        "quoteEnd": { "$ref": "#/$defs/offset" }
+      },
+      "required": [
+        "sourceTitle",
+        "sourceVersion",
+        "sectionPath",
+        "language",
+        "text",
+        "quote",
+        "quoteStart",
+        "quoteEnd"
+      ],
+      "additionalProperties": false
+    },
+    "evidenceCitation": {
+      "description": "A copy of a passage of one of the establishment's documents, as the version it cites.",
+      "type": "object",
+      "properties": {
+        "documentId": { "$ref": "envelope.v1.schema.json#/$defs/uuid" },
+        "documentTitle": {
+          "description": "Null for a document uploaded before titles were sent.",
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "documentType": {
+          "description": "Null for a document uploaded before types were sent.",
+          "enum": ["Sop", "License", "Log", "Report", "Other", null]
+        },
+        "versionNumber": { "$ref": "envelope.v1.schema.json#/$defs/versionNumber" },
+        "sectionPath": {
+          "description": "Such as Page 3; empty for a text file or a document without headings.",
+          "type": "string",
+          "maxLength": 1000
+        },
+        "language": { "enum": ["en", "pt"] },
+        "text": { "$ref": "#/$defs/passage" },
+        "quote": { "$ref": "#/$defs/quote" },
+        "quoteStart": { "$ref": "#/$defs/offset" },
+        "quoteEnd": { "$ref": "#/$defs/offset" }
+      },
+      "required": [
+        "documentId",
+        "documentTitle",
+        "documentType",
+        "versionNumber",
+        "sectionPath",
+        "language",
+        "text",
+        "quote",
+        "quoteStart",
+        "quoteEnd"
+      ],
+      "additionalProperties": false
+    },
+    "theme": {
+      "description": "The checklist item's theme, one of the ids of inspection-started.v1 themes. Adding one is a breaking change.",
+      "enum": [
+        "personal_hygiene",
+        "temperature_control",
+        "cross_contamination_allergens",
+        "cleaning_sanitizing",
+        "pest_control",
+        "water_premises",
+        "waste",
+        "documentation_training"
+      ]
+    },
+    "passage": {
+      "description": "The whole cited chunk, as it was cited.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20000
+    },
+    "quote": {
+      "description": "The verified quote, with whitespace normalized, in the passage's language.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "offset": {
+      "description": "text[quoteStart:quoteEnd] is the quote as the passage writes it; both null when it could not be mapped back exactly.",
+      "type": ["integer", "null"],
+      "minimum": 0
+    }
+  }
+}
