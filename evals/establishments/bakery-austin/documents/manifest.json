@@ -2,24 +2,50 @@
   "establishment": "Bakery Austin",
   "documents": [
     {
-      "title": "Food safety plan",
+      "title": "Food Safety Plan and Standard Operating Procedures",
       "type": "Sop",
       "file": "food-safety-plan.docx"
     },
     {
-      "title": "Allergen control procedure",
+      "title": "Cleaning and Sanitizing Schedule",
       "type": "Sop",
-      "file": "allergen-procedure.txt"
+      "file": "cleaning-and-sanitizing-schedule.pdf"
     },
     {
-      "title": "Cooler temperature log",
+      "title": "Temperature Log (October 2026)",
       "type": "Log",
-      "file": "cooler-temperature-log.csv"
+      "file": "temperature-log.csv"
     },
     {
-      "title": "Monthly self-inspection (October)",
+      "title": "Cooling Log (October 2026)",
+      "type": "Log",
+      "file": "cooling-log.csv"
+    },
+    {
+      "title": "Sanitizer and Warewashing Log (October 2026)",
+      "type": "Log",
+      "file": "sanitizer-and-warewashing-log.csv"
+    },
+    {
+      "title": "Pest Control Service Report (October 2026)",
       "type": "Report",
-      "file": "monthly-self-inspection.pdf"
+      "file": "pest-control-service-report.pdf"
+    },
+    {
+      "title": "Staff Training and Certification Record",
+      "type": "Other",
+      "file": "staff-training-record.docx"
+    },
+    {
+      "title": "Food Establishment Permit",
+      "type": "License",
+      "file": "food-establishment-permit.pdf",
+      "expiresOn": "2027-09-30"
+    },
+    {
+      "title": "Supplier Email: Packaging Order PO-2291",
+      "type": "Other",
+      "file": "supplier-note.txt"
     }
   ]
 }
