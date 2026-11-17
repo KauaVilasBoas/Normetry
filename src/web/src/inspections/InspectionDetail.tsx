@@ -42,7 +42,7 @@ const card = "mt-5 rounded-card border border-border bg-card p-5 motion-safe:ani
 
 /**
  * One inspection: the header, then the running card (Waiting or Running, with the connection
- * notice above it), the failed card, or the completed view. When it stops being live and focus
+ * notice inside it), the failed card, or the completed view. When it stops being live and focus
  * was lost with the running card, focus moves to the title.
  */
 export function InspectionDetailView({
@@ -189,10 +189,7 @@ export function InspectionDetailView({
         // The heading says it is loading until the title is known; then the skeleton does.
         <RunningSkeleton label={requestedAt !== undefined} />
       ) : inFlight(detail.status) ? (
-        <>
-          <ConnectionNotice live={live} labels={copy.inspections} className="mt-5" />
-          <RunningCard inspection={detail} establishment={establishment} />
-        </>
+        <RunningCard inspection={detail} establishment={establishment} live={live} />
       ) : detail.status === "Failed" ? (
         <div className={card}>
           <Message
@@ -209,13 +206,18 @@ export function InspectionDetailView({
   );
 }
 
-/** The mock's panel: the stepper, the radial progress and the checklist by theme. */
+/**
+ * The mock's panel: the connection notice when live updates are paused or stopped (as in the
+ * Documents cards), the stepper, the radial progress and the checklist by theme.
+ */
 function RunningCard({
   inspection,
   establishment,
+  live,
 }: {
   inspection: InspectionDetail;
   establishment: Establishment;
+  live: Live;
 }) {
   const view = runningView(inspection, establishment.name);
   const themes = checklist(inspection.themes);
@@ -223,6 +225,7 @@ function RunningCard({
   const progress = progressText(evaluated, total);
   return (
     <div className={card}>
+      <ConnectionNotice live={live} labels={copy.inspections} className="mb-5" />
       <Stepper
         label={copy.inspections.stepsLabel}
         steps={copy.inspections.steps}
@@ -242,7 +245,7 @@ function RunningCard({
             value={evaluated}
             max={total}
             label={copy.inspections.progressLabel}
-            valueText={progress}
+            valueText={total > 0 ? progress : view.title}
             title={view.title}
             lines={total > 0 ? [view.body, progress] : [view.body]}
           />

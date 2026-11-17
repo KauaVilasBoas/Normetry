@@ -324,10 +324,10 @@ describe("run inspection", () => {
       within(screen.getByRole("list", { name: "Inspection steps" })).getByText("Analysis")
         .parentElement,
     ).toHaveAttribute("aria-current", "step");
-    expect(screen.getByRole("progressbar", { name: "Requirements checked" })).toHaveAttribute(
-      "aria-valuenow",
-      "0",
-    );
+    // No total yet: the ring is indeterminate and reads the state.
+    const ring = screen.getByRole("progressbar", { name: "Requirements checked" });
+    expect(ring).not.toHaveAttribute("aria-valuenow");
+    expect(ring).toHaveAttribute("aria-valuetext", "Waiting to start…");
     expect(screen.queryByRole("list", { name: "Themes" })).toBeNull();
     await waitFor(() =>
       expect(document.title).toBe(
@@ -389,6 +389,7 @@ describe("run inspection", () => {
     renderInspections({
       [LIST]: { body: idle },
       [`POST ${LIST}`]: { status: 409, body: { code: "no_indexed_documents" } },
+      "/establishments/e-lisboa/documents": { body: [] },
     });
     const run = await runButton();
 
@@ -396,11 +397,17 @@ describe("run inspection", () => {
 
     expect(await screen.findByText("Bistro Lisboa has no indexed documents yet.")).toBeVisible();
     expect(run).not.toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("link", { name: "Go to Documents" })).toHaveAttribute(
-      "href",
-      "/documents",
-    );
+    const documents = screen.getByRole("link", { name: "Go to Documents" });
+    expect(documents).toHaveAttribute("href", "/documents");
     await expectNoAxeViolations();
+
+    await userEvent.click(documents);
+
+    await waitFor(() => expect(window.location.pathname).toBe("/documents"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
   });
 
   it("refetches a stale list when one is already running", async () => {
@@ -421,7 +428,7 @@ describe("run inspection", () => {
     expect(run).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("says when the permission was taken away, and hides Run", async () => {
+  it("says when the permission was taken away, hides Run and keeps focus on the card", async () => {
     const fetch = renderInspections({
       "/me": [
         { body: me },
@@ -438,6 +445,9 @@ describe("run inspection", () => {
       expect(screen.queryByRole("button", { name: "Run inspection" })).toBeNull(),
     );
     expect(calls(fetch, "/me")).toHaveLength(2);
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
+    );
   });
 
   it("says a start failed, and clears the notice on the next click", async () => {
@@ -708,6 +718,22 @@ describe("live progress", () => {
 
     await waitFor(() => expect(calls(fetch, `${LIST}/i-run`).length).toBeGreaterThan(before));
     expect(latestHub().invoke).toHaveBeenLastCalledWith("JoinEstablishment", "e-lisboa");
+  });
+
+  it("says inside the running card when updates stopped", async () => {
+    renderInspections({}, { path: "/inspections/i-run" });
+    await screen.findByText("Inspection in progress…");
+    await joined();
+
+    act(() => latestHub().closed());
+
+    // The card is the stepper's parent; the notice is its first child, as on Documents.
+    const runningCard = screen.getByRole("list", { name: "Inspection steps" }).parentElement!;
+    const status = within(runningCard).getByRole("status");
+    expect(runningCard.firstElementChild).toBe(status);
+    expect(status).toHaveTextContent("Live updates stopped. Progress may be out of date.");
+    expect(within(status).getByRole("button", { name: "Reconnect" })).toBeVisible();
+    await expectNoAxeViolations();
   });
 
   it("says when updates stopped, and Reconnect starts over and refetches the list", async () => {
