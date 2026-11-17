@@ -58,6 +58,9 @@ markers = [
     # Paid (Anthropic API): also model and integration, never eval. Skipped without
     # NORMETRY_ANTHROPIC_API_KEY and never run in CI: `uv run pytest -m generation`.
     "generation: the generation eval with the real chat models (evals/README.md)",
+    # Paid (Anthropic API): also model and integration, never eval. Skipped without
+    # NORMETRY_ANTHROPIC_API_KEY and never run in CI: `uv run pytest -m inspection`.
+    "inspection: the inspection eval on the synthetic establishments (evals/README.md)",
 ]
 
 [dependency-groups]

@@ -95,10 +95,10 @@ jobs:
         with:
           path: ~/.cache/huggingface/hub
           key: huggingface-${{ hashFiles('src/ai/normetry_ai/settings.py') }}
-      # The retrieval eval is a model test too; it runs in the ai-eval job. The generation eval
-      # (paid) never runs in CI.
+      # The retrieval eval is a model test too; it runs in the ai-eval job. The generation and
+      # inspection evals (paid) never run in CI.
       - name: Test
-        run: uv run pytest -m "model and not eval and not generation"
+        run: uv run pytest -m "model and not eval and not generation and not inspection"
 
   # The retrieval eval runs on pull requests whose changes can move its numbers.
   retrieval-changes:
