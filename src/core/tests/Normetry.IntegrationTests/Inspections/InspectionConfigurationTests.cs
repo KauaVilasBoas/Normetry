@@ -16,14 +16,15 @@ public sealed class InspectionConfigurationTests
         var options = factory.Services.GetRequiredService<InspectionsOptions>();
 
         Assert.Equal(
-            (5, 20, (int?)null, 5, 300_000, TimeSpan.FromMinutes(30)),
+            (5, 20, (int?)null, 5, 300_000, TimeSpan.FromMinutes(30), 2),
             (
                 options.DailyQuotaOf("demo"),
                 options.DailyQuotaOf("standard"),
                 options.DailyQuotaOf("unlimited"),
                 options.DailyQuotaOf("a plan not listed"),
                 options.TokenCeiling,
-                options.RunningTimeout
+                options.RunningTimeout,
+                options.MaxInFlightPerTenant
             )
         );
     }
@@ -33,6 +34,7 @@ public sealed class InspectionConfigurationTests
     [InlineData("Inspections:DailyQuota:demo", "0", "Inspections:DailyQuota:demo")]
     [InlineData("Inspections:TokenCeiling", "0", "Inspections:TokenCeiling")]
     [InlineData("Inspections:RunningTimeout", "00:00:00", "Inspections:RunningTimeout")]
+    [InlineData("Inspections:MaxInFlightPerTenant", "0", "Inspections:MaxInFlightPerTenant")]
     public void The_API_refuses_to_start_on_an_invalid_inspection_setting(
         string key,
         string value,

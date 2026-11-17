@@ -140,6 +140,41 @@ public sealed class InspectionsHubTests
         );
     }
 
+    [Fact]
+    public async Task A_revoked_permission_stops_new_joins_on_an_open_connection()
+    {
+        var a = await NewTargetAsync(db);
+        var reader = Guid.NewGuid().ToString();
+        var profile = await TestTenants.GrantAsync(
+            db,
+            a.Tenant,
+            reader,
+            Permissions.Inspections.Read
+        );
+        await using var connection = await DocumentsHubTests.ConnectAsync(
+            db.Api,
+            Path,
+            a.Tenant,
+            reader
+        );
+        await connection.InvokeAsync("JoinEstablishment", a.Establishment, Ct).WaitAsync(Wait, Ct);
+
+        await using (
+            var session = await Session.BeginAsync(db.ConnectionString("app_core"), a.Tenant)
+        )
+        {
+            await session.ExecuteAsync(
+                "DELETE FROM core.user_profiles WHERE profile_id = $1",
+                profile
+            );
+            await session.CommitAsync();
+        }
+
+        await Assert.ThrowsAsync<HubException>(() =>
+            connection.InvokeAsync("JoinEstablishment", a.Establishment, Ct).WaitAsync(Wait, Ct)
+        );
+    }
+
     private Task<HubConnection> ConnectAsync(Target target) =>
         DocumentsHubTests.ConnectAsync(db.Api, Path, target.Tenant, target.Owner);
 

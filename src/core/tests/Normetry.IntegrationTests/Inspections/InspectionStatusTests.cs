@@ -190,6 +190,75 @@ public sealed class InspectionStatusTests
     }
 
     [Fact]
+    public async Task A_completion_citing_a_document_outside_the_establishment_fails_the_inspection()
+    {
+        var (sibling, unknown, crossTenant, valid) = (
+            await StartAsync(),
+            await StartAsync(),
+            await StartAsync(),
+            await StartAsync()
+        );
+        var siblingDocument = await AddDocumentAsync(
+            db,
+            sibling.Target with
+            {
+                Establishment = await TestTenants.CreateEstablishmentAsync(
+                    db,
+                    sibling.Target.Tenant
+                ),
+            },
+            "Indexed"
+        );
+        // A deleted document is still the establishment's: the run may have read it before.
+        var deleted = await AddDocumentAsync(db, valid.Target, "Indexed", deleted: true);
+
+        foreach (
+            var (run, document) in new[]
+            {
+                (sibling, siblingDocument),
+                (unknown, Guid.NewGuid()),
+                // Another tenant's document: RLS hides it, so it is not the establishment's either.
+                (crossTenant, valid.Target.Establishment),
+                (valid, deleted),
+            }
+        )
+        {
+            Assert.Equal(
+                ConsumeOutcome.Ack,
+                await HandleAsync(
+                    run,
+                    Citing(Completed(run.Target.Establishment, run.Inspection), document)
+                )
+            );
+        }
+
+        foreach (var refused in new[] { sibling, unknown, crossTenant })
+        {
+            Assert.Equal(("Failed", 0, "error"), await StateAsync(refused));
+            Assert.Equal(0, (await GetAsync(refused)).GetProperty("findings").GetArrayLength());
+        }
+        Assert.Equal(("Completed", 0, (string?)null), await StateAsync(valid));
+        Assert.Equal(3, (await GetAsync(valid)).GetProperty("findings").GetArrayLength());
+    }
+
+    /// <summary>The completion with its last finding's evidence citing <paramref name="document"/> instead.</summary>
+    private static InspectionCompleted Citing(InspectionCompleted completion, Guid document)
+    {
+        var last = completion.Findings[^1];
+        return completion with
+        {
+            Findings =
+            [
+                .. completion.Findings.SkipLast(1),
+                last with
+                {
+                    EvidenceCitations = [last.EvidenceCitations[0] with { DocumentId = document }],
+                },
+            ],
+        };
+    }
+
+    [Fact]
     public async Task A_body_off_the_contract_or_meant_for_another_queue_is_dead_lettered()
     {
         var run = await StartAsync();

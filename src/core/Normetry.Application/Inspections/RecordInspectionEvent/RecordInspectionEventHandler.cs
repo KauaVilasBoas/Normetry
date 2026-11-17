@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Normetry.Application.Abstractions;
+using Normetry.Application.Documents;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 
@@ -8,6 +9,7 @@ namespace Normetry.Application.Inspections.RecordInspectionEvent;
 internal sealed class RecordInspectionEventHandler(
     IInbox inbox,
     IInspectionRepository inspections,
+    IDocumentRepository documents,
     TimeProvider clock,
     ILogger<RecordInspectionEventHandler> logger
 ) : ICommandHandler<RecordInspectionEventCommand, InspectionChange?>
@@ -45,6 +47,30 @@ internal sealed class RecordInspectionEventHandler(
         }
 
         var now = clock.GetUtcNow();
+        if (
+            @event is InspectionCompleted completion
+            && await ForeignDocumentsAsync(completion, cancellationToken) is [_, ..] foreign
+        )
+        {
+            // The AI service searches one establishment's chunks, so this is a bug or an attack, and
+            // a redelivery would cite the same: fail the inspection now (the inbox keeps it from
+            // coming back) instead of dead-lettering it into a wait for the timeout.
+            logger.LogWarning(
+                "{MessageType} {MessageId} of inspection {InspectionId} cites documents {DocumentIds} that are not of establishment {EstablishmentId}; the completion is refused",
+                request.MessageType,
+                request.MessageId,
+                @event.InspectionId,
+                foreign,
+                @event.EstablishmentId
+            );
+            return inspection.Fail(
+                "error",
+                "The inspection cited a document that is not one of this establishment's.",
+                now
+            )
+                ? InspectionChange.From(inspection)
+                : Unchanged;
+        }
         var changed = @event switch
         {
             InspectionStarted started => inspection.Start(started.ItemsTotal, started.Themes, now),
@@ -69,5 +95,32 @@ internal sealed class RecordInspectionEventHandler(
             ),
         };
         return changed ? InspectionChange.From(inspection) : Unchanged;
+    }
+
+    /// <summary>
+    /// The cited document ids that are not the establishment's (deleted ones are). RLS hides another
+    /// tenant's documents, so those count as foreign too. Only ids are read.
+    /// </summary>
+    private async Task<Guid[]> ForeignDocumentsAsync(
+        InspectionCompleted completion,
+        CancellationToken cancellationToken
+    )
+    {
+        var cited = completion
+            .Findings.SelectMany(finding => finding.EvidenceCitations)
+            .Select(citation => citation.DocumentId)
+            .ToHashSet();
+        if (cited.Count == 0)
+        {
+            return [];
+        }
+        cited.ExceptWith(
+            await documents.FindOfEstablishmentAsync(
+                completion.EstablishmentId,
+                cited,
+                cancellationToken
+            )
+        );
+        return [.. cited];
     }
 }

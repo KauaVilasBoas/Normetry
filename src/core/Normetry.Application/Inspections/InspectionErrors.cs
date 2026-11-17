@@ -27,9 +27,51 @@ public static class InspectionErrors
         ErrorType.Conflict
     );
 
+    public static readonly Error Capacity = new(
+        "inspection_capacity",
+        "The organization has as many inspections running as it may at once. Start another when one finishes.",
+        ErrorType.Conflict
+    );
+
     public static readonly Error QuotaExceeded = new(
         "inspection_quota",
         "The organization has started all of today's inspections. The count resets at midnight UTC.",
         ErrorType.RateLimited
     );
+
+    // A finding of another tenant, inspection or establishment is not found either.
+    public static readonly Error FindingNotFound = new(
+        "finding.not_found",
+        "The finding was not found.",
+        ErrorType.NotFound
+    );
+
+    public static readonly Error ActionItemNotFound = new(
+        "action_item.not_found",
+        "The action item was not found.",
+        ErrorType.NotFound
+    );
+
+    public static readonly Error NotCompleted = new(
+        "inspection_not_completed",
+        "Only a completed inspection's findings can be reviewed.",
+        ErrorType.Conflict
+    );
+
+    private const string ActionNeedsBoth =
+        "A finding with no action needs both the action's text and its due date.";
+
+    /// <summary>An edit gave only one of the two for a finding that has no action.</summary>
+    public static readonly Error ActionNeedsTextAndDueOn = new(
+        "validation",
+        "One or more validation errors occurred.",
+        ErrorType.Validation
+    )
+    {
+        FieldErrors = new Dictionary<string, string[]>
+        {
+            ["ActionText"] = [ActionNeedsBoth],
+            ["DueOn"] = [ActionNeedsBoth],
+        },
+    };
 }

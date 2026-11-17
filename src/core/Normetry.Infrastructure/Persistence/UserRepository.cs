@@ -104,6 +104,17 @@ internal sealed class UserRepository(CoreDbContext db) : IUserRepository
             .ToDictionaryAsync(user => user.Id, user => user.DisplayName, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetSubsAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken
+    )
+    {
+        var wanted = ids.ToArray();
+        return await db
+            .Users.Where(user => wanted.Contains(user.Id))
+            .ToDictionaryAsync(user => user.Id, user => user.Sub, cancellationToken);
+    }
+
     public Task AssignAsync(
         Guid tenantId,
         Guid userId,
