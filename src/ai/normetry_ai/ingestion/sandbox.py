@@ -7,11 +7,16 @@ and writes the sections to stdout as JSON. A wall-clock timeout kills it; on POS
 its memory. A crash, hang, memory blow-up or output that is not the expected JSON fails the version
 with `parse_error`, and the consumer moves on to the next message.
 
-ponytail: the child runs as the service's OS user, so code that exploits a parser could still read
-`src/ai/.env` or the parent's memory (/proc/<ppid>/environ on Linux). Upgrade: run it as another
-user or in its own container, with no network.
+On Linux the service process makes itself non-dumpable at startup (`protect_service_process`), so
+a child of the same OS user can no longer read its memory or /proc/<ppid>/environ, which holds
+every credential.
+
+ponytail: the child still runs as the service's OS user, with the network, so code that exploits a
+parser could still read `src/ai/.env` or call out. The real fix is deploy work (phase 3): run it as
+a separate OS user, or in its own container, with no network.
 """
 
+import ctypes
 import logging
 import os
 import subprocess
@@ -50,6 +55,23 @@ class _RejectedOutput(TypedDict):
 
 # The child is untrusted once it has parsed the file: its output is validated like any input.
 _OUTPUT: TypeAdapter[Parsed | _RejectedOutput] = TypeAdapter(Parsed | _RejectedOutput)
+
+
+# <linux/prctl.h>
+_PR_SET_DUMPABLE = 4
+
+
+def protect_service_process() -> None:
+    """Make this process non-dumpable on Linux (prctl PR_SET_DUMPABLE 0): its /proc/<pid> files
+    then belong to root, so another process of the same user, such as a parsing child taken over
+    by its file, can neither read its environment nor attach to it. A no-op elsewhere. Raises
+    OSError when the call fails."""
+    if sys.platform != "linux":
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    zero = ctypes.c_ulong(0)
+    if libc.prctl(_PR_SET_DUMPABLE, zero, zero, zero, zero) != 0:
+        raise OSError(ctypes.get_errno(), "prctl(PR_SET_DUMPABLE, 0) failed")
 
 
 def child_environment() -> dict[str, str]:
