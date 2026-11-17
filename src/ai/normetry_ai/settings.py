@@ -86,6 +86,10 @@ class RetrievalSettings(BaseSettings):
     retrieval_top_k: int = Field(default=10, ge=1)
     # HNSW candidate list per vector search (pgvector's hnsw.ef_search).
     retrieval_hnsw_ef_search: int = Field(default=100, ge=1)
+    # The search over one establishment's documents (retrieval/establishment.py) uses the k per
+    # search and the RRF constant above, and these two in place of the corpus ones.
+    retrieval_establishment_rerank_candidates: int = Field(default=10, ge=1)
+    retrieval_establishment_top_k: int = Field(default=5, ge=1)
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_model_revision: str = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
     # Tokens per (question, chunk) pair; the longest corpus chunk is about 535 tokens.
