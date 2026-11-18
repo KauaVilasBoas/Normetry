@@ -52,6 +52,10 @@ def in_tenant(tenant_id: UUID, path: str) -> bool:
     return path.startswith(prefix) and len(path) > len(prefix) and not _UNSAFE_PATH.search(path)
 
 
+# A blob name no upload has (uploads live under tenants/), asked for only to see storage answer.
+_PROBE = "reachable-probe"
+
+
 class BlobStore:
     """The core's upload container in Azure Blob Storage (Azurite locally): read only, and only
     under the tenant of the message being handled."""
@@ -77,8 +81,10 @@ class BlobStore:
             raise Rejected("blob_missing", "The uploaded file is missing from storage.") from error
 
     def reachable(self) -> None:
-        """Raises when the container does not answer."""
-        self._container.get_container_properties()
+        """Raises when blob storage does not answer or refuses the credential. The AI service holds
+        a read-only container SAS, which may not read the container's properties (403), so this
+        asks whether a probe blob exists: a missing one answers False, anything else raises."""
+        self._container.get_blob_client(_PROBE).exists()
 
 
 _SELECT_DOCUMENT = text(

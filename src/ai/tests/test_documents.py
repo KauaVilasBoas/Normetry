@@ -8,6 +8,10 @@ from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
 import pytest
+import requests
+import urllib3
+from azure.core.exceptions import HttpResponseError
+from azure.core.pipeline.transport import RequestsTransport
 from azure.storage.blob import ContainerClient
 from fakes import FakeContainer, FakeEmbedder
 from sample_files import LINE, make_docx, make_pdf
@@ -85,6 +89,67 @@ def test_the_sdk_keeps_an_accepted_path_under_the_tenant_in_the_request_url(name
     assert in_tenant(TENANT, path)
     assert url.path.startswith(f"/devstoreaccount1/documents/tenants/{TENANT}/")
     assert (url.query, url.fragment) == (None, None)
+
+
+class ReadOnlySas(requests.adapters.BaseAdapter):
+    """Blob storage as a read-only container SAS (`sr=c`, `sp=r`) sees it: a container-level call
+    is refused (403), a blob that is not there is 404. `refusing` refuses blobs too (a revoked
+    credential); `requested` lists each request's method and path."""
+
+    def __init__(self, refusing: bool = False) -> None:
+        super().__init__()
+        self.refusing = refusing
+        self.requested: list[tuple[str, str]] = []
+
+    def send(self, request: requests.PreparedRequest, **kwargs: object) -> requests.Response:
+        path = parse_url(request.url).path or ""
+        self.requested.append((request.method or "", path))
+        blob = path.count("/") > 2  # /devstoreaccount1/documents/<blob>
+        response = requests.Response()
+        response.status_code = 404 if blob and not self.refusing else 403
+        response.headers["x-ms-error-code"] = (
+            "BlobNotFound" if response.status_code == 404 else "AuthorizationPermissionMismatch"
+        )
+        response.raw = urllib3.HTTPResponse(body=b"", status=response.status_code)
+        response._content = b""
+        response.request, response.url = request, request.url or ""
+        return response
+
+    def close(self) -> None:
+        pass
+
+
+def sas_container(adapter: ReadOnlySas) -> ContainerClient:
+    session = requests.Session()
+    session.mount("http://", adapter)
+    return ContainerClient(
+        "http://127.0.0.1:10000/devstoreaccount1",
+        "documents",
+        credential="sv=2024-11-04&sr=c&sp=r&sig=x",  # a made-up SAS: nothing is sent anywhere
+        transport=RequestsTransport(session=session),
+        retry_total=0,
+    )
+
+
+def test_blob_storage_answers_through_a_blob_probe_that_a_read_only_sas_may_make() -> None:
+    adapter = ReadOnlySas()
+    container = sas_container(adapter)
+
+    BlobStore(container).reachable()  # the probe blob is missing: storage answered
+
+    assert [method for method, _ in adapter.requested] == ["HEAD"]
+    # What the probe used to be: a container-level call the SAS may not make.
+    with pytest.raises(HttpResponseError):
+        container.get_container_properties()
+
+
+def test_a_refused_credential_or_an_outage_makes_blob_storage_unreachable() -> None:
+    with pytest.raises(HttpResponseError):
+        BlobStore(sas_container(ReadOnlySas(refusing=True))).reachable()
+    down = FakeContainer()
+    down.down = True
+    with pytest.raises(ConnectionError):
+        BlobStore(down).reachable()
 
 
 def test_request_urls_with_file_names_stay_out_of_info_logs() -> None:
