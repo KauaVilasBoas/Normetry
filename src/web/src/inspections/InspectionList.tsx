@@ -291,6 +291,12 @@ function RefusalNotice({
           {body(copy.inspections.noDocumentsBody)}
         </Notice>
       );
+    case "capacity":
+      return (
+        <Notice className="mx-5 mb-4" icon={clock} title={copy.inspections.capacityTitle}>
+          {body(copy.inspections.capacityBody)}
+        </Notice>
+      );
     case "denied":
       return <Notice className="mx-5 mb-4" icon={alert} title={copy.inspections.denied} />;
     case "error":

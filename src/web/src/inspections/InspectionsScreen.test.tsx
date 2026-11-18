@@ -8,6 +8,7 @@ import {
   allPermissions,
   establishments,
   expectNoAxeViolations,
+  fakeFinding,
   fakeOidc,
   me,
   mockViewport,
@@ -410,6 +411,27 @@ describe("run inspection", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
   });
 
+  it("says when the organization's other inspections fill its capacity", async () => {
+    renderInspections({
+      [LIST]: { body: idle },
+      [`POST ${LIST}`]: { status: 409, body: { code: "inspection_capacity" } },
+    });
+    const run = await runButton();
+
+    await userEvent.click(run);
+
+    expect(
+      await screen.findByText("Your organization already has inspections running."),
+    ).toBeVisible();
+    expect(screen.getByText("You can run another one when one of them finishes.")).toBeVisible();
+    expect(
+      screen.getByText("Your organization already has inspections running.").closest("[role]"),
+    ).toHaveAttribute("role", "status");
+    expect(run).not.toHaveAttribute("aria-disabled", "true");
+    expect(within(card()).queryByRole("link", { name: "View progress" })).toBeNull();
+    await expectNoAxeViolations();
+  });
+
   it("refetches a stale list when one is already running", async () => {
     let server: unknown[] = idle;
     renderInspections({
@@ -665,13 +687,16 @@ describe("live progress", () => {
     server = detail(runningRow, {
       status: "Completed",
       itemsEvaluated: 43,
-      findings: [{ id: "f-1" }, { id: "f-2" }],
+      findings: [
+        fakeFinding({ id: "f-1" }),
+        fakeFinding({ id: "f-2", verdict: "compliant", title: "The water tank is cleaned" }),
+      ],
     });
     list = [{ ...runningRow, status: "Completed", verdictCounts: counts }, doneRow];
     push({ inspectionId: "i-run", status: "Completed", itemsEvaluated: 43, itemsTotal: 43 });
 
     expect(await screen.findByRole("heading", { level: 2, name: "Findings" })).toBeVisible();
-    expect(screen.getByText("2 findings")).toBeVisible();
+    expect(screen.getByText("2 findings · 2 pending review")).toBeVisible();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(calls(fetch, `${LIST}/i-run`).length).toBeGreaterThan(before);
     await waitFor(() =>

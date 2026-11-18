@@ -162,6 +162,7 @@ export function InspectionsScreen({
           key={inspectionId}
           id={inspectionId}
           establishment={establishment}
+          me={me}
           live={live}
           onBack={() => focus(LIST_TITLE_ID)}
         />

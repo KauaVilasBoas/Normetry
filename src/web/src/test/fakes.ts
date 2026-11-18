@@ -1,6 +1,7 @@
 import axe from "axe-core";
 import type { User } from "oidc-client-ts";
 import { expect, vi } from "vitest";
+import type { Finding } from "../api/queries";
 import type { OidcClient } from "../auth/oidc";
 
 export function fakeUser(overrides: Partial<User> = {}): User {
@@ -96,6 +97,52 @@ export const establishments = [
   { id: "e-lisboa", name: "Bistro Lisboa", type: "Restaurant", jurisdiction: "EU" },
   { id: "e-sao-paulo", name: "Bistro São Paulo", type: "Restaurant", jurisdiction: "BR" },
 ];
+
+const passage =
+  "Os alimentos devem ser conservados sob refrigeração a temperaturas inferiores a 5ºC.";
+const quote = "conservados sob refrigeração a temperaturas inferiores a 5ºC";
+
+/** A finding as the core returns it: Pending, one regulation quote, no evidence, no action. */
+export function fakeFinding(overrides: Partial<Finding> = {}): Finding {
+  return {
+    id: "f-1",
+    itemId: "temperature_control.cold_holding",
+    theme: "temperature_control",
+    title: "Refrigerated foods are held at 5 °C or below",
+    severity: "critical",
+    verdict: "non_compliant",
+    confidence: "high",
+    rationale: "The walk-in log records 9 °C on three mornings in October.",
+    regulationCitations: [
+      {
+        sourceTitle: "Anvisa RDC 216/2004",
+        sourceVersion: "2004",
+        sectionPath: "4.8.15",
+        language: "pt",
+        text: passage,
+        quote,
+        quoteStart: passage.indexOf(quote),
+        quoteEnd: passage.indexOf(quote) + quote.length,
+      },
+    ],
+    evidenceCitations: [],
+    reviewStatus: "Pending",
+    reviewedBy: null,
+    reviewedAt: null,
+    reviewNote: null,
+    original: null,
+    actionItem: null,
+    ...overrides,
+  };
+}
+
+/** A date with no time, `days` from today, as the core sends a due date. */
+export function dayFromToday(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 /**
  * Zero axe violations on the whole document (portals included). With an open popover, the
