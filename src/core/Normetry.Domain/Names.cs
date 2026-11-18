@@ -10,7 +10,8 @@ internal static class Names
         {
             throw new ArgumentException("A name is required.", paramName);
         }
-        if (name.Length > maxLength)
+        // Characters as PostgreSQL's varchar and the message contracts count them, not UTF-16 units.
+        if (name.EnumerateRunes().Count() > maxLength)
         {
             throw new ArgumentException($"A name has at most {maxLength} characters.", paramName);
         }
