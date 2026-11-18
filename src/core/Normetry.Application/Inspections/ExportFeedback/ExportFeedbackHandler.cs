@@ -24,9 +24,10 @@ internal sealed class ExportFeedbackHandler(
         {
             return InspectionErrors.NotFound;
         }
+        // An edited finding keeps its original after a later accept, so the correction still counts.
         var reviewed = inspection
             .Findings.Where(finding =>
-                finding.ReviewStatus is ReviewStatus.Rejected or ReviewStatus.Edited
+                finding.ReviewStatus is ReviewStatus.Rejected || finding.Original is not null
             )
             .OrderBy(finding => finding.ItemId, StringComparer.Ordinal)
             .ToArray();
