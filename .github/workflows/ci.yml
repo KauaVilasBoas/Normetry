@@ -118,8 +118,8 @@ jobs:
           PATHS: >-
             src/ai/normetry_ai/ingestion src/ai/normetry_ai/retrieval src/ai/normetry_ai/llm
             src/ai/normetry_ai/evals src/ai/normetry_ai/settings.py src/ai/uv.lock
-            src/ai/tests/conftest.py src/ai/tests/test_retrieval_eval.py
-            evals/datasets corpus/manifest.json .github/workflows/ci.yml
+            src/ai/tests/conftest.py src/ai/tests/fakes.py src/ai/tests/test_retrieval_eval.py
+            evals/datasets evals/establishments corpus/manifest.json .github/workflows/ci.yml
         # $PATHS is split into words on purpose: one pathspec each.
         run: |
           if ! git diff --quiet HEAD^1 HEAD -- $PATHS; then
@@ -160,12 +160,13 @@ jobs:
         with:
           path: ~/.cache/huggingface/hub
           key: huggingface-${{ hashFiles('src/ai/normetry_ai/settings.py') }}
-      # Corpus vectors by chunk text: a run embeds only the chunks it has not seen. The previous
-      # cache is restored and topped up, so a changed chunk does not re-embed the whole corpus.
+      # Corpus and synthetic document vectors by chunk text: a run embeds only the chunks it has
+      # not seen. The previous cache is restored and topped up, so a changed chunk does not
+      # re-embed everything.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: src/ai/.data/embeddings
-          key: embeddings-${{ hashFiles('corpus/manifest.json', 'src/ai/normetry_ai/ingestion/**', 'src/ai/normetry_ai/settings.py') }}
+          key: embeddings-${{ hashFiles('corpus/manifest.json', 'evals/establishments/*/documents/**', 'src/ai/normetry_ai/ingestion/**', 'src/ai/normetry_ai/settings.py') }}
           restore-keys: embeddings-
       # Local models and a PostgreSQL container only: no paid API call.
       - name: Eval
