@@ -96,6 +96,20 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Ai:InternalToken", InternalToken);
         // Nothing listens there; the gateway tests point it at a stub AI service.
         builder.UseSetting("Services:ai:http:0", "http://127.0.0.1:9");
+        // The whole run shares one API and the default token's user, so no test trips a limit;
+        // RateLimitingTests lower them on an API of their own.
+        foreach (
+            var limit in new[]
+            {
+                "GlobalPerMinute",
+                "UploadsPerMinute",
+                "InspectionStartsPerMinute",
+                "ChatPerMinute",
+            }
+        )
+        {
+            builder.UseSetting($"RateLimiting:{limit}", "100000");
+        }
         builder.ConfigureTestServices(services =>
         {
             services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>

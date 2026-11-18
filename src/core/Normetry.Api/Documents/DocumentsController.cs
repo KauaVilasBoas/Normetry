@@ -1,6 +1,8 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Normetry.Api.Auth;
+using Normetry.Api.RateLimiting;
 using Normetry.Application.Documents;
 using Normetry.Application.Documents.DeleteDocument;
 using Normetry.Application.Documents.GetDocument;
@@ -45,6 +47,7 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
     /// </summary>
     [HttpPost("establishments/{establishmentId:guid}/documents")]
     [HasPermission(Permissions.Documents.Upload)]
+    [EnableRateLimiting(RateLimitPolicies.Uploads)]
     [RequestSizeLimit(UploadRequestLimit)]
     [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimit)]
     public async Task<IActionResult> Upload(
@@ -75,6 +78,7 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
     /// <summary>The next version of a document (form field <c>file</c>). 409 while one is in flight.</summary>
     [HttpPost("documents/{documentId:guid}/versions")]
     [HasPermission(Permissions.Documents.Upload)]
+    [EnableRateLimiting(RateLimitPolicies.Uploads)]
     [RequestSizeLimit(UploadRequestLimit)]
     [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimit)]
     public async Task<IActionResult> UploadVersion(

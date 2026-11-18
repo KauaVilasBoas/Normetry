@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Normetry.Api.Auth;
+using Normetry.Api.RateLimiting;
 using Normetry.Application.Inspections;
 using Normetry.Application.Inspections.ExportFeedback;
 using Normetry.Application.Inspections.GetInspection;
@@ -35,6 +37,7 @@ public sealed class InspectionsController(IDispatcher dispatcher, TimeProvider c
     /// </summary>
     [HttpPost]
     [HasPermission(Permissions.Inspections.Run)]
+    [EnableRateLimiting(RateLimitPolicies.InspectionStart)]
     public async Task<IActionResult> Start(
         Guid establishmentId,
         CancellationToken cancellationToken
