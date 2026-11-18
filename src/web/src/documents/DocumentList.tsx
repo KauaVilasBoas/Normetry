@@ -110,7 +110,7 @@ export function DocumentList({
         setDragging(false);
         setUpload({ files: [...event.dataTransfer.files] });
       }}
-      className={`rounded-card border bg-card motion-safe:animate-fade-in ${dragging ? "border-mint" : "border-border"}`}
+      className={`overflow-hidden rounded-card border bg-card motion-safe:animate-fade-in ${dragging ? "border-mint" : "border-border"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3 p-5">
         <div className="min-w-0">

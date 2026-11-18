@@ -329,7 +329,7 @@ export function Disclosure({
 }) {
   return (
     <details className={`group ${className}`}>
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-sm text-small font-medium text-mint [&::-webkit-details-marker]:hidden">
+      <summary className="inline-flex min-h-6 cursor-pointer list-none items-center gap-1 rounded-sm text-small font-medium text-mint [&::-webkit-details-marker]:hidden">
         <ChevronRight
           aria-hidden="true"
           className="size-3.5 shrink-0 group-open:rotate-90 motion-safe:transition-transform"

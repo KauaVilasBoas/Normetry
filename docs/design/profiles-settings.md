@@ -6,7 +6,7 @@
 
 | Item | Route | Lucide icon | Needs | Active on |
 |---|---|---|---|---|
-| Ask the Regulation | `/` | `MessagesSquare` | `chat.ask` | `/`, `/conversations/*` |
+| Ask the Regulation | `/ask` | `MessagesSquare` | `chat.ask` | `/ask`, `/conversations/*` |
 | Documents | `/documents` | `FileText` | `documents.read` | `/documents/*` |
 | Settings | `/settings/profiles` | `Settings` | `profiles.read` | `/settings/*` |
 
@@ -18,7 +18,7 @@ All three use the existing nav-item classes (`h-9 rounded-control px-3 text-body
 - Settings belongs to the organization, not to an establishment. It never shows the establishments card: it needs no establishment. Changing the establishment in the switcher leaves the user on the page.
 - Top bar `h1`: "Settings". `<title>`: "Profiles · Settings · Normetry".
 
-**Home (`/`).** A user without `chat.ask` is sent to `/documents` if they hold `documents.read`, otherwise to `/settings/profiles` if they hold `profiles.read`, otherwise to the "no access" or "no screen" state (§6).
+**Home (`/`)** redirects to `/overview`; the home order is in [`overview-screen.md`](overview-screen.md) §1. A user who may open no screen gets the "no access" or "no screen" state (§6).
 
 ## 2. Layout
 

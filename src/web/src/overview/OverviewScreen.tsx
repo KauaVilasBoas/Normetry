@@ -1,5 +1,6 @@
 import {
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   CalendarClock,
   ChartLine,
@@ -55,8 +56,10 @@ import {
 const focusTitle = () => document.getElementById(TITLE_ID)?.focus();
 /** Every link out asks the page it opens to focus its heading. */
 const arrive = { focusTitle: true };
-const card = "rounded-card border border-border bg-card motion-safe:animate-fade-in";
+const card =
+  "overflow-hidden rounded-card border border-border bg-card motion-safe:animate-fade-in";
 const cardHeader = "px-5 pt-5";
+const legendRow = "-mx-2 flex min-h-9 items-center gap-2 rounded-sm px-2";
 /** A link stretched over its row: the whole row opens it, with one tab stop. */
 const rowLink =
   "block truncate text-body font-medium after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-mint";
@@ -376,27 +379,40 @@ function VerdictsCard({ latest }: { latest: LatestInspection }) {
           caption={verdictLabel("compliant")}
         />
         <ul aria-labelledby="verdicts-title" className="w-full @sm:flex-1">
-          {verdictRows.map((row) => (
-            <li key={row.code}>
-              <Link
-                to={inspectionLink(latest.id, `?verdict=${row.code}`)}
-                state={arrive}
-                className="-mx-2 flex min-h-9 items-center gap-2 rounded-sm px-2 hover:bg-elevated"
-              >
+          {verdictRows.map((row) => {
+            const count = counts[row.key];
+            const content = (
+              <>
                 <span aria-hidden="true" className={`size-2 shrink-0 rounded-pill ${row.dot}`} />
                 <span className="flex-1 text-body text-text-secondary">
                   {verdictLabel(row.code)}
                 </span>
                 <span className="text-body font-medium tabular-nums">
-                  {pointsText(share(counts[row.key], total))}
+                  {pointsText(share(count, total))}
                 </span>
                 <span aria-hidden="true" className="text-small text-text-secondary tabular-nums">
-                  ({counts[row.key]})
+                  ({count})
                 </span>
-                <span className="sr-only">{findingCount(counts[row.key])}</span>
-              </Link>
-            </li>
-          ))}
+                <span className="sr-only">{findingCount(count)}</span>
+              </>
+            );
+            // A verdict with no findings has nothing to open.
+            return (
+              <li key={row.code}>
+                {count > 0 ? (
+                  <Link
+                    to={inspectionLink(latest.id, `?verdict=${row.code}`)}
+                    state={arrive}
+                    className={`${legendRow} hover:bg-elevated`}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <div className={legendRow}>{content}</div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>
@@ -571,6 +587,7 @@ function DocumentsCard({
           documents.expired + documents.expiringSoon > list.length && (
             <Link to="/documents" state={arrive} className={secondaryButton}>
               {copy.overview.viewAllDocuments}
+              <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
           )
         }
