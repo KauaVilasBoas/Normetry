@@ -1,3 +1,4 @@
+import { problemCode } from "../api/client";
 import type { ChatQuota, Citation, Claim, ConversationMessage } from "../api/queries";
 import { copy, format, locale } from "../copy";
 
@@ -35,32 +36,57 @@ function httpUrl(value: unknown): string | null {
   }
 }
 
+/** A non-blank string, else null. */
+const optionalString = (value: unknown) => (isString(value) && value.trim() ? value : null);
+
+/**
+ * A citation the screen may show. Without `sourceType` (stored before documents could be cited)
+ * it is the regulation's; an unknown `sourceType` is dropped.
+ */
 function toCitation(value: unknown): Citation | null {
-  const c = value as Partial<Record<keyof Citation, unknown>> | null;
+  const c = value as Record<string, unknown> | null;
   if (
     !c ||
     !isString(c.id) ||
-    !isString(c.sourceTitle) ||
-    !isString(c.sourceVersion) ||
     !isString(c.language) ||
     !isString(c.sectionPath) ||
     !isString(c.text) ||
     !isString(c.quote)
   )
     return null;
-  return {
+  const passage = {
     id: c.id,
-    sourceTitle: c.sourceTitle,
-    sourceVersion: c.sourceVersion,
     language: c.language,
     sectionPath: c.sectionPath,
     text: c.text,
     quote: c.quote,
     quoteStart: Number.isInteger(c.quoteStart) ? (c.quoteStart as number) : null,
     quoteEnd: Number.isInteger(c.quoteEnd) ? (c.quoteEnd as number) : null,
-    // Only a web link may become an href; anything else (javascript:, data:) is dropped.
-    officialUrl: httpUrl(c.officialUrl),
   };
+  const sourceType = c.sourceType ?? "regulation";
+  if (sourceType === "regulation" && isString(c.sourceTitle) && isString(c.sourceVersion))
+    return {
+      ...passage,
+      sourceType,
+      sourceTitle: c.sourceTitle,
+      sourceVersion: c.sourceVersion,
+      // Only a web link may become an href; anything else (javascript:, data:) is dropped.
+      officialUrl: httpUrl(c.officialUrl),
+    };
+  if (
+    sourceType === "document" &&
+    optionalString(c.documentId) &&
+    Number.isInteger(c.documentVersion)
+  )
+    return {
+      ...passage,
+      sourceType,
+      documentId: c.documentId as string,
+      documentTitle: optionalString(c.documentTitle),
+      documentType: optionalString(c.documentType),
+      documentVersion: c.documentVersion as number,
+    };
+  return null;
 }
 
 /** A claim the screen may show: text and at least one well-formed citation, nothing else. */
@@ -224,6 +250,13 @@ export function quotaAfter(
   if (limit === undefined || remaining === undefined || resetsAt === undefined) return current;
   return { limit, remaining, resetsAt };
 }
+
+/**
+ * The 429 is the core's rate limit (problem code `rate_limited`, a wait of seconds), not the daily
+ * quota (`chat.quota_exceeded`). Reads the body.
+ */
+export const rateLimited = async (response: Response) =>
+  response.status === 429 && (await problemCode(response)) === "rate_limited";
 
 /** "in 6 hours" from one hour on, else "in 12 minutes"; rounded up so it is never too early. */
 export function untilReset(resetsAt: number, now: number): string {

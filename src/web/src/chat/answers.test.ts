@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { ConversationMessage } from "../api/queries";
-import { quotaAfter, readEvents, streamAnswer, toClaim, toTurns, untilReset } from "./answers";
+import {
+  quotaAfter,
+  rateLimited,
+  readEvents,
+  streamAnswer,
+  toClaim,
+  toTurns,
+  untilReset,
+} from "./answers";
 
 const citation = {
   id: "cit-1",
@@ -89,6 +97,39 @@ describe("streamAnswer", () => {
   });
 });
 
+/** A document citation as the AI service sends it (chat-api.md). */
+const documentCitation = {
+  id: "cit-doc",
+  sourceType: "document",
+  sourceTitle: null,
+  sourceVersion: null,
+  officialUrl: null,
+  documentId: "d-1",
+  documentTitle: "Cold holding SOP",
+  documentType: "Sop",
+  documentVersion: 3,
+  language: "en",
+  sectionPath: "Page 1",
+  text: "The walk-in must read 4°C (39°F) or less at every check.",
+  quote: "must read 4°C (39°F) or less",
+  quoteStart: 12,
+  quoteEnd: 40,
+};
+const parsedDocument = {
+  id: "cit-doc",
+  sourceType: "document",
+  documentId: "d-1",
+  documentTitle: "Cold holding SOP",
+  documentType: "Sop",
+  documentVersion: 3,
+  language: "en",
+  sectionPath: "Page 1",
+  text: documentCitation.text,
+  quote: documentCitation.quote,
+  quoteStart: 12,
+  quoteEnd: 40,
+};
+
 describe("toClaim", () => {
   it("keeps only well-formed citations and drops links that are not web pages", () => {
     const claim = toClaim({
@@ -101,8 +142,49 @@ describe("toClaim", () => {
 
     expect(claim).toEqual({
       text: "Hold cold food at 5 °C or below.",
-      citations: [{ ...citation, officialUrl: null }],
+      citations: [{ ...citation, sourceType: "regulation", officialUrl: null }],
     });
+  });
+
+  it("reads a citation without sourceType as the regulation's, and a labelled one as is", () => {
+    const claim = toClaim({
+      text: "Hold cold food at 5 °C or below.",
+      citations: [citation, { ...citation, id: "cit-3", sourceType: "regulation" }],
+    });
+
+    expect(claim?.citations.map((c) => [c.id, c.sourceType])).toEqual([
+      ["cit-1", "regulation"],
+      ["cit-3", "regulation"],
+    ]);
+  });
+
+  it("keeps a document citation with its document fields, and nothing of the regulation's", () => {
+    expect(toClaim({ text: "The SOP says 4 °C.", citations: [documentCitation] })).toEqual({
+      text: "The SOP says 4 °C.",
+      citations: [parsedDocument],
+    });
+  });
+
+  it("reads a missing or blank title or type as none", () => {
+    const untitled = { ...documentCitation, documentTitle: " ", documentType: undefined };
+
+    expect(toClaim({ text: "Untitled.", citations: [untitled] })?.citations).toEqual([
+      { ...parsedDocument, documentTitle: null, documentType: null },
+    ]);
+  });
+
+  it("drops a document citation without its id or version, and an unknown source type", () => {
+    const claim = toClaim({
+      text: "Unchecked.",
+      citations: [
+        { ...documentCitation, documentId: undefined },
+        { ...documentCitation, documentVersion: "3" },
+        { ...citation, sourceType: "web" },
+        { ...citation, sourceType: "regulation", sourceTitle: null },
+      ],
+    });
+
+    expect(claim).toBeNull();
   });
 
   it("rejects a claim with no citation or no text", () => {
@@ -136,7 +218,7 @@ describe("toTurns", () => {
         key: "m2",
         question: "How cold?",
         status: "done",
-        claims: [{ text: "5 °C.", citations: [citation] }],
+        claims: [{ text: "5 °C.", citations: [{ ...citation, sourceType: "regulation" }] }],
         language: "pt",
         live: false,
         attempt: 0,
@@ -173,6 +255,16 @@ describe("quota", () => {
       remaining: 0,
       resetsAt: "2026-11-14T00:00:00.000Z",
     });
+  });
+
+  it("tells the rate limit apart from the daily quota by the problem code", async () => {
+    const problem = (status: number, code?: string) =>
+      new Response(JSON.stringify({ status, code }), { status });
+
+    expect(await rateLimited(problem(429, "rate_limited"))).toBe(true);
+    expect(await rateLimited(problem(429, "chat.quota_exceeded"))).toBe(false);
+    expect(await rateLimited(new Response(null, { status: 429 }))).toBe(false);
+    expect(await rateLimited(problem(400, "rate_limited"))).toBe(false);
   });
 
   it("rounds the time until the reset up", () => {

@@ -12,7 +12,7 @@ const MAX_LINES = 6;
 export const COMPOSER_ID = "chat-question";
 const NOTICE_ID = "quota-notice";
 
-/** The textarea, the send button and the daily quota (counter, or the notice at zero). */
+/** The textarea, the send button, the daily quota (counter, or notice at zero), a rate limit. */
 export function Composer({
   value,
   onChange,
@@ -20,6 +20,7 @@ export function Composer({
   regulation,
   ready,
   quota,
+  limitedWhen,
   inputRef,
 }: {
   value: string;
@@ -29,10 +30,13 @@ export function Composer({
   /** Loaded and no answer in progress. */
   ready: boolean;
   quota: ChatQuota | undefined;
+  /** Rate limited: when Send works again ("in 1 minute"); undefined otherwise. */
+  limitedWhen: string | undefined;
   inputRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const reached = quota?.remaining === 0;
-  const canSend = ready && !reached && value.trim() !== "";
+  const held = reached || limitedWhen !== undefined;
+  const canSend = ready && !held && value.trim() !== "";
 
   // Grows with its content, from one line up to six; then it scrolls.
   useLayoutEffect(() => {
@@ -53,7 +57,20 @@ export function Composer({
   return (
     <div className="px-5 pt-4 pb-4">
       <div className="mx-auto w-full max-w-180">
-        {reached && quota && <QuotaNotice quota={quota} />}
+        {reached && quota ? (
+          <QuotaNotice quota={quota} />
+        ) : (
+          limitedWhen !== undefined && (
+            <Notice
+              id={NOTICE_ID}
+              className="mb-3"
+              icon={<Clock aria-hidden="true" className="size-4" />}
+              title={copy.chat.rateLimitedTitle}
+            >
+              <p>{format(copy.chat.rateLimitedBody, { when: limitedWhen })}</p>
+            </Notice>
+          )
+        )}
         <div className="relative">
           <label htmlFor={COMPOSER_ID} className="sr-only">
             {copy.chat.inputLabel}
@@ -79,7 +96,7 @@ export function Composer({
             type="button"
             aria-label={copy.chat.send}
             aria-disabled={!canSend}
-            aria-describedby={reached ? NOTICE_ID : undefined}
+            aria-describedby={held ? NOTICE_ID : undefined}
             onClick={() => {
               submit();
               inputRef.current?.focus();

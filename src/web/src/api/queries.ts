@@ -99,11 +99,8 @@ export interface ConversationSummary {
   updatedAt: string;
 }
 
-/** A copy of the cited passage stored with the answer (ADR 007), so it opens without a fetch. */
-export interface Citation {
+interface CitedPassage {
   id: string;
-  sourceTitle: string;
-  sourceVersion: string;
   language: string;
   sectionPath: string;
   text: string;
@@ -111,8 +108,28 @@ export interface Citation {
   /** `text.slice(quoteStart, quoteEnd)` is the quote; both null when it could not be mapped. */
   quoteStart: number | null;
   quoteEnd: number | null;
-  officialUrl: string | null;
 }
+
+/**
+ * A copy of the cited passage stored with the answer (ADR 007), so it opens without a fetch: the
+ * regulation's, or one of the establishment's own documents (evidence, never a rule).
+ */
+export type Citation =
+  | (CitedPassage & {
+      sourceType: "regulation";
+      sourceTitle: string;
+      sourceVersion: string;
+      officialUrl: string | null;
+    })
+  | (CitedPassage & {
+      sourceType: "document";
+      documentId: string;
+      /** Null on documents uploaded before titles reached the AI service. */
+      documentTitle: string | null;
+      /** Sop, License, Log, Report, Other, or null. */
+      documentType: string | null;
+      documentVersion: number;
+    });
 
 /** The quote's offsets map onto `text`, so it can be highlighted there. */
 export const quoteFound = ({
@@ -213,6 +230,8 @@ interface DocumentFields {
   updatedAt: string;
   /** The newest Indexed version; null before one is. */
   currentVersionNumber: number | null;
+  /** The last valid day, a date with no time ("2026-11-23"); null when it doesn't expire. */
+  expiresOn: string | null;
 }
 
 /** A row of GET /establishments/{id}/documents (newest updated first). */
@@ -225,17 +244,34 @@ export interface DocumentDetail extends DocumentFields {
   versions: DocumentVersion[];
 }
 
-export const documentsKey = (establishmentId: string) => ["documents", establishmentId];
+/**
+ * The list's expiry filter: every document, those past their date, or those expiring within
+ * `EXPIRING_DAYS` (the API's `expired=true` and `expiringWithinDays=N`).
+ */
+export type ExpiryFilter = "" | "expired" | "expiring";
+
+/** "Expiring soon" (spec 004): the list's filter and its Time badge. */
+export const EXPIRING_DAYS = 30;
+
+const expiryQuery = {
+  "": "",
+  expired: "?expired=true",
+  expiring: `?expiringWithinDays=${EXPIRING_DAYS}`,
+};
+
+/** Every list of the establishment, filtered or not, shares this prefix (invalidate with it). */
+export const documentsKey = (establishmentId: string, filter: ExpiryFilter = "") =>
+  filter ? ["documents", establishmentId, filter] : ["documents", establishmentId];
 export const documentKey = (id: string) => ["document", id];
 
 /** `enabled` (here and below): the user holds `documents.read`. */
-export function useDocuments(establishmentId: string, enabled: boolean) {
+export function useDocuments(establishmentId: string, enabled: boolean, filter: ExpiryFilter = "") {
   const { api } = useSession();
   return useQuery({
-    queryKey: documentsKey(establishmentId),
+    queryKey: documentsKey(establishmentId, filter),
     queryFn: () =>
       api.get<DocumentSummary[]>(
-        `/establishments/${encodeURIComponent(establishmentId)}/documents`,
+        `/establishments/${encodeURIComponent(establishmentId)}/documents${expiryQuery[filter]}`,
       ),
     enabled,
   });

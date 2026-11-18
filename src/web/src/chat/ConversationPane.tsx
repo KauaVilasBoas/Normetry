@@ -28,7 +28,16 @@ import {
   TypeTile,
 } from "../ui/primitives";
 import { Answer } from "./Answer";
-import { quotaAfter, quotaNoticeText, streamAnswer, toTurns, type Turn } from "./answers";
+import {
+  quotaAfter,
+  quotaNoticeText,
+  rateLimited,
+  seconds,
+  streamAnswer,
+  toTurns,
+  untilReset,
+  type Turn,
+} from "./answers";
 import { Composer } from "./Composer";
 
 export const TITLE_ID = "conversation-title";
@@ -89,6 +98,8 @@ export function ConversationPane({
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [notFound, setNotFound] = useState(false);
+  /** A rate limit holds Send `until` then; `when` says it ("in 1 minute"). */
+  const [limit, setLimit] = useState<{ until: number; when: string }>();
   const nextKey = useRef(0);
   const inFlight = useRef<AbortController | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -99,6 +110,13 @@ export function ConversationPane({
   const startNew = useRef<HTMLButtonElement>(null);
 
   useEffect(() => () => inFlight.current?.abort(), []);
+
+  // A rate limit lasts seconds (at most a minute): no countdown, the notice clears at its end.
+  useEffect(() => {
+    if (!limit) return;
+    const end = setTimeout(() => setLimit(undefined), Math.max(0, limit.until - Date.now()));
+    return () => clearTimeout(end);
+  }, [limit]);
 
   // A conversation this view created has nothing stored that it does not already show.
   const savedId = conversationId ?? createdId;
@@ -175,6 +193,23 @@ export function ConversationPane({
       if (status === 403) void queryClient.invalidateQueries({ queryKey: meKey });
       update(() => ({ status: status >= 500 ? "unavailable" : "error" }));
     };
+    // A 429: nothing was sent, so the question goes back to the composer.
+    const giveBack = () => {
+      setTurns((list) => list.filter((turn) => turn.key !== key));
+      setDraft(question);
+    };
+    // The rate limit, not the quota: Send waits for Retry-After (seconds), the quota is unchanged.
+    const limited = (response: Response) => {
+      if (signal.aborted) return;
+      giveBack();
+      const now = Date.now();
+      // ponytail: a 429 without Retry-After waits a minute; the core always sends one.
+      const until = now + (seconds(response.headers, "Retry-After") ?? 60) * 1000;
+      const when = untilReset(until, now);
+      setLimit({ until, when });
+      announce(copy.chat.rateLimitedTitle);
+      announce(format(copy.chat.rateLimitedBody, { when }));
+    };
     announce(format(copy.chat.checking, { regulation }));
     try {
       let id = savedId;
@@ -183,7 +218,8 @@ export function ConversationPane({
           `/ai/establishments/${path(establishment.id)}/conversations`,
           { method: "POST", signal },
         );
-        if (!created.ok) return fail(created.status);
+        if (!created.ok)
+          return (await rateLimited(created)) ? limited(created) : fail(created.status);
         const summary = (await created.json()) as ConversationSummary;
         id = summary.id;
         setCreatedId(id);
@@ -199,15 +235,15 @@ export function ConversationPane({
         `/ai/establishments/${path(establishment.id)}/conversations/${path(id)}/messages`,
         { method: "POST", json: { text: question }, accept: "text/event-stream", signal },
       );
+      if (await rateLimited(response)) return limited(response);
       const before = queryClient.getQueryData<ChatQuota>(quotaKey);
       const after = quotaAfter(response, before);
       if (after && after !== before) queryClient.setQueryData(quotaKey, after);
 
       if (response.status === 429) {
-        // Nothing was sent: the question goes back to the composer.
+        // The daily quota.
         if (signal.aborted) return;
-        setTurns((list) => list.filter((turn) => turn.key !== key));
-        setDraft(question);
+        giveBack();
         if (after) {
           const notice = quotaNoticeText(after);
           announce(notice.title);
@@ -454,6 +490,7 @@ export function ConversationPane({
             regulation={regulation}
             ready={(view === "new" || view === "ready") && !busy}
             quota={quota}
+            limitedWhen={limit?.when}
             inputRef={input}
           />
         </div>
