@@ -365,7 +365,7 @@ overview: {
 2. With §8.3, the legend links.
 3. Results by theme rows (one stop per row, §8.3).
 4. "Show the data" (`<summary>`), then the table's date links when it is open.
-5. Document rows, then "View all documents".
+5. "View all documents" (in the card header), then the document rows.
 6. Risk theme rows (§8.3).
 
 The KPI row has no stops. Without §8.3, items 2, 3 and 6 are plain text.

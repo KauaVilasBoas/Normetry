@@ -1,7 +1,6 @@
 import {
   Check,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
   CircleAlert,
   Pencil,
@@ -17,6 +16,7 @@ import { calendarDate, copy, format, languageName } from "../copy";
 import type { Sent } from "../settings/profiles";
 import {
   Button,
+  Disclosure,
   FormDialog,
   iconButton,
   QuotedPassage,
@@ -300,30 +300,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h3 className="mt-5 mb-1.5 text-small font-semibold text-text-secondary">{title}</h3>
       {children}
     </>
-  );
-}
-
-/** A native `<details>`: Enter or Space opens it; the chevron turns (not under reduced motion). */
-function Disclosure({
-  summary,
-  className,
-  children,
-}: {
-  summary: string;
-  className: string;
-  children: ReactNode;
-}) {
-  return (
-    <details className={`group ${className}`}>
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-sm text-small font-medium text-mint [&::-webkit-details-marker]:hidden">
-        <ChevronRight
-          aria-hidden="true"
-          className="size-3.5 shrink-0 group-open:rotate-90 motion-safe:transition-transform"
-        />
-        {summary}
-      </summary>
-      {children}
-    </details>
   );
 }
 

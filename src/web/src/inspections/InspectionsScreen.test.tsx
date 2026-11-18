@@ -205,7 +205,7 @@ describe("inspection history", () => {
       within(nav)
         .getAllByRole("link")
         .map((item) => item.textContent),
-    ).toEqual(["Ask the Regulation", "Documents", "Simulated Inspection", "Settings"]);
+    ).toEqual(["Overview", "Ask the Regulation", "Documents", "Simulated Inspection", "Settings"]);
     expect(within(nav).getByRole("link", { name: "Simulated Inspection" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -810,18 +810,9 @@ describe("inspections access and navigation", () => {
 
     expect(
       await screen.findByText(
-        "Documents, Simulated Inspection and Ask the Regulation work per establishment. Ask an administrator in your organization for access.",
+        "Overview, Documents, Simulated Inspection and Ask the Regulation work per establishment. Ask an administrator in your organization for access.",
       ),
     ).toBeVisible();
-  });
-
-  it("sends a user who may only inspect from home to Simulated Inspection", async () => {
-    renderInspections({}, { path: "/", permissions: ["establishments.read", "inspections.read"] });
-
-    expect(
-      await screen.findByRole("link", { name: dateTime(runningRow.requestedAt) }),
-    ).toBeVisible();
-    expect(window.location.pathname).toBe("/inspections");
   });
 
   it("goes to the history when the establishment changes on an inspection", async () => {

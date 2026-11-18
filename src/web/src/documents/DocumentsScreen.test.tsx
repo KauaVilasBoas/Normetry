@@ -876,16 +876,6 @@ describe("documents access and navigation", () => {
     expect(hubs.all).toHaveLength(1);
   });
 
-  it("sends a user without chat.ask from home to Documents", async () => {
-    renderDocuments(
-      {},
-      { path: "/", permissions: ["establishments.read", "documents.read", "profiles.read"] },
-    );
-
-    expect(await screen.findByRole("link", { name: "Cold storage SOP" })).toBeVisible();
-    expect(window.location.pathname).toBe("/documents");
-  });
-
   it("opens the first establishment's documents when none is remembered", async () => {
     renderDocuments({}, { remembered: false });
 

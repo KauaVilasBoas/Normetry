@@ -17,13 +17,15 @@ import { DocumentsScreen } from "../documents/DocumentsScreen";
 import { EstablishmentPicker } from "../establishments/EstablishmentPicker";
 import { listState, useEstablishmentSelection } from "../establishments/selection";
 import { InspectionsScreen } from "../inspections/InspectionsScreen";
+import { OverviewScreen } from "../overview/OverviewScreen";
 import { ProfilesScreen } from "../settings/ProfilesScreen";
 import { iconButton, Message } from "../ui/primitives";
 import { Sidebar } from "./Sidebar";
 
-type Screen = "chat" | "documents" | "inspections" | "settings";
+type Screen = "overview" | "chat" | "documents" | "inspections" | "settings";
 
 const headings: Record<Screen, string> = {
+  overview: copy.shell.overview,
   chat: copy.shell.askTheRegulation,
   documents: copy.shell.documents,
   inspections: copy.shell.inspections,
@@ -31,7 +33,12 @@ const headings: Record<Screen, string> = {
 };
 
 /** Where an establishment chosen in the switcher leads: the section's root. */
-const sectionRoots = { chat: "/", documents: "/documents", inspections: "/inspections" };
+const sectionRoots = {
+  overview: "/overview",
+  chat: "/ask",
+  documents: "/documents",
+  inspections: "/inspections",
+};
 
 /**
  * The app frame: sidebar (a drawer below 1024px), top bar and main. Main shows what `/me`'s
@@ -123,15 +130,12 @@ export function AppShell({ screen }: { screen: Screen }) {
     if (establishments.isError) void establishments.refetch();
   };
 
-  // The screens the user may open. Home goes to the first: the chat, Documents, Simulated
-  // Inspection, then Settings.
+  // The screens the user may open. Home goes to the first: Overview (either read permission opens
+  // it, so Documents and Simulated Inspection are never home), the chat, then Settings.
   const canOpenAScreen =
     chatAllowed || documentsAllowed || inspectionsAllowed || can(me.data, "profiles.read");
-  const home = documentsAllowed
-    ? "/documents"
-    : inspectionsAllowed
-      ? "/inspections"
-      : "/settings/profiles";
+  const overviewAllowed = documentsAllowed || inspectionsAllowed;
+  const home = overviewAllowed ? "/overview" : chatAllowed ? "/ask" : "/settings/profiles";
 
   let content: ReactNode;
   if (me.data && !canOpenAScreen) {
@@ -168,6 +172,8 @@ export function AppShell({ screen }: { screen: Screen }) {
         body={copy.access.refusedBody}
       />
     );
+  } else if (screen === "overview" && me.data && !overviewAllowed) {
+    content = <Navigate to={home} replace />;
   } else if (screen === "chat" && me.data && !chatAllowed) {
     content =
       conversationId === undefined ? (
@@ -182,6 +188,8 @@ export function AppShell({ screen }: { screen: Screen }) {
     content = (
       <AccessCard title={copy.access.establishmentsTitle} body={copy.access.establishmentsBody} />
     );
+  } else if (selected && state === "list" && screen === "overview") {
+    content = <OverviewScreen establishment={selected} me={me.data} focusKey={focusKey} />;
   } else if (selected && state === "list" && screen === "documents") {
     content = (
       <DocumentsScreen
@@ -221,6 +229,7 @@ export function AppShell({ screen }: { screen: Screen }) {
   }
 
   const title = {
+    overview: copy.titles.overview,
     settings: copy.titles.profiles,
     chat: copy.titles.app,
     documents:

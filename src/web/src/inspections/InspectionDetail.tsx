@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CircleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { ApiError } from "../api/client";
 import type { Live } from "../api/live";
 import {
@@ -34,6 +34,7 @@ import {
   checklist,
   DETAIL_TITLE_ID,
   failureText,
+  FINDINGS_TITLE_ID,
   inFlight,
   progressText,
   runningView,
@@ -52,12 +53,15 @@ export function InspectionDetailView({
   establishment,
   me,
   live,
+  arrival,
   onBack,
 }: {
   id: string;
   establishment: Establishment;
   me: Me | undefined;
   live: Live;
+  /** A link from another screen asked for the heading (its location key). */
+  arrival?: string;
   /** The back link was chosen (it navigates). */
   onBack: () => void;
 }) {
@@ -86,6 +90,20 @@ export function InspectionDetailView({
     }
     wasLive.current = isLive;
   }, [current]);
+
+  // An arrival focuses the title once it shows the inspection (or why it can't), or the Findings
+  // heading when the link carried a filter (FindingsCard has read it by then).
+  const { search } = useLocation();
+  const arrived = useRef<string>(undefined);
+  const settled = detail !== undefined || notFound || failed;
+  useEffect(() => {
+    if (!arrival || arrived.current === arrival || !settled) return;
+    arrived.current = arrival;
+    const params = new URLSearchParams(search);
+    const findings =
+      (params.has("verdict") || params.has("theme")) && document.getElementById(FINDINGS_TITLE_ID);
+    (findings || document.getElementById(DETAIL_TITLE_ID))?.focus();
+  }, [arrival, settled, search]);
 
   // Try again: the error card (and its button) goes once the inspection loads, so focus moves to
   // the title, after the commit that shows it.

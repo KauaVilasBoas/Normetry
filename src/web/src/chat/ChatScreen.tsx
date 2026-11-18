@@ -79,7 +79,7 @@ export function ChatScreen({
   };
 
   const startNew = () => {
-    void navigate("/");
+    void navigate("/ask");
     focusNext(COMPOSER_ID);
   };
 
@@ -122,7 +122,7 @@ export function ChatScreen({
           void navigate(`/conversations/${id}`, { replace: true });
         }}
         onDeleted={() => {
-          void navigate("/");
+          void navigate("/ask");
           focusNext(TITLE_ID);
           announce(copy.chat.deleted);
         }}
