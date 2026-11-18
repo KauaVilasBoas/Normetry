@@ -1,6 +1,13 @@
+import type { QueryClient } from "@tanstack/react-query";
 import type { Sent } from "../settings/profiles";
-import type { DocumentDetail, DocumentSummary, DocumentVersion } from "../api/queries";
-import { copy, format } from "../copy";
+import {
+  documentsKey,
+  EXPIRING_DAYS,
+  type DocumentDetail,
+  type DocumentSummary,
+  type DocumentVersion,
+} from "../api/queries";
+import { calendarDate, copy, format, localDate, relativeDays } from "../copy";
 
 /** The core's documents hub and its event (spec §5). */
 export const HUB_URL = "/hubs/documents";
@@ -147,6 +154,39 @@ export function versionNotice({ versions, currentVersionNumber }: DocumentDetail
     lines: [c ? format(copy.documents.staysInUse, { c, n }) : copy.documents.readableOnceIndexed],
   };
 }
+
+/**
+ * An expiry date's state (spec "Expiry dates"), in local dates: Expired before today, a Time badge
+ * from today to `EXPIRING_DAYS` ahead ("Expires today", "Expires in 10 days"), the date after.
+ */
+export function expiry(expiresOn: string, now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Rounded: a day across a daylight saving change is 23 or 25 hours.
+  const days = Math.round((localDate(expiresOn).getTime() - today.getTime()) / 86_400_000);
+  if (days < 0) return { state: "expired", label: copy.documents.expired } as const;
+  if (days <= EXPIRING_DAYS)
+    return {
+      state: "soon",
+      label: format(copy.documents.expiresIn, { when: relativeDays(days) }),
+    } as const;
+  return { state: "later", label: calendarDate(expiresOn, now) } as const;
+}
+
+/**
+ * Why a date field's value can't be sent, or undefined ("" means no date). A half-typed date
+ * reads as "" in the browser, which would clear the date, so `badInput` catches it.
+ */
+export const expiryProblem = (input: HTMLInputElement | null) =>
+  input && (input.validity.badInput || (input.value && !/^\d{4}-\d{2}-\d{2}$/.test(input.value)))
+    ? copy.upload.expiryInvalid
+    : undefined;
+
+/** A document's title from any list of the establishment in the cache, filtered or not. */
+export const cachedTitle = (queryClient: QueryClient, establishmentId: string, id: string) =>
+  queryClient
+    .getQueriesData<DocumentSummary[]>({ queryKey: documentsKey(establishmentId) })
+    .flatMap(([, list]) => list ?? [])
+    .find((row) => row.id === id)?.title;
 
 /** A list row from an upload's answer, so it shows before the refetch. */
 export const toSummary = ({ versions, ...document }: DocumentDetail): DocumentSummary => ({

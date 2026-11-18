@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DocumentDetail, DocumentSummary, DocumentVersion } from "../api/queries";
 import { fileSize } from "../copy";
 import {
+  expiry,
   fileProblem,
   MAX_FILE_SIZE,
   rowCaption,
@@ -105,6 +106,25 @@ describe("status rules", () => {
         "This document has more than 100 pages. Split it and upload each part as its own document.",
         "Version 1 is still in use.",
       ],
+    });
+  });
+});
+
+describe("expiry dates", () => {
+  const now = new Date(2026, 10, 16, 15, 30);
+
+  it("is expired only after its last day, and expiring up to 30 days ahead", () => {
+    expect(expiry("2026-11-15", now)).toEqual({ state: "expired", label: "Expired" });
+    expect(expiry("2026-11-16", now)).toEqual({ state: "soon", label: "Expires today" });
+    expect(expiry("2026-11-17", now)).toEqual({ state: "soon", label: "Expires tomorrow" });
+    expect(expiry("2026-12-16", now)).toEqual({ state: "soon", label: "Expires in 30 days" });
+    expect(expiry("2026-12-17", now)).toEqual({ state: "later", label: "Dec 17" });
+    expect(expiry("2027-01-04", now)).toEqual({ state: "later", label: "Jan 4, 2027" });
+  });
+
+  it("counts whole days across a daylight saving change", () => {
+    expect(expiry("2026-04-02", new Date(2026, 2, 26, 12))).toMatchObject({
+      label: "Expires in 7 days",
     });
   });
 });

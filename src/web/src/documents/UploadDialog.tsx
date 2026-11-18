@@ -15,6 +15,7 @@ import {
 } from "../ui/primitives";
 import {
   ACCEPT,
+  expiryProblem,
   fileProblem,
   TITLE_MAX_LENGTH,
   titleFromFile,
@@ -103,7 +104,9 @@ export function UploadDialog({
   );
 }
 
-type Field = "file" | "title" | "type";
+type Field = "file" | "title" | "type" | "expiresOn";
+
+const fieldOrder = ["file", "title", "type", "expiresOn"] as const;
 
 function UploadForm({
   files,
@@ -125,6 +128,7 @@ function UploadForm({
   const [title, setTitle] = useState(file ? titleFromFile(file.name) : "");
   const [typed, setTyped] = useState(false);
   const [type, setType] = useState("");
+  const [expiresOn, setExpiresOn] = useState("");
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>(
     dropped ? { file: dropped } : {},
   );
@@ -136,13 +140,14 @@ function UploadForm({
   const zone = useRef<HTMLButtonElement>(null);
   const titleInput = useRef<HTMLInputElement>(null);
   const typeSelect = useRef<HTMLSelectElement>(null);
+  const expiryInput = useRef<HTMLInputElement>(null);
   const upload = useRef<AbortController>(null);
 
   // Focus moves once the error is rendered, so the error is read as the field's description.
   useEffect(() => {
     if (!focusRequest) return;
-    const { field } = focusRequest;
-    (field === "title" ? titleInput : field === "type" ? typeSelect : zone).current?.focus();
+    const fields = { file: zone, title: titleInput, type: typeSelect, expiresOn: expiryInput };
+    fields[focusRequest.field].current?.focus();
   }, [focusRequest]);
 
   // Closing the dialog aborts a running upload; the server may have accepted it already.
@@ -178,9 +183,10 @@ function UploadForm({
       file: file ? undefined : (errors.file ?? copy.upload.fileRequired),
       title: existing || title.trim() ? undefined : copy.upload.titleRequired,
       type: existing || type ? undefined : copy.upload.typeRequired,
+      expiresOn: existing ? undefined : expiryProblem(expiryInput.current),
     };
     setErrors(found);
-    const first = (["file", "title", "type"] as const).find((field) => found[field]);
+    const first = fieldOrder.find((field) => found[field]);
     if (first || !file) {
       setFocusRequest({ field: first ?? "file" });
       return;
@@ -191,6 +197,7 @@ function UploadForm({
     if (!existing) {
       form.append("title", title.trim());
       form.append("type", type);
+      if (expiresOn) form.append("expiresOn", expiresOn);
     }
     const controller = new AbortController();
     upload.current = controller;
@@ -209,7 +216,11 @@ function UploadForm({
       return;
     }
     const refusal = uploadRefusal(result, file.name);
-    if (refusal.file) {
+    // The only field the client can't fully check is the date (the server reads it strictly).
+    if (result.code === "validation" && expiresOn) {
+      setErrors({ expiresOn: copy.upload.expiryInvalid });
+      setFocusRequest({ field: "expiresOn" });
+    } else if (refusal.file) {
       setFile(undefined);
       setErrors({ file: refusal.file });
       setFocusRequest({ field: "file" });
@@ -276,6 +287,19 @@ function UploadForm({
               onChange={(event) => {
                 setType(event.target.value);
                 setErrors((current) => ({ ...current, type: undefined }));
+              }}
+            />
+            <TextField
+              ref={expiryInput}
+              type="date"
+              max="9999-12-31"
+              label={copy.upload.expiryLabel}
+              hint={copy.upload.expiryHint}
+              error={errors.expiresOn}
+              value={expiresOn}
+              onChange={(event) => {
+                setExpiresOn(event.target.value);
+                setErrors((current) => ({ ...current, expiresOn: undefined }));
               }}
             />
           </>

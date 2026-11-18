@@ -10,6 +10,7 @@ import {
   useDocuments,
   type DocumentSummary,
   type Establishment,
+  type ExpiryFilter,
   type Me,
 } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
@@ -17,38 +18,49 @@ import {
   Button,
   ConnectionNotice,
   ErrorMessage,
+  FilterSelect,
   IngestionPill,
   Message,
   Skeleton,
   th,
 } from "../ui/primitives";
-import { rowCaption, statusLabel, toSummary, typeLabel } from "./documents";
-import { LIST_TITLE_ID, VersionText } from "./parts";
+import { expiry, rowCaption, statusLabel, toSummary, typeLabel } from "./documents";
+import { ExpiryBadge, LIST_TITLE_ID, VersionText } from "./parts";
 import { UploadDialog } from "./UploadDialog";
 
 const draggingFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
 
+const filterOptions = Object.entries(copy.documents.expiryFilters).map(([value, label]) => ({
+  value,
+  label,
+}));
+
 /**
- * The selected establishment's documents in one card: header with Upload, the connection notice,
- * then the table. With `documents.upload` a file dropped on the card opens the upload dialog with
- * it (a pointer shortcut; Upload document is the keyboard path).
+ * The selected establishment's documents in one card: header with the expiry filter and Upload,
+ * the connection notice, then the table. With `documents.upload` a file dropped on the card opens
+ * the upload dialog with it (a pointer shortcut; Upload document is the keyboard path). The
+ * `filter` asks the API for expired or expiring documents only.
  */
 export function DocumentList({
   establishment,
   me,
   live,
+  filter,
+  onFilter,
   onOpen,
   announce,
 }: {
   establishment: Establishment;
   me: Me | undefined;
   live: Live;
+  filter: ExpiryFilter;
+  onFilter: (filter: ExpiryFilter) => void;
   /** A row was chosen (its link navigates). */
   onOpen: () => void;
   announce: (text: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const documents = useDocuments(establishment.id, true);
+  const documents = useDocuments(establishment.id, true, filter);
   const canUpload = can(me, "documents.upload");
   const failed = queryFailed(documents);
   const retrying = failed && documents.isFetching;
@@ -56,6 +68,8 @@ export function DocumentList({
   const [dragging, setDragging] = useState(false);
   const uploadButton = useRef<HTMLButtonElement>(null);
   const count = documents.data?.length ?? 0;
+  // Nothing to filter in an establishment without documents.
+  const filterable = filter !== "" || count > 0;
 
   const over = (event: DragEvent) => {
     if (!canUpload || !draggingFiles(event)) return;
@@ -100,16 +114,28 @@ export function DocumentList({
             !failed && <Skeleton className="mt-1.5 h-3 w-24" />
           )}
         </div>
-        {canUpload && (
-          <Button
-            ref={uploadButton}
-            variant="primary"
-            className="w-full sm:w-auto"
-            onClick={() => setUpload({ files: [] })}
-          >
-            <Upload aria-hidden="true" className="size-4" />
-            {copy.documents.upload}
-          </Button>
+        {(filterable || canUpload) && (
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {filterable && (
+              <FilterSelect
+                label={copy.documents.expiryFilter}
+                options={filterOptions}
+                value={filter}
+                onChange={(event) => onFilter(event.target.value as ExpiryFilter)}
+              />
+            )}
+            {canUpload && (
+              <Button
+                ref={uploadButton}
+                variant="primary"
+                className="w-full sm:w-auto"
+                onClick={() => setUpload({ files: [] })}
+              >
+                <Upload aria-hidden="true" className="size-4" />
+                {copy.documents.upload}
+              </Button>
+            )}
+          </div>
         )}
       </div>
       <ConnectionNotice live={live} labels={copy.documents} />
@@ -126,6 +152,29 @@ export function DocumentList({
         </div>
       ) : !documents.data ? (
         <ListSkeleton />
+      ) : count === 0 && filter !== "" ? (
+        <div className="px-5 pb-5">
+          <Message
+            className="items-start"
+            title={
+              filter === "expired" ? copy.documents.noExpiredTitle : copy.documents.noExpiringTitle
+            }
+            body={
+              filter === "expired" ? copy.documents.noExpiredBody : copy.documents.noExpiringBody
+            }
+          />
+          <Button
+            variant="secondary"
+            className="mt-4"
+            onClick={() => {
+              // The button goes with the filter: focus moves to the heading first.
+              document.getElementById(LIST_TITLE_ID)?.focus();
+              onFilter("");
+            }}
+          >
+            {copy.documents.showAll}
+          </Button>
+        </div>
       ) : count === 0 ? (
         <div className="px-5 pb-5">
           <Message
@@ -194,6 +243,9 @@ function DocumentTable({
           <th scope="col" className={`${th} hidden md:table-cell`}>
             {copy.documents.version}
           </th>
+          <th scope="col" className={`${th} hidden md:table-cell`}>
+            {copy.documents.expires}
+          </th>
           <th scope="col" className={`${th} hidden pr-5 md:table-cell`}>
             {copy.documents.updated}
           </th>
@@ -202,7 +254,9 @@ function DocumentTable({
       <tbody>
         {documents.map((row) => {
           const statusId = `${id}-${row.id}`;
+          const expiryId = `${statusId}-expiry`;
           const caption = rowCaption(row);
+          const expires = row.expiresOn ? expiry(row.expiresOn, now) : undefined;
           const updated = <time dateTime={row.updatedAt}>{shortDate(row.updatedAt, now)}</time>;
           return (
             <tr key={row.id} className="relative h-14 border-t border-border hover:bg-elevated">
@@ -212,7 +266,10 @@ function DocumentTable({
                 <Link
                   to={`/documents/${row.id}`}
                   onClick={onOpen}
-                  aria-describedby={statusId}
+                  // Only an urgent date joins the row's name: a bare later date reads as noise.
+                  aria-describedby={
+                    expires && expires.state !== "later" ? `${statusId} ${expiryId}` : statusId
+                  }
                   className="block truncate text-body font-medium after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-mint"
                 >
                   {row.title}
@@ -224,6 +281,12 @@ function DocumentTable({
                   {typeLabel(row.type)} · <VersionText number={row.currentVersionNumber} /> ·{" "}
                   {updated}
                 </span>
+                {/* Below 768px the Expires column is hidden; an expired or expiring date shows here. */}
+                {row.expiresOn && expires?.state !== "later" && (
+                  <span className="mt-1 flex md:hidden">
+                    <ExpiryBadge expiresOn={row.expiresOn} />
+                  </span>
+                )}
               </td>
               <td className="hidden px-3 py-2.5 text-body whitespace-nowrap text-text-secondary md:table-cell">
                 {typeLabel(row.type)}
@@ -242,6 +305,25 @@ function DocumentTable({
               </td>
               <td className="hidden px-3 py-2.5 text-body whitespace-nowrap tabular-nums md:table-cell">
                 <VersionText number={row.currentVersionNumber} />
+              </td>
+              <td id={expiryId} className="hidden px-3 py-2.5 whitespace-nowrap md:table-cell">
+                {!row.expiresOn || !expires ? (
+                  <>
+                    <span aria-hidden="true" className="text-body">
+                      —
+                    </span>
+                    <span className="sr-only">{copy.documents.noExpiry}</span>
+                  </>
+                ) : expires.state === "later" ? (
+                  <time
+                    dateTime={row.expiresOn}
+                    className="text-small text-text-secondary tabular-nums"
+                  >
+                    {expires.label}
+                  </time>
+                ) : (
+                  <ExpiryBadge expiresOn={row.expiresOn} />
+                )}
               </td>
               <td className="hidden py-2.5 pr-5 pl-3 text-small whitespace-nowrap text-text-secondary tabular-nums md:table-cell">
                 {updated}

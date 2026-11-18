@@ -16,22 +16,32 @@ import {
   type Establishment,
   type Me,
 } from "../api/queries";
-import { copy, fileSize, format, shortDate } from "../copy";
+import { calendarDate, copy, fileSize, format, shortDate } from "../copy";
 import { useSend } from "../settings/profiles";
 import {
   Button,
   ConnectionNotice,
   dialogPanel,
+  FormDialog,
   IngestionPill,
   Notice,
   secondaryButton,
   Skeleton,
   Spinner,
   Tag,
+  TextField,
   th,
 } from "../ui/primitives";
-import { failureText, inFlight, statusLabel, typeLabel, versionNotice } from "./documents";
-import { DETAIL_TITLE_ID, VersionText } from "./parts";
+import {
+  cachedTitle,
+  expiryProblem,
+  failureText,
+  inFlight,
+  statusLabel,
+  typeLabel,
+  versionNotice,
+} from "./documents";
+import { DETAIL_TITLE_ID, ExpiryBadge, VersionText } from "./parts";
 import { UploadDialog } from "./UploadDialog";
 
 /**
@@ -64,11 +74,7 @@ export function DocumentDetailView({
   const retrying = failed && query.isFetching;
   const detail = query.data;
   // The list's row, shown while the document loads.
-  const title =
-    detail?.title ??
-    queryClient
-      .getQueryData<DocumentSummary[]>(documentsKey(establishment.id))
-      ?.find((row) => row.id === id)?.title;
+  const title = detail?.title ?? cachedTitle(queryClient, establishment.id, id);
   const canUpload = can(me, "documents.upload");
   const canDelete = can(me, "documents.delete");
   const busy = detail?.versions[0] !== undefined && inFlight(detail.versions[0]);
@@ -159,12 +165,29 @@ export function DocumentDetailView({
               )}
             </h2>
             {detail ? (
-              <p className="mt-1 text-body text-text-secondary">
-                {format(copy.documents.meta, {
-                  type: typeLabel(detail.type),
-                  establishment: establishment.name,
-                })}
-              </p>
+              <>
+                <p className="mt-1 text-body text-text-secondary">
+                  {format(copy.documents.meta, {
+                    type: typeLabel(detail.type),
+                    establishment: establishment.name,
+                  })}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
+                  {detail.expiresOn ? (
+                    <>
+                      <time dateTime={detail.expiresOn}>
+                        {format(copy.documents.expiresOn, {
+                          date: calendarDate(detail.expiresOn),
+                        })}
+                      </time>
+                      <ExpiryBadge expiresOn={detail.expiresOn} />
+                    </>
+                  ) : (
+                    <span className="text-text-secondary">{copy.documents.noExpiry}</span>
+                  )}
+                  {canUpload && <ExpiryDialog detail={detail} announce={announce} />}
+                </div>
+              </>
             ) : (
               <Skeleton className="mt-2 h-3 w-40" />
             )}
@@ -377,6 +400,128 @@ function VersionsSkeleton({ label }: { label: boolean }) {
         </ul>
       </div>
     </>
+  );
+}
+
+// Mint text, as "Open document": 24px tall, so it stays a reachable target beside a 13px line.
+const textButton =
+  "inline-flex h-6 items-center rounded-sm text-small font-medium text-mint hover:underline";
+
+/**
+ * "Edit expiry date" and its dialog (`documents.upload`): Save sends the field (empty clears the
+ * date), "Remove date" clears it at once. The confirmation is announced once the dialog has
+ * closed, when the page is heard again; focus goes back to the trigger.
+ */
+function ExpiryDialog({
+  detail,
+  announce,
+}: {
+  detail: DocumentDetail;
+  announce: (text: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  // A 403 refetches /me once the dialog closes, so its message stays readable until then.
+  const { send, closed } = useSend({ inside: true });
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  // A new object per refusal, so the same error twice still moves focus to the field.
+  const [fieldError, setFieldError] = useState<{ text: string }>();
+  const [error, setError] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+  const saved = useRef<string>(undefined);
+  const input = useRef<HTMLInputElement>(null);
+  const current = detail.expiresOn ?? "";
+
+  useEffect(() => {
+    if (fieldError) input.current?.focus();
+  }, [fieldError]);
+
+  const save = async (expiresOn: string | null) => {
+    if (submitting) return;
+    setError(undefined);
+    setSubmitting(true);
+    const result = await send(
+      `/establishments/${encodeURIComponent(detail.establishmentId)}/documents/${encodeURIComponent(detail.id)}`,
+      { method: "PATCH", json: { expiresOn } },
+    );
+    setSubmitting(false);
+    if (!result.ok) {
+      if (result.code === "validation") setFieldError({ text: copy.upload.expiryInvalid });
+      else setError(result.status === 403 ? copy.settings.denied : copy.documents.expiryError);
+      return;
+    }
+    queryClient.setQueryData<DocumentDetail>(
+      documentKey(detail.id),
+      (cached) => cached && { ...cached, expiresOn },
+    );
+    void queryClient.invalidateQueries({ queryKey: documentKey(detail.id) });
+    void queryClient.invalidateQueries({ queryKey: documentsKey(detail.establishmentId) });
+    saved.current = expiresOn ? copy.documents.expirySaved : copy.documents.expiryRemoved;
+    setOpen(false);
+  };
+
+  return (
+    <FormDialog
+      trigger={
+        <button type="button" className={textButton}>
+          {copy.documents.editExpiry}
+        </button>
+      }
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          closed();
+          return;
+        }
+        setValue(current);
+        setFieldError(undefined);
+        setError(undefined);
+      }}
+      title={copy.documents.editExpiry}
+      submitLabel={submitting ? copy.documents.saving : copy.documents.save}
+      cancelLabel={copy.documents.cancel}
+      submitting={submitting}
+      ready={value !== current}
+      error={error}
+      onSubmit={() => {
+        const problem = expiryProblem(input.current);
+        if (problem) setFieldError({ text: problem });
+        else void save(value || null);
+      }}
+      onCloseAutoFocus={() => {
+        if (saved.current) announce(saved.current);
+        saved.current = undefined;
+      }}
+    >
+      <div className="flex flex-col items-start gap-2">
+        <div className="w-full">
+          <TextField
+            ref={input}
+            type="date"
+            max="9999-12-31"
+            label={copy.upload.expiryLabel}
+            hint={copy.upload.expiryHint}
+            error={fieldError?.text}
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setFieldError(undefined);
+            }}
+          />
+        </div>
+        {detail.expiresOn && (
+          <button
+            type="button"
+            className={textButton}
+            aria-disabled={submitting}
+            onClick={() => void save(null)}
+          >
+            {copy.documents.removeExpiry}
+          </button>
+        )}
+      </div>
+    </FormDialog>
   );
 }
 
