@@ -186,19 +186,20 @@ public sealed class DemoDocumentSeed(
                     new UploadDocumentVersionCommand(document.Id, upload),
                     cancellationToken
                 );
+            // Ids and codes only: a title is document data, like the file name.
             if (!result.IsSuccess)
             {
                 logger.LogWarning(
-                    "Could not upload the demo document {Title}: {Code}",
-                    entry.Title,
+                    "Could not upload a demo document of {Manifest}: {Code}",
+                    path,
                     result.Error.Code
                 );
                 continue;
             }
             logger.LogInformation(
-                "Uploaded the demo document {Title} to {Establishment}",
-                entry.Title,
-                target.Name
+                "Uploaded the demo document {DocumentId} to establishment {EstablishmentId}",
+                result.Value.Id,
+                establishmentId
             );
             uploads++;
         }
@@ -223,8 +224,8 @@ public sealed class DemoDocumentSeed(
         if (!result.IsSuccess)
         {
             logger.LogWarning(
-                "Could not set the expiry date of the demo document {Title}: {Code}",
-                entry.Title,
+                "Could not set the expiry date of the demo document {DocumentId}: {Code}",
+                document.Id,
                 result.Error.Code
             );
         }
