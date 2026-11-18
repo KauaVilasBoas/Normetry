@@ -51,14 +51,16 @@ export function DocumentsScreen({
       (document.getElementById(LIST_TITLE_ID) ?? document.getElementById(DETAIL_TITLE_ID))?.focus();
   }, [focusKey]);
 
-  // A link from another screen ("Go to Documents") asks for the list heading with its state.
+  // A link from another screen ("Go to Documents", a finding's "Open document") asks for the
+  // page's heading with its state.
   const location = useLocation();
   const focusArrival =
     (location.state as { focusTitle?: unknown } | null)?.focusTitle === true
       ? location.key
       : undefined;
   useEffect(() => {
-    if (focusArrival) focusById(LIST_TITLE_ID);
+    if (focusArrival)
+      (document.getElementById(LIST_TITLE_ID) ?? document.getElementById(DETAIL_TITLE_ID))?.focus();
   }, [focusArrival]);
 
   const refetch = (id: string | undefined, options = {}) => {

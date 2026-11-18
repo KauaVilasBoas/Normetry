@@ -5,12 +5,14 @@ import { Link } from "react-router";
 import { ApiError } from "../api/client";
 import type { Live } from "../api/live";
 import {
+  can,
   inspectionsKey,
   queryFailed,
   useInspection,
   type Establishment,
   type InspectionDetail,
   type InspectionSummary,
+  type Me,
 } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
 import {
@@ -26,12 +28,12 @@ import {
   Stepper,
 } from "../ui/primitives";
 import { pillVariant } from "../ui/statuses";
+import { ActionPlan } from "./ActionPlan";
+import { FindingsCard } from "./FindingsCard";
 import {
   checklist,
   DETAIL_TITLE_ID,
   failureText,
-  FINDINGS_TITLE_ID,
-  findingCount,
   inFlight,
   progressText,
   runningView,
@@ -48,11 +50,13 @@ const card = "mt-5 rounded-card border border-border bg-card p-5 motion-safe:ani
 export function InspectionDetailView({
   id,
   establishment,
+  me,
   live,
   onBack,
 }: {
   id: string;
   establishment: Establishment;
+  me: Me | undefined;
   live: Live;
   /** The back link was chosen (it navigates). */
   onBack: () => void;
@@ -200,7 +204,14 @@ export function InspectionDetailView({
           />
         </div>
       ) : (
-        <Findings inspection={detail} />
+        <>
+          <FindingsCard
+            inspection={detail}
+            canReview={can(me, "inspections.review")}
+            canReadDocuments={can(me, "documents.read")}
+          />
+          <ActionPlan inspection={detail} canReview={can(me, "inspections.review")} />
+        </>
       )}
     </div>
   );
@@ -266,23 +277,6 @@ function RunningCard({
       </div>
       <p className="mt-5 text-small text-text-secondary">{copy.inspections.leaveNote}</p>
     </div>
-  );
-}
-
-/**
- * The completed view's Findings card, reduced to its heading and count until the findings table,
- * the finding sheet and the action plan arrive (#105).
- */
-function Findings({ inspection }: { inspection: InspectionDetail }) {
-  return (
-    <section aria-labelledby={FINDINGS_TITLE_ID} className={card}>
-      <h2 id={FINDINGS_TITLE_ID} tabIndex={-1} className="text-title font-semibold">
-        {copy.findings.title}
-      </h2>
-      <p className="text-small text-text-secondary tabular-nums">
-        {findingCount(inspection.findings.length)}
-      </p>
-    </section>
   );
 }
 

@@ -275,7 +275,78 @@ export interface InspectionSummary {
   failureReasonCode: string | null;
 }
 
-/** GET /establishments/{e}/inspections/{id}. `findings` are typed by the findings review (#105). */
+/** A copy of the regulation passage a finding cites, kept with it; quoted in its own language. */
+export interface RegulationCitation {
+  sourceTitle: string;
+  sourceVersion: string;
+  sectionPath: string;
+  language: string;
+  text: string;
+  quote: string;
+  quoteStart: number | null;
+  quoteEnd: number | null;
+}
+
+/** A copy of a passage of the establishment's own document. The title is null on old uploads. */
+export interface EvidenceCitation {
+  documentId: string;
+  documentTitle: string | null;
+  documentType: string | null;
+  versionNumber: number;
+  sectionPath: string;
+  language: string;
+  text: string;
+  quote: string;
+  quoteStart: number | null;
+  quoteEnd: number | null;
+}
+
+export interface UserReference {
+  id: string;
+  displayName: string | null;
+}
+
+/** `dueOn` is a date with no time ("2026-11-23"); `status` Open or Done. */
+export interface ActionItem {
+  id: string;
+  text: string;
+  dueOn: string;
+  status: string;
+  updatedBy: UserReference | null;
+  updatedAt: string | null;
+}
+
+/**
+ * A finding, as GET inspection lists it and every review route returns it. Codes (theme, severity,
+ * verdict, confidence) are the contract's snake_case; `reviewStatus` Pending, Accepted, Rejected
+ * or Edited. `original` holds the values before the first edit.
+ */
+export interface Finding {
+  id: string;
+  itemId: string;
+  theme: string;
+  title: string;
+  severity: string;
+  verdict: string;
+  confidence: string;
+  rationale: string;
+  regulationCitations: RegulationCitation[];
+  evidenceCitations: EvidenceCitation[];
+  reviewStatus: string;
+  reviewedBy: UserReference | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  original: {
+    verdict: string;
+    severity: string;
+    rationale: string;
+    actionText: string | null;
+    dueOn: string | null;
+  } | null;
+  actionItem: ActionItem | null;
+}
+
+/** GET /establishments/{e}/inspections/{id}. */
 export interface InspectionDetail {
   id: string;
   establishmentId: string;
@@ -288,7 +359,7 @@ export interface InspectionDetail {
   itemsEvaluated: number;
   themes: ThemeProgress[];
   failureReasonCode: string | null;
-  findings: unknown[];
+  findings: Finding[];
 }
 
 const inspectionsPath = (establishmentId: string) =>

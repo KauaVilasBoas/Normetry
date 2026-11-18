@@ -438,6 +438,8 @@ export const copy = {
     goToDocuments: "Go to Documents",
     quotaTitle: "Your organization has run all of today's inspections.",
     quotaBody: "You can run another inspection {when}.",
+    capacityTitle: "Your organization already has inspections running.",
+    capacityBody: "You can run another one when one of them finishes.",
     rateLimitedTitle: "Too many requests right now.",
     rateLimitedBody: "Try again {when}.",
     startErrorTitle: "Couldn't start the inspection.",
@@ -502,6 +504,27 @@ export const copy = {
     title: "Findings",
     one: "1 finding",
     count: "{count} findings",
+    caption: "{findings} · {review}",
+    pending: "{count} pending review",
+    allReviewed: "All reviewed",
+    tableCaption: "Findings of the inspection of {date}",
+    requirement: "Requirement",
+    theme: "Theme",
+    severity: "Severity",
+    verdict: "Verdict",
+    review: "Review",
+    meta: "{severity} · {theme}",
+    verdictFilter: "Filter by verdict",
+    allVerdicts: "All verdicts",
+    themeFilter: "Filter by theme",
+    allThemes: "All themes",
+    option: "{label} ({count})",
+    noMatchTitle: "No findings match these filters",
+    noMatchBody: "Change or clear the filters to see more findings.",
+    clearFilters: "Clear filters",
+    noneTitle: "No findings were kept",
+    noneBody:
+      "Normetry keeps a finding only when it can quote the regulation, and it couldn't for any requirement in this inspection.",
     verdicts: {
       compliant: "Compliant",
       non_compliant: "Non-compliant",
@@ -517,6 +540,77 @@ export const copy = {
       string,
       string | undefined
     >,
+    confidences: { high: "High", medium: "Medium", low: "Low" } as Record<
+      string,
+      string | undefined
+    >,
+    position: "Finding {n} of {total}",
+    previous: "Previous finding",
+    next: "Next finding",
+    close: "Close finding",
+    confidence: "Confidence",
+    rationale: "Rationale",
+    regulation: "Regulation",
+    evidence: "Evidence",
+    noEvidence: "No passage in this establishment's documents shows this requirement.",
+    regulationMeta: "{source} · {section}",
+    sourceMeta: "Version {version} · {language}",
+    untitledDocument: "Untitled document",
+    openDocument: "Open document",
+    wholePassage: "Show the whole passage",
+    storedCopy:
+      "Quotes are copies kept with the finding. The regulation or a document may have changed since.",
+    action: "Action",
+    due: "Due {date}",
+    noAction: "No action needed.",
+    reviewHeading: "Review",
+    notReviewed: "No one has reviewed this finding yet.",
+    acceptedBy: "Accepted by {name} on {date}.",
+    rejectedBy: "Rejected by {name} on {date}.",
+    editedBy: "Edited by {name} on {date}.",
+    reason: "Reason",
+    unknownReviewer: "Unknown user",
+    original: "Show the original values",
+    dueDate: "Due date",
+    accept: "Accept",
+    accepting: "Accepting…",
+    reject: "Reject",
+    edit: "Edit",
+    reviewError: "Couldn't save the review. Try again.",
+    gone: "This finding isn't available anymore.",
+    accepted: "Finding accepted.",
+    rejected: "Finding rejected.",
+    edited: "Finding updated.",
+    moved: "{title}. Finding {n} of {total}.",
+    rejectTitle: "Reject finding",
+    reasonHint: "Say why this finding is wrong. Up to 1,000 characters.",
+    reasonRequired: "Enter a reason.",
+    rejectSubmit: "Reject finding",
+    rejecting: "Rejecting…",
+    editTitle: "Edit finding",
+    editNote: "The original values stay available on the finding.",
+    chooseVerdict: "Choose a verdict",
+    chooseSeverity: "Choose a severity",
+    actionHint: "What the establishment should do, in one or two sentences.",
+    rationaleRequired: "Enter a rationale.",
+    actionRequired: "Describe the action.",
+    dueRequired: "Choose a due date.",
+    save: "Save changes",
+    saving: "Saving…",
+    cancel: "Cancel",
+  },
+  actions: {
+    title: "Action plan",
+    caption: "{open} open · {done} done",
+    meta: "{finding} · Due {date}",
+    dueIn: "Due {when}",
+    overdue: "Overdue",
+    done: "Done:",
+    open: "Open:",
+    error: "Couldn't update the action. Try again.",
+    emptyTitle: "No actions to take",
+    emptyBody:
+      "Actions appear for non-compliant findings and for findings without enough evidence.",
   },
   /** Checklist themes in display order; an unknown theme shows as sent. */
   themes: {
@@ -608,6 +702,29 @@ export function dateTime(iso: string): string {
     new Date(iso),
   );
 }
+
+/**
+ * A date with no time ("2026-11-23") at local midnight. `new Date("2026-11-23")` would be UTC
+ * midnight, the day before west of UTC.
+ */
+export function localDate(date: string): Date {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/** "Nov 23" this year, "Nov 23, 2027" in another, for a date with no time. */
+export function calendarDate(date: string, now = new Date()): string {
+  const day = localDate(date);
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    ...(day.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  }).format(day);
+}
+
+/** "in 7 days", "tomorrow", "today": `days` from today. */
+export const relativeDays = (days: number) =>
+  new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(days, "day");
 
 /** "Portuguese" for "pt"; the code itself when the browser can't name it. */
 export function languageName(code: string): string {

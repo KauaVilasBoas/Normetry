@@ -74,7 +74,8 @@ export const requestedRow = (id: string, regulation: string): InspectionSummary 
 
 /** Why Run was refused (spec §4). A quota or a rate limit holds Run `until` then. */
 export type Refusal =
-  { kind: "quota" | "rateLimited"; until: number } | { kind: "noDocuments" | "denied" | "error" };
+  | { kind: "quota" | "rateLimited"; until: number }
+  | { kind: "noDocuments" | "capacity" | "denied" | "error" };
 
 /** The refusal of a start, or "running" for a stale list (refetching it shows the running row). */
 export function runRefusal(result: Sent & { ok: false }, now: number): Refusal | "running" {
@@ -87,6 +88,8 @@ export function runRefusal(result: Sent & { ok: false }, now: number): Refusal |
   if (result.status === 409 && result.code === "inspection_running") return "running";
   if (result.status === 409 && result.code === "no_indexed_documents")
     return { kind: "noDocuments" };
+  // The tenant's other establishments fill its in-flight cap: nothing here to refetch.
+  if (result.status === 409 && result.code === "inspection_capacity") return { kind: "capacity" };
   if (result.status === 403) return { kind: "denied" };
   return { kind: "error" };
 }
@@ -123,11 +126,13 @@ export function runningView(
   };
 }
 
-const themeOrder = Object.keys(copy.themes);
-const themeRank = (theme: string) => {
-  const index = themeOrder.indexOf(theme);
-  return index < 0 ? themeOrder.length : index;
+/** A code's place in `order`; unknown codes after every known one. */
+export const rankIn = (order: string[]) => (code: string) => {
+  const index = order.indexOf(code);
+  return index < 0 ? order.length : index;
 };
+
+export const themeRank = rankIn(Object.keys(copy.themes));
 const themeStates = {
   done: copy.inspections.themeDone,
   active: copy.inspections.themeActive,

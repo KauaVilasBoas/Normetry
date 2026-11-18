@@ -790,7 +790,8 @@ export const uploadDialogPanel = `${dialogSurface} max-h-[calc(100dvh-2rem)] max
 /**
  * A dialog with a form: title, fields, an inline error, then Cancel and the primary submit. It
  * cannot be dismissed while `submitting`. Focus returns to `trigger` unless `onCloseAutoFocus`
- * prevents it. `wide`: 480px and scrolling inside itself, for more than three fields.
+ * prevents it. `wide`: 480px and scrolling inside itself, for more than three fields. Until
+ * `ready` (nothing changed yet), the submit stays `aria-disabled` at 50%.
  */
 export function FormDialog({
   trigger,
@@ -804,6 +805,7 @@ export function FormDialog({
   onSubmit,
   onCloseAutoFocus,
   wide = false,
+  ready = true,
   children,
 }: {
   trigger: ReactNode;
@@ -817,6 +819,7 @@ export function FormDialog({
   onSubmit: () => void;
   onCloseAutoFocus?: (event: Event) => void;
   wide?: boolean;
+  ready?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -840,7 +843,7 @@ export function FormDialog({
             className="mt-4"
             onSubmit={(event) => {
               event.preventDefault();
-              if (!submitting) onSubmit();
+              if (!submitting && ready) onSubmit();
             }}
           >
             {children}
@@ -855,7 +858,12 @@ export function FormDialog({
                   {cancelLabel}
                 </Button>
               </Dialog.Close>
-              <Button type="submit" variant="primary" aria-disabled={submitting}>
+              <Button
+                type="submit"
+                variant="primary"
+                aria-disabled={submitting || !ready}
+                className={ready ? "" : "opacity-50 aria-disabled:hover:bg-mint"}
+              >
                 {submitting && <Spinner surface="mint" />}
                 {submitLabel}
               </Button>
