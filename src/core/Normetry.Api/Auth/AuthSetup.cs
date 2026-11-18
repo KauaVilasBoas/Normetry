@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -120,10 +121,11 @@ internal static class AuthSetup
 
         builder.Services.AddAuthorization(options =>
         {
-            // Users are identified by sub only, so a token without it is useless.
+            // Users are identified by sub only, so a token without it, or with an empty one, is
+            // useless. RequireClaim("sub") would accept an empty value.
             options.DefaultPolicy = new AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
-                .RequireClaim("sub")
+                .RequireAssertion(context => context.User.FindFirstValue("sub") is { Length: > 0 })
                 .Build();
 
             var tenant = new AuthorizationPolicyBuilder()

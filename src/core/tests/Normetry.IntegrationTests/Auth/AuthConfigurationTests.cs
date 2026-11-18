@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Normetry.Api.Auth;
 using Normetry.Api.Identity;
+using Normetry.Api.Overview;
 using Normetry.Domain.Identity;
 using Xunit;
 
@@ -169,6 +170,21 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
                 Assert.Contains(name, Permissions.All)
             );
         });
+        // An any-of attribute lets a caller in with either permission, so the handler must show
+        // only what each covers. Only the overview does; a new one needs that review first.
+        Assert.Equal(
+            [$"{nameof(OverviewController)}.{nameof(OverviewController.Get)}"],
+            actions
+                .Where(action =>
+                    action
+                        .Method.GetCustomAttributes<HasPermissionAttribute>()
+                        .Concat(
+                            action.Method.DeclaringType!.GetCustomAttributes<HasPermissionAttribute>()
+                        )
+                        .Any(attribute => attribute.AnyOf.Count > 1)
+                )
+                .Select(action => action.Name)
+        );
     }
 
     [Fact]
@@ -210,6 +226,16 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
                 Assert.Contains(name, Permissions.All)
             );
         });
+        // No any-of attribute on a hub or a hub method (only the overview action has one).
+        Assert.DoesNotContain(
+            hubs.SelectMany(hub => hub.GetCustomAttributes<HasPermissionAttribute>())
+                .Concat(
+                    methods.SelectMany(method =>
+                        method.Method.GetCustomAttributes<HasPermissionAttribute>(inherit: false)
+                    )
+                ),
+            attribute => attribute.AnyOf.Count > 1
+        );
     }
 
     [Fact]

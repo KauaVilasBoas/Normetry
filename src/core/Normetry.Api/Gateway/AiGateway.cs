@@ -25,6 +25,12 @@ public static class InternalHeaders
 
     /// <summary><c>US</c>, <c>EU</c> or <c>BR</c>: the jurisdiction of that establishment.</summary>
     public const string Jurisdiction = "X-Normetry-Jurisdiction";
+
+    /// <summary>
+    /// <c>true</c> when the caller's profiles grant <c>documents.read</c>, absent otherwise: the AI
+    /// service shows tenant document text (citations, quotes) only then.
+    /// </summary>
+    public const string DocumentsRead = "X-Normetry-Documents-Read";
 }
 
 /// <summary>
@@ -178,9 +184,19 @@ internal static class AiGateway
                 );
             }
 
+            // The set the route's permission policy loaded; no permission check, no forwarding.
+            var permissions = context.HttpContext.Features.Get<CallerPermissions>()
+                ?? throw new InvalidOperationException(
+                    "The /ai route must require a permission policy."
+                );
+
             AddHeader(context, InternalHeaders.Token, token);
             AddHeader(context, InternalHeaders.TenantId, tenantId.ToString());
             AddHeader(context, InternalHeaders.UserId, userId);
+            if (permissions.Names.Contains(Permissions.Documents.Read))
+            {
+                AddHeader(context, InternalHeaders.DocumentsRead, "true");
+            }
 
             if (context.HttpContext.Features.Get<EstablishmentScope>() is { } establishment)
             {
