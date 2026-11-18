@@ -26,7 +26,18 @@ def _summary(row: RowMapping) -> dict[str, Any]:
     }
 
 
-def _message(row: RowMapping) -> dict[str, Any]:
+def without_documents(claims: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The claims that cite no document, for a caller without documents.read. A claim with any
+    document citation goes whole: its text may restate the document even next to a regulation
+    citation."""
+    return [
+        claim
+        for claim in claims
+        if not any(citation.get("sourceType") == "document" for citation in claim["citations"])
+    ]
+
+
+def _message(row: RowMapping, documents: bool) -> dict[str, Any]:
     if row["role"] == "user":
         return {
             "id": row["id"],
@@ -40,7 +51,7 @@ def _message(row: RowMapping) -> dict[str, Any]:
         "kind": row["kind"],
         "reason": row["reason"],
         "language": row["language"],
-        "claims": row["claims"],
+        "claims": row["claims"] if documents else without_documents(row["claims"]),
         "createdAt": row["created_at"],
     }
 
@@ -84,9 +95,10 @@ def list_conversations(connection: Connection, user_id: str) -> list[dict[str, A
 
 
 def get_conversation(
-    connection: Connection, user_id: str, conversation_id: UUID
+    connection: Connection, user_id: str, conversation_id: UUID, *, documents: bool
 ) -> dict[str, Any] | None:
-    """The user's conversation with its messages in order, or None."""
+    """The user's conversation with its messages in order, or None. Without `documents`
+    (documents.read), claims that cite a document are left out."""
     row = (
         connection.execute(
             text(
@@ -107,7 +119,7 @@ def get_conversation(
         ),
         {"id": conversation_id},
     ).mappings()
-    return {**_summary(row), "messages": [_message(message) for message in messages]}
+    return {**_summary(row), "messages": [_message(message, documents) for message in messages]}
 
 
 def delete_conversation(connection: Connection, user_id: str, conversation_id: UUID) -> bool:
@@ -128,11 +140,13 @@ def start_turn(
     jurisdiction: str,
     question: str,
     history_messages: int,
+    documents: bool,
 ) -> list[Turn] | None:
     """Store the user's question and return the last `history_messages` messages before it.
 
     None when the conversation is not this user's, or belongs to another establishment or
-    jurisdiction: nothing is written then. The first question becomes the title.
+    jurisdiction: nothing is written then. The first question becomes the title. Without
+    `documents` (documents.read), an answer's claims that cite a document are left out of its turn.
     """
     message_id = connection.execute(
         text(
@@ -172,7 +186,13 @@ def start_turn(
     return [
         Turn("user", row.text)
         if row.role == "user"
-        else Turn("assistant", " ".join(claim["text"] for claim in row.claims))
+        else Turn(
+            "assistant",
+            " ".join(
+                claim["text"]
+                for claim in (row.claims if documents else without_documents(row.claims))
+            ),
+        )
         for row in reversed(rows)
     ]
 
