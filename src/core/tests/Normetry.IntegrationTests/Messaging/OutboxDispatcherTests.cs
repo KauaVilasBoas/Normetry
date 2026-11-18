@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
+using Normetry.Application.Inspections;
 using Normetry.Domain.Establishments;
 using Normetry.Infrastructure.Messaging;
 using Normetry.Infrastructure.Persistence;
@@ -172,6 +174,102 @@ public sealed class OutboxDispatcherTests : IClassFixture<RabbitMqFixture>
         {
             await dispatcher.StopAsync(Ct);
         }
+    }
+
+    [Fact]
+    public async Task An_inspection_request_expires_into_the_dead_letter_queue_when_its_inspection_would_time_out()
+    {
+        var tenant = await TestTenants.CreateAsync(db);
+        await using var api = NewApi();
+        await using var connection = await broker.ConnectAsync();
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: Ct);
+        var (queue, deadLetters) = await DeclareInspectionQueuesAsync(channel);
+        InspectionRequested Requested(Guid establishment) =>
+            new(
+                establishment,
+                Guid.CreateVersion7(),
+                Jurisdiction.US,
+                EstablishmentType.Restaurant,
+                300_000,
+                "sub"
+            );
+
+        // With the default timeout (30 minutes) the request keeps what is left of it.
+        await WriteWithStateChangeAsync(api, tenant, Requested);
+        Assert.Equal(1, await NewDispatcher(api).DispatchAsync(tenant, Ct));
+        var delivered = await channel.BasicGetAsync(queue, autoAck: true, Ct);
+        Assert.InRange(
+            long.Parse(delivered!.BasicProperties.Expiration!, CultureInfo.InvariantCulture),
+            TimeSpan.FromMinutes(29).TotalMilliseconds,
+            TimeSpan.FromMinutes(30).TotalMilliseconds
+        );
+
+        // A request nobody takes before the timeout is dead-lettered, never delivered.
+        await WriteWithStateChangeAsync(api, tenant, Requested);
+        var dispatcher = ActivatorUtilities.CreateInstance<OutboxDispatcher>(
+            api.Services,
+            new InspectionsOptions { RunningTimeout = TimeSpan.FromSeconds(1) }
+        );
+        Assert.Equal(1, await dispatcher.DispatchAsync(tenant, Ct));
+        var expired = await DeliveredAsync(channel, deadLetters);
+
+        Assert.NotNull(expired);
+        Assert.Equal("InspectionRequested", expired.BasicProperties.Type);
+        Assert.Equal(
+            "expired",
+            Encoding.UTF8.GetString(
+                (byte[])expired.BasicProperties.Headers!["x-first-death-reason"]!
+            )
+        );
+        Assert.Null(await channel.BasicGetAsync(queue, autoAck: true, Ct));
+    }
+
+    /// <summary>
+    /// A quorum queue with <c>ai.inspections</c>'s arguments and bindings (contract, "Topology"),
+    /// under a name of the test, and its dead-letter queue.
+    /// </summary>
+    private static async Task<(string Queue, string DeadLetters)> DeclareInspectionQueuesAsync(
+        IChannel channel
+    )
+    {
+        var queue = $"test.inspections.{Guid.NewGuid()}";
+        await Topology.DeclareExchangesAsync(channel, Ct);
+        await channel.QueueDeclareAsync(
+            queue,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: new Dictionary<string, object?>
+            {
+                ["x-queue-type"] = "quorum",
+                ["x-dead-letter-exchange"] = Topology.DeadLetter,
+                ["x-dead-letter-routing-key"] = queue,
+                ["x-delivery-limit"] = 4,
+            },
+            cancellationToken: Ct
+        );
+        await channel.QueueBindAsync(
+            queue,
+            Topology.Events,
+            InspectionRequested.RoutingKey,
+            cancellationToken: Ct
+        );
+        var deadLetters = $"{queue}.dead-letter";
+        await channel.QueueDeclareAsync(
+            deadLetters,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: new Dictionary<string, object?> { ["x-queue-type"] = "quorum" },
+            cancellationToken: Ct
+        );
+        await channel.QueueBindAsync(
+            deadLetters,
+            Topology.DeadLetter,
+            queue,
+            cancellationToken: Ct
+        );
+        return (queue, deadLetters);
     }
 
     /// <summary>The next message on the queue, waiting up to 5 seconds, or null.</summary>

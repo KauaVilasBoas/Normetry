@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using RabbitMQ.Client;
@@ -182,7 +183,16 @@ internal sealed class RabbitMqPublisher(RabbitMqConnection broker) : IAsyncDispo
 {
     private IChannel? channel;
 
-    public async Task PublishAsync(OutboxMessage message, CancellationToken cancellationToken)
+    /// <summary>
+    /// <paramref name="expiresIn"/> becomes the per-message TTL (AMQP <c>expiration</c>, whole
+    /// milliseconds). One already past is 0: only a consumer waiting at that moment would receive
+    /// it; otherwise the queue expires and dead-letters it at once.
+    /// </summary>
+    public async Task PublishAsync(
+        OutboxMessage message,
+        TimeSpan? expiresIn,
+        CancellationToken cancellationToken
+    )
     {
         var channel = await ChannelAsync(cancellationToken);
         ActivityContext.TryParse(message.TraceParent, message.TraceState, out var parent);
@@ -212,6 +222,10 @@ internal sealed class RabbitMqPublisher(RabbitMqConnection broker) : IAsyncDispo
             MessageId = message.Id.ToString(),
             Type = message.Type,
             Headers = headers,
+            Expiration = expiresIn is { } ttl
+                ? Math.Max(0, (long)Math.Ceiling(ttl.TotalMilliseconds))
+                    .ToString(CultureInfo.InvariantCulture)
+                : null,
         };
         await channel.BasicPublishAsync(
             Topology.Events,
