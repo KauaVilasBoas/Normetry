@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Normetry.AppHost;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -129,7 +130,18 @@ var ai = builder
     .WithEnvironment("NORMETRY_DATABASE_URL", Psycopg("app_ai", appAiPassword))
     // Setting the RabbitMQ URL turns the service's document consumer on.
     .WithEnvironment("NORMETRY_RABBITMQ_URL", rabbitmq)
-    .WithEnvironment("NORMETRY_BLOB_CONNECTION_STRING", blobs)
+    // Read only: a SAS for the documents container with read permission and nothing else, made
+    // from the account key when the service starts (ReadOnlyBlobAccess). Only the API gets the key.
+    .WithEnvironment(async context =>
+        context.EnvironmentVariables["NORMETRY_BLOB_CONNECTION_STRING"] =
+            ReadOnlyBlobAccess.ConnectionString(
+                await blobs.Resource.ConnectionStringExpression.GetValueAsync(
+                    context.CancellationToken
+                ) ?? throw new InvalidOperationException("The blobs connection string is empty."),
+                DocumentsContainer,
+                DateTimeOffset.UtcNow.AddYears(1)
+            )
+    )
     .WithEnvironment("NORMETRY_BLOB_CONTAINER", DocumentsContainer)
     .WaitFor(postgres)
     .WaitFor(rabbitmq)

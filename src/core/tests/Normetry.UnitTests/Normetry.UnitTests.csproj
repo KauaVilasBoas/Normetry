@@ -11,6 +11,14 @@
     <ProjectReference Include="..\..\Normetry.Api\Normetry.Api.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The AI service's read-only blob credential, compiled in rather than referencing the AppHost,
+         which would bring the Aspire orchestrator (DCP, dashboard) into the tests. -->
+    <Compile
+      Include="..\..\Normetry.AppHost\ReadOnlyBlobAccess.cs"
+      Link="AppHost\ReadOnlyBlobAccess.cs"
+    />
+  </ItemGroup>
+  <ItemGroup>
     <!-- The queue message contracts both services implement, copied next to the tests. -->
     <None
       Include="..\..\..\shared\contracts\messages\**"

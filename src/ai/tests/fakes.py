@@ -15,18 +15,14 @@ from normetry_ai.llm.usage import Usage
 
 
 class FakeContainer:
-    """The subset of azure.storage.blob.ContainerClient that BlobStore uses, over a dict."""
+    """The subset of azure.storage.blob.ContainerClient that BlobStore uses, over a dict. Like the
+    service's read-only container SAS, it has no container-level call."""
 
     def __init__(self, blobs: dict[str, bytes] | None = None) -> None:
         self.blobs = dict(blobs or {})
         self.requested: list[str] = []
         self.downloaded: list[str] = []
         self.down = False
-
-    def get_container_properties(self) -> SimpleNamespace:
-        if self.down:
-            raise ConnectionError("blob storage unreachable")
-        return SimpleNamespace()
 
     def get_blob_client(self, path: str) -> "FakeBlob":
         self.requested.append(path)
@@ -37,6 +33,11 @@ class FakeContainer:
 class FakeBlob:
     container: FakeContainer
     path: str
+
+    def exists(self) -> bool:
+        if self.container.down:
+            raise ConnectionError("blob storage unreachable")
+        return self.path in self.container.blobs
 
     def _data(self) -> bytes:
         if self.path not in self.container.blobs:
