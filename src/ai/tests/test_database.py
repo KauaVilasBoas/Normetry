@@ -26,6 +26,7 @@ from sqlalchemy.exc import DBAPIError
 from normetry_ai.api import create_app
 from normetry_ai.api.auth import INTERNAL_TOKEN_HEADER
 from normetry_ai.api.context import (
+    DOCUMENTS_READ_HEADER,
     ESTABLISHMENT_HEADER,
     JURISDICTION_HEADER,
     TENANT_HEADER,
@@ -1266,6 +1267,8 @@ class Person:
     user: str
     establishment: UUID
     jurisdiction: str = "US"
+    # The gateway's documents-read header, sent only when the caller holds documents.read.
+    documents_read: bool = True
 
     @property
     def headers(self) -> dict[str, str]:
@@ -1273,6 +1276,7 @@ class Person:
             INTERNAL_TOKEN_HEADER: TOKEN,
             TENANT_HEADER: str(self.tenant),
             USER_HEADER: self.user,
+            **({DOCUMENTS_READ_HEADER: "true"} if self.documents_read else {}),
         }
 
     @property
@@ -1765,7 +1769,7 @@ def test_an_answer_is_stored_only_in_the_users_own_conversation(app_ai: Engine) 
             claims=[],
         )
         stored = conversation_store.get_conversation(
-            connection, alice.user, UUID(str(conversation["id"]))
+            connection, alice.user, UUID(str(conversation["id"])), documents=True
         )
 
     assert stored is not None and stored["messages"] == []
@@ -1796,6 +1800,7 @@ def test_an_answer_cut_short_by_the_client_is_stored_with_its_usage(
             jurisdiction=alice.jurisdiction,
             question="How cold?",
             history_messages=4,
+            documents=True,
         )
     chat = Chat(
         FakeClaims(COLD_CLAIM, hang=True),
@@ -1830,7 +1835,9 @@ def test_an_answer_cut_short_by_the_client_is_stored_with_its_usage(
 
     assert [event.event for event in seen] == ["claim"]
     with tenant_transaction(app_ai, alice.tenant) as connection:
-        stored = conversation_store.get_conversation(connection, alice.user, conversation)
+        stored = conversation_store.get_conversation(
+            connection, alice.user, conversation, documents=True
+        )
     assert stored is not None
     answer_ = stored["messages"][-1]
     streamed = {key: value for key, value in seen[0].data.items() if key != "language"}

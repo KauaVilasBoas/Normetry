@@ -10,6 +10,7 @@ from normetry_ai.api import create_app
 from normetry_ai.api.app import TRACING_VARIABLES
 from normetry_ai.api.auth import INTERNAL_TOKEN_HEADER
 from normetry_ai.api.context import (
+    DOCUMENTS_READ_HEADER,
     ESTABLISHMENT_HEADER,
     JURISDICTION_HEADER,
     TENANT_HEADER,
@@ -134,8 +135,12 @@ def _context_client() -> TestClient:
 
     # Test-only route: the service has no endpoint that just echoes its caller.
     @app.get("/context")
-    def context(ctx: Annotated[RequestContext, Depends(request_context)]) -> dict[str, str]:
-        return {"tenant_id": str(ctx.tenant_id), "user_id": ctx.user_id}
+    def context(ctx: Annotated[RequestContext, Depends(request_context)]) -> dict[str, object]:
+        return {
+            "tenant_id": str(ctx.tenant_id),
+            "user_id": ctx.user_id,
+            "documents_read": ctx.documents_read,
+        }
 
     return TestClient(app)
 
@@ -156,7 +161,33 @@ def test_context_carries_the_internal_header_values() -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {"tenant_id": TENANT, "user_id": USER}
+    assert response.json() == {"tenant_id": TENANT, "user_id": USER, "documents_read": False}
+
+
+@pytest.mark.parametrize(
+    ("values", "documents_read"),
+    [
+        (["true"], True),
+        ([], False),
+        (["false"], False),
+        (["True"], False),
+        (["1"], False),
+        ([""], False),
+        (["true", "true"], False),
+    ],
+    ids=["true", "absent", "false", "other-case", "one", "empty", "repeated"],
+)
+def test_documents_read_holds_only_for_exactly_one_true_header(
+    values: list[str], documents_read: bool
+) -> None:
+    headers = [*AUTH.items(), (TENANT_HEADER, TENANT), (USER_HEADER, USER)]
+
+    response = _context_client().get(
+        "/context", headers=headers + [(DOCUMENTS_READ_HEADER, value) for value in values]
+    )
+
+    assert response.status_code == 200
+    assert response.json()["documents_read"] is documents_read
 
 
 @pytest.mark.parametrize(

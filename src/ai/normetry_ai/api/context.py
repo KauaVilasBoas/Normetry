@@ -4,7 +4,7 @@ Contract: src/shared/contracts/internal-http.md. InternalTokenMiddleware runs be
 route that depends on request_context only ever sees headers that came with a valid token.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -14,6 +14,8 @@ TENANT_HEADER = "X-Normetry-Tenant-Id"
 USER_HEADER = "X-Normetry-User-Id"
 ESTABLISHMENT_HEADER = "X-Normetry-Establishment-Id"
 JURISDICTION_HEADER = "X-Normetry-Jurisdiction"
+# Set by the gateway to `true` only when the caller holds documents.read.
+DOCUMENTS_READ_HEADER = "X-Normetry-Documents-Read"
 JURISDICTIONS = frozenset({"US", "EU", "BR"})
 _DETAIL = "Missing or invalid internal context headers."
 
@@ -22,6 +24,9 @@ _DETAIL = "Missing or invalid internal context headers."
 class RequestContext:
     tenant_id: UUID
     user_id: str
+    # Whether the caller may read the tenant's documents (documents.read): only then does the
+    # chat search them or show their citations. False unless the gateway says so.
+    documents_read: bool = field(default=False, kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -51,15 +56,24 @@ def _uuid(value: str) -> UUID:
     return parsed
 
 
+def _documents_read(request: HTTPConnection) -> bool:
+    """True only for exactly one documents-read header holding `true`: absent, repeated or any
+    other value is false, so a gateway that does not send it shows no document."""
+    return request.headers.getlist(DOCUMENTS_READ_HEADER) == ["true"]
+
+
 def request_context(request: HTTPConnection) -> RequestContext:
-    """FastAPI dependency: exactly one tenant header (a non-nil UUID) and one non-empty user header.
+    """FastAPI dependency: exactly one tenant header (a non-nil UUID) and one non-empty user header,
+    and whether the caller may read documents.
 
     Anything else is a gateway bug, never something to guess around, so it answers 400.
     HTTPConnection rather than Request, so websocket routes can depend on it too.
     """
     tenant = _one(request, TENANT_HEADER)
     user = _one(request, USER_HEADER)
-    return RequestContext(tenant_id=_uuid(tenant), user_id=user)
+    return RequestContext(
+        tenant_id=_uuid(tenant), user_id=user, documents_read=_documents_read(request)
+    )
 
 
 def establishment_context(request: HTTPConnection, establishment_id: str) -> EstablishmentContext:
@@ -76,6 +90,7 @@ def establishment_context(request: HTTPConnection, establishment_id: str) -> Est
     return EstablishmentContext(
         tenant_id=caller.tenant_id,
         user_id=caller.user_id,
+        documents_read=caller.documents_read,
         establishment_id=_uuid(establishment),
         jurisdiction=jurisdiction,
     )

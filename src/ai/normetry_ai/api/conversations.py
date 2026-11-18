@@ -87,7 +87,8 @@ def get_retriever(request: Request, engine: Database) -> Retriever:
 
     It runs inside the caller's tenant transaction, over the jurisdictions `jurisdictions_for`
     gives the establishment and that establishment's current documents (#107): the establishment
-    of the internal headers, which `open_turn` checked is the conversation's.
+    of the internal headers, which `open_turn` checked is the conversation's. A caller without
+    documents.read gets the corpus only.
     """
     retriever: hybrid.Retriever = request.app.state.retriever
 
@@ -100,7 +101,7 @@ def get_retriever(request: Request, engine: Database) -> Retriever:
                 connection,
                 question,
                 jurisdictions_for(ctx.jurisdiction),
-                establishment_id=ctx.establishment_id,
+                establishment_id=ctx.establishment_id if ctx.documents_read else None,
             )
 
     return retrieve
@@ -137,7 +138,9 @@ def list_conversations(ctx: Caller, engine: Database) -> list[dict[str, Any]]:
 @router.get("/conversations/{conversation_id}")
 def get_conversation(conversation_id: UUID, ctx: Caller, engine: Database) -> dict[str, Any]:
     with tenant_transaction(engine, ctx.tenant_id) as connection:
-        conversation = store.get_conversation(connection, ctx.user_id, conversation_id)
+        conversation = store.get_conversation(
+            connection, ctx.user_id, conversation_id, documents=ctx.documents_read
+        )
     if conversation is None:
         raise HTTPException(status_code=404, detail=_NOT_FOUND)
     return conversation
@@ -187,6 +190,7 @@ def open_turn(
                 jurisdiction=ctx.jurisdiction,
                 question=message.text,
                 history_messages=2 * chat.conversation_settings.chat_history_turns,
+                documents=ctx.documents_read,
             )
     except Exception as error:
         # The type only: the message of a database error can carry the question.

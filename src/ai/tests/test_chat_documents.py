@@ -6,6 +6,7 @@ word, with its exact embedding."""
 
 import re
 from collections.abc import AsyncGenerator, Iterator, Sequence
+from dataclasses import replace
 from typing import Any
 from uuid import UUID, uuid4
 from xml.sax.saxutils import unescape
@@ -88,9 +89,11 @@ def regulation(corpus: Engine) -> dict:
     return source
 
 
-def real_retrieval(chat_api: ChatApi, **knobs: int) -> tuple[EchoClaims, CountingReranker]:
+def real_retrieval(
+    chat_api: ChatApi, model: Any = None, **knobs: int
+) -> tuple[Any, CountingReranker]:
     """The real retrieval dependency with fake models, and the echoing claim model."""
-    model, reranker = EchoClaims(), CountingReranker()
+    model, reranker = model or EchoClaims(), CountingReranker()
     chat_api.use(model=model)
     del chat_api.client.app.dependency_overrides[get_retriever]
     settings = RetrievalSettings(_env_file=None, **knobs)
@@ -230,6 +233,82 @@ def test_the_chat_keeps_at_most_document_top_k_document_chunks(
     }
 
 
+_KINDS = re.compile(r'<excerpt id="(E\d+)" kind="(\w+)"[^\n]*>\n(.*?)\n</excerpt>', re.DOTALL)
+
+
+class KindClaims:
+    """One claim per excerpt that names its kind, then one claim citing every excerpt."""
+
+    def __init__(self) -> None:
+        self.prompts: list[tuple[str, str]] = []
+
+    async def stream_claims(self, system: str, user: str) -> AsyncGenerator[Any, None]:
+        self.prompts.append((system, user))
+        found = [
+            (excerpt_id, kind, " ".join(normalize_text(unescape(content)).split()[:6]))
+            for excerpt_id, kind, content in _KINDS.findall(user)
+        ]
+        for excerpt_id, kind, quote in found:
+            yield {
+                "text": f"The {kind} says so.",
+                "citations": [{"excerpt_id": excerpt_id, "quote": quote}],
+            }
+        yield {
+            "text": "Both say so.",
+            "citations": [{"excerpt_id": e, "quote": quote} for e, _, quote in found],
+        }
+        yield ANSWERED
+
+
+def kinds(claim: dict) -> set[str]:
+    return {citation["sourceType"] for citation in claim["citations"]}
+
+
+def test_without_documents_read_no_document_is_searched_cited_or_prompted(
+    chat_api: ChatApi, documents: Documents, regulation: dict
+) -> None:
+    alice = Person(uuid4(), "user-a", uuid4(), documents_read=False)
+    documents.index(alice.tenant, alice.establishment, uuid4(), content=QUESTION, title="SOP")
+    model, reranker = real_retrieval(chat_api)
+
+    events = chat_api.events(alice, chat_api.create(alice), QUESTION)
+
+    assert events[-1] == ("done", {})
+    assert {c["sourceType"] for c in citations(events)} == {"regulation"}
+    # The document was never a candidate: the corpus's chunk is the only one that is the question.
+    [scored] = reranker.calls
+    assert scored.count(QUESTION) == 1
+    assert 'kind="document"' not in model.prompts[-1][1]
+
+
+def test_a_caller_without_documents_read_never_sees_a_stored_document_claim(
+    chat_api: ChatApi, documents: Documents, regulation: dict
+) -> None:
+    alice = Person(uuid4(), "user-a", uuid4())
+    documents.index(alice.tenant, alice.establishment, uuid4(), content=QUESTION, title="SOP")
+    real_retrieval(chat_api, KindClaims())
+    conversation = chat_api.create(alice)
+    assert chat_api.events(alice, conversation, QUESTION)[-1] == ("done", {})
+    # The same user, after documents.read was taken away.
+    reader = replace(alice, documents_read=False)
+
+    shown = chat_api.get(alice, conversation).json()["messages"][-1]["claims"]
+    hidden = chat_api.get(reader, conversation).json()["messages"][-1]["claims"]
+
+    assert [kinds(claim) for claim in shown] == [
+        {"regulation"},
+        {"document"},
+        {"regulation", "document"},
+    ]
+    # A claim citing a document goes whole, also when it cites the regulation too.
+    assert hidden == [shown[0]]
+    # Nor does a follow-up's rewrite see the document claims of the history.
+    chat_api.events(reader, conversation, "And for how long?")
+    [prompt] = chat_api.rewrite.prompts
+    assert "The regulation says so." in prompt
+    assert "The document says so." not in prompt and "Both say so." not in prompt
+
+
 OLD_CLAIMS = [
     {
         "text": "Hold cold food at 5 °C or below.",
@@ -266,6 +345,7 @@ def test_an_answer_stored_before_document_citations_still_reads_and_continues(
             jurisdiction=alice.jurisdiction,
             question="How cold?",
             history_messages=4,
+            documents=True,
         )
     # Its own transaction, so a later created_at than the question.
     with tenant_transaction(app_ai, alice.tenant) as connection:

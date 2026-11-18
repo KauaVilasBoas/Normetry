@@ -130,6 +130,7 @@ A citation of one of the establishment's own documents (the conversation's estab
 - A citation is a copy stored with the answer: `text` is the chunk as it was cited, so an old citation still opens after its source gets a new version, or after the document gets a new version or is deleted. The app never needs to fetch it.
 - `text.slice(quoteStart, quoteEnd)` is the quote as the chunk writes it, to highlight. Both are `null` when the quote could not be mapped back exactly; `quote` (normalized whitespace) is then the only guide.
 - `id` is unique to the citation, a key for the UI. It identifies nothing else.
+- Documents need `documents.read` (`internal-http.md`, `X-Normetry-Documents-Read`). For a caller without it, the chat searches the regulation only, so no streamed claim cites a document, and `GET /conversations/{conversationId}` leaves out every stored claim with a `document` citation. The whole claim goes, also when it cites the regulation too, since its text can restate the document. An answer whose claims all cite documents then has `kind` `answer` and an empty `claims`. The caller's follow-ups are rewritten without those claims as well.
 
 ## Stream
 
