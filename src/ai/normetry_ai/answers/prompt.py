@@ -8,7 +8,7 @@ open a new one: injected text stays inside the excerpt it came from.
 """
 
 from collections.abc import Mapping, Sequence
-from xml.sax.saxutils import escape, quoteattr
+from xml.sax.saxutils import escape
 
 from normetry_ai.retrieval.models import RetrievedChunk
 
@@ -59,20 +59,31 @@ def system_prompt(min_quote_words: int) -> str:
     return _SYSTEM_PROMPT.format(min_quote_words=min_quote_words)
 
 
+# Escaped in an attribute value besides &, < and >: the double quote that closes it, and line
+# breaks and tabs, so a value (a document's title is the uploader's) stays on its element's line.
+_ATTRIBUTE_ENTITIES = {'"': "&quot;", "\n": "&#10;", "\r": "&#13;", "\t": "&#9;"}
+
+
+def attribute(value: str) -> str:
+    """An XML attribute value, always in double quotes, whatever it holds. (`quoteattr` switches
+    to single quotes when the value holds a double quote, so the delimiter would depend on it.)"""
+    return f'"{escape(value, _ATTRIBUTE_ENTITIES)}"'
+
+
 def excerpt_ids(chunks: Sequence[RetrievedChunk], prefix: str = "E") -> dict[str, RetrievedChunk]:
     """The id each chunk gets in the prompt. Claims cite these ids, never chunk UUIDs."""
     return {f"{prefix}{number}": chunk for number, chunk in enumerate(chunks, start=1)}
 
 
 def _attributes(chunk: RetrievedChunk) -> str:
-    section = quoteattr(chunk.section_path or "")
+    section = attribute(chunk.section_path or "")
     if chunk.source_type == "tenant_document":
-        # The title comes from whoever uploaded the file: quoteattr escapes it like the text.
-        title = quoteattr(chunk.document_title or "")
-        kind = quoteattr(chunk.document_type or "")
-        version = quoteattr(str(chunk.document_version))
+        # The title comes from whoever uploaded the file: escaped like the text.
+        title = attribute(chunk.document_title or "")
+        kind = attribute(chunk.document_type or "")
+        version = attribute(str(chunk.document_version))
         return f'kind="document" title={title} type={kind} version={version} section={section}'
-    source = quoteattr(f"{chunk.source_title} ({chunk.source_version})")
+    source = attribute(f"{chunk.source_title} ({chunk.source_version})")
     return f'kind="regulation" source={source} section={section}'
 
 
@@ -80,7 +91,7 @@ def user_message(question: str, excerpts: Mapping[str, RetrievedChunk]) -> str:
     parts = ["<excerpts>"]
     for excerpt_id, chunk in excerpts.items():
         parts.append(
-            f"<excerpt id={quoteattr(excerpt_id)} {_attributes(chunk)}>\n"
+            f"<excerpt id={attribute(excerpt_id)} {_attributes(chunk)}>\n"
             f"{escape(chunk.content)}\n</excerpt>"
         )
     parts += ["</excerpts>", "", f"<question>\n{escape(question)}\n</question>"]

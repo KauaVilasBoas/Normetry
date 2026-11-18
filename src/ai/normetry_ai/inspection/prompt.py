@@ -8,8 +8,9 @@ from, and the system prompt never holds document text.
 """
 
 from collections.abc import Mapping
-from xml.sax.saxutils import escape, quoteattr
+from xml.sax.saxutils import escape
 
+from normetry_ai.answers.prompt import attribute
 from normetry_ai.inspection.checklist import ChecklistItem
 from normetry_ai.retrieval.models import RetrievedChunk
 
@@ -78,18 +79,18 @@ def user_message(
         "<regulation_excerpts>",
     ]
     for excerpt_id, chunk in regulation.items():
-        source = quoteattr(f"{chunk.source_title} ({chunk.source_version})")
-        section = quoteattr(chunk.section_path or "")
+        source = attribute(f"{chunk.source_title} ({chunk.source_version})")
+        section = attribute(chunk.section_path or "")
         parts.append(
-            f"<regulation id={quoteattr(excerpt_id)} source={source} section={section}>\n"
+            f"<regulation id={attribute(excerpt_id)} source={source} section={section}>\n"
             f"{escape(chunk.content)}\n</regulation>"
         )
     parts += ["</regulation_excerpts>", "", "<document_excerpts>"]
     for excerpt_id, chunk in documents.items():
-        title = quoteattr(chunk.document_title or "")
-        version = quoteattr(str(chunk.document_version))
+        title = attribute(chunk.document_title or "")
+        version = attribute(str(chunk.document_version))
         parts.append(
-            f"<document id={quoteattr(excerpt_id)} title={title} version={version}>\n"
+            f"<document id={attribute(excerpt_id)} title={title} version={version}>\n"
             f"{escape(chunk.content)}\n</document>"
         )
     parts.append("</document_excerpts>")
