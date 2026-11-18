@@ -355,6 +355,52 @@ describe("a streamed answer", () => {
     await expectNoAxeViolations();
   });
 
+  it("on a rate_limited 429 says when to try again, apart from the daily quota", async () => {
+    renderChat({
+      [createRoute]: { status: 201, body: summary("c-new", "e-lisboa", null) },
+      [messagesRoute("c-new")]: {
+        status: 429,
+        headers: { "Retry-After": "3" },
+        body: { status: 429, code: "rate_limited" },
+      },
+    });
+    await ask();
+
+    const notice = await within(conversation()).findByText("Too many requests right now.");
+    expect(notice).toBeVisible();
+    expect(within(conversation()).getByText("Try again in 1 minute.")).toBeVisible();
+    expect(screen.queryByText("You've used all of today's messages")).toBeNull();
+    expect(screen.getByText("12 of 20 messages left today")).toBeVisible();
+    expect(await composer()).toHaveValue(question);
+    const send = screen.getByRole("button", { name: "Send" });
+    expect(send).toHaveAttribute("aria-disabled", "true");
+    expect(send).toHaveAccessibleDescription(/Too many requests right now/);
+    expect(liveRegion()).toHaveTextContent("Too many requests right now.");
+    expect(liveRegion()).toHaveTextContent("Try again in 1 minute.");
+    await expectNoAxeViolations();
+  });
+
+  it("releases Send when the rate limit's Retry-After has passed, also on the create call", async () => {
+    renderChat({
+      [createRoute]: {
+        status: 429,
+        headers: { "Retry-After": "0" },
+        body: { status: 429, code: "rate_limited" },
+      },
+    });
+    await ask();
+
+    expect(await composer()).toHaveValue(question);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Send" })).toHaveAttribute(
+        "aria-disabled",
+        "false",
+      ),
+    );
+    expect(within(conversation()).queryByText("Too many requests right now.")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Messages" })).toBeNull();
+  });
+
   it("aborts the answer and starts over when the establishment changes", async () => {
     const { routes } = newConversation();
     const fetch = renderChat(routes);
@@ -617,6 +663,108 @@ describe("source panel", () => {
     expect(panel.querySelector("mark")).toBeNull();
     expect(within(panel).getByText("Quoted passage")).toBeVisible();
     expect(within(panel).getByText(quote)).toBeVisible();
+  });
+
+  describe("of the establishment's document", () => {
+    const sop = "Walk-in cooler: the display must read 4°C (39°F) or less at every check.";
+    const sopQuote = "must read 4°C (39°F) or less";
+    const documentCitation = (overrides: object = {}) => ({
+      id: "cit-doc",
+      sourceType: "document",
+      sourceTitle: null,
+      sourceVersion: null,
+      officialUrl: null,
+      documentId: "d-1",
+      documentTitle: "Cold holding SOP",
+      documentType: "Sop",
+      documentVersion: 3,
+      language: "en",
+      sectionPath: "Page 1",
+      text: sop,
+      quote: sopQuote,
+      quoteStart: sop.indexOf(sopQuote),
+      quoteEnd: sop.indexOf(sopQuote) + sopQuote.length,
+      ...overrides,
+    });
+    const both = (document: object) => ({
+      ...saved,
+      messages: [
+        asked,
+        answered([
+          {
+            text: "Our walk-in log requires 4 °C, within the rule's limit.",
+            citations: [
+              { ...citation("cit-1", "Annex II, Chapter IX"), sourceType: "regulation" },
+              document,
+            ],
+          },
+        ]),
+      ],
+    });
+
+    it("has its own chip and panel, with the quote highlighted and a link to the document", async () => {
+      openSaved(1280, both(documentCitation()));
+
+      const regulationChip = await screen.findByRole("button", {
+        name: "View source · Annex II, Chapter IX",
+      });
+      const chip = screen.getByRole("button", {
+        name: "View source · Cold holding SOP · Page 1 (this establishment's document)",
+      });
+      expect(chip).toHaveTextContent(/^Cold holding SOP · Page 1$/);
+      expect(chip.querySelectorAll("svg")).toHaveLength(2);
+      expect(regulationChip.querySelectorAll("svg")).toHaveLength(1);
+      await expectNoAxeViolations();
+
+      await userEvent.click(chip);
+
+      const panel = screen.getByRole("complementary", { name: "Source" });
+      expect(chip).toHaveAttribute("aria-expanded", "true");
+      expect(within(panel).getByRole("heading", { name: "Source" })).toHaveFocus();
+      expect(within(panel).getByText("Establishment document · SOP")).toBeVisible();
+      expect(within(panel).getByText("Cold holding SOP")).toBeVisible();
+      expect(within(panel).getByText("Page 1 · Version 3 · English")).toBeVisible();
+      expect(panel.querySelector("mark")).toHaveTextContent(sopQuote);
+      expect(within(panel).getByText(sop.slice(0, 20), { exact: false })).toHaveAttribute(
+        "lang",
+        "en",
+      );
+      const link = within(panel).getByRole("link", { name: "Open document" });
+      expect(link).toHaveAttribute("href", "/documents/d-1");
+      expect(link).not.toHaveAttribute("target");
+      expect(within(panel).queryByRole("link", { name: /official page/ })).toBeNull();
+      expect(
+        within(panel).getByText(
+          "This is the copy stored with the answer. The document may have changed since.",
+        ),
+      ).toBeVisible();
+      await expectNoAxeViolations();
+    });
+
+    it("says Document when untitled, and has no link without documents.read", async () => {
+      renderChat(
+        {
+          "/me": { body: { ...me, permissions: ["establishments.read", "chat.ask"] } },
+          "/ai/conversations": { body: [summary("c-1")] },
+          "/ai/conversations/c-1": {
+            body: both(documentCitation({ documentTitle: null, documentType: null })),
+          },
+        },
+        { path: "/conversations/c-1", width: 1024 },
+      );
+
+      const chip = await screen.findByRole("button", {
+        name: "View source · Document · Page 1 (this establishment's document)",
+      });
+      await userEvent.click(chip);
+
+      const sheet = await screen.findByRole("dialog", { name: "Source" });
+      expect(within(sheet).getByText("Establishment document")).toBeVisible();
+      expect(within(sheet).getByText("Untitled document")).toBeVisible();
+      expect(sheet.querySelector("mark")).toHaveTextContent(sopQuote);
+      expect(within(sheet).queryByRole("link")).toBeNull();
+      await expectNoAxeViolations();
+    });
   });
 });
 

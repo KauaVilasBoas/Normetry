@@ -1,4 +1,4 @@
-import { CircleAlert, SearchX, WifiOff, type LucideIcon } from "lucide-react";
+import { CircleAlert, FileText, SearchX, WifiOff, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { Citation, Claim } from "../api/queries";
 import { copy, format } from "../copy";
@@ -213,11 +213,25 @@ function Claims({
                 <div className="mt-2 flex flex-wrap gap-2">
                   {claim.citations.map((citation) => {
                     const open = citation.id === openCitationId;
+                    const section = citation.sectionPath;
+                    // A document chip shows the document and says, to screen readers too, that it
+                    // is the establishment's own text, not the regulation.
+                    const label =
+                      citation.sourceType === "document"
+                        ? format(copy.chat.documentChip, {
+                            title: citation.documentTitle ?? copy.chat.untitledDocumentChip,
+                            section,
+                          })
+                        : format(copy.chat.viewSource, { section });
                     return (
                       <CitationChip
                         key={citation.id}
                         id={chipId(citation)}
-                        label={format(copy.chat.viewSource, { section: citation.sectionPath })}
+                        label={label}
+                        {...(citation.sourceType === "document" && {
+                          icon: FileText,
+                          "aria-label": format(copy.chat.documentChipName, { label }),
+                        })}
                         expanded={open}
                         aria-controls={open ? SOURCE_PANEL_ID : undefined}
                         onClick={() => onOpenSource(citation)}
