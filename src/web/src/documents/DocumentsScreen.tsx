@@ -5,14 +5,20 @@ import { useLiveStatus } from "../api/live";
 import {
   documentKey,
   documentsKey,
-  type DocumentSummary,
   type Establishment,
+  type ExpiryFilter,
   type Me,
 } from "../api/queries";
 import { copy, format } from "../copy";
 import { DocumentDetailView } from "./DocumentDetail";
 import { DocumentList } from "./DocumentList";
-import { failureText, HUB_EVENT, HUB_URL, type DocumentStatusChange } from "./documents";
+import {
+  cachedTitle,
+  failureText,
+  HUB_EVENT,
+  HUB_URL,
+  type DocumentStatusChange,
+} from "./documents";
 import { DETAIL_TITLE_ID, LIST_TITLE_ID } from "./parts";
 
 const focusById = (id: string) => document.getElementById(id)?.focus();
@@ -22,6 +28,7 @@ const focusById = (id: string) => document.getElementById(id)?.focus();
  * `/documents/:documentId` one document. Above both: the live status connection and the polite
  * region, so a message survives the move from the detail back to the list. A new `focusKey` (the
  * drawer chose an establishment, or a retry loaded the list) moves focus to the page's heading.
+ * The list's expiry filter lives here too, so it is still set when a document is closed.
  */
 export function DocumentsScreen({
   establishment,
@@ -37,6 +44,7 @@ export function DocumentsScreen({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<{ id: number; text: string }[]>([]);
+  const [filter, setFilter] = useState<ExpiryFilter>("");
   const announce = (text: string) =>
     setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text }]);
 
@@ -84,9 +92,7 @@ export function DocumentsScreen({
       );
       return;
     }
-    const title = queryClient
-      .getQueryData<DocumentSummary[]>(documentsKey(establishment.id))
-      ?.find((item) => item.id === change.documentId)?.title;
+    const title = cachedTitle(queryClient, establishment.id, change.documentId);
     if (title)
       announce(format(indexed ? copy.documents.indexed : copy.documents.failed, { title, reason }));
   };
@@ -111,6 +117,8 @@ export function DocumentsScreen({
           establishment={establishment}
           me={me}
           live={live}
+          filter={filter}
+          onFilter={setFilter}
           onOpen={() => focus(DETAIL_TITLE_ID)}
           announce={announce}
         />

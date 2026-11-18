@@ -327,3 +327,69 @@ Sizes use `Intl.NumberFormat(locale, { style: "unit", unit: "megabyte" | "kiloby
 4. Decisions 1–3 land in DESIGN.md with the web PR.
 5. **Expiry** (accepted): the Documents row of DESIGN.md §8 drops "expiry" until the model stores an expiry date.
 6. **Skipped:** a byte-level upload progress bar (`fetch` gives no upload progress, and 10 MB uploads fast; add it with XHR when slow networks make it matter) and multi-file upload (the dev seed covers bulk loading).
+
+## 9. Expiry dates (#97)
+
+A document can carry its last valid day (`expiresOn`, a date with no time), typed by the user at upload or later with `documents.upload`. Nothing extracts it. Dates are read as local dates (`localDate`), and "today" is the browser's. The API's filters count today in UTC, so near midnight a row's pill and the filter can disagree by a day; that is accepted.
+
+### States
+
+| Date | List, Expires column | Detail line |
+|---|---|---|
+| None | "—" (`aria-hidden`) with the visually hidden "No expiry date" | "No expiry date" 13px secondary |
+| Before today | Attention status pill "Expired" (◆), the Overdue pattern | "Expires {date}" then the pill |
+| Today to today + 30 | Time badge "Expires {when}" (`relativeDays`: "today", "tomorrow", "in 10 days") | "Expires {date}" then the badge |
+| Later | `<time>` with the date (`calendarDate`), 12px secondary, tabular | "Expires {date}" |
+
+### List
+
+```
+ │ Bistro Lisboa                       [ All documents ⌄ ] [ ⇪ Upload document ]  │
+ │ 12 documents                                                                    │
+ │ DOCUMENT                  TYPE     STATUS        VERSION  EXPIRES                UPDATED│
+ │ Food business license     License  (✓ Indexed)   v1       (◆ Expired)            Nov 2  │
+ │ Pest control certificate  Other    (✓ Indexed)   v1       [Expires in 10 days]   Nov 14 │
+ │ Water analysis            Report   (✓ Indexed)   v2       Feb 16                 Nov 14 │
+ │ Cold storage SOP          SOP      (✓ Indexed)   v3       —                      Nov 14 │
+```
+
+- **Expires column** between Version and Updated: `hidden md:table-cell`, `px-3 py-2.5`, no wrapping.
+- **Below 768px** an expired or expiring row shows its pill or badge on its own line under the meta line (`mt-1 flex md:hidden`). A later date shows only on the detail.
+- **Row names.** The title link's `aria-describedby` adds the Expires cell only for an expired or expiring date: "Food business license, link, Indexed, Expired". A bare later date would read as noise.
+- **Filter.** `FilterSelect` with `aria-label` "Filter by expiry": "All documents" · "Expired" · "Expiring in 30 days", sent as `expired=true` and `expiringWithinDays=30`.
+  - It sits in the card header's right group before Upload document (`flex w-full flex-wrap gap-2 sm:w-auto`); below 640px both take the full width.
+  - It is hidden while the establishment has no documents and no filter is set.
+  - It applies on change, and the caption counts the rows shown.
+  - It stays set while a document is open and comes back with the list (the state lives above both routes). It is not in the URL, and a reload clears it.
+- **Filtered to nothing:** the `Message` "No expired documents" / "Documents past their expiry date appear here.", or "No documents expiring soon" / "Documents that expire in the next 30 days appear here.", then a secondary "Show all documents". It clears the filter and moves focus to the card `h2`, since the button goes away.
+
+### Upload dialog
+
+- After Type: a `TextField type="date"` "Expiry date" with the hint "For licenses and certificates. Leave empty if the document doesn't expire." Optional, past dates allowed, `max="9999-12-31"`. Sent as `expiresOn` only when filled.
+- Not in the new-version dialog: the document keeps its date.
+- Focus order: drop zone → Title → Type → Expiry date → Cancel → Upload.
+- A half-typed date (the browser reports `badInput` and an empty value, which would upload without a date) or a server `validation` refusal: the field error "Enter a complete date, or leave the field empty.", and focus moves to the field.
+
+### Detail
+
+```
+ ← Documents
+ Food business license                              [Delete] [⇪ Upload new version]
+ License · Bistro Lisboa
+ Expires Nov 15  (◆ Expired)  Edit expiry date
+```
+
+- A line under the meta line: `mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-body`. "Expires {date}" in a `<time>`, white, then the pill or badge; or "No expiry date" in secondary text.
+- With `documents.upload`, the line ends with "Edit expiry date": a mint text button at 12/500, 24px tall (`h-6`), underlined on hover, the style of a finding's "Open document". The header actions stay one secondary and one primary; a third button would not fit one row at 375px.
+- Focus order: back link → Edit expiry date → Delete → Upload new version.
+
+### Edit dialog
+
+- `FormDialog` (400px), title "Edit expiry date": the same date field, prefilled, then "Remove date" (the same text button) when a date is set. Footer: Cancel, then the primary "Save" ("Saving…"), `aria-disabled` until the value changed.
+- Save sends `PATCH /establishments/{e}/documents/{d}` with `{ "expiresOn": "YYYY-MM-DD" }`, or `null` when the field was emptied. "Remove date" sends `null` at once.
+- On 204: the cached detail takes the new date, the detail and every list of the establishment refetch, the dialog closes, and focus returns to "Edit expiry date". Once it has closed, the polite region announces "Expiry date saved." or "Expiry date removed.".
+- Refusals: a `validation` problem is the field error above. A 403 is "You no longer have permission to do this." (and `/me` refetches once the dialog closes). Anything else is "Couldn't save the expiry date. Try again.", inline with `role="alert"`.
+
+### For DESIGN.md
+
+Decision 5 dropped "expiry" from the Documents row of DESIGN.md §8 until the model stored a date. It does now, so that row can name the expiry column, the filter and the Expired / Expires-in pills again.
