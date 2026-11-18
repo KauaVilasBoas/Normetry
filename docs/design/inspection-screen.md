@@ -275,16 +275,16 @@ Verdict and Severity sit side by side from 640px (`sm:grid-cols-2`) and stack be
 | Finding facts | `<dl class="mt-4 grid grid-cols-3 gap-3">`: `dt` 12px secondary, `dd` 13px white. Theme, Severity, Confidence. |
 | Finding sections | Each is an `h3` (`mt-5 text-small font-semibold text-text-secondary`) followed by its content. The text is 13/20 white with `whitespace-pre-line`. No nested cards: passages are `bg-inset` blocks. |
 | Quote block (**Proposal**: extract from `SourcePanel`) | `ui/QuotedPassage({ citation, mode })`. **`quote` mode:** `<blockquote lang={language} class="rounded-sm bg-inset p-3 text-body">` with `text.slice(quoteStart, quoteEnd)` (or `quote` when the offsets don't map) inside the DESIGN.md quote-highlight `<mark>` and its hidden "Quoted passage:" / "End of quoted passage." markers. **`passage` mode:** the SourcePanel's inset passage with the mark. `SourcePanel` then uses `passage` mode. |
-| Citation lines | Above each quote. Regulation: "{source} · {section}" 12px secondary, then "Version {version} · {language}" 11px secondary tabular (`languageName`, moved out of `SourcePanel`). Document: the title 13/500 white with "Open document" on the right (mint 12px/500 `Link` to `/documents/{documentId}`, shown with `documents.read`), then "Version {n} · {language}". |
+| Citation lines | Above each quote. Regulation: "{source} · {section}" 12px secondary, then "Version {version} · {language}" 11px secondary tabular (`languageName`, moved out of `SourcePanel`). Document: the title 13/500 white with "Open document" on the right (mint 12px/500 `Link` to `/documents/{documentId}`, shown with `documents.read`), then "Version {n} · {language}". The link is named by itself and the title (`aria-labelledby` = link id, title id: "Open document Walk-in temperature log"), so the links of several cited documents stay apart. It lands on the document's page with focus on its `h2`. |
 | Whole passage | A native `<details class="mt-2">`. `<summary>` 12px/500 mint, with `ChevronRight` 14 rotating 90° when open (`group-open:rotate-90`, `motion-safe:transition-transform`). The content is the passage-mode block at `mt-2`. |
-| Due line | "Due {date}" 13px with `<time dateTime>`, then the Time badge or the Overdue pill (§4). |
+| Due line | "Due {date}" 13px with `<time dateTime>`, then the Time badge or the Overdue pill (§4). A done action shows the Indexed-style pill "Done" (`StatusPill variant="done"`) instead. |
 | Review section | 13px: the state sentence (§6). A rejection adds a "Reason" label (12px secondary) and the note in a `bg-inset rounded-sm p-3 text-body whitespace-pre-line` block. When `original` differs from the current values: `<details>` "Show the original values" over a `<dl>` with only the changed fields (dt 12px secondary, dd 13px). |
 | Review buttons | **Secondary** Reject (`X` 16) and Edit (`Pencil` 16), then **primary** Accept (`Check` 16). While accepting: `aria-disabled`, `Spinner surface="mint"`, "Accepting…". An inline error `role="alert"` (13px, `CircleAlert` 16 secondary) sits above the buttons. |
 | Reject dialog | `FormDialog` (400px) holding one textarea "Reason", `maxLength={1000}`, required, with a hint. Submit is the primary "Reject finding" ("Rejecting…"). |
-| Edit dialog | `FormDialog` with a new `wide` option, which uses the upload panel's classes (480px, `max-h-[calc(100dvh-2rem)] overflow-y-auto`). A note paragraph (13px secondary), Verdict and Severity (`SelectField`, `sm:grid-cols-2 gap-4`), Rationale and Action (textareas), Due date (`TextField type="date"`). Fields 16px apart. Submit "Save changes" stays `aria-disabled` until a value differs. |
+| Edit dialog | `FormDialog` with a new `wide` option, which uses the upload panel's classes (480px, `max-h-[calc(100dvh-2rem)] overflow-y-auto`). A note paragraph (13px secondary), Verdict and Severity (`SelectField`, `sm:grid-cols-2 gap-4`), Rationale and Action (textareas), Due date (`TextField type="date"`). Fields 16px apart. Submit "Save changes" stays `aria-disabled` until a value differs (`FormDialog` `ready={false}`: 50% opacity, no hover change). |
 | Textarea field (**Proposal**: `ui/TextAreaField`) | The `TextField` with a `<textarea>`: same label, hint and error, `min-h-22 w-full rounded-control border border-teal-border bg-inset px-3 py-2.5 text-field sm:text-body resize-y`. |
-| Action plan card | Card. Header `p-5`: `h2` "Action plan" and a caption. The list is `divide-y divide-border border-t border-border`. |
-| Action row | `flex flex-wrap items-start gap-x-3 px-5 py-2`. With `inspections.review`: the `Checkbox` primitive (`flex-1`) labelled with the action text, its description "{finding} · Due {date}". Without it: `ReadOnlyCheckbox` with state "Done:" or "Open:". On the right (`sm:ml-auto`, below 640px under the description with `pl-9`): the Time badge or the Overdue pill. A done row shows no badge. |
+| Action plan card | Card. Header `p-5`: `h2` "Action plan" (`id="action-plan-title"`, `tabIndex={-1}`) and a caption. The list is `divide-y divide-border border-t border-border`. |
+| Action row | `flex flex-wrap items-start gap-x-3 px-5 py-2`. With `inspections.review`: the `Checkbox` primitive (`flex-1`) labelled with the action text, its description "{finding} · Due {date}". Without it: `ReadOnlyCheckbox` with state "Done:" or "Open:" and `dimUnchecked={false}`, so an open action keeps white text. On the right (`sm:ml-auto`, below 640px under the description with `pl-9`): the Time badge or the Overdue pill, in a wrapper `id="due-{actionId}"` that the checkbox adds to its `aria-describedby` after its description ("… · Due Nov 10 Overdue"). A done row shows no badge. |
 | Time badge (**Proposal**: `ui/TimeBadge`) | DESIGN.md Time badge: `inline-flex h-5 items-center rounded-[6px]`. 6px is not a token, so use `rounded-sm` and see §8.5. Then `bg-info-bg px-2 text-caption text-info tabular-nums`, with `<time>`. |
 | Loading, empty, error | `Skeleton`, `Message` and `ErrorMessage`, as on Documents. Empty icons are 20px `text-neutral`, error icons 20px `text-text-secondary`. |
 
@@ -338,6 +338,7 @@ Step 3 never shows as current. The core sees only Running and Completed, and con
 | Quota: 429 with code `inspection_quota` | the POST answer's `Retry-After` | `aria-disabled` until the reset, then enabled and the notice clears | `Clock` · "Your organization has run all of today's inspections." · "You can run another inspection {when}." (`untilReset`, refreshed every minute) |
 | Other 429 (rate limit) | `Retry-After` | `aria-disabled` until then | `Clock` · "Too many requests right now." · "Try again {when}." |
 | 409 `no_indexed_documents` | the POST answer | enabled | `FileText` · "{establishment} has no indexed documents yet." · "An inspection checks the establishment's own documents. Upload SOPs, logs or reports, and run it once at least one is indexed." · "Go to Documents" (with `documents.read`) |
+| 409 `inspection_capacity` | the POST answer (the organization's in-flight cap, across its establishments) | enabled | `Clock` · "Your organization is running as many inspections as it can at once." · "You can run one here when an inspection of another establishment finishes." · — |
 | 409 `inspection_running` | the POST answer (a stale list) | refetch the list, which then shows the first row | — |
 | 403 | the POST answer | refetch `/me` (`useSend`) | `CircleAlert` · "You no longer have permission to do this." |
 | Network, 5xx, unknown code | the POST answer | enabled | `CircleAlert` · "Couldn't start the inspection." · "Check your connection and try again." |
@@ -385,6 +386,7 @@ A refusal notice clears on the next Run click and when the establishment changes
   - Each option shows the count over all findings: "Non-compliant (6)".
   - The theme filter lists only the themes present, in the theme order of §6.
   - Filters and sort reset when another inspection opens. They are not in the URL.
+  - "Clear filters" resets both and moves focus to the Findings `h2`, since the button goes with the no-match message.
 - **Caption:** "{count} findings · {pending} pending review", or "· All reviewed" when no finding is Pending.
 
 **Finding sheet**
@@ -424,6 +426,8 @@ A refusal notice clears on the next Run click and when the establishment changes
 - A checkbox toggle is optimistic: it posts `/done` or `/reopen` at once.
 - While its request runs, further clicks on that checkbox are ignored.
 - On failure the checkbox reverts, and "Couldn't update the action. Try again." shows under the row (`role="alert"`).
+- A 403 shows "You no longer have permission to do this." under the row instead and refetches `/me` at once (`useSend()`). The checkboxes become read-only rows; focus, lost with the checkbox, moves to the Action plan `h2`. The row's error stays.
+- Success patches the finding from the response; the inspection is not refetched.
 - The checkbox's own state change is announced by screen readers, so success needs no extra message.
 
 ## 6. States and copy (EN)
@@ -431,11 +435,11 @@ A refusal notice clears on the next Run click and when the establishment changes
 | State | History | Inspection page |
 |---|---|---|
 | Loading | The card `h2` shows the establishment name, then a count bar (`h-3 w-24`) and 4 skeleton rows (a date bar `h-3 w-2/5` and a pill bar `h-5 w-20`). `aria-busy`, with a visually hidden "Loading inspections…". | Title bar `h-6 w-72` (or the title, when the list has it), meta bar, then one card with a 120px ring skeleton and 8 checklist bars. Visually hidden "Loading inspection…". |
-| Empty | `ClipboardCheck` 20 `text-neutral` · "No inspections yet" · with `inspections.run`: "Run an inspection to check {establishment}'s documents against {regulation}. It takes a few minutes."; without: "Inspections of {establishment} appear here." | Completed with no findings: "No findings were kept" / its body. No actions: "No actions to take" / its body. |
+| Empty | `ClipboardCheck` 20 `text-neutral` · "No inspections yet" · with `inspections.run`: "Run an inspection to check {establishment}'s documents against {regulation}. It takes a few minutes."; without: "Inspections of {establishment} appear here." | Completed with no findings: `SearchX` 20 `text-neutral` · "No findings were kept" / its body. No actions: `ListChecks` 20 `text-neutral` · "No actions to take" / its body. |
 | Error | `ErrorMessage`: "Couldn't load inspections" / "Check your connection and try again." / "Try again". | "Couldn't load this inspection", same body and button. |
 | Not found (404) | — | "This inspection isn't available" / "It may belong to another establishment, or it no longer exists." and a secondary link "Back to inspections". |
 | Refused | No `inspections.read`: "You don't have access to Simulated Inspection". | The same. |
-| Filtered to nothing | — | "No findings match these filters" / "Change or clear the filters to see more findings." and a secondary "Clear filters". |
+| Filtered to nothing | — | `ListFilter` 20 `text-neutral` · "No findings match these filters" / "Change or clear the filters to see more findings." and a secondary "Clear filters". |
 
 **`copy.ts` additions and changes**, ready to paste. Placeholders are filled with `format()`, and sentences are never concatenated.
 
@@ -509,6 +513,8 @@ inspections: {
   goToDocuments: "Go to Documents",
   quotaTitle: "Your organization has run all of today's inspections.",
   quotaBody: "You can run another inspection {when}.",
+  capacityTitle: "Your organization is running as many inspections as it can at once.",
+  capacityBody: "You can run one here when an inspection of another establishment finishes.",
   rateLimitedTitle: "Too many requests right now.",
   rateLimitedBody: "Try again {when}.",
   startErrorTitle: "Couldn't start the inspection.",
@@ -674,6 +680,7 @@ actions: {
   meta: "{finding} · Due {date}",
   dueIn: "Due {when}",
   overdue: "Overdue",
+  doneBadge: "Done",
   done: "Done:",
   open: "Open:",
   error: "Couldn't update the action. Try again.",
@@ -718,6 +725,9 @@ Inside the sheet, its own polite region announces `accepted`, `rejected`, `edite
 - The running card replaced by results: the detail `h2`, if focus was inside the card or on `body`.
 - The sheet closing: the row of the finding shown last, else the Findings `h2`.
 - Dialogs return focus to Reject or Edit.
+- "Clear filters": the Findings `h2`.
+- "Open document": the document page's `h2`.
+- A refused action toggle (403) that turns the checkboxes read-only: the Action plan `h2`, if focus fell to `body`.
 
 **Names and descriptions**
 - **History rows:** each date link has `aria-describedby` pointing at its status cell, so it reads "Nov 17, 2026, 10:42 AM, link, Running, 27 of 43 checked".

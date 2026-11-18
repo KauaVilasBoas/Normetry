@@ -1,5 +1,5 @@
-import { CircleAlert } from "lucide-react";
-import { useRef, useState } from "react";
+import { CircleAlert, ListChecks } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { ActionItem, InspectionDetail } from "../api/queries";
 import { calendarDate, copy, format } from "../copy";
 import { useSend } from "../settings/profiles";
@@ -31,6 +31,15 @@ export function ActionPlan({
   const statusOf = (action: ActionItem) => toggled[action.id] ?? action.status;
   const done = rows.filter((row) => statusOf(row.actionItem) === "Done").length;
 
+  // A 403 takes the checkboxes away (/me is fetched again): focus, lost with the one that was
+  // toggled, goes to the heading. The row's error stays.
+  const hadReview = useRef(canReview);
+  useEffect(() => {
+    if (hadReview.current && !canReview && document.activeElement === document.body)
+      document.getElementById(ACTIONS_TITLE_ID)?.focus();
+    hadReview.current = canReview;
+  }, [canReview]);
+
   const toggle = async (action: ActionItem, checked: boolean) => {
     if (busy.current.has(action.id)) return;
     busy.current.add(action.id);
@@ -59,7 +68,7 @@ export function ActionPlan({
       className="mt-4 rounded-card border border-border bg-card motion-safe:animate-fade-in"
     >
       <div className="p-5">
-        <h2 id={ACTIONS_TITLE_ID} className="text-title font-semibold">
+        <h2 id={ACTIONS_TITLE_ID} tabIndex={-1} className="text-title font-semibold">
           {copy.actions.title}
         </h2>
         {rows.length > 0 && (
@@ -75,6 +84,7 @@ export function ActionPlan({
         <div className="px-5 pb-5">
           <Message
             className="items-start"
+            icon={<ListChecks aria-hidden="true" className="size-5 text-neutral" />}
             title={copy.actions.emptyTitle}
             body={copy.actions.emptyBody}
           />
@@ -88,6 +98,7 @@ export function ActionPlan({
               date: calendarDate(action.dueOn),
             });
             const error = errors[action.id];
+            const dueId = `due-${action.id}`;
             return (
               <li key={action.id} className="flex flex-wrap items-start gap-x-3 px-5 py-2">
                 <div className="w-full min-w-0 sm:w-auto sm:flex-1">
@@ -95,6 +106,8 @@ export function ActionPlan({
                     <Checkbox
                       label={action.text}
                       description={description}
+                      // The badge sits outside the label: "Overdue" joins the description.
+                      aria-describedby={isDone ? undefined : dueId}
                       checked={isDone}
                       onChange={(event) => void toggle(action, event.target.checked)}
                     />
@@ -104,12 +117,13 @@ export function ActionPlan({
                       state={isDone ? copy.actions.done : copy.actions.open}
                       label={action.text}
                       description={description}
+                      dimUnchecked={false}
                     />
                   )}
                 </div>
                 {/* Under the description below 640px, in line with the label's first line from there. */}
                 {!isDone && (
-                  <div className="pb-2 pl-9 sm:ml-auto sm:pt-2.5 sm:pb-0 sm:pl-0">
+                  <div id={dueId} className="pb-2 pl-9 sm:ml-auto sm:pt-2.5 sm:pb-0 sm:pl-0">
                     <DueBadge dueOn={action.dueOn} />
                   </div>
                 )}

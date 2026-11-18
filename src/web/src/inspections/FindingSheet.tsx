@@ -245,7 +245,11 @@ function FindingBody({
               <time dateTime={action.dueOn}>
                 {format(copy.findings.due, { date: calendarDate(action.dueOn) })}
               </time>
-              {action.status !== "Done" && <DueBadge dueOn={action.dueOn} />}
+              {action.status === "Done" ? (
+                <StatusPill variant="done" label={copy.actions.doneBadge} />
+              ) : (
+                <DueBadge dueOn={action.dueOn} />
+              )}
             </p>
           </>
         ) : (
@@ -372,11 +376,12 @@ function EvidenceQuote({
           {citation.documentTitle ?? copy.findings.untitledDocument}
         </p>
         {canReadDocuments && (
-          // Several documents may be cited: the title tells the links apart.
+          // Several documents may be cited: the title in its name tells the links apart.
           <Link
+            id={`${id}-link`}
             to={`/documents/${encodeURIComponent(citation.documentId)}`}
             state={{ focusTitle: true }}
-            aria-describedby={id}
+            aria-labelledby={`${id}-link ${id}`}
             className="shrink-0 rounded-sm text-small font-medium text-mint hover:underline"
           >
             {copy.findings.openDocument}
@@ -437,7 +442,7 @@ function ReviewFooter({
         {/* aria-disabled, not disabled: focus stays on it after accepting. */}
         <Button
           variant="primary"
-          className={`flex-1 sm:flex-none ${accepted ? "opacity-50 aria-disabled:hover:bg-mint" : ""}`}
+          className={`flex-1 aria-disabled:hover:bg-mint sm:flex-none ${accepted ? "opacity-50" : ""}`}
           aria-disabled={accepted || accepting}
           aria-describedby={accepted ? reviewId : undefined}
           onClick={accepted || accepting ? undefined : () => void accept()}

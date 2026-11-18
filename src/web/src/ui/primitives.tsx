@@ -17,6 +17,7 @@ import {
   Upload,
   UtensilsCrossed,
   WifiOff,
+  type LucideIcon,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
 import {
@@ -334,12 +335,20 @@ export function ErrorMessage({
   );
 }
 
-/** Opens a citation's source; `aria-expanded` while its passage is the one shown. */
+/**
+ * Opens a citation's source; `aria-expanded` while its passage is the one shown. `icon` leads the
+ * label (a document citation's `FileText`).
+ */
 export function CitationChip({
   label,
   expanded,
+  icon: Icon,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; expanded: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string;
+  expanded: boolean;
+  icon?: LucideIcon;
+}) {
   return (
     <button
       type="button"
@@ -350,6 +359,7 @@ export function CitationChip({
       }`}
       {...props}
     >
+      {Icon && <Icon aria-hidden="true" className="size-3.5 shrink-0" />}
       <span className="truncate">{label}</span>
       <ArrowRight aria-hidden="true" className="size-3.5 shrink-0" />
     </button>
@@ -432,19 +442,26 @@ export function TabStrip({
   );
 }
 
-/** Native checkbox in a 44px label row; the description is its accessible description. */
+/**
+ * Native checkbox in a 44px label row; the description is its accessible description, followed
+ * by whatever `aria-describedby` adds (a badge outside the row).
+ */
 export function Checkbox({
   label,
   description,
+  "aria-describedby": describedBy,
   ...input
 }: Omit<ComponentProps<"input">, "type"> & { label: string; description?: string }) {
   const id = useId();
+  const describedByIds = [description && `${id}-description`, describedBy]
+    .filter(Boolean)
+    .join(" ");
   return (
     <label className="flex min-h-11 items-start gap-3 rounded-control px-2 py-2 hover:bg-elevated">
       <input
         type="checkbox"
         aria-labelledby={`${id}-label`}
-        aria-describedby={description ? `${id}-description` : undefined}
+        aria-describedby={describedByIds || undefined}
         className="mt-0.5 size-4 shrink-0 accent-mint"
         {...input}
       />
@@ -453,17 +470,23 @@ export function Checkbox({
   );
 }
 
-/** A checkbox row that cannot change: a check or a dash, and `state` ("Granted:") for screen readers. */
+/**
+ * A checkbox row that cannot change: a check or a dash, and `state` ("Granted:") for screen
+ * readers. An unchecked row is dimmed unless `dimUnchecked` is false (an open action matters
+ * as much as a done one).
+ */
 export function ReadOnlyCheckbox({
   checked,
   state,
   label,
   description,
+  dimUnchecked = true,
 }: {
   checked: boolean;
   state: string;
   label: string;
   description?: string;
+  dimUnchecked?: boolean;
 }) {
   const id = useId();
   const Icon = checked ? Check : Minus;
@@ -478,7 +501,7 @@ export function ReadOnlyCheckbox({
         state={state}
         label={label}
         description={description}
-        muted={!checked}
+        muted={dimUnchecked && !checked}
       />
     </div>
   );
@@ -862,7 +885,7 @@ export function FormDialog({
                 type="submit"
                 variant="primary"
                 aria-disabled={submitting || !ready}
-                className={ready ? "" : "opacity-50 aria-disabled:hover:bg-mint"}
+                className={`aria-disabled:hover:bg-mint ${ready ? "" : "opacity-50"}`}
               >
                 {submitting && <Spinner surface="mint" />}
                 {submitLabel}
