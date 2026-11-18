@@ -66,8 +66,8 @@ const yTicks = [
 
 /**
  * A single series on a fixed 0–100% axis (`ratio` 0 to 1), its points evenly spaced in order and
- * labelled with `label` under the plot: the first and the last always, the others from 768px when
- * there are six or fewer. The plot is a `role="img"` named by `summary`; each dot's `title` is a
+ * labelled with `label` under the plot: the first and the last always, the others when the chart
+ * is at least 512px wide and there are six or fewer. The plot is a `role="img"` named by `summary`; each dot's `title` is a
  * mouse convenience, so the caller gives the values as a table too.
  */
 export function AreaChart({
@@ -86,7 +86,7 @@ export function AreaChart({
   }));
   const line = placed.map(({ x, y }) => `${x},${y}`).join(" ");
   return (
-    <div role="img" aria-label={summary}>
+    <div role="img" aria-label={summary} className="@container">
       <div className="flex h-40">
         <div className="relative w-9 shrink-0">
           {yTicks.map((tick) => (
@@ -146,7 +146,7 @@ export function AreaChart({
             points.length <= 6 && (
               <span
                 key={point.id}
-                className="absolute hidden -translate-x-1/2 md:block"
+                className="absolute hidden -translate-x-1/2 @lg:block"
                 style={{ left: `${point.x}%` }}
               >
                 {point.label}

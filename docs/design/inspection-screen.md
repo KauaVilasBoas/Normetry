@@ -9,7 +9,7 @@ Issues #104 (run, live progress, failures) and #105 (findings, review, action pl
 - **Top bar `h1`:** "Simulated Inspection" on both routes.
   - `<title>`: "Simulated Inspection · Normetry". On the detail page: "Inspection of {date} · Simulated Inspection · Normetry".
 - **Changing establishment** in the switcher navigates to `/inspections` (add it to `sectionRoots`).
-- **Home (`/`)** goes to the first screen the user may open, in this order: Ask the Regulation, Documents, Simulated Inspection, Settings. `canOpenAScreen` gains `inspections.read`.
+- **Home (`/`)** redirects to `/overview`; the home order is in [`overview-screen.md`](overview-screen.md) §1. `canOpenAScreen` gains `inspections.read`.
 - **Refused states:** the Profiles spec §6 pattern, with `{screen}` = "Simulated Inspection". Without `establishments.read` the screen shows the establishments refusal, whose body now names Simulated Inspection (copy in §6).
 - **Permissions:**
 

@@ -292,6 +292,28 @@ describe("overview", () => {
     expect(within(kpi("Compliance")).getByText(sentence)).toBeInTheDocument();
   });
 
+  it("shows a verdict with no findings as text, not a link", async () => {
+    renderOverview({
+      [OVERVIEW]: {
+        body: {
+          ...full,
+          latestInspection: {
+            ...latestInspection,
+            verdictCounts: { compliant: 33, nonCompliant: 10, insufficientEvidence: 0 },
+          },
+        },
+      },
+    });
+    await loaded();
+
+    const legend = screen.getByRole("list", { name: "Verdicts" });
+    expect(within(legend).getAllByRole("link")).toHaveLength(2);
+    expect(within(legend).getAllByRole("listitem")[1]).toHaveTextContent(
+      "Insufficient evidence0%(0)0 findings",
+    );
+    await expectNoAxeViolations();
+  });
+
   it("shows only the inspection sections with inspections.read alone", async () => {
     renderOverview({ [OVERVIEW]: { body: inspectionsOnly } }, { permissions: readInspections });
 
@@ -510,7 +532,7 @@ describe("overview", () => {
     const last = within(chart).getByText(shortDay(completedAt));
     expect(first).not.toHaveClass("hidden");
     expect(last).not.toHaveClass("hidden");
-    expect(middle).toHaveClass("hidden", "md:block");
+    expect(middle).toHaveClass("hidden", "@lg:block");
     await expectNoAxeViolations();
   });
 });
