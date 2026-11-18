@@ -11,10 +11,11 @@ open a new one: what a turn says stays data.
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
-from xml.sax.saxutils import escape, quoteattr
+from xml.sax.saxutils import escape
 
 import anyio
 
+from normetry_ai.answers.prompt import attribute
 from normetry_ai.llm.claude import ModelUnavailable
 from normetry_ai.llm.usage import Usage
 from normetry_ai.settings import ConversationSettings
@@ -72,7 +73,7 @@ def baseline_query(history: Sequence[Turn], question: str) -> str:
 def user_message(history: Sequence[Turn], question: str) -> str:
     parts = ["<conversation>"]
     parts += [
-        f"<turn role={quoteattr(turn.role)}>\n{escape(turn.text)}\n</turn>"
+        f"<turn role={attribute(turn.role)}>\n{escape(turn.text)}\n</turn>"
         for turn in history
         if turn.text
     ]

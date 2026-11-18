@@ -245,8 +245,10 @@ class Retriever:
         chunks = best(regulation + own, settings.retrieval_top_k, settings.retrieval_document_top_k)
         # Ids, counts and times only: never the question or chunk text.
         logger.info(
-            "retrieval language=%s versions=%s vector=%d text=%d fused=%d documents=%d "
-            "reranked=%d top_score=%.3f seconds=%s",
+            "retrieval tenant=%s establishment=%s language=%s versions=%s vector=%d text=%d "
+            "fused=%d documents=%d reranked=%d top_score=%.3f seconds=%s",
+            tenant,
+            establishment_id,
             language,
             ",".join(f"{j}/{v}" for j, v in versions),
             len(vector),
@@ -256,6 +258,7 @@ class Retriever:
             len(candidates) + len(documents),
             chunks[0].score if chunks else 0.0,
             {step: round(value, 3) for step, value in seconds.items()},
+            extra={"tenant_id": tenant},
         )
         return Trace(
             language=language,
