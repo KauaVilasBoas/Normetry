@@ -678,16 +678,20 @@ describe("expiry dates", () => {
     await expectNoAxeViolations();
   });
 
-  it("filters expired and expiring documents through the API, and keeps the filter", async () => {
+  it("filters with the pills' own rule, in the browser, and keeps the filter", async () => {
+    // Expiring today: local "today", which the API's UTC filters would miss every evening west of UTC.
+    const today = {
+      ...fields("d-allergen", "Allergen certificate", "Other", 1, dayFromToday(0)),
+      latestVersion: version(1, "Indexed"),
+    };
     const fetch = renderDocuments({
-      [datedPath]: { body: dated },
-      [`${datedPath}?expired=true`]: { body: [dated[0]] },
-      [`${datedPath}?expiringWithinDays=30`]: { body: [] },
+      [datedPath]: { body: [...dated, today] },
       "/documents/d-license": {
         body: { ...dated[0], latestVersion: undefined, versions: [version(1, "Indexed")] },
       },
     });
     const user = userEvent.setup();
+    const titles = () => rows().map((row) => within(row).getByRole("link").textContent);
     await screen.findByRole("link", { name: "Water analysis" });
     expect(filter()).toHaveValue("");
     expect(
@@ -697,9 +701,9 @@ describe("expiry dates", () => {
     ).toEqual(["All documents", "Expired", "Expiring in 30 days"]);
 
     await user.selectOptions(filter(), "expired");
-    await waitFor(() => expect(rows()).toHaveLength(1));
-    expect(calls(fetch, `${datedPath}?expired=true`)).toHaveLength(1);
-    expect(within(card()).getByText("1 document")).toBeVisible();
+    expect(titles()).toEqual(["Food business license"]);
+    // The caption still counts every document.
+    expect(within(card()).getByText("5 documents")).toBeVisible();
 
     // Opening a document and coming back keeps the filter.
     await user.click(screen.getByRole("link", { name: "Food business license" }));
@@ -709,14 +713,25 @@ describe("expiry dates", () => {
     expect(filter()).toHaveValue("expired");
 
     await user.selectOptions(filter(), "expiring");
-    expect(await within(card()).findByText("No documents expiring soon")).toBeVisible();
-    expect(calls(fetch, `${datedPath}?expiringWithinDays=30`)).toHaveLength(1);
+    expect(titles()).toEqual(["Pest control certificate", "Allergen certificate"]);
+    await expectNoAxeViolations();
+    expect(fetch.mock.calls.some(([input]) => input.includes("?"))).toBe(false);
+  });
+
+  it("says when nothing matches, and Show all documents clears the filter", async () => {
+    renderDocuments();
+    const user = userEvent.setup();
+    await screen.findByRole("link", { name: "Cold storage SOP" });
+
+    await user.selectOptions(filter(), "expired");
+    expect(within(card()).getByText("No expired documents")).toBeVisible();
+    expect(within(card()).queryByRole("table")).toBeNull();
     await expectNoAxeViolations();
 
     await user.click(within(card()).getByRole("button", { name: "Show all documents" }));
     expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus();
     expect(filter()).toHaveValue("");
-    await waitFor(() => expect(rows()).toHaveLength(4));
+    expect(rows()).toHaveLength(4);
   });
 
   it("shows the expired and expiring badges under the title below 768px", async () => {
@@ -726,7 +741,7 @@ describe("expiry dates", () => {
     await expectNoAxeViolations();
   });
 
-  it("uploads with an expiry date, and refuses a half-typed one", async () => {
+  it("uploads with an expiry date, refuses a half-typed one, and clears the filter", async () => {
     const fetch = renderDocuments({
       "POST /establishments/e-lisboa/documents": {
         status: 202,
@@ -737,7 +752,9 @@ describe("expiry dates", () => {
       },
     });
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Upload document" }));
+    await screen.findByRole("link", { name: "Cold storage SOP" });
+    await user.selectOptions(filter(), "expired");
+    await user.click(screen.getByRole("button", { name: "Upload document" }));
     const dialog = await screen.findByRole("dialog", { name: "Upload document" });
     await user.upload(fileInput(), pdf("license.pdf"));
     await user.selectOptions(within(dialog).getByRole("combobox", { name: "Type" }), "License");
@@ -760,6 +777,8 @@ describe("expiry dates", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(lastForm(fetch).get("expiresOn")).toBe(soon);
+    // The new document is seen, whatever its date.
+    expect(filter()).toHaveValue("");
   });
 
   it("edits and removes a document's expiry date", async () => {
@@ -803,7 +822,13 @@ describe("expiry dates", () => {
 
     await user.click(edit);
     dialog = await screen.findByRole("dialog", { name: "Edit expiry date" });
+    // Remove date only empties the field; Save sends it.
     await user.click(within(dialog).getByRole("button", { name: "Remove date" }));
+    expect(within(dialog).getByLabelText("Expiry date")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Expiry date")).toHaveFocus();
+    expect(within(dialog).queryByRole("button", { name: "Remove date" })).toBeNull();
+    expect(patches(fetch)).toHaveLength(1);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(edit).toHaveFocus();

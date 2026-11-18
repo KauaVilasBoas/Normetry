@@ -2,12 +2,17 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { Sent } from "../settings/profiles";
 import {
   documentsKey,
-  EXPIRING_DAYS,
   type DocumentDetail,
   type DocumentSummary,
   type DocumentVersion,
 } from "../api/queries";
 import { calendarDate, copy, format, localDate, relativeDays } from "../copy";
+
+/** The list's expiry filter: every document, the expired ones, or those expiring soon. */
+export type ExpiryFilter = "" | "expired" | "expiring";
+
+/** "Expiring soon" (spec 004): the Time badge's window and the list's filter. */
+export const EXPIRING_DAYS = 30;
 
 /** The core's documents hub and its event (spec §5). */
 export const HUB_URL = "/hubs/documents";
@@ -181,12 +186,11 @@ export const expiryProblem = (input: HTMLInputElement | null) =>
     ? copy.upload.expiryInvalid
     : undefined;
 
-/** A document's title from any list of the establishment in the cache, filtered or not. */
+/** A document's title from the establishment's cached list, if it is there. */
 export const cachedTitle = (queryClient: QueryClient, establishmentId: string, id: string) =>
   queryClient
-    .getQueriesData<DocumentSummary[]>({ queryKey: documentsKey(establishmentId) })
-    .flatMap(([, list]) => list ?? [])
-    .find((row) => row.id === id)?.title;
+    .getQueryData<DocumentSummary[]>(documentsKey(establishmentId))
+    ?.find((row) => row.id === id)?.title;
 
 /** A list row from an upload's answer, so it shows before the refetch. */
 export const toSummary = ({ versions, ...document }: DocumentDetail): DocumentSummary => ({

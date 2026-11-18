@@ -30,6 +30,7 @@ import {
   Spinner,
   Tag,
   TextField,
+  textAction,
   th,
 } from "../ui/primitives";
 import {
@@ -172,24 +173,30 @@ export function DocumentDetailView({
                     establishment: establishment.name,
                   })}
                 </p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
-                  {detail.expiresOn ? (
-                    <>
-                      <time dateTime={detail.expiresOn}>
-                        {format(copy.documents.expiresOn, {
-                          date: calendarDate(detail.expiresOn),
-                        })}
-                      </time>
-                      <ExpiryBadge expiresOn={detail.expiresOn} />
-                    </>
-                  ) : (
-                    <span className="text-text-secondary">{copy.documents.noExpiry}</span>
-                  )}
-                  {canUpload && <ExpiryDialog detail={detail} announce={announce} />}
-                </div>
+                {/* Without a date, the line is only worth showing beside its edit action. */}
+                {(detail.expiresOn || canUpload) && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
+                    {detail.expiresOn ? (
+                      <>
+                        <time dateTime={detail.expiresOn}>
+                          {format(copy.documents.expiresOn, {
+                            date: calendarDate(detail.expiresOn),
+                          })}
+                        </time>
+                        <ExpiryBadge expiresOn={detail.expiresOn} />
+                      </>
+                    ) : (
+                      <span className="text-text-secondary">{copy.documents.noExpiry}</span>
+                    )}
+                    {canUpload && <ExpiryDialog detail={detail} announce={announce} />}
+                  </div>
+                )}
               </>
             ) : (
-              <Skeleton className="mt-2 h-3 w-40" />
+              <>
+                <Skeleton className="mt-2 h-3 w-40" />
+                <Skeleton className="mt-2 h-3 w-32" />
+              </>
             )}
           </div>
           {detail && (canDelete || canUpload) && (
@@ -403,13 +410,9 @@ function VersionsSkeleton({ label }: { label: boolean }) {
   );
 }
 
-// Mint text, as "Open document": 24px tall, so it stays a reachable target beside a 13px line.
-const textButton =
-  "inline-flex h-6 items-center rounded-sm text-small font-medium text-mint hover:underline";
-
 /**
- * "Edit expiry date" and its dialog (`documents.upload`): Save sends the field (empty clears the
- * date), "Remove date" clears it at once. The confirmation is announced once the dialog has
+ * "Edit expiry date" and its dialog (`documents.upload`): Save sends the field, and an empty one
+ * clears the date ("Remove date" empties it). The confirmation is announced once the dialog has
  * closed, when the page is heard again; focus goes back to the trigger.
  */
 function ExpiryDialog({
@@ -437,7 +440,6 @@ function ExpiryDialog({
   }, [fieldError]);
 
   const save = async (expiresOn: string | null) => {
-    if (submitting) return;
     setError(undefined);
     setSubmitting(true);
     const result = await send(
@@ -463,7 +465,7 @@ function ExpiryDialog({
   return (
     <FormDialog
       trigger={
-        <button type="button" className={textButton}>
+        <button type="button" className={textAction}>
           {copy.documents.editExpiry}
         </button>
       }
@@ -510,12 +512,16 @@ function ExpiryDialog({
             }}
           />
         </div>
-        {detail.expiresOn && (
+        {detail.expiresOn && value && (
           <button
             type="button"
-            className={textButton}
-            aria-disabled={submitting}
-            onClick={() => void save(null)}
+            className={textAction}
+            onClick={() => {
+              // Focus moves first: the button goes once the field is empty.
+              input.current?.focus();
+              setValue("");
+              setFieldError(undefined);
+            }}
           >
             {copy.documents.removeExpiry}
           </button>

@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { FileText, Upload } from "lucide-react";
+import { FileText, ListFilter, Upload } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 import { Link } from "react-router";
 import type { Live } from "../api/live";
@@ -10,7 +10,6 @@ import {
   useDocuments,
   type DocumentSummary,
   type Establishment,
-  type ExpiryFilter,
   type Me,
 } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
@@ -24,7 +23,14 @@ import {
   Skeleton,
   th,
 } from "../ui/primitives";
-import { expiry, rowCaption, statusLabel, toSummary, typeLabel } from "./documents";
+import {
+  expiry,
+  rowCaption,
+  statusLabel,
+  toSummary,
+  typeLabel,
+  type ExpiryFilter,
+} from "./documents";
 import { ExpiryBadge, LIST_TITLE_ID, VersionText } from "./parts";
 import { UploadDialog } from "./UploadDialog";
 
@@ -39,7 +45,7 @@ const filterOptions = Object.entries(copy.documents.expiryFilters).map(([value, 
  * The selected establishment's documents in one card: header with the expiry filter and Upload,
  * the connection notice, then the table. With `documents.upload` a file dropped on the card opens
  * the upload dialog with it (a pointer shortcut; Upload document is the keyboard path). The
- * `filter` asks the API for expired or expiring documents only.
+ * `filter` keeps the rows whose pill says Expired or Expires in…, by the same local-date rule.
  */
 export function DocumentList({
   establishment,
@@ -60,16 +66,23 @@ export function DocumentList({
   announce: (text: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const documents = useDocuments(establishment.id, true, filter);
+  const documents = useDocuments(establishment.id, true);
   const canUpload = can(me, "documents.upload");
   const failed = queryFailed(documents);
   const retrying = failed && documents.isFetching;
   const [upload, setUpload] = useState<{ files: File[] }>();
   const [dragging, setDragging] = useState(false);
   const uploadButton = useRef<HTMLButtonElement>(null);
+  // The caption counts every document; the filter only picks the rows.
   const count = documents.data?.length ?? 0;
   // Nothing to filter in an establishment without documents.
   const filterable = filter !== "" || count > 0;
+  // The pill's own rule, so a row and the filter never disagree (the API counts today in UTC).
+  const now = new Date();
+  const wanted = filter === "expired" ? "expired" : "soon";
+  const rows = filter
+    ? documents.data?.filter((row) => row.expiresOn && expiry(row.expiresOn, now).state === wanted)
+    : documents.data;
 
   const over = (event: DragEvent) => {
     if (!canUpload || !draggingFiles(event)) return;
@@ -150,12 +163,13 @@ export function DocumentList({
             onRetry={() => void reload()}
           />
         </div>
-      ) : !documents.data ? (
+      ) : !rows ? (
         <ListSkeleton />
-      ) : count === 0 && filter !== "" ? (
+      ) : rows.length === 0 && filter !== "" ? (
         <div className="px-5 pb-5">
           <Message
             className="items-start"
+            icon={<ListFilter aria-hidden="true" className="size-5 text-neutral" />}
             title={
               filter === "expired" ? copy.documents.noExpiredTitle : copy.documents.noExpiringTitle
             }
@@ -175,7 +189,7 @@ export function DocumentList({
             {copy.documents.showAll}
           </Button>
         </div>
-      ) : count === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="px-5 pb-5">
           <Message
             className="items-start"
@@ -187,7 +201,7 @@ export function DocumentList({
           />
         </div>
       ) : (
-        <DocumentTable establishment={establishment} documents={documents.data} onOpen={onOpen} />
+        <DocumentTable establishment={establishment} documents={rows} onOpen={onOpen} />
       )}
 
       {canUpload && (
@@ -204,6 +218,8 @@ export function DocumentList({
               (list = []) => [toSummary(uploaded), ...list.filter((row) => row.id !== uploaded.id)],
             );
             void queryClient.invalidateQueries({ queryKey: documentsKey(establishment.id) });
+            // The new row must be seen, whatever its date.
+            onFilter("");
             announce(format(copy.documents.uploaded, { title: uploaded.title }));
           }}
         />
@@ -309,7 +325,7 @@ function DocumentTable({
               <td id={expiryId} className="hidden px-3 py-2.5 whitespace-nowrap md:table-cell">
                 {!row.expiresOn || !expires ? (
                   <>
-                    <span aria-hidden="true" className="text-body">
+                    <span aria-hidden="true" className="text-small text-text-secondary">
                       —
                     </span>
                     <span className="sr-only">{copy.documents.noExpiry}</span>

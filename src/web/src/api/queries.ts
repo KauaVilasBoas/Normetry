@@ -244,34 +244,21 @@ export interface DocumentDetail extends DocumentFields {
   versions: DocumentVersion[];
 }
 
-/**
- * The list's expiry filter: every document, those past their date, or those expiring within
- * `EXPIRING_DAYS` (the API's `expired=true` and `expiringWithinDays=N`).
- */
-export type ExpiryFilter = "" | "expired" | "expiring";
-
-/** "Expiring soon" (spec 004): the list's filter and its Time badge. */
-export const EXPIRING_DAYS = 30;
-
-const expiryQuery = {
-  "": "",
-  expired: "?expired=true",
-  expiring: `?expiringWithinDays=${EXPIRING_DAYS}`,
-};
-
-/** Every list of the establishment, filtered or not, shares this prefix (invalidate with it). */
-export const documentsKey = (establishmentId: string, filter: ExpiryFilter = "") =>
-  filter ? ["documents", establishmentId, filter] : ["documents", establishmentId];
+export const documentsKey = (establishmentId: string) => ["documents", establishmentId];
 export const documentKey = (id: string) => ["document", id];
 
-/** `enabled` (here and below): the user holds `documents.read`. */
-export function useDocuments(establishmentId: string, enabled: boolean, filter: ExpiryFilter = "") {
+/**
+ * `enabled` (here and below): the user holds `documents.read`. The expiry filter runs in the
+ * browser with the pill's local-date rule; the API's `expired` and `expiringWithinDays` count
+ * today in UTC and stay for other callers.
+ */
+export function useDocuments(establishmentId: string, enabled: boolean) {
   const { api } = useSession();
   return useQuery({
-    queryKey: documentsKey(establishmentId, filter),
+    queryKey: documentsKey(establishmentId),
     queryFn: () =>
       api.get<DocumentSummary[]>(
-        `/establishments/${encodeURIComponent(establishmentId)}/documents${expiryQuery[filter]}`,
+        `/establishments/${encodeURIComponent(establishmentId)}/documents`,
       ),
     enabled,
   });
