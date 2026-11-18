@@ -202,8 +202,8 @@ public enum InspectionStatus
 public sealed record ThemeProgress(string Theme, int ItemsTotal, int ItemsEvaluated)
 {
     /// <summary>The checklist themes, in checklist order.</summary>
-    public static readonly IReadOnlySet<string> Themes = new HashSet<string>(StringComparer.Ordinal)
-    {
+    public static readonly IReadOnlyList<string> InOrder =
+    [
         "personal_hygiene",
         "temperature_control",
         "cross_contamination_allergens",
@@ -212,5 +212,11 @@ public sealed record ThemeProgress(string Theme, int ItemsTotal, int ItemsEvalua
         "water_premises",
         "waste",
         "documentation_training",
-    };
+    ];
+
+    /// <summary>The same themes as a set; a set's order is not guaranteed.</summary>
+    public static readonly IReadOnlySet<string> Themes = new HashSet<string>(
+        InOrder,
+        StringComparer.Ordinal
+    );
 }

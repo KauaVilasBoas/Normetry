@@ -24,7 +24,7 @@ internal sealed class GetOverviewHandler(
     private const int ExpiringWithinDays = 30;
     private const int DocumentListLength = 10;
 
-    private static readonly string[] ThemeOrder = [.. ThemeProgress.Themes];
+    private static readonly string[] ThemeOrder = [.. ThemeProgress.InOrder];
 
     public async Task<Result<OverviewResponse>> HandleAsync(
         GetOverviewQuery request,
