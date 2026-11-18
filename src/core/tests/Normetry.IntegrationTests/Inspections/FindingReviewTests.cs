@@ -595,6 +595,8 @@ public sealed class FindingReviewTests
         {
             await OkAsync(edited);
         }
+        // Accepted after the edit: the correction is still exported.
+        await SendAsync(client, HttpMethod.Post, $"{run.FindingPath("us-temp-03")}/accept");
         var dueOn = Text(run.Findings["us-temp-03"].GetProperty("actionItem"), "dueOn");
 
         var export = await SendAsync(client, HttpMethod.Post, $"{run.Path}/feedback-export");
