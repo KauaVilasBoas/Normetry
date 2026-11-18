@@ -1,6 +1,6 @@
 # 012. Authorize by permissions stored in the core database
 
-- **Status:** Accepted
+- **Status:** Accepted (amended 2026-11-17: one `[HasPermission]` naming several permissions accepts any of them)
 - **Date:** 2026-11-16
 
 ## Context
@@ -14,6 +14,8 @@ Until now the API authorized with three Keycloak realm roles (Owner, Manager, Au
 - Every tenant has three system profiles with a stable system key: Owner grants the whole catalog through a `grants_all` flag, so a new permission reaches it with no data change, and cannot be changed; Manager and Auditor cannot be renamed or deleted, but the tenant edits their permissions. They are created in the transaction that creates the tenant, never by a migration, because RLS keeps the migration owner out of tenant tables. A tenant always has an Owner: removing the last one is refused.
 - Every controller action carries `[HasPermission(Permissions.X.Y)]` (or `[AllowAnonymous]`), and a test fails on any action with neither. A custom policy provider turns the attribute into the `Tenant` policy plus a permission requirement, and its handler loads the caller's permissions per request under the tenant transaction. The YARP `/ai/*` routes require `chat.ask` the same way. A missing permission is a 403 problem with the code `permission.denied`.
 - `/me` is the one action that needs only a valid tenant. It returns the caller's profiles and permissions, so the web app hides what the user cannot do; the server still checks every request. A user row is created on first sign-in with no profiles, so the user gets 403 everywhere else until an administrator assigns one.
+
+- Amendment (2026-11-17): one `[HasPermission(A, B)]` attribute now means the caller needs A or B (policy `permission:A|B`); several attributes still must all pass. The Overview uses it, and its handler leaves out the sections whose permission the caller lacks.
 
 ## Consequences
 
