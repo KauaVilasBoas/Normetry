@@ -3,12 +3,14 @@
     uv run pytest -m generation    # from src/ai, NORMETRY_ANTHROPIC_API_KEY set (evals/README.md)
 
 Skipped without NORMETRY_ANTHROPIC_API_KEY, before any fixture, so no container starts and
-nothing is paid; CI never runs it. Ingests the corpus like the retrieval eval (same vector cache),
-then for each item: the follow-up rewrite, retrieval as app_ai, and `answers.answer` with every
-model of NORMETRY_EVAL_MODELS at once. A follow-up runs twice, rewritten by the rewrite model and
-by the free baseline. Writes a Markdown report and a JSONL per model to NORMETRY_EVAL_REPORT_DIR
-(default src/ai/.data/generation-eval) and starts no model call once the run has spent
-NORMETRY_EVAL_BUDGET_USD (default 5). Run it alone, like the retrieval eval.
+nothing is paid; CI never runs it. Ingests the corpus and the synthetic establishments like the
+retrieval eval (same vector cache), then for each item of regulation-qa and document-qa: the
+follow-up rewrite, retrieval as app_ai (a document item from its establishment, in its demo
+tenant), and `answers.answer` with every model of NORMETRY_EVAL_MODELS at once. A follow-up runs
+twice, rewritten by the rewrite model and by the free baseline. Writes a Markdown report and a
+JSONL per model to NORMETRY_EVAL_REPORT_DIR (default src/ai/.data/generation-eval) and starts no
+model call once the run has spent NORMETRY_EVAL_BUDGET_USD (default 5). Run it alone, like the
+retrieval eval.
 """
 
 import logging
@@ -28,12 +30,12 @@ import anyio
 import pytest
 from conftest import AI_DIR
 from sqlalchemy import Engine, text
-from test_retrieval_eval import EMBEDDING_CACHE, CachedEmbedder
+from test_retrieval_eval import EMBEDDING_CACHE, CachedEmbedder, index_demo
 
-from normetry_ai.answers import Answered, Claim, ClaimModel, Refused, answer
+from normetry_ai.answers import Answered, Citation, Claim, ClaimModel, Refused, answer
 from normetry_ai.conversations.rewrite import Turn, standalone_question
 from normetry_ai.db import tenant_transaction
-from normetry_ai.evals.dataset import load_items
+from normetry_ai.evals.dataset import DOCUMENT_DATASET, load_establishments, load_items
 from normetry_ai.evals.generation import ModelAnswer, PassResult, jsonl, render
 from normetry_ai.ingestion.corpus import load_manifest, parse_source
 from normetry_ai.ingestion.ingest import ingest_source
@@ -171,33 +173,44 @@ def test_generation_eval(app_ai: Engine, corpus: Engine) -> None:
         registered = set(connection.execute(text("SELECT manifest_id FROM ai.sources")).scalars())
         chunk_count = connection.execute(text("SELECT count(*) FROM ai.chunks")).scalar_one()
     assert registered == {s["id"] for s, _ in parsed}, "run alone: uv run pytest -m generation"
+    # Every establishment is indexed before any question, so a leak would have documents to leak.
+    demo = index_demo(app_ai, embedder)
+    establishments = load_establishments()
+    # Document id -> (establishment name, file), to tell where a cited document comes from.
+    owners = {
+        document: (name, file)
+        for name, establishment in establishments.items()
+        for document, file in demo.files[establishment.folder].items()
+    }
 
     # Load both models before timing anything.
     embedder.embed_query("warm up")
     reranker.score("warm up", ["warm up"])
     retriever = Retriever(embedder, reranker, retrieval)
-    tenant = uuid4()
+    tenant = uuid4()  # regulation-qa items: a tenant with no documents, as in phase 1
     manifest_ids = {source["title"]: source["id"] for source, _ in parsed}
-    items = load_items()
+    items = load_items() + load_items(DOCUMENT_DATASET)
     stops = StopReasons()
     passes: list[PassResult] = []
     done: list[str] = []
 
     def claim_record(claim: Claim) -> dict:
-        return {
-            "text": claim.text,
-            "citations": [
-                {
-                    "chunk_id": str(c.chunk.chunk_id),
-                    "source": manifest_ids.get(c.chunk.source_title, c.chunk.source_title),
-                    "section_path": c.chunk.section_path,
-                    "jurisdiction": c.chunk.jurisdiction,
-                    "language": c.chunk.language,
-                    "quote": c.quote,
-                }
-                for c in claim.citations
-            ],
-        }
+        def citation(c: Citation) -> dict:
+            record = {
+                "chunk_id": str(c.chunk.chunk_id),
+                "source": manifest_ids.get(c.chunk.source_title, c.chunk.source_title),
+                "source_type": c.chunk.source_type,
+                "section_path": c.chunk.section_path,
+                "jurisdiction": c.chunk.jurisdiction,
+                "language": c.chunk.language,
+                "quote": c.quote,
+            }
+            if c.chunk.source_type == "tenant_document":
+                name, file = owners.get(str(c.chunk.document_id), ("unknown", "unknown"))
+                record |= {"establishment": name, "document": file}
+            return record
+
+        return {"text": claim.text, "citations": [citation(c) for c in claim.citations]}
 
     async def answer_with(
         model: str, question: str, chunks: list[RetrievedChunk], answers: dict[str, ModelAnswer]
@@ -251,10 +264,18 @@ def test_generation_eval(app_ai: Engine, corpus: Engine) -> None:
             )
         rewrite_seconds = time.perf_counter() - started
 
+        # A document item is asked from its establishment, in its demo tenant (the chat's path).
+        establishment = establishments.get(item.get("establishment", ""))
+        asking = (
+            (demo.tenant[establishment.folder], demo.establishment[establishment.folder])
+            if establishment
+            else (tenant, None)
+        )
+
         def retrieve() -> list[RetrievedChunk]:
-            with tenant_transaction(app_ai, tenant) as connection:
+            with tenant_transaction(app_ai, asking[0]) as connection:
                 scope = jurisdictions_for(item["jurisdiction"])
-                return retriever.retrieve(connection, standalone, scope)
+                return retriever.retrieve(connection, standalone, scope, establishment_id=asking[1])
 
         started = time.perf_counter()
         chunks = await anyio.to_thread.run_sync(retrieve)
@@ -277,6 +298,9 @@ def test_generation_eval(app_ai: Engine, corpus: Engine) -> None:
             retrieval_seconds=retrieval_seconds,
             answers=answers,
             rewrite_cost_usd=budget.cost(usages),
+            targets=dict(establishment.targets)
+            if establishment and item.get("attack") == "injection"
+            else {},
         )
 
     async def run() -> None:

@@ -16,7 +16,6 @@ NORMETRY_EVAL_BUDGET_USD (default 1). Run it alone, like the retrieval eval.
 """
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -28,21 +27,19 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 from xml.sax.saxutils import unescape
 
 import pytest
 from conftest import AI_DIR
-from fakes import FakeContainer
 from sqlalchemy import Engine, text
 from test_generation_eval import STOPPED
-from test_retrieval_eval import EMBEDDING_CACHE, CachedEmbedder
+from test_retrieval_eval import EMBEDDING_CACHE, TENANTS, CachedEmbedder, index_demo
 
+from normetry_ai.evals.dataset import ESTABLISHMENTS
 from normetry_ai.evals.inspection import InspectionRun, item_results, jsonl, metrics, render
 from normetry_ai.ingestion.corpus import load_manifest, parse_source
-from normetry_ai.ingestion.documents import BlobStore, DocumentWorker
 from normetry_ai.ingestion.ingest import ingest_source
-from normetry_ai.ingestion.parsers import CSV, DOCX, PDF, TXT
 from normetry_ai.inspection import graph
 from normetry_ai.inspection.checklist import items_for
 from normetry_ai.inspection.checkpoints import TenantCheckpointSaver
@@ -52,12 +49,7 @@ from normetry_ai.llm.claude import ClaudeJudgeModel
 from normetry_ai.llm.embeddings import SentenceTransformerEmbedder
 from normetry_ai.llm.reranker import CrossEncoderReranker
 from normetry_ai.llm.usage import Usage
-from normetry_ai.messaging.contracts import (
-    DocumentUploaded,
-    InspectionFailed,
-    InspectionRequested,
-    Payload,
-)
+from normetry_ai.messaging.contracts import InspectionFailed, InspectionRequested, Payload
 from normetry_ai.settings import (
     AnswerSettings,
     EmbeddingSettings,
@@ -77,16 +69,8 @@ pytestmark = [
     ),
 ]
 
-ESTABLISHMENTS = AI_DIR.parents[1] / "evals" / "establishments"
-# Folder -> the demo tenant that owns it (DemoTenantSeed in src/core). All are restaurants.
-TENANTS = {
-    "bakery-austin": "Demo Bakery",
-    "bistro-lisboa": "Demo Bistro",
-    "bistro-sao-paulo": "Demo Bistro",
-}
-ESTABLISHMENT_TYPE = "Restaurant"
+ESTABLISHMENT_TYPE = "Restaurant"  # all three are restaurants
 TOKEN_CEILING = 300_000  # the core's default per inspection (FR-020)
-CONTENT_TYPES = {".pdf": PDF, ".docx": DOCX, ".csv": CSV, ".txt": TXT}
 _TITLE = re.compile(r"<title>(.*?)</title>")
 
 
@@ -132,34 +116,6 @@ class StopReasons(logging.Handler):
             self.reasons[str(record.args[1])] += 1
 
 
-def ingest(
-    worker: DocumentWorker, blobs: FakeContainer, tenant: UUID, establishment: UUID, folder: Path
-) -> dict[str, str]:
-    """Index one establishment's documents as the consumer would: document id -> file."""
-    manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-    files = {}
-    for entry in manifest["documents"]:
-        data = (folder / entry["file"]).read_bytes()
-        document, version = uuid4(), uuid4()
-        path = f"tenants/{tenant}/establishments/{establishment}/documents/{document}/{version}/f"
-        blobs.blobs[path] = data
-        message = DocumentUploaded(
-            establishment_id=establishment,
-            document_id=document,
-            version_id=version,
-            version_number=1,
-            blob_path=path,
-            content_type=CONTENT_TYPES[Path(entry["file"]).suffix],
-            size=len(data),
-            sha256=hashlib.sha256(data).hexdigest(),
-            title=entry["title"],
-            document_type=entry["type"],
-        )
-        assert worker.ingest(tenant, message, lambda: None) is not None, entry["file"]
-        files[str(document)] = entry["file"]
-    return files
-
-
 def test_inspection_eval(app_ai: Engine, corpus: Engine) -> None:
     report_dir = Path(
         os.environ.get("NORMETRY_EVAL_REPORT_DIR", AI_DIR / ".data" / "inspection-eval")
@@ -201,22 +157,7 @@ def test_inspection_eval(app_ai: Engine, corpus: Engine) -> None:
 
     # Every establishment is indexed before any is inspected, so a leak would have documents
     # to leak.
-    tenants = {name: uuid4() for name in TENANTS.values()}
-    establishments = {folder: uuid4() for folder in TENANTS}
-    blobs = FakeContainer()
-    documents = DocumentWorker(app_ai, embedder, BlobStore(blobs))
-    owned: dict[str, dict[str, str]] = {}
-    ingest_seconds: dict[str, float] = {}
-    for folder, tenant in TENANTS.items():
-        began = time.perf_counter()
-        owned[folder] = ingest(
-            documents,
-            blobs,
-            tenants[tenant],
-            establishments[folder],
-            ESTABLISHMENTS / folder / "documents",
-        )
-        ingest_seconds[folder] = time.perf_counter() - began
+    demo = index_demo(app_ai, embedder)
 
     worker = InspectionWorker(
         app_ai,
@@ -233,25 +174,25 @@ def test_inspection_eval(app_ai: Engine, corpus: Engine) -> None:
         expected = json.loads(
             (ESTABLISHMENTS / folder / "expected-findings.json").read_text(encoding="utf-8")
         )
-        tenant = tenants[TENANTS[folder]]
+        tenant = demo.tenant[folder]
         run = InspectionRun(
             folder=folder,
             tenant=TENANTS[folder],
             expected=expected,
-            documents=owned[folder],
+            documents=demo.files[folder],
             elsewhere={
                 document: f"{other}/{file}"
-                for other, files in owned.items()
+                for other, files in demo.files.items()
                 if other != folder
                 for document, file in files.items()
             },
-            ingest_seconds=ingest_seconds[folder],
+            ingest_seconds=demo.seconds[folder],
         )
         if judge.stopped:
             run.status = "not run: the eval budget was spent"
             return run
         message = InspectionRequested(
-            establishment_id=establishments[folder],
+            establishment_id=demo.establishment[folder],
             inspection_id=uuid4(),
             jurisdiction=expected["jurisdiction"],
             establishment_type=ESTABLISHMENT_TYPE,
@@ -311,7 +252,8 @@ def test_inspection_eval(app_ai: Engine, corpus: Engine) -> None:
             f" {answers.answer_min_quote_words}; token ceiling {TOKEN_CEILING} per inspection",
             f"- Retrieval: `{embedder.name}`, re-ranker `{reranker.name}`; {knobs}",
             f"- Corpus and documents: {chunk_count} corpus chunks;"
-            f" {sum(map(len, owned.values()))} documents in {len(tenants)} tenants",
+            f" {sum(map(len, demo.files.values()))} documents in"
+            f" {len(set(demo.tenant.values()))} tenants",
             f"- Budget: US$ {judge.spent:.4f} spent of US$ {judge.limit} (every judge call of the"
             " run)",
         ]
