@@ -2,13 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useLiveStatus } from "../api/live";
-import {
-  documentKey,
-  documentsKey,
-  type Establishment,
-  type ExpiryFilter,
-  type Me,
-} from "../api/queries";
+import { documentKey, documentsKey, type Establishment, type Me } from "../api/queries";
 import { copy, format } from "../copy";
 import { DocumentDetailView } from "./DocumentDetail";
 import { DocumentList } from "./DocumentList";
@@ -18,6 +12,7 @@ import {
   HUB_EVENT,
   HUB_URL,
   type DocumentStatusChange,
+  type ExpiryFilter,
 } from "./documents";
 import { DETAIL_TITLE_ID, LIST_TITLE_ID } from "./parts";
 

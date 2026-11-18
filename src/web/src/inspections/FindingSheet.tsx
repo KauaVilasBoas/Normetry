@@ -25,6 +25,7 @@ import {
   StatusPill,
   TextAreaField,
   TextField,
+  textAction,
   TimeBadge,
 } from "../ui/primitives";
 import { pillVariant } from "../ui/statuses";
@@ -382,7 +383,7 @@ function EvidenceQuote({
             to={`/documents/${encodeURIComponent(citation.documentId)}`}
             state={{ focusTitle: true }}
             aria-labelledby={`${id}-link ${id}`}
-            className="shrink-0 rounded-sm text-small font-medium text-mint hover:underline"
+            className={`${textAction} shrink-0`}
           >
             {copy.findings.openDocument}
           </Link>
