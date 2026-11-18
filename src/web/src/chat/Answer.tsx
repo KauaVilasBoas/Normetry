@@ -214,24 +214,33 @@ function Claims({
                   {claim.citations.map((citation) => {
                     const open = citation.id === openCitationId;
                     const section = citation.sectionPath;
-                    // A document chip shows the document and says, to screen readers too, that it
-                    // is the establishment's own text, not the regulation.
-                    const label =
-                      citation.sourceType === "document"
-                        ? format(copy.chat.documentChip, {
-                            title: citation.documentTitle ?? copy.chat.untitledDocumentChip,
-                            section,
-                          })
-                        : format(copy.chat.viewSource, { section });
+                    if (citation.sourceType === "regulation")
+                      return (
+                        <CitationChip
+                          key={citation.id}
+                          id={chipId(citation)}
+                          label={format(copy.chat.viewSource, { section })}
+                          expanded={open}
+                          aria-controls={open ? SOURCE_PANEL_ID : undefined}
+                          onClick={() => onOpenSource(citation)}
+                        />
+                      );
+                    // A document chip shows the document (the title alone without a section) and
+                    // says, to screen readers too, that it is the establishment's own text.
+                    const title = citation.documentTitle ?? copy.chat.untitledDocumentChip;
+                    const label = section
+                      ? format(copy.chat.documentChip, { title, section })
+                      : title;
                     return (
                       <CitationChip
                         key={citation.id}
                         id={chipId(citation)}
-                        label={label}
-                        {...(citation.sourceType === "document" && {
-                          icon: FileText,
-                          "aria-label": format(copy.chat.documentChipName, { label }),
-                        })}
+                        icon={FileText}
+                        label={title}
+                        detail={
+                          section ? format(copy.chat.documentChipSection, { section }) : undefined
+                        }
+                        aria-label={format(copy.chat.documentChipName, { label })}
                         expanded={open}
                         aria-controls={open ? SOURCE_PANEL_ID : undefined}
                         onClick={() => onOpenSource(citation)}

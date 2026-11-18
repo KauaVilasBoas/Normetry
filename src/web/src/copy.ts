@@ -229,9 +229,13 @@ export const copy = {
     checking: "Checking {regulation}…",
     answerComplete: "Answer complete.",
     viewSource: "View source · {section}",
-    /** A document citation's chip: its visible label, then its accessible name around it. */
+    /**
+     * A document citation's chip: its label (the title alone without a section), the section part
+     * shown beside the title, and the accessible name that starts with the label.
+     */
     documentChip: "{title} · {section}",
-    documentChipName: "View source · {label} (this establishment's document)",
+    documentChipSection: "· {section}",
+    documentChipName: "{label} (this establishment's document), view source",
     untitledDocumentChip: "Document",
     refusal: "There isn't enough basis in {regulation} to answer this question.",
     refusalHint: "Try rephrasing it or asking about a specific requirement.",

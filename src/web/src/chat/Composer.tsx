@@ -30,7 +30,7 @@ export function Composer({
   /** Loaded and no answer in progress. */
   ready: boolean;
   quota: ChatQuota | undefined;
-  /** Rate limited: when Send works again ("in 1 minute"); undefined otherwise. */
+  /** Rate limited: when Send works again ("in 3 seconds"); undefined otherwise. */
   limitedWhen: string | undefined;
   inputRef: RefObject<HTMLTextAreaElement | null>;
 }) {

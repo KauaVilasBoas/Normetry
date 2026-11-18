@@ -271,6 +271,6 @@ describe("quota", () => {
     expect(untilReset(now + 5 * 3_600_000 + 60_000, now)).toBe("in 6 hours");
     expect(untilReset(now + 3_600_000, now)).toBe("in 1 hour");
     expect(untilReset(now + 61_000, now)).toBe("in 2 minutes");
-    expect(untilReset(now + 1_000, now)).toBe("in 1 minute");
+    expect(untilReset(now + 1_000, now)).toBe("in 1 second");
   });
 });
