@@ -9,13 +9,14 @@ using Normetry.Domain.Identity;
 
 namespace Normetry.Api.Auth;
 
-/// <summary>The caller's profiles must grant <see cref="Permission"/>.</summary>
-public sealed record PermissionRequirement(string Permission) : IAuthorizationRequirement;
+/// <summary>The caller's profiles must grant one of <see cref="AnyOf"/>.</summary>
+public sealed record PermissionRequirement(IReadOnlyList<string> AnyOf) : IAuthorizationRequirement;
 
 /// <summary>
-/// Turns <c>permission:{name}</c> (from <see cref="HasPermissionAttribute"/> or a YARP route) into
-/// <see cref="Policies.Tenant"/> plus a <see cref="PermissionRequirement"/>. A name outside the
-/// catalog throws, so a typo cannot become a check nobody passes.
+/// Turns <c>permission:{name}</c> or <c>permission:{name}|{name}</c> (from
+/// <see cref="HasPermissionAttribute"/> or a YARP route) into <see cref="Policies.Tenant"/> plus a
+/// <see cref="PermissionRequirement"/>. A name outside the catalog throws, so a typo cannot become
+/// a check nobody passes.
 /// </summary>
 internal sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> options)
     : DefaultAuthorizationPolicyProvider(options)
@@ -32,16 +33,14 @@ internal sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> op
             return await base.GetPolicyAsync(policyName);
         }
 
-        var permission = policyName[HasPermissionAttribute.PolicyPrefix.Length..];
-        if (!Permissions.All.Contains(permission))
+        var anyOf = policyName[HasPermissionAttribute.PolicyPrefix.Length..].Split('|');
+        if (anyOf.FirstOrDefault(name => !Permissions.All.Contains(name)) is { } unknown)
         {
-            throw new InvalidOperationException(
-                $"'{permission}' is not in the permission catalog."
-            );
+            throw new InvalidOperationException($"'{unknown}' is not in the permission catalog.");
         }
         return new AuthorizationPolicyBuilder()
             .Combine(options.GetPolicy(Policies.Tenant)!)
-            .AddRequirements(new PermissionRequirement(permission))
+            .AddRequirements(new PermissionRequirement(anyOf))
             .Build();
     }
 }
@@ -56,11 +55,11 @@ internal sealed class PermissionHandler(IDispatcher dispatcher) : IAuthorization
     public async Task HandleAsync(AuthorizationHandlerContext context)
     {
         var pending = context.PendingRequirements.OfType<PermissionRequirement>().ToArray();
-        // Without a sub and a valid tenant the Tenant requirements of the same policy fail, and
-        // nothing can be loaded.
+        // Without a sub (an empty one counts as none) and a valid tenant the Tenant requirements
+        // of the same policy fail, and nothing can be loaded.
         if (
             pending.Length == 0
-            || context.User.FindFirstValue("sub") is null
+            || context.User.FindFirstValue("sub") is not { Length: > 0 }
             || !HttpCurrentUser.TryGetTenantId(context.User, out _)
         )
         {
@@ -74,7 +73,7 @@ internal sealed class PermissionHandler(IDispatcher dispatcher) : IAuthorization
         );
         foreach (var requirement in pending)
         {
-            if (permissions.Value.Contains(requirement.Permission))
+            if (requirement.AnyOf.Any(permissions.Value.Contains))
             {
                 context.Succeed(requirement);
             }
@@ -107,7 +106,9 @@ internal sealed class PermissionDeniedResultHandler : IAuthorizationMiddlewareRe
         {
             var missing = string.Join(
                 ", ",
-                failed.Cast<PermissionRequirement>().Select(requirement => requirement.Permission)
+                failed
+                    .Cast<PermissionRequirement>()
+                    .Select(requirement => string.Join(" or ", requirement.AnyOf))
             );
             await Result
                 .Failure(

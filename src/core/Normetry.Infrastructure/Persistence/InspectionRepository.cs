@@ -68,6 +68,50 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
             ))
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<CompletedInspection>> ListCompletedAsync(
+        Guid establishmentId,
+        int count,
+        CancellationToken cancellationToken
+    ) =>
+        await db
+            .Inspections.AsNoTracking()
+            .Where(inspection =>
+                inspection.EstablishmentId == establishmentId
+                && inspection.Status == InspectionStatus.Completed
+            )
+            .OrderByDescending(inspection => inspection.CompletedAt)
+            .ThenByDescending(inspection => inspection.Id)
+            .Take(count)
+            .Select(inspection => new CompletedInspection(
+                inspection.Id,
+                inspection.CompletedAt!.Value,
+                inspection.Findings.Count(finding =>
+                    finding.ReviewStatus != ReviewStatus.Rejected && finding.Verdict == "compliant"
+                ),
+                inspection.Findings.Count(finding => finding.ReviewStatus != ReviewStatus.Rejected)
+            ))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<FindingTally>> ListFindingTalliesAsync(
+        Guid inspectionId,
+        CancellationToken cancellationToken
+    ) =>
+        await db
+            .Findings.AsNoTracking()
+            .Where(finding =>
+                finding.InspectionId == inspectionId
+                && finding.ReviewStatus != ReviewStatus.Rejected
+            )
+            .Select(finding => new FindingTally(
+                finding.Theme,
+                finding.Severity,
+                finding.Verdict,
+                finding.ReviewStatus,
+                finding.ActionItem == null ? null : finding.ActionItem.Status,
+                finding.ActionItem == null ? null : finding.ActionItem.DueOn
+            ))
+            .ToListAsync(cancellationToken);
+
     public Task<bool> HasInFlightAsync(Guid establishmentId, CancellationToken cancellationToken) =>
         db.Inspections.AnyAsync(
             inspection =>
