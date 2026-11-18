@@ -10,6 +10,7 @@ export const copy = {
     signingIn: "Signing in · Normetry",
     signedOut: "Signed out · Normetry",
     app: "Ask the Regulation · Normetry",
+    overview: "Overview · Normetry",
     profiles: "Profiles · Settings · Normetry",
     documents: "Documents · Normetry",
     document: "{title} · Documents · Normetry",
@@ -34,6 +35,7 @@ export const copy = {
   shell: {
     skipLink: "Skip to main content",
     navLabel: "Main",
+    overview: "Overview",
     askTheRegulation: "Ask the Regulation",
     documents: "Documents",
     inspections: "Simulated Inspection",
@@ -57,7 +59,65 @@ export const copy = {
     refusedBody: "Ask an administrator in your organization for access.",
     establishmentsTitle: "You don't have access to establishments",
     establishmentsBody:
-      "Documents, Simulated Inspection and Ask the Regulation work per establishment. Ask an administrator in your organization for access.",
+      "Overview, Documents, Simulated Inspection and Ask the Regulation work per establishment. Ask an administrator in your organization for access.",
+  },
+  overview: {
+    results: "{regulation} · Results from the inspection of {date}",
+    viewInspection: "View inspection",
+    loading: "Loading overview…",
+    errorTitle: "Couldn't load the overview",
+    errorBody: "Check your connection and try again.",
+    tryAgain: "Try again",
+    compliance: "Compliance",
+    noResult: "No result",
+    deltaPoints: "{points} pts",
+    deltaVs: "vs previous inspection",
+    deltaUp: "Up {points} points from the previous inspection.",
+    deltaDown: "Down {points} points from the previous inspection.",
+    deltaSame: "Same as the previous inspection",
+    noPrevious: "No earlier inspection to compare",
+    openActions: "Open actions",
+    overdue: "{count} overdue",
+    noneOverdue: "None overdue",
+    toReview: "Findings to review",
+    waitingReview: "Waiting for a reviewer's decision",
+    allReviewed: "All findings reviewed",
+    toRenew: "Documents to renew",
+    expired: "{count} expired",
+    expiring: "{count} expiring in 30 days",
+    nothingToRenew: "Nothing expires in the next 30 days",
+    verdicts: "Verdicts",
+    verdictsCaption: "Rejected findings aren't counted.",
+    byTheme: "Results by theme",
+    byThemeTable: "Results by theme of the inspection of {date}",
+    trend: "Compliance over time",
+    trendCaption: "Last {count} completed inspections",
+    trendSummary:
+      "Compliance across the last {count} completed inspections, from {first} on {firstDate} to {last} on {lastDate}.",
+    point: "{date}: {value}",
+    showData: "Show the data",
+    trendTable: "Compliance by inspection",
+    inspection: "Inspection",
+    noTrendTitle: "No trend yet",
+    noTrendBody: "Compliance over time shows once two inspections have results.",
+    documents: "Expiring documents",
+    documentsCaption: "Expired, or expiring in the next 30 days",
+    documentMeta: "{type} · {date}",
+    viewAllDocuments: "View all documents",
+    noDocumentsTitle: "No documents to renew",
+    noDocumentsBody: "No document of {establishment} has expired or expires in the next 30 days.",
+    risk: "Top risk themes",
+    riskCaption: "Ranked by non-compliant findings, weighted by severity.",
+    riskCounts: "{nonCompliant} non-compliant · {insufficient} insufficient evidence",
+    noRiskTitle: "No themes at risk",
+    noRiskBody: "No finding of the latest inspection is non-compliant or lacks evidence.",
+    emptyTitle: "No inspection results yet",
+    emptyBody:
+      "Run a simulated inspection to see how {establishment} complies with {regulation}. It takes a few minutes.",
+    emptyBodyReadOnly: "Results show here once an inspection of {establishment} completes.",
+    goToInspections: "Go to Simulated Inspection",
+    noResultsTitle: "No results in the latest inspection",
+    noResultsBody: "Every finding of the inspection of {date} was rejected, or none was kept.",
   },
   settings: {
     sections: "Settings sections",
@@ -731,13 +791,25 @@ export function format(template: string, values: Record<string, string>): string
 /** The time today, "Nov 10" this year, "Nov 10, 2025" before. */
 export function shortDate(iso: string, now: Date): string {
   const date = new Date(iso);
-  const options: Intl.DateTimeFormatOptions =
-    date.toDateString() === now.toDateString()
-      ? { hour: "numeric", minute: "2-digit" }
-      : date.getFullYear() === now.getFullYear()
-        ? { month: "short", day: "numeric" }
-        : { month: "short", day: "numeric", year: "numeric" };
-  return new Intl.DateTimeFormat(locale, options).format(date);
+  if (date.toDateString() !== now.toDateString()) return shortDay(iso, now);
+  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+/** "Nov 16" this year, "Nov 16, 2025" in another, from a timestamp: `shortDate` without the time. */
+export function shortDay(iso: string, now = new Date()): string {
+  const date = new Date(iso);
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  }).format(date);
+}
+
+/** "77%" from a ratio (0 to 1), rounded down so 100% shows only when all of it is. */
+export function percent(ratio: number): string {
+  // 0.29 * 100 is 28.999…; the epsilon keeps it at 29.
+  const points = Math.floor(ratio * 100 + 1e-9);
+  return new Intl.NumberFormat(locale, { style: "percent" }).format(points / 100);
 }
 
 /** "Nov 17, 2026, 10:42 AM": a date and time, so two on the same day stay distinct. */

@@ -97,7 +97,10 @@ const messagesRoute = (id: string) =>
   `POST /ai/establishments/e-lisboa/conversations/${id}/messages`;
 const quota = { limit: 20, remaining: 12, resetsAt: "2026-11-14T00:00:00Z" };
 
-function renderChat(routes: Parameters<typeof stubApi>[0] = {}, { path = "/", width = 1280 } = {}) {
+function renderChat(
+  routes: Parameters<typeof stubApi>[0] = {},
+  { path = "/ask", width = 1280 } = {},
+) {
   mockViewport(width);
   localStorage.setItem(storageKey, "e-lisboa");
   window.history.replaceState(null, "", path);
@@ -444,7 +447,7 @@ describe("a streamed answer", () => {
     await screen.findByRole("listbox");
     await user.keyboard("{ArrowDown}{Enter}");
 
-    await waitFor(() => expect(window.location.pathname).toBe("/"));
+    await waitFor(() => expect(window.location.pathname).toBe("/ask"));
     const call = fetch.mock.calls.find(([url]) => url.endsWith("/messages"));
     expect(call?.[1]?.signal?.aborted).toBe(true);
     expect(screen.getByText("Bistro São Paulo · Anvisa RDC 216/2004")).toBeVisible();
@@ -521,7 +524,7 @@ describe("a saved conversation", () => {
     await expectNoAxeViolations();
     await userEvent.click(screen.getByRole("button", { name: "Start a new conversation" }));
 
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/ask");
     expect(await composer()).toHaveFocus();
   });
 
@@ -586,7 +589,7 @@ describe("a saved conversation", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/ask");
     await waitFor(() =>
       expect(screen.getByRole("heading", { level: 2, name: "New conversation" })).toHaveFocus(),
     );

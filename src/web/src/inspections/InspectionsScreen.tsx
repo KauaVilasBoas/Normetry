@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useLiveStatus } from "../api/live";
 import {
   inspectionKey,
@@ -65,6 +65,18 @@ export function InspectionsScreen({
     if (focusKey > 0)
       (document.getElementById(LIST_TITLE_ID) ?? document.getElementById(DETAIL_TITLE_ID))?.focus();
   }, [focusKey]);
+
+  // A link from another screen ("Go to Simulated Inspection", "View inspection", a link into the
+  // findings) asks for the page's heading with its state. The history's is there at once; the
+  // detail focuses its own once the inspection has loaded.
+  const location = useLocation();
+  const arrival =
+    (location.state as { focusTitle?: unknown } | null)?.focusTitle === true
+      ? location.key
+      : undefined;
+  useEffect(() => {
+    if (arrival && inspectionId === undefined) focusById(LIST_TITLE_ID);
+  }, [arrival, inspectionId]);
 
   const listKey = inspectionsKey(establishment.id);
   // The milestone the open inspection last reached, so each is announced once.
@@ -164,6 +176,7 @@ export function InspectionsScreen({
           establishment={establishment}
           me={me}
           live={live}
+          arrival={arrival}
           onBack={() => focus(LIST_TITLE_ID)}
         />
       )}

@@ -102,7 +102,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 |---|---|---|
 | Page greeting | 22px / 600 | "Welcome back, Jane" |
 | Top bar page title | 15px / 600 | "Overview" |
-| KPI value | 26–28px / 700 | "87%", "114 / 133" (the "/ 133" part is 20px / 500) |
+| KPI value | 28px / 700, 36px line height (`--text-kpi`) | "87%", "114 / 133" (the "/ 133" part is 20px / 500) |
 | Progress value | 20px / 700, 28px line height (`--text-value`) | the radial progress percentage; the "/ 133" part of a KPI value |
 | Card title | 14–15px / 600 | "Compliance Progress" |
 | Body / nav / table | 12–13px / 400–500 | nav items, table rows |
@@ -114,13 +114,10 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 
 - **App frame:** sidebar 220px fixed + content, filling the viewport. Content padding 20px (16px below 640px); gap between cards 16px. Below 1024px the sidebar becomes a modal drawer from the left over `--scrim`, opened from a menu button in the top bar.
 - **Sidebar (top → bottom):** logo · tenant label (building icon + name, static, no border) · establishment switcher (type icon, name, chevron; transparent, 1px `--teal-border`, `--radius-control`; always shows the selected establishment, the remembered one else the first in the list, with no placeholder and no pick-first screen) · navigation · flexible space · user card (avatar, name, email, chevron).
-- **Navigation:** icon (outline, 18px) + label. Active item = `--teal` filled, rounded 10px, white (`--text-primary`) label and icon. Items: Overview, Establishments, Compliance, **Documents** (Lucide `FileText`), **Simulated Inspection** (Lucide `ClipboardCheck`), Audit Management, Regulatory Library, Change Monitor, Reports, Settings, plus **Ask the Regulation** (Lucide `MessagesSquare`), which replaces the AI Assistant card: the card is not built. Items whose screen does not exist yet, or that the user's permissions do not allow, are hidden, not disabled. Today the nav reads Ask the Regulation · Documents · Simulated Inspection · Settings.
+- **Navigation:** icon (outline, 18px) + label. Active item = `--teal` filled, rounded 10px, white (`--text-primary`) label and icon. Items: Overview (Lucide `House`), Establishments, Compliance, **Documents** (Lucide `FileText`), **Simulated Inspection** (Lucide `ClipboardCheck`), Audit Management, Regulatory Library, Change Monitor, Reports, Settings, plus **Ask the Regulation** (Lucide `MessagesSquare`), which replaces the AI Assistant card: the card is not built. Items whose screen does not exist yet, or that the user's permissions do not allow, are hidden, not disabled. Today the nav reads Overview · Ask the Regulation · Documents · Simulated Inspection · Settings.
 - **Top bar:** 56px tall, no border. Page title left; search field ("Search anything…", ⌘K hint) · notification bell · avatar right.
 - **Page header:** greeting + one-line subtitle on the left; secondary action ("Export Report", icon + text) then primary action ("+ Add Evidence") on the right.
-- **Overview grid:**
-  1. KPI row — 5 equal cards.
-  2. Donut card (≈ 1/3) + controls table card (≈ 2/3).
-  3. Area chart (≈ 2/5) + upcoming list (≈ 1/4) + risk donut (≈ 1/3).
+- **Overview grid:** 1. KPI row: four equal cards (Compliance, Open actions, Findings to review, Documents to renew), three per row when a permission hides some; two per row below 1280px, one below 640px. 2. Verdicts donut (1/3) + results by theme table (2/3); stacked below 1280px. 3. Compliance over time (5/12) + expiring documents (3/12) + top risk themes (4/12); below 1280px the chart takes the full width and the other two share a row, one column below 768px.
 - **Feature panels** (Ask the Regulation, Simulated Inspection, Change Monitor) use the same card language. The mock's icon rail beside Ask the Regulation is not built: the app sidebar replaces it, as it replaces the AI Assistant card.
 - **Ask the Regulation:** three cards in a row with a 16px gap, filling the height of main; main does not scroll, each card scrolls on its own. Conversation list 240px | conversation (flex; message column max 720px, centered) | source panel 360px, inline only while open.
   - from 1280px: all three inline;
@@ -133,7 +130,7 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | Component | Spec |
 |---|---|
 | **Card** | `--bg-card`, 1px `--border`, radius 12px, padding 16–20px. Title top-left (14–15px/600); optional control top-right (dropdown or outlined "View all →" button). No heavy shadows. |
-| **KPI card** | label (secondary) + icon in a 28px rounded-square tile top-right (mint/blue outline icon) · value · delta row (↑ `--success` / ↓ `--danger` + "vs last month" in `--text-secondary`) · sparkline bottom-right **or** a progress bar. |
+| **KPI card** | label (secondary) + icon in a 28px rounded-square tile top-right (mint/blue outline icon) · value · delta row (↑ `--success` / ↓ `--danger` + "vs last month" in `--text-secondary`) · sparkline bottom-right **or** a progress bar. The row is a `<dl>`: the label (with the tile) is the `<dt>`, the value and the footer are `<dd>`s. The footer holds a delta, a status pill with a caption ("3 overdue", "2 expired"), or a caption. The icon tile is the 28px `--bg-inset` tile with a 1px `--border` and a `--chart-2` icon. |
 | **Primary button** | `--mint` fill, `--on-mint` text 13px/600, radius 10px, height 36px, optional leading icon (+). One per view. |
 | **Secondary button** | transparent, 1px `--teal-border`, white text, radius 10px, optional leading icon. |
 | **Text action** | a secondary inline action shown as a link, never the view's primary: mint 12px/500 (13px/500 when it stands alone, as "Open the official page"), no fill or border, underline on hover, --radius-sm focus ring, at least 24px tall when it is a button beside text (WCAG 2.5.8). Examples: "Edit expiry date", "Open document", "Choose another file". |
@@ -147,8 +144,9 @@ shadcn/ui mapping: `--background` = `--bg-app`, `--card` = `--bg-card`, `--popov
 | **Form select** | a select used as a form field follows the Text field: native `<select>`, 44px, `--bg-inset`, 1px `--teal-border`, `--radius-control`, no native arrow (`appearance: none`) and a 16px `ChevronDown` in `--text-secondary` at the right; a placeholder option ("Choose a type") in `--text-secondary`. Label, hint and error as the Text field. |
 | **Table** | header row in `--text-muted` 11px; rows 12px with 1px `--border` separators, no zebra; columns: ID · name · status pill · progress bar + % · count · date. |
 | **Progress bar** | 6px high, `--chart-track` track, `--chart-1` fill, rounded; percentage to the right in white. |
-| **Donut** | thick ring (~18% of radius), big centered value + caption; legend to the right: color dot · label · % · (count). |
-| **Area chart** | single series, `--chart-1` line 2px with dot markers, gradient fill, 0–100% axis and month labels in `--text-secondary`. |
+| **Donut** | thick ring (~18% of radius), big centered value + caption; legend to the right: color dot · label · % · (count). Segments start at 12 o'clock with 2px gaps between them. Inspection verdicts: Compliant `--chart-2`, Insufficient evidence `--chart-1`, Non-compliant `--chart-danger`. The ring and its center are decorative; the legend list is the text equivalent. Below a 384px-wide card the legend goes under the ring. |
+| **Area chart** | single series, `--chart-1` line 2px with dot markers, gradient fill, 0–100% axis and month labels in `--text-secondary`. Inline SVG. X is the order of the points, evenly spaced, labelled with dates: the first and the last always, all of them from 768px when there are six or fewer. 8px dots. The chart is a `role="img"` with a summary sentence, followed by a "Show the data" disclosure holding the values as a table. |
+| **Ranked list** | An `<ol>` of rows at least 56px tall, divided by 1px `--border`: a 24px `--bg-inset` disc with the rank (12px/600, tabular, hidden from screen readers; the list numbers it), the name 13px/500 white and a 12px `--text-secondary` line. No bar when the score has no unit. |
 | **Skeleton** | loading placeholder bars and tiles in `--bg-elevated`, `--radius-sm`, with a gentle opacity pulse (none under reduced motion); the container has `aria-busy="true"` and a visually hidden loading label. |
 | **Small ring** | indeterminate progress, 16px: 2px `--bg-elevated` track with a mint arc, spinning; static under reduced motion. Next to a status text, for example "Signing you in…". Inside `--bg-elevated` the track is `--bg-inset`; on a mint button the track is `--mint-hover` and the arc `--on-mint`. A 12px ring (same 2px track) is the glyph of the Processing ingestion pill. |
 | **Radial progress** | A 120px ring with a 10px stroke and round caps: `--chart-track` track, mint arc from 12 o'clock. Centered %: white, `--text-value`, tabular, rounded down. Below it, a 13px/600 white status line and 12px `--text-secondary` lines. `role="progressbar"` with the count as `aria-valuetext`. The arc animates between values (300ms; none under reduced motion). |
@@ -178,7 +176,7 @@ Subtle and functional (Framer Motion): cards fade/slide in 150–200ms on load, 
 
 ## 7. Implementation stack (recommended by the reference)
 
-React + TypeScript · Tailwind CSS · shadcn/ui · TanStack Query · Recharts · Framer Motion · Lucide React. The reference names Next.js; the web app is a Vite SPA in front of the .NET API instead ([ADR 011](../adr/011-web-app-is-a-vite-spa.md)). What is installed today: `src/web/CLAUDE.md`.
+React + TypeScript · Tailwind CSS · shadcn/ui · TanStack Query · Recharts · Framer Motion · Lucide React. The reference names Next.js; the web app is a Vite SPA in front of the .NET API instead ([ADR 011](../adr/011-web-app-is-a-vite-spa.md)). What is installed today: `src/web/CLAUDE.md`. Charts are inline SVG until one needs interaction that a few lines can't give; then Recharts.
 
 ## 8. Normetry screen inventory
 
@@ -188,7 +186,7 @@ Keycloak sign-in uses the same auth canvas, card, logo and form tokens. Its
 
 | Screen | Built from |
 |---|---|
-| Overview | KPI row, compliance donut, controls/requirements table, compliance over time, upcoming audits, top risk categories |
+| Overview | KPI row, verdicts donut, results by theme table, compliance over time, expiring documents, top risk themes ([`overview-screen.md`](overview-screen.md)) |
 | Ask the Regulation | conversation list, chat with citation chips, source panel with the quoted passage in its original language (§4 layout); citations of the establishment's own documents have their own chip and panel ([`chat-document-citations.md`](chat-document-citations.md)) |
 | Documents | upload (drop zone, title, type, optional expiry date) + table with type, ingestion status pill, current version and expiry (Attention pill "Expired"; Time badge "Expires in N days" up to 30 days ahead; else the date), with an expiry filter (All documents · Expired · Expiring in 30 days); detail with the expiry line ("Edit expiry date") and the version history ([documents-screen.md](documents-screen.md)) |
 | Simulated Inspection | History with Run inspection; stepper, radial progress and checklist by theme while running; findings table with verdict and review pills, a finding sheet with both quotes and Accept / Reject / Edit, and the action plan ([`inspection-screen.md`](inspection-screen.md)) |

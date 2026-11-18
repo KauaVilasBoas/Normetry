@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ListFilter, SearchX } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import type { Finding, InspectionDetail } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
 import { useSend } from "../settings/profiles";
@@ -37,7 +38,29 @@ export function FindingsCard({
   canReadDocuments: boolean;
 }) {
   const { findings } = inspection;
-  const [filters, setFilters] = useState(noFilters);
+  // `?verdict=` and `?theme=` (the Overview's links) preset the filters once, when a code is
+  // among the options; then they leave the URL, where filters never stay.
+  const [params, setParams] = useSearchParams();
+  const [filters, setFilters] = useState<Filters>(() => {
+    const known = (options: { value: string }[], value: string | null) =>
+      options.some((option) => option.value === value) ? (value ?? "") : "";
+    return {
+      verdict: known(verdictOptions(findings), params.get("verdict")),
+      theme: known(themeOptions(findings), params.get("theme")),
+    };
+  });
+  const filtered = params.has("verdict") || params.has("theme");
+  useEffect(() => {
+    if (filtered)
+      setParams(
+        (next) => {
+          next.delete("verdict");
+          next.delete("theme");
+          return next;
+        },
+        { replace: true },
+      );
+  }, [filtered, setParams]);
   const [ascending, setAscending] = useState(false);
   const [sheet, setSheet] = useState<{ ids: string[]; index: number }>();
   const [announcements, setAnnouncements] = useState<{ id: number; text: string }[]>([]);

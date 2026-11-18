@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   FileText,
+  House,
   LogOut,
   MessagesSquare,
   Settings,
@@ -41,15 +42,23 @@ export function Sidebar({
   onNavigate,
   closeButton,
 }: SidebarProps) {
+  const atOverview = useMatch("/overview") !== null;
   // A new conversation and a saved one are both Ask the Regulation.
-  const atNew = useMatch("/") !== null;
+  const atNew = useMatch("/ask") !== null;
   const atConversation = useMatch("/conversations/:conversationId") !== null;
   const atDocuments = useMatch("/documents/*") !== null;
   const atInspections = useMatch("/inspections/*") !== null;
   const atSettings = useMatch("/settings/*") !== null;
   const items = [
     {
-      to: "/",
+      to: "/overview",
+      label: copy.shell.overview,
+      Icon: House,
+      shown: can(me.data, "inspections.read") || can(me.data, "documents.read"),
+      active: atOverview,
+    },
+    {
+      to: "/ask",
       label: copy.shell.askTheRegulation,
       Icon: MessagesSquare,
       shown: can(me.data, "chat.ask"),

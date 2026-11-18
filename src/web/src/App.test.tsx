@@ -22,7 +22,9 @@ const chatRoutes = {
   "/chat/quota": { body: { limit: null, remaining: null, resetsAt: "2026-11-14T00:00:00Z" } },
 };
 
+/** Starts at the chat's new conversation unless a test already chose a path. */
 function renderApp(routes: Parameters<typeof stubApi>[0], user = fakeOidc()) {
+  if (window.location.pathname === "/") window.history.replaceState(null, "", "/ask");
   const fetch = stubApi({ ...chatRoutes, ...routes });
   const auth = createAuth(user.oidc);
   render(<App auth={auth} />);
@@ -204,7 +206,7 @@ describe("establishment picker", () => {
 
     expect(await screen.findByText("Your session expired. Redirecting to sign in…")).toBeVisible();
     expect(oidc.signinSilent).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(oidc.signinRedirect).toHaveBeenCalledWith({ state: "/" }));
+    await waitFor(() => expect(oidc.signinRedirect).toHaveBeenCalledWith({ state: "/ask" }));
   });
 });
 
@@ -422,7 +424,7 @@ describe("permissions", () => {
     await expectNoAxeViolations();
   });
 
-  it.each(["/", "/settings/profiles"])(
+  it.each(["/overview", "/ask", "/settings/profiles"])(
     "tells a user whose profile opens no screen, at %s",
     async (path) => {
       window.history.replaceState(null, "", path);

@@ -2,6 +2,7 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  ChevronRight,
   Circle,
   CircleAlert,
   CircleCheck,
@@ -255,12 +256,88 @@ export function TypeIcon({ type, className }: { type: string; className: string 
   return <Icon aria-hidden="true" className={className} />;
 }
 
-/** 28px tile with the establishment type icon. */
-export function TypeTile({ type }: { type: string }) {
+/** 28px inset tile with a decorative icon (a KPI card's, an establishment's type). */
+export function IconTile({ Icon }: { Icon: LucideIcon }) {
   return (
     <span className="flex size-7 shrink-0 items-center justify-center rounded-sm border border-border bg-inset">
-      <TypeIcon type={type} className="size-4 text-chart-2" />
+      <Icon aria-hidden="true" className="size-4 text-chart-2" />
     </span>
+  );
+}
+
+/** 28px tile with the establishment type icon. */
+export function TypeTile({ type }: { type: string }) {
+  return <IconTile Icon={typeIcons[type] ?? Store} />;
+}
+
+/**
+ * A KPI card inside a `<dl>` (DESIGN.md KPI card): the label and its icon tile are the `<dt>`,
+ * the value and the footer (a delta, a pill, a caption) are `<dd>`s.
+ */
+export function KpiCard({
+  label,
+  Icon,
+  value,
+  children,
+}: {
+  label: string;
+  Icon: LucideIcon;
+  value: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col rounded-card border border-border bg-card p-4 motion-safe:animate-fade-in">
+      <dt className="flex items-start justify-between gap-3 text-body text-text-secondary">
+        {label}
+        <IconTile Icon={Icon} />
+      </dt>
+      <dd className="mt-2 text-kpi font-bold tabular-nums">{value}</dd>
+      <dd className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2 text-small text-text-secondary">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+/** DESIGN.md Progress bar, decorative: the percentage beside it carries the value. */
+export function ProgressBar({ ratio }: { ratio: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-1.5 w-16 shrink-0 rounded-pill bg-chart-track sm:w-24"
+    >
+      {ratio > 0 && (
+        // The width is a data value, so an inline style.
+        <span
+          className="block h-full rounded-pill bg-chart-1"
+          style={{ width: `${Math.min(ratio, 1) * 100}%` }}
+        />
+      )}
+    </span>
+  );
+}
+
+/** A native `<details>`: Enter or Space opens it; the chevron turns (not under reduced motion). */
+export function Disclosure({
+  summary,
+  className,
+  children,
+}: {
+  summary: string;
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className={`group ${className}`}>
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-sm text-small font-medium text-mint [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          aria-hidden="true"
+          className="size-3.5 shrink-0 group-open:rotate-90 motion-safe:transition-transform"
+        />
+        {summary}
+      </summary>
+      {children}
+    </details>
   );
 }
 

@@ -31,6 +31,7 @@
   --neutral: #5b6b82;
   --info: #0decff;
   --info-bg: #06315e;
+  --chart-1: #0084ed;
   --chart-2: #23b6fd;
   --chart-track: #0c1e36;
 
@@ -55,6 +56,9 @@
   --text-title--line-height: 20px;
   --text-greeting: 22px;
   --text-greeting--line-height: 28px;
+  /* A KPI card's value. */
+  --text-kpi: 28px;
+  --text-kpi--line-height: 36px;
   /* The radial progress percentage. */
   --text-value: 20px;
   --text-value--line-height: 28px;
@@ -113,6 +117,7 @@
   --color-neutral: var(--neutral);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
+  --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-track: var(--chart-track);
 }
