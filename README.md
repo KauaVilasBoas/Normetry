@@ -4,11 +4,11 @@
 <p align="center">
   <i>Multi-tenant compliance copilot for regulated establishments.<br/>
   Ask the regulation and get an answer that cites the article, run a simulated inspection
-  against your own documents, and get warned when a rule you depend on changes.</i>
+  against your own documents, and (from phase 3) get warned when a rule you depend on changes.</i>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-phase_1_·_regulation_RAG-F2C744?labelColor=0B1220" alt="Status: phase 1"/>
+  <img src="https://img.shields.io/badge/status-phase_2_·_simulated_inspection-F2C744?labelColor=0B1220" alt="Status: phase 2"/>
   <a href="https://github.com/KauaVilasBoas/Normetry/actions/workflows/ci.yml">
     <img src="https://github.com/KauaVilasBoas/Normetry/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/>
   </a>
@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
-  <b>3</b> jurisdictions &nbsp;·&nbsp; <b>2</b> languages (PT, EN) &nbsp;·&nbsp; <b>3</b> AI capabilities
+  <b>3</b> jurisdictions &nbsp;·&nbsp; <b>2</b> languages (PT, EN) &nbsp;·&nbsp; <b>131</b> checklist items &nbsp;·&nbsp; <b>2</b> of 3 AI capabilities built
 </p>
 
 <p align="center">
@@ -45,13 +45,13 @@
 </p>
 
 > [!NOTE]
-> Normetry is being built in public, one phase at a time (see the [Roadmap](#roadmap)). This README describes the target architecture. Sections marked "coming soon" fill in as each phase ships.
+> Normetry is being built in public, one phase at a time (see the [Roadmap](#roadmap)). Phases 0 to 2 are built, and the README marks what is still planned.
 
 ## What is this?
 
 A restaurant manager has to comply with a food-safety code that runs to hundreds of pages. In practice, compliance lives in a binder: SOPs nobody re-reads, temperature logs filled in by hand, licenses that expire without warning. When an inspector arrives, someone has to say which rule each document satisfies and where the evidence is, and nobody can do that quickly.
 
-Normetry answers that question. A customer (a single restaurant, a chain, or a compliance consultancy) registers its establishments and uploads its documents: SOPs, licenses, temperature logs, lab reports. Normetry reads them against the regulation, and every claim it makes points to a specific article and to a specific passage of the customer's own document.
+Normetry answers that question. A customer (a single restaurant, a chain, or a compliance consultancy) registers its establishments and uploads its documents: SOPs, licenses, temperature logs, lab reports. Normetry reads them against the regulation. Every claim it makes points to a specific article and, when the claim is about the establishment, to a specific passage of the customer's own document.
 
 The MVP covers food service in three jurisdictions:
 
@@ -63,25 +63,33 @@ The MVP covers food service in three jurisdictions:
 
 Users can ask in Portuguese or English, and answers quote the regulation in its original language. A question asked in Portuguese can come back with a cited passage of the FDA Food Code in English.
 
-The data model already supports other establishment types such as pharmacies and clinics, so adding a vertical means adding its corpus and its eval set.
+The data model already supports other establishment types such as pharmacies and clinics, so adding a vertical means adding its corpus, its inspection checklist and its eval set.
 
 ### Highlights
 
 - Every claim cites a retrieved chunk with a literal quote. The model answers in structured JSON: each claim carries the IDs of the chunks that support it and, for each one, a passage copied from that chunk. A deterministic guard drops any claim whose ID was not retrieved or whose quote is not in its chunk. Only checked claims reach the user, streamed one at a time; if none survives, the answer is "not enough basis in the regulation".
 - Retrieval is written by hand: pgvector top-k and PostgreSQL full-text top-k, fused with Reciprocal Rank Fusion, then a multilingual re-ranker. Each step can be inspected and measured on its own.
+- The chat can also cite the selected establishment's own documents, for users who hold `documents.read`. The core tells the AI service whether the caller holds it. Without it, retrieval searches the regulation alone, and stored claims that cite a document are left out of the conversation. The regulation stays the only source of rules, and a document is evidence about the establishment.
+- The simulated inspection checks a curated checklist per regulation: 47 items for the FDA Food Code, 40 for 852/2004 and 44 for RDC 216/2004 ([ADR 013](docs/adr/013-inspection-checks-a-curated-checklist.md)). A fixed list gives precision and recall a fixed denominator, and a run costs one judge call per item. The judge's quotes go through the same kind of guard: a finding with no verified regulation quote is dropped, and a compliant or non-compliant verdict with no verified quote from the customer's documents becomes insufficient evidence. Severity comes from the checklist, never from the model.
+- The inspection is a LangGraph graph whose checkpoints live in two `ai` tables under forced RLS. The project writes its own small saver (`TenantCheckpointSaver`) that runs every read and write inside the tenant transaction; `langgraph-checkpoint-postgres` needs autocommit connections, so it is not used. If the AI service dies mid-inspection, the queue redelivers the request and the run resumes without judging finished items again.
+- Findings are reviewed in the core. They arrive as a queue event and start as pending. A person accepts them, rejects them with a reason, or edits them, and the original values are kept. In development, rejected and edited findings can be exported as eval examples.
 - PostgreSQL Row-Level Security isolates tenants on every tenant-owned table, so even a buggy query cannot return another tenant's rows. The tenant is set per transaction, which keeps pooled connections from carrying it into the next request. A session with no tenant set sees only the public corpus and cannot write.
 - Only a dedicated `corpus_ingestor` role can write the public regulation corpus (`tenant_id IS NULL`), so no tenant can inject text into the shared regulations.
-- The simulated inspection is a LangGraph agent with Postgres checkpoints. If a worker dies mid-inspection, the run resumes where it stopped. Findings stay pending until a person accepts, rejects or edits them, and each rejection becomes a new eval example.
-- Pull requests that touch ingestion, retrieval or the golden dataset run the retrieval eval in CI, on local models and a throwaway PostgreSQL. It fails below its recall and MRR floors and writes its table to the job summary. Generation evals call a paid model, so they run on demand, never in CI, and every claim they produce is judged against its quotes in a review session.
-- OpenTelemetry runs in both services and propagates W3C `traceparent` over HTTP and through the message queue, so a single trace follows a request from the click to the LLM call. Langfuse records prompts, tokens and cost.
+- Uploads are parsed in a child process whose environment holds no credentials, with a timeout and, outside Windows, a memory limit. On Linux the service process is marked non-dumpable, so the child cannot read the service's environment; running the child as its own OS user with no network is deploy work for phase 3. The AI service reads files with a read-only SAS for the documents container, and only the API holds the storage key.
+- Every authenticated request draws from a rate limit per tenant and user, with stricter limits on uploads, inspection starts and chat. Daily quotas by plan cap chat messages and inspections, each inspection has a token ceiling, and a tenant can have at most two inspections in flight.
+- Logs carry ids, codes and counts, never document text. Tests in both services run a document with a marker name through upload, ingestion, chat and inspection, and fail if the name shows up in any log line, span or trace tag.
+- Pull requests that touch ingestion, retrieval, the models, the datasets or the synthetic establishments run the retrieval eval in CI, on local models and a throwaway PostgreSQL. It fails below its recall and MRR floors or when a result holds another establishment's chunk, and writes its table to the job summary. The generation and inspection evals call a paid model, so they run on demand, never in CI, and a review session judges their output against its quotes.
+- OpenTelemetry runs in both services and propagates W3C `traceparent` over HTTP and through the message queue, so one trace follows a request from the core API through the queue into the AI service and back. Locally the traces go to the Aspire dashboard. The tokens and cost of every model call are recorded per tenant in `ai.model_usage`. Langfuse comes in phase 3.
 
 ## Capabilities
 
 | Capability | What it does | Core technique | Status |
 |---|---|---|---|
-| Ask the regulation | Answers regulatory questions in a chat and cites the exact article | Hybrid RAG with verifiable citations | Working (phase 1) |
-| Simulated inspection | Checks the establishment's documents against the applicable requirements and produces findings and an action plan | LangGraph agent with checkpoints and human review | Phase 2 |
-| Change monitor | Detects when a regulation changes and warns the tenants whose documents are affected | Structural diff plus semantic search over tenant documents | Phase 3 |
+| Ask the regulation | Answers regulatory questions in a chat and cites the exact article, plus the passage of the establishment's own document when the question is about it | Hybrid RAG with verifiable citations | Working (phase 1; documents in phase 2) |
+| Simulated inspection | Checks the establishment's documents against the regulation's checklist and produces findings, each with its quotes, and an action plan that a person reviews | LangGraph agent with checkpoints under RLS, one judge call per item, human review in the core | Working (phase 2); first eval run pending ([#106](https://github.com/KauaVilasBoas/Normetry/issues/106)) |
+| Change monitor | Detects when a regulation changes and warns the tenants whose documents are affected | Structural diff plus semantic search over tenant documents | Planned (phase 3) |
+
+The web app has five screens: Overview (compliance from the latest inspection, results by theme, open actions, expiring documents), Ask the Regulation, Documents (upload, versions, live status, expiry dates), Simulated Inspection and Settings › Profiles.
 
 <!-- TODO(fill later): screenshots / GIF of the three capabilities
 ## Screenshots
@@ -101,7 +109,7 @@ The data model already supports other establishment types such as pharmacies and
 
 ### Design
 
-The web app follows an approved mock: dark navy surfaces, one mint accent for actions, the Inter typeface, and a single card style for KPIs, tables, chat and inspection progress. [`docs/design/DESIGN.md`](docs/design/DESIGN.md) turns the mock into color tokens, component specs and a screen-by-screen mapping. The mock's sample content (ISO 27001 controls, a fictional company) is placeholder.
+The web app follows an approved mock: dark navy surfaces, one mint accent for actions, the Inter typeface, and a single card style for KPIs, tables, chat and inspection progress. [`docs/design/DESIGN.md`](docs/design/DESIGN.md) turns the mock into color tokens, component specs and a screen-by-screen mapping, and each built screen has its own spec next to it. The mock's sample content (ISO 27001 controls, a fictional company) is placeholder.
 
 ![Approved design mock](docs/design/reference.png)
 
@@ -121,16 +129,16 @@ flowchart LR
     end
 
     subgraph AI["🐍 AI Service · Python 3.12+"]
-        FAST["FastAPI<br/><sub>SSE chat · search</sub>"]
-        WORKER["Workers<br/><sub>ingestion · inspection · monitor</sub>"]
-        GRAPH["LangGraph<br/><sub>checkpointed agents</sub>"]
+        FAST["FastAPI<br/><sub>SSE chat</sub>"]
+        WORKER["Queue consumers<br/><sub>ingestion · inspection</sub>"]
+        GRAPH["LangGraph<br/><sub>inspection agent</sub>"]
     end
 
     PG[("PostgreSQL<br/><sub>schemas core + ai<br/>pgvector · full-text · RLS</sub>")]
-    MQ[["RabbitMQ<br/><sub>Service Bus in production</sub>"]]
-    BLOB[("Blob Storage<br/><sub>MinIO / Azure Blob</sub>")]
-    LLM["LLM providers<br/><sub>via OpenRouter</sub>"]
-    OBS["OpenTelemetry Collector<br/><sub>+ Langfuse</sub>"]
+    MQ[["RabbitMQ<br/><sub>Azure Service Bus planned for the deploy</sub>"]]
+    BLOB[("Blob Storage<br/><sub>Azurite locally</sub>")]
+    LLM["Anthropic API<br/><sub>Claude</sub>"]
+    OBS["OpenTelemetry<br/><sub>OTLP to the Aspire dashboard</sub>"]
 
     WEB -->|HTTPS + JWT| API
     WEB -->|SSE| YARP
@@ -145,7 +153,7 @@ flowchart LR
     WORKER --> GRAPH
     FAST --> PG
     WORKER --> PG
-    WORKER --> BLOB
+    WORKER -->|read only| BLOB
     FAST --> LLM
     GRAPH --> LLM
     CORE -.-> OBS
@@ -160,11 +168,12 @@ Only .NET writes the `core` schema and only Python writes the `ai` schema. AI re
 |---|---|
 | Tenancy & Identity | Tenant, User, and profiles that grant permissions (system profiles Owner, Manager, Auditor, plus the tenant's own; ADR 012). OIDC through Keycloak in local development |
 | Establishments | Establishment with its type (restaurant, pharmacy, clinic) and jurisdiction |
-| Documents | Document, versions, type (SOP, license, log, report), expiry and status `Uploaded → Processing → Indexed \| Failed` |
-| Regulations | Regulation catalog (code, jurisdiction, version, effective date). Read-only in the core, because the AI service owns ingestion |
-| Assessments | Simulated inspections, findings, action items and their review (Accepted, Rejected, Edited) |
-| Usage & Budget | Tokens and cost per tenant and per feature, with limits |
-| Notifications | Change-monitor alerts and expiring-document warnings |
+| Documents | Document, versions, type (SOP, license, log, report, other), an optional expiry date the user types, and status `Uploaded → Processing → Indexed \| Failed` |
+| Inspections (assessments) | Simulated inspections (`Requested → Running → Completed \| Failed`), their findings with copies of what they cite, one action item per finding, and the review (Accepted, Rejected, Edited). The Overview screen reads from it and from Documents |
+| Usage | Daily chat messages per user and daily inspections per tenant, counted in PostgreSQL by plan (ADR 010), and the token ceiling sent with each inspection. The AI service records the tokens and cost of every model call |
+| Notifications | Planned for phase 3: change-monitor alerts and expiring-document warnings |
+
+The regulation catalog is not a core context: the AI service owns the corpus, and the core only names each jurisdiction's regulation.
 
 <details>
 <summary>Data model</summary>
@@ -173,23 +182,22 @@ Only .NET writes the `core` schema and only Python writes the `ai` schema. AI re
 erDiagram
     TENANT ||--o{ ESTABLISHMENT : "owns"
     ESTABLISHMENT ||--o{ DOCUMENT : "has"
-    DOCUMENT ||--o{ CHUNK : "produces (ai schema)"
+    DOCUMENT ||--o{ DOCUMENT_VERSION : "has"
+    DOCUMENT_VERSION ||--o{ CHUNK : "produces (ai schema)"
     REGULATION_SOURCE ||--o{ CHUNK : "produces (null tenant)"
-    ESTABLISHMENT ||--o{ ASSESSMENT : "undergoes"
-    ASSESSMENT ||--o{ FINDING : "contains"
-    FINDING }o--|| CHUNK : "regulation requirement"
-    FINDING }o--o{ CHUNK : "customer evidence"
-    FINDING ||--o{ ACTION_ITEM : "generates"
-    TENANT ||--o{ LLM_USAGE : "consumes"
+    ESTABLISHMENT ||--o{ INSPECTION : "undergoes"
+    INSPECTION ||--o{ FINDING : "contains"
+    FINDING ||--o| ACTION_ITEM : "has"
+    TENANT ||--o{ MODEL_USAGE : "consumes (ai schema)"
 ```
 
-Regulations and tenant documents share the central table, `ai.chunks`. A null `tenant_id` marks the public corpus, and RLS policies protect the rest.
+Regulations and tenant documents share the central table, `ai.chunks`. A null `tenant_id` marks the public corpus, and RLS policies protect the rest. A finding keeps copies of the passages it quotes, as chat answers do, so a new document version never breaks an old inspection.
 
 ```sql
 -- read: public corpus + the caller's own tenant
-CREATE POLICY chunks_read ON ai.chunks FOR SELECT
+CREATE POLICY chunks_read ON ai.chunks FOR SELECT TO app_ai
   USING (tenant_id IS NULL
-         OR tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+         OR tenant_id = (SELECT NULLIF(current_setting('app.tenant_id', true), '')::uuid));
 
 -- public corpus: only the regulation-ingestion role can write it
 CREATE POLICY chunks_corpus_write ON ai.chunks FOR ALL TO corpus_ingestor
@@ -209,16 +217,17 @@ sequenceDiagram
     participant A as Core API · .NET
     participant B as Blob
     participant Q as Queue
-    participant I as Ingestion worker · Python
+    participant I as Ingestion consumer · Python
     participant P as PostgreSQL
-    W->>A: POST /documents (file)
+    W->>A: POST /establishments/{id}/documents (file)
     A->>B: store file
     A->>P: Document = Uploaded + outbox event (same transaction)
     A-->>W: 202 Accepted
     A->>Q: publish DocumentUploaded
     Q->>I: deliver message
-    I->>B: download file
-    I->>I: parse · chunk · embed
+    I->>Q: publish DocumentIngestionStarted
+    I->>B: download file (read-only SAS)
+    I->>I: parse in a child process · chunk · embed
     I->>P: write ai.chunks with the message's tenant
     I->>Q: publish DocumentIndexed
     Q->>A: deliver message
@@ -226,11 +235,12 @@ sequenceDiagram
     A-->>W: SignalR: document ready
 ```
 
-1. Parse: Docling reads PDF and DOCX and keeps headings and tables. Scans and photos go through OCR or a multimodal LLM.
-2. Structural chunking: regulations are split by article or section, and the hierarchy is kept in `section_path` (for example `Chapter 3 > 3-501.16`). Tables such as temperature logs become structured text plus metadata (dates, out-of-range values).
-3. Enrichment: language, document type and expiry date are extracted with structured output.
-4. Indexing: each chunk gets an embedding and a `tsvector` built with its language's configuration (`portuguese` or `english`).
-5. Idempotency: a content hash identifies each chunk, and a new document version replaces the previous chunks in the same transaction.
+1. Upload: PDF, DOCX, TXT or CSV, checked by extension, content type and first bytes, at most 10 MiB.
+2. Parse, in a child process with no credentials, a 60-second timeout and, outside Windows, a 512 MB memory limit. PDFium reads a PDF's text layer, one section per page. python-docx reads DOCX paragraphs and tables, and the headings build the section path. TXT is read as UTF-8, else Latin-1. CSV rows are grouped with the header row repeated in each group. There is no OCR: a scan with no text layer fails with `no_text_layer`. The regulations use the same PDFium parser, plus an HTML parser for the Anvisa page.
+3. Structural chunking: regulations are split by article or section, and the hierarchy is kept in `section_path` (for example `Chapter 3 > 3-501.16`). Tenant documents are cut inside the sections the parser produced.
+4. Metadata, with no model call: the language is detected from function words, the title and type come from the upload form, and the expiry date is a field the user fills in (optional, for licenses and certificates).
+5. Indexing: each chunk gets an embedding and a `tsvector` built with its language's configuration (`portuguese` or `english`).
+6. Idempotency: a content hash identifies each chunk, and a new document version replaces the previous chunks in the same transaction.
 
 </details>
 
@@ -239,20 +249,25 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    Q["Question<br/><sub>PT or EN</sub>"] --> RW["Query rewrite<br/><sub>cheap model</sub>"]
+    Q["Question<br/><sub>PT or EN</sub>"] --> RW["Follow-up rewrite<br/><sub>cheap model</sub>"]
     RW --> V["Vector top-k<br/><sub>pgvector</sub>"]
     RW --> L["Lexical top-k<br/><sub>full-text</sub>"]
+    RW --> D["Establishment documents<br/><sub>vector + full-text, top 5</sub>"]
     V --> RRF["Reciprocal<br/>Rank Fusion"]
     L --> RRF
     RRF --> RR["Multilingual<br/>re-ranker"]
-    RR -->|score below threshold| REF["Refuse"]
-    RR --> GEN["Answer + claims<br/><sub>strong model · JSON</sub>"]
+    D --> RR
+    RR -->|no candidate above the threshold| REF["Refuse"]
+    RR --> GEN["Answer + claims<br/><sub>chat model · JSON</sub>"]
     GEN --> GUARD["Citation guard<br/><sub>cited IDs ⊆ retrieved IDs</sub>"]
     GUARD --> SSE["SSE stream<br/><sub>FastAPI → YARP → web</sub>"]
 ```
 
-- Tenant, establishment and jurisdiction reach the AI service in internal headers that the .NET core derives from the validated JWT. The request body never sets them.
-- A cheap model rewrites queries and classifies them. A strong model writes the final answer and makes the inspection judgments.
+- Tenant, establishment and jurisdiction reach the AI service in internal headers that the .NET core derives from the validated JWT, along with whether the caller holds `documents.read`. The request body never sets them.
+- With `documents.read`, the chat also searches the selected establishment's documents: up to 5 chunks of their current indexed versions, scored in the same re-ranker call as the regulation candidates. The top 10 keeps at most 3 document chunks, and a tie goes to the regulation. Without the permission, retrieval covers the corpus only.
+- The prompt marks each excerpt as regulation or document. The regulation is the only source of rules; a document describes the establishment, and instructions inside it are never followed. A document citation names the document, its type and its version.
+- The refusal threshold applies to the best score of either source. It is 0 by default, so only an empty retrieval is refused before the model call: in the phase 1 eval the best scores of answerable questions and of refusals overlapped, so the guard does the refusing.
+- A cheap model (Claude Haiku 5.5 by default) rewrites follow-up questions into standalone ones. The chat model (Claude Opus 5.5 by default, a setting) writes the answer.
 
 </details>
 
@@ -262,29 +277,34 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
     [*] --> Plan
-    Plan --> Evaluate: applicable requirements grouped in batches
+    Plan --> Evaluate: checklist items, one branch per theme
     state Evaluate {
-        [*] --> GatherEvidence
-        GatherEvidence --> Judge
-        Judge --> [*]
+        [*] --> LoadSections
+        LoadSections --> SearchEvidence
+        SearchEvidence --> Judge
+        Judge --> Guard
+        Guard --> [*]
     }
-    Evaluate --> Consolidate: all batches evaluated
+    Evaluate --> Consolidate: every item judged
     Consolidate --> ActionPlan
-    ActionPlan --> HumanReview
-    HumanReview --> [*]
+    ActionPlan --> [*]: InspectionCompleted
 ```
 
-- Plan: regulation metadata (establishment type and jurisdiction) selects the applicable requirements, with no LLM involved. The requirements are grouped by theme: personal hygiene, temperature control, pests, water, waste.
-- Evaluate: each batch runs in parallel through LangGraph's `Send`. For every requirement the agent gathers evidence from the establishment's documents, and an LLM judge classifies it as compliant, non-compliant or insufficient evidence. Each verdict cites both the regulation article and the customer's passage, with a confidence level.
-- Consolidate: duplicates are removed and findings are sorted by severity.
-- Action plan: each finding gets one concrete action with a suggested deadline.
-- Human review: findings start as pending, and rejections feed the eval dataset.
-- Resilience and budget: Postgres checkpoints (`langgraph-checkpoint-postgres`) let a run resume, and each inspection has a token ceiling charged to the tenant's budget.
+- Start: a user with `inspections.run` (Owner and Manager by default) starts an inspection of one establishment. The core refuses it while another one is running there, when no document is indexed, past the tenant's daily quota, or when the tenant already has two inspections in flight. Otherwise it commits the inspection and `InspectionRequested` through the outbox.
+- Plan, with no model: the checklist items for the jurisdiction and establishment type, grouped into eight themes (personal hygiene, temperature control, cross-contamination and allergens, cleaning and sanitizing, pest control, water and premises, waste, documentation and training).
+- Evaluate: one branch per theme through LangGraph's `Send`, each item a task, with at most four items in flight per inspection. For each item the agent loads the regulation sections it cites, searches the establishment's documents with the item's title and evidence hint (vector and full-text, fused, re-ranked, top 5), then makes one structured-output call to the judge (Claude Haiku 5.5 by default). The judge has no tools, and document text enters the prompt as escaped excerpts marked as data.
+- Guard: every quote is checked against its excerpt. A finding with no verified regulation quote is dropped, and a compliant or non-compliant verdict with no verified document quote becomes insufficient evidence. A requirement that no document shows is therefore never reported as a violation.
+- Consolidate and action plan: one result per item, sorted by severity. Each non-compliant or insufficient-evidence finding gets one action, due in 7, 30 or 90 days for a critical, major or minor item. The judge proposes the action text (a fixed template when it gives none or its verdict was downgraded), and the severity sets the deadline.
+- Checkpoints: `TenantCheckpointSaver` stores each step before the next starts. The request stays unacknowledged while the inspection runs, so if the process dies RabbitMQ redelivers it and the run resumes from the last checkpoint. A request whose checkpoints belong to another establishment is dead-lettered.
+- Budget: the core sends a token ceiling with each request (300,000 by default). Before every judge call the agent estimates the call, and when it would pass the ceiling the inspection fails with `budget_exceeded` and keeps no partial findings. Every call is recorded in `ai.model_usage`. A request still queued when the core has already timed it out (30 minutes by default) expires in the queue instead of running.
+- Review in the core: progress reaches the web app over SignalR. The core stores the findings of `InspectionCompleted` only if every evidence citation names a document of the inspected establishment. Findings start as pending; with `inspections.review` a person accepts, rejects with a reason or edits them (verdict, severity, rationale, action, due date), and marks action items done.
 
 </details>
 
 <details>
-<summary>Change monitor</summary>
+<summary>Change monitor (planned for phase 3)</summary>
+
+None of this is built yet. The plan:
 
 - A scheduled job compares each new version of a regulation with the previous one, article by article, using `section_path` and a content hash.
 - The changed articles are searched semantically across the documents of tenants in the same jurisdiction.
@@ -310,7 +330,7 @@ Full records are in [`docs/adr/`](docs/adr/).
 | [009](docs/adr/009-in-house-cqrs-dispatcher.md) | In-house CQRS dispatcher instead of MediatR | MediatR has required a commercial license since 2025, and a small dispatcher shows how the pattern works | We own and test the pipeline, and there are no ecosystem extensions |
 | [010](docs/adr/010-daily-chat-quota-by-plan.md) | Daily chat quota per user by plan, counted in PostgreSQL | Model calls cost money, and the limit must survive restarts and hold across API instances | One database write per chat message, and old count rows need a cleanup job |
 | [011](docs/adr/011-web-app-is-a-vite-spa.md) | The web app is a Vite single-page app with in-memory tokens, calling only the core API | All data and rules already sit behind the .NET API, so a second server would have nothing to do; no token is kept in web storage | No server rendering, and a reload goes back through Keycloak |
-| [012](docs/adr/012-authorization-by-permissions-in-the-core-database.md) | Authorization by permissions in the core database: tenant profiles grant `area.action` permissions, checked with `[HasPermission]`; Keycloak only authenticates | Tenants manage their own profiles, changes apply on the next request, and RLS isolates the data | One query per protected request, and authorization depends on the core database |
+| [012](docs/adr/012-authorization-by-permissions-in-the-core-database.md) | Authorization by permissions in the core database: tenant profiles grant `area.action` permissions, checked with `[HasPermission]` (one attribute naming several accepts any of them); Keycloak only authenticates | Tenants manage their own profiles, changes apply on the next request, and RLS isolates the data | One query per protected request, and authorization depends on the core database |
 | [013](docs/adr/013-inspection-checks-a-curated-checklist.md) | The simulated inspection checks a curated checklist per regulation (40 to 47 reviewed items, each tied to its sections) | One judge call per item keeps an inspection to cents and minutes, and a fixed list makes precision and recall measurable | Requirements outside the checklist are never reported, and the lists need upkeep when a regulation changes |
 
 <details>
@@ -322,12 +342,13 @@ SQL Server 2025 has a vector type and would work. PostgreSQL has the larger ecos
 
 ## Security
 
-- Indirect prompt injection: document content enters prompts delimited as data, agents have no write tools, and every state change goes through a person. The eval suite includes planted malicious documents.
-- Tenant isolation: RLS, integration tests for cross-tenant leaks and adversarial evals ("show me the other customer's SOP"). The target is zero leaks.
+- Indirect prompt injection: document text enters prompts as escaped excerpts marked as data, and the prompts say that instructions inside a document are never followed. Neither the chat nor the judge has tools, and inspection results reach the core as an event and stay pending until a person reviews them. Each synthetic establishment carries one planted injection document; the evals that score it have not had their first paid run yet ([#106](https://github.com/KauaVilasBoas/Normetry/issues/106), [#109](https://github.com/KauaVilasBoas/Normetry/issues/109)).
+- Tenant isolation: RLS on every tenant-owned table in both schemas, the inspection checkpoints included, with isolation tests for each one. The establishment document search joins on the establishment, and its tests cover another tenant, another establishment of the same tenant, a deleted document and a superseded version. The core refuses an inspection result whose evidence cites a document outside the inspected establishment. In the retrieval eval, no result held a chunk from another establishment or tenant.
+- Document access: the chat shows document text only to callers with `documents.read`. The gateway sets that header from the caller's loaded permissions and strips any copy the client sends.
 - Network edge: the Python service has no public ingress, and FastAPI accepts only requests that YARP sends with an internal token.
-- Abuse and cost: ASP.NET Core rate limiting and a per-tenant token budget.
-- Uploads: file type and size are validated.
-- Personal data: employee names found in documents are masked in logs and LLM traces.
+- Abuse and cost: ASP.NET Core rate limiting per tenant and user (by default 120 requests a minute, 20 uploads, 5 inspection starts and 20 chat requests), daily quotas by plan for chat messages and inspections, a token ceiling per inspection and at most two inspections in flight per tenant.
+- Uploads: file type, content and size are validated, and parsing runs in a child process with no credentials, limits on time and memory, and a non-dumpable parent on Linux. Running the child as a separate OS user with no network is deploy work for phase 3. The AI service's blob credential can only read the documents container.
+- Logs: both services log ids, codes and counts, never document text, quotes, prompts or answers, and a test in each service checks it with a marker name. The AI service refuses to start with LangSmith tracing on, so no graph state leaves for an outside service. There are no LLM traces yet; masking names in them comes with Langfuse in phase 3.
 - Secrets: none are stored in this repository. Local development uses git-ignored `.env` files and `dotnet user-secrets`, and CI and deploy read GitHub Actions secrets.
 
 ## Evals
@@ -336,11 +357,11 @@ Five layers of evals measure quality:
 
 | Layer | Metric | How it's measured |
 |---|---|---|
-| Retrieval | recall@k, MRR | 59 questions with 83 literal quotes ([golden dataset](evals/datasets/regulation-qa/)); a hit is a retrieved chunk that contains a quote. Runs in CI on pull requests that touch retrieval ([`evals/README.md`](evals/README.md)) |
-| Generation | faithfulness, citation correctness, refusals, cost per answer, time to first claim | The real pipeline answers the golden dataset with a chosen Claude model, on demand and never in CI. The guard checks every quote at runtime, and each claim is then judged against its quotes in review sessions ([`evals/README.md`](evals/README.md)) |
-| Inspection | finding precision and recall | 3 to 5 synthetic establishments with planted non-conformities |
-| Security | cross-tenant leaks, successful injections | Adversarial prompts and malicious documents |
-| Operations | cost per question and per inspection, p95 latency | Langfuse and OpenTelemetry |
+| Retrieval | recall@k, MRR, document recall, chunks from another establishment | 59 regulation questions with 83 literal quotes ([regulation-qa](evals/datasets/regulation-qa/)) and 32 questions asked from the synthetic establishments ([document-qa](evals/datasets/document-qa/)); a hit is a retrieved chunk that contains a quote. Runs in CI on pull requests that touch retrieval ([`evals/README.md`](evals/README.md)) |
+| Generation | faithfulness, citation correctness, refusals, cost per answer, time to first claim | The real pipeline answers the golden dataset with a chosen Claude model, on demand and never in CI. The guard checks every quote at runtime, and each claim is then judged against its quotes in review sessions. The document questions are scored too; their first run is pending ([#109](https://github.com/KauaVilasBoas/Normetry/issues/109)) |
+| Inspection | finding precision and recall per verdict, guard drops, injection success, cross-establishment evidence, cost and time | 3 [synthetic establishments](evals/establishments/) with 28 documents, 23 planted non-conformities and one injection document each, scored against their expected findings for all 131 checklist items. Harness built; first run pending ([#106](https://github.com/KauaVilasBoas/Normetry/issues/106)) |
+| Security | cross-tenant and cross-establishment leaks, successful injections | The 14-item security set of document-qa: 4 cross-tenant, 4 cross-establishment and 6 planted-instruction items. Scored by the retrieval eval (no leaked chunk so far) and by the generation eval, whose run is pending ([#109](https://github.com/KauaVilasBoas/Normetry/issues/109)) |
+| Operations | cost per answer and per inspection, latency | The generation eval reports cost and time per answer, and the inspection eval's report has them per inspection (first run pending). Every model call is recorded in `ai.model_usage`. Langfuse dashboards come in phase 3 |
 
 Planned experiments: BGE-M3 against a second local embedding model (ADR 008), and Claude Haiku, Sonnet and Opus on the final prompt before the demo is deployed ([#73](https://github.com/KauaVilasBoas/Normetry/issues/73)).
 
@@ -354,6 +375,16 @@ Retrieval numbers, on the 44 answerable questions ([report](evals/reports/2026-1
 | Fusion, then the bge-reranker-v2-m3 re-ranker | 0.934 | 0.883 |
 
 No chunk came back from another jurisdiction. On CPU the re-ranker takes 15.4 s per question on average (30 candidates, up to 1024 tokens each), against under 0.2 s for embedding and both searches; halving candidates and length cut it to 9.3 s but dropped recall@10 to 0.900 and the Portuguese 852/2004 items to 0.714.
+
+With documents ([#109](https://github.com/KauaVilasBoas/Normetry/issues/109), [report](evals/reports/2026-11-18-retrieval-bge-m3-with-documents.md)), the retrieval eval indexes the 28 synthetic documents in the demo's two tenants and asks each question from an establishment, as the chat does:
+
+| Retrieval with the establishments' documents (BGE-M3, re-ranked) | recall@10 | MRR@10 |
+|---|---|---|
+| Document questions, document quotes | 0.828 | |
+| Regulation questions, from an establishment with no documents | 0.934 | 0.883 |
+| Regulation questions, from an establishment with its documents | 0.934 | 0.613 |
+
+The documents leave regulation recall@10 where it was but push regulation chunks down the top 10, so MRR@10 falls from 0.883 to 0.613. No result held a chunk from another establishment or tenant.
 
 Generation numbers come from Claude Haiku 5.5 answering all 59 questions through the real pipeline ([report](evals/reports/2026-11-15-generation-claude-haiku-5-5.md)). The guard checks every quote at runtime. A review session then judged each claim against its quotes and the section around them:
 
@@ -369,6 +400,8 @@ Generation numbers come from Claude Haiku 5.5 answering all 59 questions through
 
 A partial claim restates its own section but stops one step short: the quote ends before a condition the claim states, or a rule written for a category of food is applied to the dish the question names. The first run ([report](evals/reports/2026-11-15-generation-claude-haiku-5-5-first-prompt.md)) also showed the model writing claims about what the excerpts leave out, and the follow-up rewrite once returned its own scratch work. Both were fixed: the prompt now forbids those claims and makes quotes carry their conditions, and the rewrite now goes through structured output. The second run confirmed the rewrite fix. The prompt fix added one correct refusal, but its effect on faithfulness was within the run-to-run variation of the model. The p95 target fails on the CPU re-ranker, not on the model ([#72](https://github.com/KauaVilasBoas/Normetry/issues/72)).
 
+The paid evals of phase 2 have not run yet. The inspection eval ([#106](https://github.com/KauaVilasBoas/Normetry/issues/106)), the generation eval over the document questions and the security set ([#109](https://github.com/KauaVilasBoas/Normetry/issues/109)), and the review of real judge calls on the synthetic documents ([#100](https://github.com/KauaVilasBoas/Normetry/issues/100)) have their harnesses and offline scoring tests in place, and their numbers go here after the first run with an Anthropic API key.
+
 <!-- TODO(fill later): the BGE-M3 vs Qwen3-Embedding-0.6B row once measured -->
 
 ## Stack
@@ -383,18 +416,15 @@ A partial claim restates its own section but stops one step short: the quote end
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI"/>
   <img src="https://img.shields.io/badge/LangGraph-1C3C3C?logo=langchain&logoColor=white" alt="LangGraph"/>
-  <img src="https://img.shields.io/badge/Docling-parsing-FF6F00" alt="Docling"/>
+  <img src="https://img.shields.io/badge/Claude-Anthropic%20API-D97757?logo=anthropic&logoColor=white" alt="Claude"/>
   <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React"/>
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript"/>
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL"/>
   <img src="https://img.shields.io/badge/pgvector-HNSW-4169E1" alt="pgvector"/>
   <img src="https://img.shields.io/badge/RabbitMQ-FF6600?logo=rabbitmq&logoColor=white" alt="RabbitMQ"/>
-  <img src="https://img.shields.io/badge/MinIO-C72E49?logo=minio&logoColor=white" alt="MinIO"/>
+  <img src="https://img.shields.io/badge/Azurite-blob%20storage-0078D4?logo=microsoftazure&logoColor=white" alt="Azurite"/>
   <img src="https://img.shields.io/badge/Keycloak-OIDC-4D4D4D?logo=keycloak&logoColor=white" alt="Keycloak"/>
   <img src="https://img.shields.io/badge/OpenTelemetry-000000?logo=opentelemetry&logoColor=white" alt="OpenTelemetry"/>
-  <img src="https://img.shields.io/badge/Langfuse-LLM%20observability-0A0A0A" alt="Langfuse"/>
-  <img src="https://img.shields.io/badge/Azure%20Container%20Apps-0078D4?logo=microsoftazure&logoColor=white" alt="Azure Container Apps"/>
-  <img src="https://img.shields.io/badge/Terraform-7B42BC?logo=terraform&logoColor=white" alt="Terraform"/>
   <img src="https://img.shields.io/badge/Testcontainers-tests-5FA04E" alt="Testcontainers"/>
   <img src="https://img.shields.io/badge/NetArchTest-boundaries-8B5CF6" alt="NetArchTest"/>
   <img src="https://img.shields.io/badge/GitHub%20Actions-CI-2088FF?logo=githubactions&logoColor=white" alt="GitHub Actions"/>
@@ -408,12 +438,14 @@ Prerequisites: .NET 10 SDK, [uv](https://docs.astral.sh/uv/) (it installs Python
 git clone https://github.com/KauaVilasBoas/Normetry.git
 cd Normetry
 dotnet dev-certs https --trust                    # once, so services can send telemetry to the dashboard
-dotnet run --project src/core/Normetry.AppHost    # PostgreSQL, Keycloak, migrations, API, AI service and web app
+dotnet run --project src/core/Normetry.AppHost    # PostgreSQL, RabbitMQ, Azurite, Keycloak, migrations, API, AI service and web app
 ```
 
 The first run generates every password and the internal token and keeps them in the AppHost's user secrets, so there is nothing to configure. The console prints the Aspire dashboard login link (`https://localhost:17081`). If Docker cannot reach `mcr.microsoft.com`, set `ASPIRE_ENABLE_CONTAINER_TUNNEL=false` first.
 
-The local Keycloak realm has two demo tenants and four demo users ([`deploy/keycloak/README.md`](deploy/keycloak/README.md)); the core's dev seed gives each its profile. Open the web app at `http://localhost:5173` and sign in as `bistro.owner` with the password `local-demo-only`. To call the API directly on `http://localhost:5208`:
+The chat and the inspection also need the regulation corpus and an Anthropic API key. Fetch the corpus with `uv run corpus/scripts/fetch_corpus.py` from the repository root, then start the `corpus-ingest` resource once from the dashboard (the first run also downloads the embedding model, about 2.3 GB). The key is the only secret the AppHost does not generate: `dotnet user-secrets set Parameters:anthropic-api-key <key> --project src/core/Normetry.AppHost`. Without it everything still starts, but chat answers come back unavailable and inspections fail.
+
+The local Keycloak realm has two demo tenants and four demo users ([`deploy/keycloak/README.md`](deploy/keycloak/README.md)). In Development the core gives each user its profile and uploads the synthetic documents of [`evals/establishments/`](evals/establishments/) to the three demo establishments, through the real pipeline. Open the web app at `http://localhost:5173` and sign in as `bistro.owner` with the password `local-demo-only`. To call the API directly on `http://localhost:5208`:
 
 ```bash
 TOKEN=$(curl -s http://localhost:8180/realms/normetry/protocol/openid-connect/token \
@@ -434,9 +466,10 @@ With a `bakery.auditor` token the Bistro's establishment does not show up: RLS h
 `dotnet test` from the repository root, `uv run pytest` from `src/ai` and `npm test` from `src/web`. Database tests need Docker; without it they are skipped locally and fail in CI.
 
 - Domain: unit tests.
-- Integration: Testcontainers with a real PostgreSQL, RLS included. Tenant A must never read tenant B's chunks.
+- Integration: Testcontainers with a real PostgreSQL and RabbitMQ, RLS included. Tenant A must never read tenant B's rows, in either schema.
 - Architecture: NetArchTest rules fail the build when a layer depends on one it should not.
-- Evals: a reduced suite runs on every pull request that touches prompts, retrieval or agents.
+- Logs: a test in each service fails when a document's marker name reaches a log line or a trace.
+- Evals: the retrieval eval runs on every pull request that touches ingestion, retrieval, the models, the datasets or the synthetic establishments. The paid evals run on demand ([`evals/README.md`](evals/README.md)).
 
 ## Project structure
 
@@ -447,36 +480,42 @@ normetry/
 │   │   ├── Normetry.BuildingBlocks/  # CQRS dispatcher, Result types
 │   │   ├── Normetry.Domain/
 │   │   ├── Normetry.Application/
-│   │   ├── Normetry.Infrastructure/
+│   │   ├── Normetry.Infrastructure/  # EF Core, outbox, RabbitMQ, blob storage
 │   │   ├── Normetry.Migrations/   # EF Core: Schema/ and Data/, run as core_owner
-│   │   ├── Normetry.Api/          # endpoints, auth, YARP gateway to /ai/*
+│   │   ├── Normetry.Api/          # endpoints, auth, rate limiting, SignalR hubs, YARP gateway to /ai/*
 │   │   ├── Normetry.ServiceDefaults/  # Aspire: telemetry, health checks
 │   │   ├── Normetry.AppHost/      # Aspire
 │   │   └── tests/                 # unit, integration, architecture
 │   ├── ai/                        # Python
 │   │   ├── normetry_ai/
-│   │   │   ├── api/               # FastAPI: chat and search
-│   │   │   ├── ingestion/
-│   │   │   ├── retrieval/
-│   │   │   ├── agents/            # LangGraph
-│   │   │   └── llm/               # providers, routing, cost
+│   │   │   ├── api/               # FastAPI: chat (SSE)
+│   │   │   ├── ingestion/         # corpus and upload parsers, parsing sandbox, chunking
+│   │   │   ├── retrieval/         # hybrid search, establishment documents
+│   │   │   ├── answers/           # cited answers and the citation guard
+│   │   │   ├── conversations/
+│   │   │   ├── inspection/        # checklists, judge, LangGraph graph, checkpoint saver
+│   │   │   ├── messaging/         # queue contracts and consumers
+│   │   │   ├── llm/               # Claude calls, embeddings, re-ranker, usage
+│   │   │   └── evals/             # dataset checks and eval scoring
+│   │   ├── migrations/            # Alembic: schema/ and data/
 │   │   └── tests/
-│   ├── shared/contracts/          # contracts both backends implement
+│   ├── shared/contracts/          # HTTP and queue contracts both backends implement
 │   └── web/                       # React + TypeScript
 ├── evals/
-│   ├── datasets/
-│   ├── scenarios/                 # synthetic establishments
+│   ├── datasets/                  # regulation-qa, document-qa, inspection-feedback
+│   ├── establishments/            # synthetic establishments: documents and expected findings
 │   └── reports/
 ├── corpus/                        # versioned regulations + download scripts
 ├── docs/
 │   ├── adr/
-│   ├── design/                    # approved UI mock + design system
-│   └── architecture.md
+│   └── design/                    # approved UI mock, design system, screen specs
 ├── deploy/
-│   ├── docker-compose.yml
-│   └── terraform/
+│   ├── postgres/                  # roles, schemas, bootstrap
+│   └── keycloak/                  # local realm and login theme
 └── .github/workflows/
 ```
+
+Planned for the phase 3 deploy: `deploy/docker-compose.yml` and `deploy/terraform/`.
 
 ## Roadmap
 
@@ -484,8 +523,8 @@ normetry/
 |---|---|---|
 | 0 · Foundation | Monorepo, Aspire, auth, tenants and establishments, PostgreSQL with RLS and isolation tests, CI | Done |
 | 1 · Regulation RAG | Ingestion of the 3 regulations, hybrid search with re-ranker, cited chat with conversations and daily quotas, retrieval eval in CI, generation eval on demand | Done |
-| 2 · Simulated inspection | Async upload and ingestion, LangGraph agent, human review, planted scenarios | Next |
-| 3 · Polish | Change monitor, MCP server, Langfuse, Azure deploy, demo video | Planned |
+| 2 · Simulated inspection | Permissions by profile, async upload and ingestion with versions and expiry dates, synthetic establishments, the LangGraph inspection agent, human review and action plan, chat over the establishment's documents, rate limiting, sandboxed parsing, Overview screen | Done; the first paid eval runs are pending ([#106](https://github.com/KauaVilasBoas/Normetry/issues/106), [#109](https://github.com/KauaVilasBoas/Normetry/issues/109), [#100](https://github.com/KauaVilasBoas/Normetry/issues/100)) |
+| 3 · Polish | Change monitor, MCP server, Langfuse, chat model comparison, re-ranker latency, Azure deploy, demo video | Next |
 
 Phase 3 also adds an MCP server: the .NET core exposes read-only tools (establishments, expiring documents, latest findings) through the official C# MCP SDK, so Claude Desktop can connect straight to the product. A second retrieval adapter, Azure AI Search behind the same interface, will be compared against pgvector by the evals.
 
