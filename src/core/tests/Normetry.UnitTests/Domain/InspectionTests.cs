@@ -32,7 +32,8 @@ public sealed class InspectionTests
     private static FindingResult Result(
         string verdict = "non_compliant",
         ProposedAction? action = null,
-        string theme = "temperature_control"
+        string theme = "temperature_control",
+        string rationale = "The log shows 45°F twice."
     ) =>
         new(
             "us-temp-01",
@@ -41,7 +42,7 @@ public sealed class InspectionTests
             "critical",
             verdict,
             "high",
-            "The log shows 45°F twice.",
+            rationale,
             [new("FDA Food Code", "2022", "3-501.16", "en", "Text.", "41°F", 0, 4)],
             [
                 new(
@@ -75,6 +76,21 @@ public sealed class InspectionTests
         var inspection = Running();
         inspection.Complete(10, 20, 0.01m, [Result(verdict, action)], Now);
         return Assert.Single(inspection.Findings);
+    }
+
+    [Fact]
+    public void Text_limits_count_characters_like_the_message_contract()
+    {
+        // 4000 emoji are 8000 UTF-16 units; MessageJson accepts them, so the domain must too.
+        static string Emoji(int count) => string.Concat(Enumerable.Repeat("🌡", count));
+        var inspection = Running();
+
+        inspection.Complete(10, 20, 0.01m, [Result(rationale: Emoji(4000))], Now);
+
+        Assert.Equal(8000, Assert.Single(inspection.Findings).Rationale.Length);
+        Assert.Throws<ArgumentException>(() =>
+            Running().Complete(10, 20, 0.01m, [Result(rationale: Emoji(4001))], Now)
+        );
     }
 
     [Fact]
