@@ -296,18 +296,23 @@ public sealed class InspectionTests
     }
 
     [Fact]
-    public void Only_a_run_older_than_the_timeout_times_out()
+    public void Only_a_run_or_a_request_older_than_the_timeout_times_out()
     {
         var timeout = TimeSpan.FromMinutes(30);
         var requested = Requested();
         var running = Running();
 
-        Assert.False(requested.TimeOut(timeout, Now.AddDays(1)));
+        Assert.False(requested.TimeOut(timeout, Now.AddMinutes(29)));
+        Assert.True(requested.TimeOut(timeout, Now.AddMinutes(30)));
+        Assert.False(requested.TimeOut(timeout, Now.AddMinutes(31)));
         Assert.False(running.TimeOut(timeout, Now.AddMinutes(29)));
         Assert.True(running.TimeOut(timeout, Now.AddMinutes(30)));
         Assert.False(running.TimeOut(timeout, Now.AddMinutes(31)));
 
-        Assert.Equal(InspectionStatus.Requested, requested.Status);
+        Assert.Equal(
+            (InspectionStatus.Failed, Inspection.TimedOut),
+            (requested.Status, requested.FailureReasonCode)
+        );
         Assert.Equal(
             (InspectionStatus.Failed, Inspection.TimedOut),
             (running.Status, running.FailureReasonCode)

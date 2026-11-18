@@ -16,7 +16,7 @@ internal sealed class TimeOutInspectionsHandler(
     {
         var now = clock.GetUtcNow();
         return (
-            await inspections.ListRunningSinceForUpdateAsync(
+            await inspections.ListInFlightSinceForUpdateAsync(
                 now - options.RunningTimeout,
                 cancellationToken
             )

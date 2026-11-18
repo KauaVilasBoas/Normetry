@@ -38,14 +38,28 @@ public interface IInspectionRepository
     /// <summary>An inspection of the establishment is Requested or Running.</summary>
     Task<bool> HasInFlightAsync(Guid establishmentId, CancellationToken cancellationToken);
 
-    /// <summary>The tenant's inspections that are Requested or Running, across its establishments.</summary>
-    Task<int> CountInFlightAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Holds the tenant's inspection starts until the transaction ends (an advisory lock on the
+    /// tenant id), so concurrent starts of one tenant reach the in-flight count one at a time, on
+    /// any day.
+    /// </summary>
+    Task LockStartsAsync(Guid tenantId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Inspections Running since before <paramref name="before"/>, tracked and locked; the ones
-    /// another transaction holds are skipped.
+    /// The tenant's inspections that are Running, or Requested since
+    /// <paramref name="requestedSince"/>, across its establishments. An older Requested one lost
+    /// its message, and the sweeper fails it.
     /// </summary>
-    Task<IReadOnlyList<Inspection>> ListRunningSinceForUpdateAsync(
+    Task<int> CountInFlightAsync(
+        DateTimeOffset requestedSince,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
+    /// Inspections Running since before <paramref name="before"/>, or still Requested since
+    /// before it, tracked and locked; the ones another transaction holds are skipped.
+    /// </summary>
+    Task<IReadOnlyList<Inspection>> ListInFlightSinceForUpdateAsync(
         DateTimeOffset before,
         CancellationToken cancellationToken
     );

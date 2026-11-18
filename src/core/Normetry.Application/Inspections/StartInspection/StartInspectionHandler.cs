@@ -57,10 +57,15 @@ internal sealed class StartInspectionHandler(
         {
             return InspectionErrors.QuotaExceeded;
         }
-        // After the count on purpose: its upsert locks the tenant's row of the day until commit, so
-        // concurrent starts of one tenant reach this check one at a time and see each other's
-        // inspections. A refusal rolls the count back.
-        if (await inspections.CountInFlightAsync(cancellationToken) >= options.MaxInFlightPerTenant)
+        // The lock holds the tenant's other starts until this one commits, so they count one at a
+        // time and see each other's inspections, also on either side of a UTC midnight (the day
+        // count's row lock covers only one day). A Requested inspection older than the timeout
+        // lost its message and does not count. A refusal rolls the day count back.
+        await inspections.LockStartsAsync(tenant.TenantId, cancellationToken);
+        if (
+            await inspections.CountInFlightAsync(now - options.RunningTimeout, cancellationToken)
+            >= options.MaxInFlightPerTenant
+        )
         {
             return InspectionErrors.Capacity;
         }
