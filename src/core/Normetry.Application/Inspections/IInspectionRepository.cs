@@ -35,6 +35,22 @@ public interface IInspectionRepository
         CancellationToken cancellationToken
     );
 
+    /// <summary>
+    /// The establishment's latest <paramref name="count"/> Completed inspections, most recently
+    /// completed first, with their findings that are not Rejected counted.
+    /// </summary>
+    Task<IReadOnlyList<CompletedInspection>> ListCompletedAsync(
+        Guid establishmentId,
+        int count,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>The inspection's findings that are not Rejected, without their texts and citations.</summary>
+    Task<IReadOnlyList<FindingTally>> ListFindingTalliesAsync(
+        Guid inspectionId,
+        CancellationToken cancellationToken
+    );
+
     /// <summary>An inspection of the establishment is Requested or Running.</summary>
     Task<bool> HasInFlightAsync(Guid establishmentId, CancellationToken cancellationToken);
 
@@ -77,6 +93,27 @@ public interface IInspectionRepository
         CancellationToken cancellationToken
     );
 }
+
+/// <summary>
+/// A Completed inspection: of its findings that are not Rejected, how many there are
+/// (<paramref name="Evaluated"/>) and how many are compliant, by their current verdict.
+/// </summary>
+public sealed record CompletedInspection(
+    Guid Id,
+    DateTimeOffset CompletedAt,
+    int Compliant,
+    int Evaluated
+);
+
+/// <summary>A finding as the overview counts it: codes, review status and its action, if any.</summary>
+public sealed record FindingTally(
+    string Theme,
+    string Severity,
+    string Verdict,
+    ReviewStatus ReviewStatus,
+    ActionItemStatus? ActionStatus,
+    DateOnly? ActionDueOn
+);
 
 /// <summary>
 /// Tells the web clients watching an establishment that an inspection changed. Called only after

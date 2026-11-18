@@ -165,8 +165,8 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
                 permissions.Length > 0 || anonymous || withoutPermission.Contains(action.Name),
                 $"{action.Name} has neither [HasPermission] nor [AllowAnonymous]."
             );
-            Assert.All(permissions, attribute =>
-                Assert.Contains(attribute.Permission, Permissions.All)
+            Assert.All(permissions.SelectMany(attribute => attribute.AnyOf), name =>
+                Assert.Contains(name, Permissions.All)
             );
         });
     }
@@ -196,8 +196,8 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
         {
             var permissions = hub.GetCustomAttributes<HasPermissionAttribute>().ToArray();
             Assert.True(permissions.Length > 0, $"{hub.Name} has no [HasPermission].");
-            Assert.All(permissions, attribute =>
-                Assert.Contains(attribute.Permission, Permissions.All)
+            Assert.All(permissions.SelectMany(attribute => attribute.AnyOf), name =>
+                Assert.Contains(name, Permissions.All)
             );
         });
         Assert.All(methods, method =>
@@ -206,8 +206,8 @@ public sealed class AuthConfigurationTests(ApiFactory factory) : IClassFixture<A
                 .Method.GetCustomAttributes<HasPermissionAttribute>(inherit: false)
                 .ToArray();
             Assert.True(permissions.Length > 0, $"{method.Name} has no [HasPermission].");
-            Assert.All(permissions, attribute =>
-                Assert.Contains(attribute.Permission, Permissions.All)
+            Assert.All(permissions.SelectMany(attribute => attribute.AnyOf), name =>
+                Assert.Contains(name, Permissions.All)
             );
         });
     }

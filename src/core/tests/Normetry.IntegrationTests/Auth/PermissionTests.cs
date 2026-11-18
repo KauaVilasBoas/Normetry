@@ -117,6 +117,31 @@ public sealed class PermissionTests
         Assert.NotEqual(HttpStatusCode.Unauthorized, allowed.StatusCode);
     }
 
+    /// <summary>The one action open to any of two permissions (one attribute naming both).</summary>
+    [Fact]
+    public async Task The_overview_needs_inspections_read_or_documents_read()
+    {
+        var tenant = await TestTenants.CreateAsync(db);
+        string[] either = [Permissions.Inspections.Read, Permissions.Documents.Read];
+        var neither = Guid.NewGuid().ToString();
+        await TestTenants.GrantAsync(db, tenant, neither, [.. Permissions.All.Except(either)]);
+        var path = $"/establishments/{Guid.CreateVersion7()}/overview";
+
+        using var denied = await SendAsync(tenant, neither, "GET", path);
+
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        var problem = await denied.Content.ReadFromJsonAsync<ProblemDetails>(Ct);
+        Assert.Equal("permission.denied", problem!.Extensions["code"]!.ToString());
+        Assert.Contains("inspections.read or documents.read", problem.Detail);
+        foreach (var permission in either)
+        {
+            var sub = Guid.NewGuid().ToString();
+            await TestTenants.GrantAsync(db, tenant, sub, permission);
+            using var allowed = await SendAsync(tenant, sub, "GET", path);
+            Assert.Equal(HttpStatusCode.NotFound, allowed.StatusCode);
+        }
+    }
+
     [Fact]
     public void Every_permission_an_action_requires_has_a_case()
     {
@@ -124,7 +149,7 @@ public sealed class PermissionTests
             .Assembly.GetTypes()
             .SelectMany(type => type.GetMethods().Append<MemberInfo>(type))
             .SelectMany(member => member.GetCustomAttributes<HasPermissionAttribute>())
-            .Select(attribute => attribute.Permission)
+            .SelectMany(attribute => attribute.AnyOf)
             .Append(Permissions.Chat.Ask) // the YARP routes
             .ToHashSet();
 
