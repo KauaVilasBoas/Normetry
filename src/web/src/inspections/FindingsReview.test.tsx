@@ -206,6 +206,12 @@ const optionsOf = (select: HTMLElement) =>
     .map((option) => option.textContent);
 const actionPlan = () => screen.findByRole("region", { name: "Action plan" });
 const sheetRegion = (sheet: HTMLElement) => sheet.querySelector('[aria-live="polite"]');
+/** The 20px neutral icon above an empty or no-match message. */
+const emptyIcon = (title: string) => {
+  const icon = screen.getByRole("heading", { level: 3, name: title }).previousElementSibling;
+  expect(icon).toHaveClass("size-5", "text-neutral");
+  return icon;
+};
 
 /** Opens a finding from its row; resolves to the sheet once its title has focus. */
 async function openFinding(finding: Finding) {
@@ -274,6 +280,7 @@ describe("findings table", () => {
     expect(
       screen.getByRole("heading", { level: 3, name: "No findings match these filters" }),
     ).toBeVisible();
+    expect(emptyIcon("No findings match these filters")).toHaveClass("lucide-list-filter");
     expect(screen.queryByRole("table")).toBeNull();
     await expectNoAxeViolations();
 
@@ -314,6 +321,8 @@ describe("findings table", () => {
     expect(screen.getByText("0 findings")).toBeVisible();
     expect(screen.queryByRole("combobox", { name: "Filter by verdict" })).toBeNull();
     expect(screen.getByRole("heading", { level: 3, name: "No actions to take" })).toBeVisible();
+    expect(emptyIcon("No findings were kept")).toHaveClass("lucide-search-x");
+    expect(emptyIcon("No actions to take")).toHaveClass("lucide-list-checks");
     await expectNoAxeViolations();
   });
 
@@ -360,9 +369,11 @@ describe("finding sheet", () => {
     expect(whole).not.toHaveAttribute("open");
     expect(whole.querySelector("mark")).toHaveTextContent(logQuote);
     expect(whole.querySelector('[lang="pt"]')).toHaveTextContent(/^Registo de outubro: .*4 °C\.$/);
-    const open = within(sheet).getByRole("link", { name: "Open document" });
+    // Named with the document, so several cited documents' links stay apart.
+    const open = within(sheet).getByRole("link", {
+      name: "Open document Walk-in temperature log",
+    });
     expect(open).toHaveAttribute("href", "/documents/d-log");
-    expect(open).toHaveAccessibleDescription("Walk-in temperature log");
     expect(within(sheet).getByText("Version 3 · Portuguese")).toBeVisible();
     expect(within(sheet).getByText(`Due ${calendarDate(dayFromToday(7))}`)).toBeVisible();
     expect(within(sheet).getByText("Due in 7 days")).toBeVisible();
@@ -404,6 +415,16 @@ describe("finding sheet", () => {
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.getByRole("button", { name: pests.title })).toHaveFocus());
+  });
+
+  it("shows a done action as Done instead of its due badge", async () => {
+    renderCompleted();
+    const sheet = await openFinding(training);
+
+    expect(within(sheet).getByText(`Due ${calendarDate(dayFromToday(30))}`)).toBeVisible();
+    expect(within(sheet).getByText("Done")).toBeVisible();
+    expect(within(sheet).queryByText(/^Due in /)).toBeNull();
+    await expectNoAxeViolations();
   });
 
   it("keeps a finding edited out of the filter reachable until it closes", async () => {
@@ -465,7 +486,9 @@ describe("finding sheet", () => {
     });
     const sheet = await openFinding(fridge);
 
-    await userEvent.click(within(sheet).getByRole("link", { name: "Open document" }));
+    await userEvent.click(
+      within(sheet).getByRole("link", { name: "Open document Walk-in temperature log" }),
+    );
 
     await waitFor(() => expect(window.location.pathname).toBe("/documents/d-log"));
     await waitFor(() =>
@@ -706,8 +729,15 @@ describe("action plan", () => {
     expect(within(plan).getByText("2 open · 1 done")).toBeVisible();
     const boxes = within(plan).getAllByRole("checkbox");
     expect(boxes[1]).toHaveAccessibleName(fridge.actionItem!.text);
+    // The badge outside the label is part of the description; a done action has none.
+    expect(boxes[0]).toHaveAccessibleDescription(
+      `${hands.title} · Due ${calendarDate(dayFromToday(-2))} Overdue`,
+    );
     expect(boxes[1]).toHaveAccessibleDescription(
-      `${fridge.title} · Due ${calendarDate(dayFromToday(7))}`,
+      `${fridge.title} · Due ${calendarDate(dayFromToday(7))} Due in 7 days`,
+    );
+    expect(boxes[2]).toHaveAccessibleDescription(
+      `${training.title} · Due ${calendarDate(dayFromToday(30))}`,
     );
     expect(boxes.map((box) => (box as HTMLInputElement).checked)).toEqual([false, false, true]);
     await expectNoAxeViolations();
@@ -758,6 +788,36 @@ describe("action plan", () => {
     expect(calls(fetch, reopen, "POST")).toHaveLength(1);
   });
 
+  it("goes read-only when a toggle is refused, keeping its error and focus on the card", async () => {
+    const fetch = renderCompleted({
+      "/me": [
+        { body: me },
+        { body: { ...me, permissions: allPermissions.filter((p) => p !== "inspections.review") } },
+      ],
+      [`POST ${INSPECTION}/action-items/a-fridge/done`]: {
+        status: 403,
+        body: { code: "permission.denied" },
+      },
+    });
+    const plan = await actionPlan();
+
+    await userEvent.click(within(plan).getAllByRole("checkbox")[1]);
+
+    expect(await within(plan).findByRole("alert")).toHaveTextContent(
+      "You no longer have permission to do this.",
+    );
+    await waitFor(() => expect(within(plan).queryByRole("checkbox")).toBeNull());
+    expect(calls(fetch, "/me")).toHaveLength(2);
+    expect(within(plan).getAllByRole("listitem")[1]).toHaveTextContent(
+      /^Open: Record the walk-in temperature/,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Action plan" })).toHaveFocus(),
+    );
+    expect(within(plan).getByRole("alert")).toBeVisible();
+    await expectNoAxeViolations();
+  });
+
   it("shows actions and findings read-only without inspections.review", async () => {
     renderCompleted({}, { permissions: readOnly });
 
@@ -766,7 +826,10 @@ describe("action plan", () => {
       expect.stringMatching(/^Open: Record the walk-in temperature/),
       expect.stringMatching(/^Done: Train every food handler/),
     ]);
-    expect(within(await actionPlan()).queryByRole("checkbox")).toBeNull();
+    const plan = await actionPlan();
+    expect(within(plan).queryByRole("checkbox")).toBeNull();
+    // An open action reads as plainly as a done one.
+    expect(within(plan).getByText(hands.actionItem!.text)).not.toHaveClass("text-text-secondary");
     await expectNoAxeViolations();
 
     const sheet = await openFinding(fridge);
@@ -775,7 +838,7 @@ describe("action plan", () => {
     expect(within(sheet).queryByRole("button", { name: "Edit" })).toBeNull();
     // Without documents.read the document is named, not linked.
     expect(within(sheet).getByText("Walk-in temperature log")).toBeVisible();
-    expect(within(sheet).queryByRole("link", { name: "Open document" })).toBeNull();
+    expect(within(sheet).queryByRole("link", { name: /^Open document/ })).toBeNull();
     await expectNoAxeViolations();
   });
 });

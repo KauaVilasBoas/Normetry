@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "../test/fakes";
 import {
+  Checkbox,
   ChecklistRow,
   FilterSelect,
   QuotedPassage,
   RadialProgress,
+  ReadOnlyCheckbox,
   StatusPill,
   Stepper,
   TextAreaField,
@@ -296,4 +298,31 @@ it("has no axe violations", async () => {
   );
 
   await expectNoAxeViolations();
+});
+
+describe("Checkbox", () => {
+  it("adds a described-by id after its own description", () => {
+    render(
+      <>
+        <Checkbox label="Record the temperature" description="Due Nov 23" aria-describedby="b" />
+        <span id="b">Overdue</span>
+      </>,
+    );
+
+    expect(screen.getByRole("checkbox")).toHaveAccessibleDescription("Due Nov 23 Overdue");
+  });
+});
+
+describe("ReadOnlyCheckbox", () => {
+  it("dims an unchecked row unless told not to", () => {
+    render(
+      <>
+        <ReadOnlyCheckbox checked={false} state="Not granted:" label="Dimmed" />
+        <ReadOnlyCheckbox checked={false} state="Open:" label="Plain" dimUnchecked={false} />
+      </>,
+    );
+
+    expect(screen.getByText("Dimmed")).toHaveClass("text-text-secondary");
+    expect(screen.getByText("Plain")).not.toHaveClass("text-text-secondary");
+  });
 });

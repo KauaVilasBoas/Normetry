@@ -421,11 +421,19 @@ describe("run inspection", () => {
     await userEvent.click(run);
 
     expect(
-      await screen.findByText("Your organization already has inspections running."),
+      await screen.findByText(
+        "Your organization is running as many inspections as it can at once.",
+      ),
     ).toBeVisible();
-    expect(screen.getByText("You can run another one when one of them finishes.")).toBeVisible();
     expect(
-      screen.getByText("Your organization already has inspections running.").closest("[role]"),
+      screen.getByText(
+        "You can run one here when an inspection of another establishment finishes.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen
+        .getByText("Your organization is running as many inspections as it can at once.")
+        .closest("[role]"),
     ).toHaveAttribute("role", "status");
     expect(run).not.toHaveAttribute("aria-disabled", "true");
     expect(within(card()).queryByRole("link", { name: "View progress" })).toBeNull();

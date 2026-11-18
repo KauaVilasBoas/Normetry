@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ListFilter, SearchX } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Finding, InspectionDetail } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
@@ -111,6 +111,7 @@ export function FindingsCard({
         <div className="px-5 pb-5">
           <Message
             className="items-start"
+            icon={<SearchX aria-hidden="true" className="size-5 text-neutral" />}
             title={copy.findings.noneTitle}
             body={copy.findings.noneBody}
           />
@@ -119,6 +120,7 @@ export function FindingsCard({
         <div className="px-5 pb-5">
           <Message
             className="items-start"
+            icon={<ListFilter aria-hidden="true" className="size-5 text-neutral" />}
             title={copy.findings.noMatchTitle}
             body={copy.findings.noMatchBody}
           />
