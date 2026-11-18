@@ -172,13 +172,18 @@ public sealed class Inspection
     }
 
     /// <summary>
-    /// Running for at least <paramref name="timeout"/>: Failed with <see cref="TimedOut"/>.
-    /// Requested never times out: the queue is durable and the inspection waits for the AI service.
+    /// Running for at least <paramref name="timeout"/> since it started, or still Requested that
+    /// long after the request (its message was lost or no worker took it): Failed with
+    /// <see cref="TimedOut"/>, so it no longer holds the tenant's in-flight slots. A late
+    /// completion still applies.
     /// </summary>
     public bool TimeOut(TimeSpan timeout, DateTimeOffset now) =>
-        Status == InspectionStatus.Running
-        && now - StartedAt!.Value >= timeout
-        && Fail(TimedOut, "The inspection took too long and was stopped.", now);
+        Status switch
+        {
+            InspectionStatus.Running => now - StartedAt!.Value >= timeout,
+            InspectionStatus.Requested => now - RequestedAt >= timeout,
+            _ => false,
+        } && Fail(TimedOut, "The inspection took too long and was stopped.", now);
 
     private static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength];

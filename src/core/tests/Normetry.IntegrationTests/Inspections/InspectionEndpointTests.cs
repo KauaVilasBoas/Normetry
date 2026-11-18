@@ -161,8 +161,8 @@ public sealed class InspectionEndpointTests
     [Fact]
     public async Task Concurrent_starts_across_establishments_never_pass_the_tenants_cap()
     {
-        // Each start passes its establishment's check, so only the tenant's day row, which the
-        // count locks, keeps them from all seeing fewer than two in flight.
+        // Each start passes its establishment's check, so only the tenant's start lock keeps them
+        // from all seeing fewer than two in flight.
         var first = await NewTargetAsync(db);
         Target[] targets =
         [
@@ -186,6 +186,92 @@ public sealed class InspectionEndpointTests
             await AssertProblemAsync(refused, HttpStatusCode.Conflict, "inspection_capacity");
         }
         Assert.Equal(2, await CountAsync(db, first.Tenant));
+    }
+
+    [Fact]
+    public async Task Starts_on_either_side_of_a_UTC_midnight_wait_for_each_other_and_never_pass_the_cap()
+    {
+        // Each counts on its own day's row, so that row's lock cannot order them. The test holds
+        // the tenant's start lock until both wait for it.
+        var clock = new TestClock(new DateTimeOffset(2031, 3, 4, 23, 59, 59, TimeSpan.Zero));
+        await using var api = db.Api.WithWebHostBuilder(host =>
+            host.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock))
+        );
+        var first = await NewTargetAsync(db);
+        var (late, early) = (await SiblingAsync(db, first), await SiblingAsync(db, first));
+        using var client = Client(api, first);
+        await StartAsync(client, first);
+        await using var holder = await Session.BeginAsync(
+            db.ConnectionString("app_core"),
+            first.Tenant
+        );
+        await holder.ExecuteAsync(
+            "SELECT pg_advisory_xact_lock(1, hashtext($1))",
+            first.Tenant.ToString()
+        );
+
+        var lateStart = client.PostAsync(StartPath(late), null, Ct);
+        await WaitForStartLockWaitersAsync(1);
+        clock.Now = new DateTimeOffset(2031, 3, 5, 0, 0, 1, TimeSpan.Zero);
+        var earlyStart = client.PostAsync(StartPath(early), null, Ct);
+        await WaitForStartLockWaitersAsync(2);
+        await holder.CommitAsync();
+        var responses = await Task.WhenAll(lateStart, earlyStart);
+
+        Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Accepted);
+        await AssertProblemAsync(
+            responses.Single(response => response.StatusCode != HttpStatusCode.Accepted),
+            HttpStatusCode.Conflict,
+            "inspection_capacity"
+        );
+        foreach (var response in responses)
+        {
+            response.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task A_request_older_than_the_timeout_no_longer_holds_a_slot()
+    {
+        var first = await NewTargetAsync(db);
+        var (second, third) = (await SiblingAsync(db, first), await SiblingAsync(db, first));
+        using var client = Client(db.Api, first);
+        var lost = await StartAsync(client, first);
+        await StartAsync(client, second);
+        await using (
+            var session = await Session.BeginAsync(db.ConnectionString("app_core"), first.Tenant)
+        )
+        {
+            // Its InspectionRequested never reached a worker, and the sweeper has not run yet.
+            await session.ExecuteAsync(
+                "UPDATE core.inspections SET requested_at = now() - interval '31 minutes' WHERE id = $1",
+                lost
+            );
+            await session.CommitAsync();
+        }
+
+        await StartAsync(client, third);
+    }
+
+    /// <summary>Waits until <paramref name="count"/> starts wait for a tenant's start lock.</summary>
+    private async Task WaitForStartLockWaitersAsync(int count)
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            await using var session = await Session.BeginAsync(db.ConnectionString("app_core"));
+            var waiting = await session.ScalarAsync<long>(
+                """
+                SELECT count(*) FROM pg_locks
+                WHERE locktype = 'advisory' AND classid = 1 AND objsubid = 2 AND NOT granted
+                """
+            );
+            if (waiting == count)
+            {
+                return;
+            }
+            await Task.Delay(100, Ct);
+        }
+        Assert.Fail($"{count} starts never waited for the tenant's start lock.");
     }
 
     /// <summary>Another establishment of <paramref name="target"/>'s tenant, with its indexed document.</summary>

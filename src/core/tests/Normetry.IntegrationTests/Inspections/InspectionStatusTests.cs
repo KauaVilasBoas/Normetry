@@ -295,11 +295,12 @@ public sealed class InspectionStatusTests
     }
 
     [Fact]
-    public async Task A_run_past_the_timeout_fails_and_a_late_completion_still_applies()
+    public async Task A_run_or_a_request_past_the_timeout_fails_and_a_late_completion_still_applies()
     {
         var stuck = await StartAsync();
-        var waiting = await StartAsync();
+        var lost = await StartAsync();
         var recent = await StartAsync();
+        var queued = await StartAsync();
         foreach (var run in new[] { stuck, recent })
         {
             await HandleAsync(
@@ -308,23 +309,33 @@ public sealed class InspectionStatusTests
             );
         }
         await AgeAsync(stuck, "started_at", TimeSpan.FromMinutes(31));
-        // Requested never times out: the inspection waits for the AI service.
-        await AgeAsync(waiting, "requested_at", TimeSpan.FromHours(2));
+        // No worker took it (its message was lost).
+        await AgeAsync(lost, "requested_at", TimeSpan.FromMinutes(31));
+        // Long in the queue, but Running only briefly: only the run counts.
+        await AgeAsync(recent, "requested_at", TimeSpan.FromHours(2));
+        await AgeAsync(queued, "requested_at", TimeSpan.FromMinutes(29));
         var sweeper = ActivatorUtilities.CreateInstance<ProcessingTimeoutSweeper>(db.Api.Services);
 
         // Other tenants' sweeps never reach the stuck inspection.
-        Assert.Empty(await sweeper.SweepInspectionsAsync(waiting.Target.Tenant, Ct));
         Assert.Empty(await sweeper.SweepInspectionsAsync(recent.Target.Tenant, Ct));
+        Assert.Empty(await sweeper.SweepInspectionsAsync(queued.Target.Tenant, Ct));
         Assert.Equal(("Running", 0, (string?)null), await StateAsync(stuck));
         var change = Assert.Single(await sweeper.SweepInspectionsAsync(stuck.Target.Tenant, Ct));
+        var lostChange = Assert.Single(await sweeper.SweepInspectionsAsync(lost.Target.Tenant, Ct));
 
         Assert.Equal(
-            (stuck.Inspection, "timed_out"),
-            (change.InspectionId, change.FailureReasonCode)
+            (stuck.Inspection, "timed_out", lost.Inspection, "timed_out"),
+            (
+                change.InspectionId,
+                change.FailureReasonCode,
+                lostChange.InspectionId,
+                lostChange.FailureReasonCode
+            )
         );
         Assert.Equal(("Failed", 0, "timed_out"), await StateAsync(stuck));
-        Assert.Equal(("Requested", 0, (string?)null), await StateAsync(waiting));
+        Assert.Equal(("Failed", 0, "timed_out"), await StateAsync(lost));
         Assert.Equal(("Running", 0, (string?)null), await StateAsync(recent));
+        Assert.Equal(("Requested", 0, (string?)null), await StateAsync(queued));
 
         await HandleAsync(stuck, Completed(stuck.Target.Establishment, stuck.Inspection));
         Assert.Equal(("Completed", 0, (string?)null), await StateAsync(stuck));

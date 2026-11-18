@@ -655,7 +655,9 @@ public sealed class FindingReviewTests
             )
         );
 
-        // Another tenant cannot export it, through either establishment, and nothing is written.
+        // Another tenant cannot export it, through either establishment, and nothing is written:
+        // the file is gone first, so even a rewrite with the same bytes would show.
+        File.Delete(path);
         using var otherClient = Client(db.Api, other.Target);
         using var foreign = await otherClient.PostAsync($"{run.Path}/feedback-export", null, Ct);
         using var throughOwn = await otherClient.PostAsync(
@@ -665,9 +667,7 @@ public sealed class FindingReviewTests
         );
         await AssertProblemAsync(foreign, HttpStatusCode.NotFound, "inspection.not_found");
         await AssertProblemAsync(throughOwn, HttpStatusCode.NotFound, "inspection.not_found");
-        Assert.False(
-            File.Exists(Path.Combine(db.Api.FeedbackDirectory, $"{other.Inspection}.jsonl"))
-        );
+        Assert.False(File.Exists(path));
     }
 
     [Fact]

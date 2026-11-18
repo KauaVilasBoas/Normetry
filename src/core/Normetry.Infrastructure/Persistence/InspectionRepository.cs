@@ -79,16 +79,30 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
             cancellationToken
         );
 
-    // The partial unique index on (tenant_id, establishment_id) for these statuses serves it.
-    public Task<int> CountInFlightAsync(CancellationToken cancellationToken) =>
-        db.Inspections.CountAsync(
-            inspection =>
-                inspection.Status == InspectionStatus.Requested
-                || inspection.Status == InspectionStatus.Running,
+    // The first key of the two-key advisory locks taken on inspection starts, so they never meet
+    // another advisory lock; a hash collision between tenants only serializes their starts.
+    private const int StartsLockClass = 1;
+
+    public Task LockStartsAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        db.Database.ExecuteSqlAsync(
+            $"SELECT pg_advisory_xact_lock({StartsLockClass}, hashtext({tenantId.ToString()}))",
             cancellationToken
         );
 
-    public async Task<IReadOnlyList<Inspection>> ListRunningSinceForUpdateAsync(
+    // The partial unique index on (tenant_id, establishment_id) for these statuses serves it.
+    public Task<int> CountInFlightAsync(
+        DateTimeOffset requestedSince,
+        CancellationToken cancellationToken
+    ) =>
+        db.Inspections.CountAsync(
+            inspection =>
+                inspection.Status == InspectionStatus.Running
+                || inspection.Status == InspectionStatus.Requested
+                    && inspection.RequestedAt >= requestedSince,
+            cancellationToken
+        );
+
+    public async Task<IReadOnlyList<Inspection>> ListInFlightSinceForUpdateAsync(
         DateTimeOffset before,
         CancellationToken cancellationToken
     )
@@ -98,6 +112,7 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
                 $"""
                 SELECT id AS "Value" FROM core.inspections
                 WHERE status = 'Running' AND started_at < {before}
+                    OR status = 'Requested' AND requested_at < {before}
                 FOR UPDATE SKIP LOCKED
                 """
             )
