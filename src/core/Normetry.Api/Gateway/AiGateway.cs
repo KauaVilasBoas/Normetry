@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Normetry.Api.Auth;
+using Normetry.Api.RateLimiting;
 using Normetry.Domain.Identity;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Transforms;
@@ -70,14 +71,19 @@ internal static class AiGateway
 
         // The literal "establishments" segment wins over the catch-all, in any case. The id is
         // not constrained in the pattern: a malformed one must get 404 from EstablishmentScope,
-        // not fall through to the catch-all route without establishment headers.
+        // not fall through to the catch-all route without establishment headers. Conversations
+        // and messages (each a model call) go through the establishment route, so it takes the
+        // stricter chat limit; reading and deleting conversations take only the global one.
         RouteConfig[] routes =
         [
             Route("ai", $"/ai/{{**{EstablishmentScope.CatchAllRouteValue}}}"),
             Route(
                 EstablishmentScope.RouteId,
                 $"/ai/establishments/{{**{EstablishmentScope.RouteValue}}}"
-            ),
+            ) with
+            {
+                RateLimiterPolicy = RateLimitPolicies.Chat,
+            },
         ];
         ClusterConfig[] clusters =
         [

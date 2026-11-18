@@ -4,6 +4,7 @@ using Normetry.Api.Chat;
 using Normetry.Api.Documents;
 using Normetry.Api.Gateway;
 using Normetry.Api.Inspections;
+using Normetry.Api.RateLimiting;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.Infrastructure;
 
@@ -15,6 +16,7 @@ builder.AddAiGateway();
 builder.AddChat();
 builder.AddDocuments();
 builder.AddInspections();
+builder.AddRateLimiting();
 builder.Services.AddProblemDetails();
 builder
     .Services.AddControllers(options =>
@@ -41,6 +43,10 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();
+
+// After authentication, which gives the partition its tenant and user, and before authorization,
+// whose permission check reads the database.
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapDefaultEndpoints();
 app.MapControllers();
