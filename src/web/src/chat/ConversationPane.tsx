@@ -98,7 +98,7 @@ export function ConversationPane({
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [notFound, setNotFound] = useState(false);
-  /** A rate limit holds Send `until` then; `when` says it ("in 1 minute"). */
+  /** A rate limit holds Send `until` then; `when` says it ("in 3 seconds"). */
   const [limit, setLimit] = useState<{ until: number; when: string }>();
   const nextKey = useRef(0);
   const inFlight = useRef<AbortController | null>(null);

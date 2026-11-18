@@ -48,6 +48,13 @@ const buttonBase =
 export const secondaryButton = `${buttonBase} ${buttonVariants.secondary} hover:bg-elevated`;
 
 /**
+ * DESIGN.md Text action: a secondary inline action shown as a link ("Edit expiry date", "Open
+ * document"), never the view's primary. 24px tall, a reachable target beside text (WCAG 2.5.8).
+ */
+export const textAction =
+  "inline-flex h-6 items-center rounded-sm text-small font-medium text-mint hover:underline";
+
+/**
  * DESIGN.md buttons: one primary per view; text on mint is always --on-mint. A secondary button
  * hovers to --bg-elevated, or to --bg-inset when it sits on --bg-elevated (`onElevated`).
  */
@@ -337,15 +344,18 @@ export function ErrorMessage({
 
 /**
  * Opens a citation's source; `aria-expanded` while its passage is the one shown. `icon` leads the
- * label (a document citation's `FileText`).
+ * label (a document citation's `FileText`); `detail` follows it and keeps up to half the chip, so a
+ * long title truncates before the section does.
  */
 export function CitationChip({
   label,
+  detail,
   expanded,
   icon: Icon,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   label: string;
+  detail?: string;
   expanded: boolean;
   icon?: LucideIcon;
 }) {
@@ -360,7 +370,8 @@ export function CitationChip({
       {...props}
     >
       {Icon && <Icon aria-hidden="true" className="size-3.5 shrink-0" />}
-      <span className="truncate">{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
+      {detail && <span className="max-w-1/2 shrink-0 truncate">{detail}</span>}
       <ArrowRight aria-hidden="true" className="size-3.5 shrink-0" />
     </button>
   );

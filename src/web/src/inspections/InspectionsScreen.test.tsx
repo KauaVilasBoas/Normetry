@@ -379,7 +379,7 @@ describe("run inspection", () => {
     await userEvent.click(run);
 
     expect(await screen.findByText("Too many requests right now.")).toBeVisible();
-    expect(run).toHaveAccessibleDescription("Try again in 1 minute.");
+    expect(run).toHaveAccessibleDescription("Try again in 1 second.");
     await waitFor(() => expect(screen.queryByText("Too many requests right now.")).toBeNull(), {
       timeout: 3000,
     });

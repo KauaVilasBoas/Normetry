@@ -99,7 +99,8 @@ export function SourcePanel({
               {citation.documentTitle ?? copy.source.untitledDocument}
             </p>
             <p className="mt-1 text-caption text-text-secondary tabular-nums">
-              {format(copy.source.documentMeta, {
+              {/* A TXT file, or DOCX text before its first heading, has no section. */}
+              {format(citation.sectionPath ? copy.source.documentMeta : copy.source.meta, {
                 section: citation.sectionPath,
                 version: String(citation.documentVersion),
                 language: languageName(citation.language),

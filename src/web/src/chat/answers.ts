@@ -258,13 +258,16 @@ export function quotaAfter(
 export const rateLimited = async (response: Response) =>
   response.status === 429 && (await problemCode(response)) === "rate_limited";
 
-/** "in 6 hours" from one hour on, else "in 12 minutes"; rounded up so it is never too early. */
+/**
+ * "in 6 hours" from one hour on, "in 12 minutes" from one minute on, else "in 3 seconds" (a rate
+ * limit's `Retry-After`); rounded up so it is never too early.
+ */
 export function untilReset(resetsAt: number, now: number): string {
   const ms = Math.max(0, resetsAt - now);
   const relative = new Intl.RelativeTimeFormat(locale);
-  return ms >= 3_600_000
-    ? relative.format(Math.ceil(ms / 3_600_000), "hour")
-    : relative.format(Math.max(1, Math.ceil(ms / 60_000)), "minute");
+  if (ms >= 3_600_000) return relative.format(Math.ceil(ms / 3_600_000), "hour");
+  if (ms >= 60_000) return relative.format(Math.ceil(ms / 60_000), "minute");
+  return relative.format(Math.max(1, Math.ceil(ms / 1000)), "second");
 }
 
 export function quotaNoticeText(quota: ChatQuota, now = Date.now()) {

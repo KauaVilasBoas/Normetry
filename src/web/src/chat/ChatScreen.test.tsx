@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { createAuth } from "../auth/session";
 import {
@@ -12,6 +12,36 @@ import {
   sseResponse,
   stubApi,
 } from "../test/fakes";
+
+// The chat has no hub; the Documents page an "Open document" link lands on connects and stays quiet.
+vi.mock("@microsoft/signalr", () => ({
+  HttpTransportType: { WebSockets: 1 },
+  HubConnectionState: { Connected: "Connected" },
+  LogLevel: { Warning: 3 },
+  HubConnectionBuilder: class {
+    withUrl() {
+      return this;
+    }
+    withAutomaticReconnect() {
+      return this;
+    }
+    configureLogging() {
+      return this;
+    }
+    build() {
+      return {
+        state: "Connected",
+        start: () => Promise.resolve(),
+        stop: () => Promise.resolve(),
+        invoke: () => Promise.resolve(),
+        on: () => {},
+        onreconnecting: () => {},
+        onreconnected: () => {},
+        onclose: () => {},
+      };
+    }
+  },
+}));
 
 const storageKey = `normetry.establishment.${me.tenantId}.${me.userId}`;
 const never = () => new Promise<Response>(() => {});
@@ -368,7 +398,7 @@ describe("a streamed answer", () => {
 
     const notice = await within(conversation()).findByText("Too many requests right now.");
     expect(notice).toBeVisible();
-    expect(within(conversation()).getByText("Try again in 1 minute.")).toBeVisible();
+    expect(within(conversation()).getByText("Try again in 3 seconds.")).toBeVisible();
     expect(screen.queryByText("You've used all of today's messages")).toBeNull();
     expect(screen.getByText("12 of 20 messages left today")).toBeVisible();
     expect(await composer()).toHaveValue(question);
@@ -376,7 +406,7 @@ describe("a streamed answer", () => {
     expect(send).toHaveAttribute("aria-disabled", "true");
     expect(send).toHaveAccessibleDescription(/Too many requests right now/);
     expect(liveRegion()).toHaveTextContent("Too many requests right now.");
-    expect(liveRegion()).toHaveTextContent("Try again in 1 minute.");
+    expect(liveRegion()).toHaveTextContent("Try again in 3 seconds.");
     await expectNoAxeViolations();
   });
 
@@ -709,9 +739,11 @@ describe("source panel", () => {
         name: "View source · Annex II, Chapter IX",
       });
       const chip = screen.getByRole("button", {
-        name: "View source · Cold holding SOP · Page 1 (this establishment's document)",
+        name: "Cold holding SOP · Page 1 (this establishment's document), view source",
       });
-      expect(chip).toHaveTextContent(/^Cold holding SOP · Page 1$/);
+      // The title truncates first; the section keeps up to half the chip.
+      expect(within(chip).getByText("Cold holding SOP")).toHaveClass("min-w-0", "truncate");
+      expect(within(chip).getByText("· Page 1")).toHaveClass("shrink-0", "max-w-1/2");
       expect(chip.querySelectorAll("svg")).toHaveLength(2);
       expect(regulationChip.querySelectorAll("svg")).toHaveLength(1);
       await expectNoAxeViolations();
@@ -754,7 +786,7 @@ describe("source panel", () => {
       );
 
       const chip = await screen.findByRole("button", {
-        name: "View source · Document · Page 1 (this establishment's document)",
+        name: "Document · Page 1 (this establishment's document), view source",
       });
       await userEvent.click(chip);
 
@@ -764,6 +796,55 @@ describe("source panel", () => {
       expect(sheet.querySelector("mark")).toHaveTextContent(sopQuote);
       expect(within(sheet).queryByRole("link")).toBeNull();
       await expectNoAxeViolations();
+    });
+
+    it("shows the title alone, and no section in the meta, when the passage has no section", async () => {
+      openSaved(1280, both(documentCitation({ sectionPath: "" })));
+
+      const chip = await screen.findByRole("button", {
+        name: "Cold holding SOP (this establishment's document), view source",
+      });
+      expect(chip).toHaveTextContent(/^Cold holding SOP$/);
+      await userEvent.click(chip);
+
+      const panel = screen.getByRole("complementary", { name: "Source" });
+      expect(within(panel).getByText("Version 3 · English")).toBeVisible();
+    });
+
+    it("opens the document's page from the sheet, its heading focused", async () => {
+      renderChat(
+        {
+          "/ai/conversations": { body: [summary("c-1")] },
+          "/ai/conversations/c-1": { body: both(documentCitation()) },
+          "/establishments/e-lisboa/documents": { body: [] },
+          "/documents/d-1": {
+            body: {
+              id: "d-1",
+              establishmentId: "e-lisboa",
+              title: "Cold holding SOP",
+              type: "Sop",
+              createdAt: "2026-11-13T09:30:00+00:00",
+              updatedAt: "2026-11-13T09:30:00+00:00",
+              currentVersionNumber: 3,
+              expiresOn: null,
+              versions: [],
+            },
+          },
+        },
+        { path: "/conversations/c-1", width: 1024 },
+      );
+      await userEvent.click(
+        await screen.findByRole("button", { name: /^Cold holding SOP · Page 1 / }),
+      );
+      const sheet = await screen.findByRole("dialog", { name: "Source" });
+
+      await userEvent.click(within(sheet).getByRole("link", { name: "Open document" }));
+
+      await waitFor(() => expect(window.location.pathname).toBe("/documents/d-1"));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      await waitFor(() =>
+        expect(screen.getByRole("heading", { level: 2, name: "Cold holding SOP" })).toHaveFocus(),
+      );
     });
   });
 });
