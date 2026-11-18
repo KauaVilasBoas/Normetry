@@ -90,10 +90,23 @@ class RetrievalSettings(BaseSettings):
     # search and the RRF constant above, and these two in place of the corpus ones.
     retrieval_establishment_rerank_candidates: int = Field(default=10, ge=1)
     retrieval_establishment_top_k: int = Field(default=5, ge=1)
+    # The chat (hybrid.py with an establishment) adds the establishment's documents: k per search
+    # and fused candidates re-ranked with the corpus's, and at most this many document chunks in
+    # the top k, so documents never crowd the regulation out (fewer than retrieval_top_k).
+    retrieval_document_k: int = Field(default=5, ge=1)
+    retrieval_document_top_k: int = Field(default=3, ge=1)
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_model_revision: str = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
     # Tokens per (question, chunk) pair; the longest corpus chunk is about 535 tokens.
     reranker_max_length: int = Field(default=1024, ge=1)
+
+    @model_validator(mode="after")
+    def _documents_leave_room_for_the_regulation(self) -> Self:
+        if self.retrieval_document_top_k >= self.retrieval_top_k:
+            raise ValueError(
+                "NORMETRY_RETRIEVAL_DOCUMENT_TOP_K must be lower than NORMETRY_RETRIEVAL_TOP_K"
+            )
+        return self
 
 
 class ModelPrice(BaseModel):

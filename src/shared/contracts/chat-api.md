@@ -78,6 +78,7 @@ Refusals and unavailable answers carry no display text: the web shows its own co
   "citations": [
     {
       "id": "0b6e...",
+      "sourceType": "regulation",
       "sourceTitle": "FDA Food Code",
       "sourceVersion": "2026",
       "language": "en",
@@ -92,8 +93,41 @@ Refusals and unavailable answers carry no display text: the web shows its own co
 }
 ```
 
-- A claim has at least one citation, each checked against its chunk before the claim was sent (ADR 007).
-- A citation is a copy stored with the answer: `text` is the chunk as it was cited, so an old citation still opens after its source gets a new version. The app never needs to fetch it.
+A citation of one of the establishment's own documents (the conversation's establishment only, its current version):
+
+```json
+{
+  "id": "5d2a...",
+  "sourceType": "document",
+  "sourceTitle": null,
+  "sourceVersion": null,
+  "officialUrl": null,
+  "documentId": "9e41...",
+  "documentTitle": "Cold holding SOP",
+  "documentType": "Sop",
+  "documentVersion": 3,
+  "language": "en",
+  "sectionPath": "Page 1",
+  "text": "... the whole cited chunk ...",
+  "quote": "must read 4°C (39°F) or less",
+  "quoteStart": 52,
+  "quoteEnd": 80
+}
+```
+
+| Field | Value |
+|---|---|
+| `sourceType` | `regulation` or `document`. Absent on citations stored before documents could be cited: read those as `regulation` |
+| `sourceTitle`, `sourceVersion`, `officialUrl` | the regulation's; `null` for a document |
+| `documentId` | document only: the core's document id, for the link to the document's page |
+| `documentTitle` | document only: the title the core sent with the upload, or `null` (show a generic "Document" label) |
+| `documentType` | document only: `Sop`, `License`, `Log`, `Report`, `Other`, or `null` |
+| `documentVersion` | document only: the version number that was cited (an integer) |
+
+- The change is additive: a regulation citation keeps every field it had, plus `sourceType`; the document fields appear only on document citations.
+- The regulation states the rules; a document citation is evidence about the establishment, never a rule.
+- A claim has at least one citation, each checked against its chunk before the claim was sent (ADR 007). Document citations go through the same check.
+- A citation is a copy stored with the answer: `text` is the chunk as it was cited, so an old citation still opens after its source gets a new version, or after the document gets a new version or is deleted. The app never needs to fetch it.
 - `text.slice(quoteStart, quoteEnd)` is the quote as the chunk writes it, to highlight. Both are `null` when the quote could not be mapped back exactly; `quote` (normalized whitespace) is then the only guide.
 - `id` is unique to the citation, a key for the UI. It identifies nothing else.
 

@@ -6,21 +6,25 @@ Runs on a connection from `tenant_transaction`, as app_ai. Queries follow "Retri
 in src/ai/CLAUDE.md: `tenant_id IS NULL` so only the corpus indexes apply, the filter on the
 (jurisdiction, language) pairs `policy.corpus_versions` gives, and the join to ai.sources on all
 three foreign key columns.
+
+The chat also passes the conversation's establishment: its document candidates
+(`establishment.document_candidates`) are re-ranked in the same call as the corpus candidates, so
+the scores compare, and the top k keeps at most `retrieval_document_top_k` of them.
 """
 
 import logging
 import re
 import time
-from collections.abc import Hashable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import UUID
 
 from sqlalchemy import Connection, text
 
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
+from normetry_ai.retrieval.establishment import document_candidates
 from normetry_ai.retrieval.language import detect_language
-from normetry_ai.retrieval.models import RetrievedChunk
+from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion
 from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions
 from normetry_ai.settings import RetrievalSettings
 
@@ -86,16 +90,20 @@ _TEXT_SEARCH = text(
 )
 
 
-def reciprocal_rank_fusion[T: Hashable](rankings: Iterable[Sequence[T]], k: int) -> list[T]:
-    """Merge rankings: each item scores the sum of 1 / (k + rank) over the rankings it is in.
-
-    Ties keep the order of first appearance, so the result is deterministic.
-    """
-    scores: dict[T, float] = {}
-    for ranking in rankings:
-        for rank, item in enumerate(ranking, start=1):
-            scores[item] = scores.get(item, 0.0) + 1 / (k + rank)
-    return sorted(scores, key=scores.__getitem__, reverse=True)
+def best(chunks: list[RetrievedChunk], top_k: int, document_top_k: int) -> list[RetrievedChunk]:
+    """The `top_k` best-scored chunks, at most `document_top_k` of them from tenant documents, so
+    documents never crowd the regulation out. Ties keep the given order."""
+    kept: list[RetrievedChunk] = []
+    documents = 0
+    for chunk in sorted(chunks, key=lambda chunk: -chunk.score):
+        if chunk.source_type == "tenant_document":
+            if documents == document_top_k:
+                continue
+            documents += 1
+        kept.append(chunk)
+        if len(kept) == top_k:
+            break
+    return kept
 
 
 @dataclass(frozen=True)
@@ -106,9 +114,11 @@ class Trace:
     vector: list[UUID]
     text: list[UUID]
     fused: list[UUID]
+    # The establishment's document candidates, fused, best first; empty without an establishment.
+    documents: list[UUID]
     # The re-ranked result: what `retrieve` returns.
     chunks: list[RetrievedChunk]
-    # The text of every candidate either search returned, by chunk id.
+    # The text of every candidate the searches returned, by chunk id.
     content: dict[UUID, str]
     seconds: dict[str, float]
 
@@ -122,12 +132,25 @@ class Retriever:
         self.settings = settings
 
     def retrieve(
-        self, connection: Connection, question: str, scope: JurisdictionScope
+        self,
+        connection: Connection,
+        question: str,
+        scope: JurisdictionScope,
+        *,
+        establishment_id: UUID | None = None,
     ) -> list[RetrievedChunk]:
-        """The corpus chunks most relevant to the question, best first, within the scope."""
-        return self.trace(connection, question, scope).chunks
+        """The corpus chunks most relevant to the question, best first, within the scope; with an
+        establishment (from the core, never the client), its current documents' chunks too."""
+        return self.trace(connection, question, scope, establishment_id=establishment_id).chunks
 
-    def trace(self, connection: Connection, question: str, scope: JurisdictionScope) -> Trace:
+    def trace(
+        self,
+        connection: Connection,
+        question: str,
+        scope: JurisdictionScope,
+        *,
+        establishment_id: UUID | None = None,
+    ) -> Trace:
         """`retrieve`, with the output of every step."""
         if not isinstance(scope, JurisdictionScope):
             raise TypeError("scope must come from policy.jurisdictions_for")
@@ -177,12 +200,30 @@ class Retriever:
         lexical = [row.id for row in text_rows]
         fused = reciprocal_rank_fusion((vector, lexical), settings.retrieval_rrf_k)
 
+        documents: list[RetrievedChunk] = []
+        if establishment_id is not None:
+            started = time.perf_counter()
+            documents = document_candidates(
+                connection,
+                establishment_id,
+                question,
+                embedding,
+                vector_k=settings.retrieval_document_k,
+                text_k=settings.retrieval_document_k,
+                rrf_k=settings.retrieval_rrf_k,
+            )[: settings.retrieval_document_k]
+            seconds["documents"] = time.perf_counter() - started
+
         candidates = fused[: settings.retrieval_rerank_candidates]
         started = time.perf_counter()
-        scores = self.reranker.score(question, [rows[chunk_id].content for chunk_id in candidates])
+        # One call over both sources: their scores compare, for the top k and the refusal.
+        scores = self.reranker.score(
+            question,
+            [rows[chunk_id].content for chunk_id in candidates]
+            + [chunk.content for chunk in documents],
+        )
         seconds["rerank"] = time.perf_counter() - started
-        ranked = sorted(zip(candidates, scores, strict=True), key=lambda pair: -pair[1])
-        chunks = [
+        regulation = [
             RetrievedChunk(
                 chunk_id=chunk_id,
                 content=rows[chunk_id].content,
@@ -195,18 +236,24 @@ class Retriever:
                 official_url=rows[chunk_id].official_url,
                 score=score,
             )
-            for chunk_id, score in ranked[: settings.retrieval_top_k]
+            for chunk_id, score in zip(candidates, scores[: len(candidates)], strict=True)
         ]
+        own = [
+            replace(chunk, score=score)
+            for chunk, score in zip(documents, scores[len(candidates) :], strict=True)
+        ]
+        chunks = best(regulation + own, settings.retrieval_top_k, settings.retrieval_document_top_k)
         # Ids, counts and times only: never the question or chunk text.
         logger.info(
-            "retrieval language=%s versions=%s vector=%d text=%d fused=%d reranked=%d "
-            "top_score=%.3f seconds=%s",
+            "retrieval language=%s versions=%s vector=%d text=%d fused=%d documents=%d "
+            "reranked=%d top_score=%.3f seconds=%s",
             language,
             ",".join(f"{j}/{v}" for j, v in versions),
             len(vector),
             len(lexical),
             len(fused),
-            len(candidates),
+            len(documents),
+            len(candidates) + len(documents),
             chunks[0].score if chunks else 0.0,
             {step: round(value, 3) for step, value in seconds.items()},
         )
@@ -215,7 +262,11 @@ class Retriever:
             vector=vector,
             text=lexical,
             fused=fused,
+            documents=[chunk.chunk_id for chunk in documents],
             chunks=chunks,
-            content={chunk_id: row.content for chunk_id, row in rows.items()},
+            content={
+                **{chunk_id: row.content for chunk_id, row in rows.items()},
+                **{chunk.chunk_id: chunk.content for chunk in documents},
+            },
             seconds=seconds,
         )

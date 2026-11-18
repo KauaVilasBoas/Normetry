@@ -1,3 +1,4 @@
+from collections.abc import Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
@@ -30,3 +31,16 @@ class RetrievedChunk:
     document_title: str | None = None
     document_type: str | None = None
     document_version: int | None = None
+
+
+def reciprocal_rank_fusion[T: Hashable](rankings: Iterable[Sequence[T]], k: int) -> list[T]:
+    """Merge rankings: each item scores the sum of 1 / (k + rank) over the rankings it is in.
+
+    Ties keep the order of first appearance, so the result is deterministic. Shared by the corpus
+    search (`hybrid.py`) and the establishment search (`establishment.py`).
+    """
+    scores: dict[T, float] = {}
+    for ranking in rankings:
+        for rank, item in enumerate(ranking, start=1):
+            scores[item] = scores.get(item, 0.0) + 1 / (k + rank)
+    return sorted(scores, key=scores.__getitem__, reverse=True)

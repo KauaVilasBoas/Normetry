@@ -21,7 +21,15 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, ConfigDict, StringConstraints
 from sqlalchemy import Engine
 
-from normetry_ai.answers import Answered, Claim, ClaimModel, Refused, Unavailable, answer
+from normetry_ai.answers import (
+    Answered,
+    Citation,
+    Claim,
+    ClaimModel,
+    Refused,
+    Unavailable,
+    answer,
+)
 from normetry_ai.api.context import (
     EstablishmentContext,
     RequestContext,
@@ -78,7 +86,8 @@ def get_retriever(request: Request, engine: Database) -> Retriever:
     """Hybrid retrieval (#49) for a turn: the one dependency that returns it; tests override it.
 
     It runs inside the caller's tenant transaction, over the jurisdictions `jurisdictions_for`
-    gives the establishment, which `open_turn` checked is the conversation's.
+    gives the establishment and that establishment's current documents (#107): the establishment
+    of the internal headers, which `open_turn` checked is the conversation's.
     """
     retriever: hybrid.Retriever = request.app.state.retriever
 
@@ -87,7 +96,12 @@ def get_retriever(request: Request, engine: Database) -> Retriever:
         # re-ranked (seconds on CPU, longer while the weights first load), so a burst of turns
         # can drain the pool; split retrieval so only the two searches hold it if that shows up.
         with tenant_transaction(engine, ctx.tenant_id) as connection:
-            return retriever.retrieve(connection, question, jurisdictions_for(ctx.jurisdiction))
+            return retriever.retrieve(
+                connection,
+                question,
+                jurisdictions_for(ctx.jurisdiction),
+                establishment_id=ctx.establishment_id,
+            )
 
     return retrieve
 
@@ -319,21 +333,37 @@ def _store_answer(
 
 def claim_json(claim: Claim) -> dict[str, Any]:
     """A claim as the API sends and stores it, with a copy of everything each citation shows."""
+    return {"text": claim.text, "citations": [citation_json(c) for c in claim.citations]}
+
+
+def citation_json(citation: Citation) -> dict[str, Any]:
+    """A citation of the regulation or of one of the establishment's documents (chat-api.md)."""
+    chunk = citation.chunk
+    shown = {
+        "id": str(uuid4()),
+        "language": chunk.language,
+        "sectionPath": chunk.section_path,
+        "text": chunk.content,
+        "quote": citation.quote,
+        "quoteStart": citation.quote_start,
+        "quoteEnd": citation.quote_end,
+    }
+    if chunk.source_type == "tenant_document":
+        return {
+            **shown,
+            "sourceType": "document",
+            "sourceTitle": None,
+            "sourceVersion": None,
+            "officialUrl": None,
+            "documentId": str(chunk.document_id),
+            "documentTitle": chunk.document_title,
+            "documentType": chunk.document_type,
+            "documentVersion": chunk.document_version,
+        }
     return {
-        "text": claim.text,
-        "citations": [
-            {
-                "id": str(uuid4()),
-                "sourceTitle": citation.chunk.source_title,
-                "sourceVersion": citation.chunk.source_version,
-                "language": citation.chunk.language,
-                "sectionPath": citation.chunk.section_path,
-                "text": citation.chunk.content,
-                "quote": citation.quote,
-                "quoteStart": citation.quote_start,
-                "quoteEnd": citation.quote_end,
-                "officialUrl": citation.chunk.official_url,
-            }
-            for citation in claim.citations
-        ],
+        **shown,
+        "sourceType": "regulation",
+        "sourceTitle": chunk.source_title,
+        "sourceVersion": chunk.source_version,
+        "officialUrl": chunk.official_url,
     }

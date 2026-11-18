@@ -100,12 +100,15 @@ def test_retrieval_eval(app_ai: Engine, corpus: Engine) -> None:
     embedder.embed_query("warm up")
     reranker.score("warm up", ["warm up"])
     retriever = Retriever(embedder, reranker, settings)
-    tenant = uuid4()
+    # The chat's path: an establishment, here one with no documents (corpus items only).
+    tenant, establishment = uuid4(), uuid4()
 
     def run(item: dict) -> Trace:
         with tenant_transaction(app_ai, tenant) as connection:
             scope = jurisdictions_for(item["jurisdiction"])
-            return retriever.trace(connection, query_of(item), scope)
+            return retriever.trace(
+                connection, query_of(item), scope, establishment_id=establishment
+            )
 
     items = load_items()
     started = time.perf_counter()

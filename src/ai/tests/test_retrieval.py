@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import Engine, TextClause, text
 
 from normetry_ai.db import tenant_transaction
@@ -18,8 +19,9 @@ from normetry_ai.evals.dataset import load_items
 from normetry_ai.ingestion.corpus import Section
 from normetry_ai.ingestion.ingest import ingest_source
 from normetry_ai.retrieval import hybrid
-from normetry_ai.retrieval.hybrid import Retriever, reciprocal_rank_fusion
+from normetry_ai.retrieval.hybrid import Retriever, best
 from normetry_ai.retrieval.language import detect_language
+from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion
 from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions, jurisdictions_for
 from normetry_ai.settings import RetrievalSettings
 
@@ -101,6 +103,66 @@ def test_reciprocal_rank_fusion_rewards_agreement() -> None:
     # b, second in one list and first in the other, beats a, first in one list only.
     assert reciprocal_rank_fusion([["a", "b"], ["b", "c"]], k=60) == ["b", "a", "c"]
     assert reciprocal_rank_fusion([["x", "y"], []], k=60) == ["x", "y"]
+
+
+def ranked(name: str, score: float, document: bool = False) -> RetrievedChunk:
+    return RetrievedChunk(
+        chunk_id=uuid4(),
+        content=name,
+        section_path=None,
+        language="en",
+        jurisdiction="" if document else "US",
+        source_id=uuid4(),
+        source_title="",
+        source_version="1",
+        official_url="",
+        score=score,
+        source_type="tenant_document" if document else "regulation",
+    )
+
+
+def test_the_top_k_keeps_at_most_document_top_k_document_chunks() -> None:
+    chunks = [
+        ranked("d1", 0.99, True),
+        ranked("r1", 0.5),
+        ranked("d2", 0.98, True),
+        ranked("d3", 0.97, True),
+        ranked("r2", 0.4),
+        ranked("r3", 0.6),
+    ]
+
+    assert [c.content for c in best(chunks, 4, 2)] == ["d1", "d2", "r3", "r1"]
+    assert [c.content for c in best(chunks, 10, 3)] == ["d1", "d2", "d3", "r3", "r1", "r2"]
+    # Ties keep the given order.
+    tied = [ranked("r", 0.5), ranked("d", 0.5, True)]
+    assert [c.content for c in best(tied, 2, 1)] == ["r", "d"]
+
+
+def test_document_retrieval_settings_default_and_are_read_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    defaults = RetrievalSettings(_env_file=None)
+    assert (defaults.retrieval_document_k, defaults.retrieval_document_top_k) == (5, 3)
+
+    monkeypatch.setenv("NORMETRY_RETRIEVAL_DOCUMENT_K", "8")
+    monkeypatch.setenv("NORMETRY_RETRIEVAL_DOCUMENT_TOP_K", "2")
+    configured = RetrievalSettings(_env_file=None)
+    assert (configured.retrieval_document_k, configured.retrieval_document_top_k) == (8, 2)
+
+
+@pytest.mark.parametrize(
+    ("knobs", "message"),
+    [
+        ({"retrieval_document_k": 0}, "greater than or equal to 1"),
+        ({"retrieval_document_top_k": 0}, "greater than or equal to 1"),
+        # Documents must leave the regulation at least one place in the top k.
+        ({"retrieval_document_top_k": 10}, "lower than NORMETRY_RETRIEVAL_TOP_K"),
+        ({"retrieval_top_k": 3}, "lower than NORMETRY_RETRIEVAL_TOP_K"),
+    ],
+)
+def test_document_retrieval_settings_are_validated(knobs: dict[str, int], message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        RetrievalSettings(_env_file=None, **knobs)
 
 
 # --- The corpus filter, on a real database --------------------------------------------------------
