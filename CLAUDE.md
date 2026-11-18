@@ -3,17 +3,17 @@
 Multi-tenant compliance copilot for regulated establishments (food service first: FDA Food Code, EU Regulation 852/2004, Anvisa RDC 216/2004). Public portfolio repository.
 
 - Product, architecture, ADR summary and roadmap: `README.md`. Full decisions: `docs/adr/`.
-- Status: phase 0 (foundation) and phase 1 (regulation RAG) are done; phase 2 (simulated inspection) is next. The .NET solution, `src/ai` and `src/web` are scaffolded. Update the commands below when they change.
+- Status: phases 0 (foundation), 1 (regulation RAG) and 2 (simulated inspection) are done. The first runs of the paid phase 2 evals are still pending (#106 inspection, #109 chat documents and security set, #100 the judge's real-call review). Phase 3 (change monitor, MCP server, Langfuse, Azure deploy) is next. Update the commands below when they change.
 
 ## Layout (monorepo)
 
 | Path | What | Rules |
 |---|---|---|
 | `src/core/` | .NET 10 core: API, domain, EF Core, outbox, YARP, SignalR, Aspire AppHost | `src/core/CLAUDE.md` |
-| `src/ai/` | Python 3.12+ AI service: FastAPI, ingestion, retrieval, LangGraph agents | `src/ai/CLAUDE.md` |
-| `src/web/` | React + TypeScript (Vite SPA): sign-in, shell, establishment switcher | `src/web/CLAUDE.md` |
-| `src/shared/contracts/` | contracts both backends implement (`internal-http.md`: gateway headers) | change both sides in the same PR |
-| `evals/` | eval datasets, synthetic establishments, reports | |
+| `src/ai/` | Python 3.12+ AI service: FastAPI chat, ingestion and inspection consumers, retrieval, the LangGraph inspection agent | `src/ai/CLAUDE.md` |
+| `src/web/` | React + TypeScript (Vite SPA): sign-in, shell, Overview, Ask the Regulation, Documents, Simulated Inspection, Settings › Profiles | `src/web/CLAUDE.md` |
+| `src/shared/contracts/` | contracts both backends implement (`internal-http.md` gateway headers, `chat-api.md`, `messages/` queue schemas) | change both sides in the same PR |
+| `evals/` | eval datasets, synthetic establishments (`establishments/`), reports | `evals/README.md` |
 | `corpus/` | versioned regulation texts + download scripts | |
 | `docs/adr/` | architecture decision records | `adr` skill |
 | `docs/design/` | approved UI reference (`reference.png`) + design system (`DESIGN.md`) | `normetry-design-system` skill |
@@ -39,10 +39,12 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 
 ## Commands
 
-- Run everything: `dotnet run --project src/core/Normetry.AppHost` (needs Docker and Node.js; starts PostgreSQL, Keycloak, the API, the AI service and the web app at `http://localhost:5173`; Aspire dashboard at `https://localhost:17081`, the login link is printed in the console). Demo users: `deploy/keycloak/README.md`
+- Run everything: `dotnet run --project src/core/Normetry.AppHost` (needs Docker and Node.js; starts PostgreSQL, RabbitMQ, Azurite, Keycloak, the migrations, the API, the AI service and the web app at `http://localhost:5173`; Aspire dashboard at `https://localhost:17081`, the login link is printed in the console). Demo users: `deploy/keycloak/README.md`. The corpus is loaded on demand: `uv run corpus/scripts/fetch_corpus.py` from the repo root, then start the `corpus-ingest` resource from the dashboard. Chat answers and inspections need the AppHost parameter `anthropic-api-key` in its user secrets (the user sets it; never read or print it).
 - .NET (from the repo root): `dotnet build` · `dotnet test` · `dotnet tool restore` then `dotnet csharpier check .`
 - Web (from `src/web`): `npm ci` · `npm run lint` · `npm run format:check` · `npm run typecheck` · `npm test` · `npm run build` · run alone with `npm run dev`
 - Python (from `src/ai`): `uv sync` · `uv run pytest` · `uv run ruff check` · `uv run ruff format --check` · run with `uv run uvicorn normetry_ai.api:create_app --factory` (needs `NORMETRY_INTERNAL_TOKEN`, see `src/ai/.env.example`)
+- Evals (from `src/ai`, each run alone; details in `evals/README.md`): `uv run python -m normetry_ai.evals.dataset` (dataset check) · `uv run pytest -m eval` (retrieval, local models, also in CI) · `uv run pytest -m generation` and `uv run pytest -m inspection` (paid: skipped without `NORMETRY_ANTHROPIC_API_KEY` in the shell, capped by `NORMETRY_EVAL_BUDGET_USD`, never in CI)
+- Synthetic documents: after editing `evals/establishments/*/sources/*.md`, rebuild the PDF and DOCX files with `uv run evals/establishments/build_documents.py` from the repo root (a test checks they match)
 - Claude hooks self-test: `node --test ".claude/hooks/*.test.mjs"`
 
 ## Workflow
@@ -65,7 +67,7 @@ Multi-tenant compliance copilot for regulated establishments (food service first
 |---|---|
 | `dotnet-core-engineer` agent | implementing anything in `src/core` |
 | `ai-engineer` agent | implementing anything in `src/ai` |
-| `web-engineer` agent | implementing anything in `src/web` (first version; refine after the web scaffold) |
+| `web-engineer` agent | implementing anything in `src/web` |
 | `ux-ui-designer` agent | **every** frontend change: screen spec before building, read-only design review after |
 | `tenant-isolation-reviewer` agent (read-only) | after changes to persistence, SQL/RLS, auth, YARP, queue consumers, caching or search |
 | `eval-runner` agent | after prompt, retrieval or agent changes; returns only metrics and regressions |
