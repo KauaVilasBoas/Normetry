@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Api.Gateway;
+using Normetry.Domain.Identity;
 using Normetry.IntegrationTests.Database;
 using Xunit;
 
@@ -108,9 +109,17 @@ public sealed class AiGatewayTests : IAsyncLifetime
         Assert.Equal(ApiFactory.InternalToken, headers[InternalHeaders.Token]);
         Assert.Equal(ApiFactory.TenantA, headers[InternalHeaders.TenantId]);
         Assert.Equal(ApiFactory.UserId, headers[InternalHeaders.UserId]);
+        // The Owner's profile grants documents.read.
+        Assert.Equal("true", headers[InternalHeaders.DocumentsRead]);
         // Nothing else with the prefix, in either spelling: the client's extra headers are gone.
         Assert.Equal(
-            new[] { InternalHeaders.TenantId, InternalHeaders.Token, InternalHeaders.UserId }
+            new[]
+            {
+                InternalHeaders.DocumentsRead,
+                InternalHeaders.TenantId,
+                InternalHeaders.Token,
+                InternalHeaders.UserId,
+            }
                 .Select(name => name.ToUpperInvariant())
                 .Order(),
             headers
@@ -124,6 +133,28 @@ public sealed class AiGatewayTests : IAsyncLifetime
             header
                 .Key.Replace('_', '-')
                 .StartsWith(InternalHeaders.Prefix, StringComparison.OrdinalIgnoreCase)
+        );
+    }
+
+    [Fact]
+    public async Task A_caller_without_documents_read_gets_no_documents_read_header_even_when_sending_one()
+    {
+        var user = Guid.NewGuid().ToString();
+        var tenant = await TestTenants.CreateAsync(db);
+        await TestTenants.GrantAsync(db, tenant, user, Permissions.Chat.Ask);
+        using var client = Api.CreateClient(ApiFactory.CreateToken(tenant.ToString(), user));
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/ai/conversations");
+        request.Headers.Add(InternalHeaders.DocumentsRead, "true");
+        request.Headers.Add("X_Normetry_Documents_Read", "true");
+
+        using var response = await client.SendAsync(request, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var echo = await response.Content.ReadFromJsonAsync<Echo>(Ct);
+        Assert.Equal(tenant.ToString(), echo!.Headers[InternalHeaders.TenantId]);
+        Assert.DoesNotContain(echo.Headers.Keys, name =>
+            name.Replace('_', '-')
+                .Equals(InternalHeaders.DocumentsRead, StringComparison.OrdinalIgnoreCase)
         );
     }
 

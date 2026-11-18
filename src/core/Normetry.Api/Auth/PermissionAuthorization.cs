@@ -55,8 +55,8 @@ internal sealed class PermissionHandler(IDispatcher dispatcher) : IAuthorization
     public async Task HandleAsync(AuthorizationHandlerContext context)
     {
         var pending = context.PendingRequirements.OfType<PermissionRequirement>().ToArray();
-        // Without a sub (an empty one counts as none) and a valid tenant the Tenant requirements
-        // of the same policy fail, and nothing can be loaded.
+        // Without a non-empty sub and a valid tenant, the policy's Tenant part (AuthSetup) fails
+        // anyway, and there is no user to load permissions for.
         if (
             pending.Length == 0
             || context.User.FindFirstValue("sub") is not { Length: > 0 }
@@ -66,11 +66,13 @@ internal sealed class PermissionHandler(IDispatcher dispatcher) : IAuthorization
             return;
         }
 
-        var cancellationToken = (context.Resource as HttpContext)?.RequestAborted ?? default;
+        var http = context.Resource as HttpContext;
         var permissions = await dispatcher.QueryAsync(
             new GetCurrentUserPermissionsQuery(),
-            cancellationToken
+            http?.RequestAborted ?? default
         );
+        // The gateway reads the same set (AiGateway), so it never loads it a second time.
+        http?.Features.Set(new CallerPermissions(permissions.Value));
         foreach (var requirement in pending)
         {
             if (requirement.AnyOf.Any(permissions.Value.Contains))
@@ -80,6 +82,12 @@ internal sealed class PermissionHandler(IDispatcher dispatcher) : IAuthorization
         }
     }
 }
+
+/// <summary>
+/// The permissions <see cref="PermissionHandler"/> loaded for this request, kept as a request
+/// feature. Present on every request a permission policy let through.
+/// </summary>
+internal sealed record CallerPermissions(IReadOnlyList<string> Names);
 
 /// <summary>
 /// A caller with a valid tenant who lacks a permission gets a 403 problem with the code

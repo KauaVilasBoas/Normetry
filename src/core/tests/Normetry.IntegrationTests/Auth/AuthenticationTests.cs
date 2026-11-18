@@ -17,11 +17,13 @@ namespace Normetry.IntegrationTests.Auth;
 [Collection(DatabaseCollection.Name)]
 public sealed class AuthenticationTests
 {
+    private readonly DatabaseFixture db;
     private readonly ApiFactory factory;
 
     public AuthenticationTests(DatabaseFixture db)
     {
         db.SkipWithoutDocker();
+        this.db = db;
         factory = db.Api;
     }
 
@@ -183,6 +185,19 @@ public sealed class AuthenticationTests
         var response = await client.GetAsync("/me", Ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_token_with_an_empty_sub_gets_403_and_creates_no_user()
+    {
+        var tenant = await TestTenants.CreateAsync(db);
+        using var client = factory.CreateClient(ApiFactory.CreateToken(tenant.ToString(), ""));
+
+        var response = await client.GetAsync("/me", Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await using var session = await Session.BeginAsync(db.ConnectionString("app_core"), tenant);
+        Assert.Equal(0L, await session.ScalarAsync<long>("SELECT count(*) FROM core.users"));
     }
 
     [Fact]

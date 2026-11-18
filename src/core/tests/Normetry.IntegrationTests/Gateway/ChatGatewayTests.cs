@@ -121,22 +121,16 @@ public sealed class ChatGatewayTests : IAsyncLifetime
         Assert.Equal(establishment.ToString(), headers[InternalHeaders.EstablishmentId]);
         Assert.Equal("EU", headers[InternalHeaders.Jurisdiction]);
         Assert.Equal(tenant.ToString(), headers[InternalHeaders.TenantId]);
-        Assert.Equal(
-            new[]
+        Assert.Equal(new[]
             {
+                // The test tenant's Owner holds documents.read.
+                InternalHeaders.DocumentsRead,
                 InternalHeaders.EstablishmentId,
                 InternalHeaders.Jurisdiction,
                 InternalHeaders.TenantId,
                 InternalHeaders.Token,
                 InternalHeaders.UserId,
-            }
-                .Select(name => name.ToUpperInvariant())
-                .Order(),
-            headers
-                .Keys.Select(name => name.Replace('_', '-').ToUpperInvariant())
-                .Where(name => name.StartsWith(InternalHeaders.Prefix.ToUpperInvariant()))
-                .Order()
-        );
+            }.Select(name => name.ToUpperInvariant()).Order(), headers.Keys.Select(name => name.Replace('_', '-').ToUpperInvariant()).Where(name => name.StartsWith(InternalHeaders.Prefix.ToUpperInvariant())).Order());
         // Creating a conversation is not a message: nothing counted.
         Assert.False(response.Headers.Contains("RateLimit-Limit"));
         Assert.Equal(DemoLimit, (await QuotaAsync(client)).Remaining);
