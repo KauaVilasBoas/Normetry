@@ -6,19 +6,23 @@ carry no establishment, so both searches join ai.tenant_documents on (tenant_id,
 document_id) and keep the establishment's documents that are not deleted, at their indexed
 version only. Tenant rows have no HNSW index: the vector search is exact KNN over the chunks the
 join finds (src/ai/CLAUDE.md, "Retrieval under RLS").
+
+`document_candidates` is the search without the re-ranker: the chat (`hybrid.Retriever` with an
+establishment) re-ranks its candidates together with the corpus's, in one call.
 """
 
 import logging
 import re
 import time
+from collections.abc import Sequence
+from dataclasses import replace
 from uuid import UUID
 
 from sqlalchemy import Connection, text
 
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
-from normetry_ai.retrieval.hybrid import reciprocal_rank_fusion
-from normetry_ai.retrieval.models import RetrievedChunk
+from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion
 from normetry_ai.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
@@ -64,6 +68,62 @@ _TEXT_SEARCH = text(
 )
 
 
+def _tenant(connection: Connection) -> str:
+    tenant = connection.execute(text("SELECT current_setting('app.tenant_id', true)")).scalar()
+    if not tenant:
+        raise RuntimeError("retrieval runs inside tenant_transaction")
+    return tenant
+
+
+def document_candidates(
+    connection: Connection,
+    establishment_id: UUID,
+    query: str,
+    embedding: Sequence[float],
+    *,
+    vector_k: int,
+    text_k: int,
+    rrf_k: int,
+) -> list[RetrievedChunk]:
+    """The establishment's current document chunks for the query, fused with Reciprocal Rank
+    Fusion, best first, not re-ranked yet (`score` 0). `embedding` is the query's."""
+    _tenant(connection)
+    params = {"establishment_id": establishment_id}
+    vector_rows = connection.execute(
+        _VECTOR_SEARCH,
+        {**params, "embedding": "[" + ",".join(map(str, embedding)) + "]", "k": vector_k},
+    ).all()
+    text_rows = connection.execute(
+        _TEXT_SEARCH,
+        # websearch_to_tsquery never fails on user input; "or" makes every word optional.
+        {**params, "terms": " or ".join(re.findall(r"\w+", query)), "k": text_k},
+    ).all()
+    rows = {row.id: row for row in (*vector_rows, *text_rows)}
+    fused = reciprocal_rank_fusion(
+        ([row.id for row in vector_rows], [row.id for row in text_rows]), rrf_k
+    )
+    return [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            content=rows[chunk_id].content,
+            section_path=rows[chunk_id].section_path,
+            language=rows[chunk_id].language,
+            jurisdiction="",
+            source_id=rows[chunk_id].document_id,
+            source_title=rows[chunk_id].title or "",
+            source_version=str(rows[chunk_id].version),
+            official_url="",
+            score=0.0,
+            source_type="tenant_document",
+            document_id=rows[chunk_id].document_id,
+            document_title=rows[chunk_id].title,
+            document_type=rows[chunk_id].document_type,
+            document_version=rows[chunk_id].version,
+        )
+        for chunk_id in fused
+    ]
+
+
 def search_establishment(
     connection: Connection,
     establishment_id: UUID,
@@ -78,78 +138,40 @@ def search_establishment(
     The establishment comes from the core (the queue message or `X-Normetry-Establishment-Id`),
     never from the client; the tenant is the transaction's.
     """
-    tenant = connection.execute(text("SELECT current_setting('app.tenant_id', true)")).scalar()
-    if not tenant:
-        raise RuntimeError("retrieval runs inside tenant_transaction")
+    tenant = _tenant(connection)
     seconds: dict[str, float] = {}
 
     started = time.perf_counter()
     embedding = embedder.embed_query(query)
     seconds["embed"] = time.perf_counter() - started
 
-    params = {"establishment_id": establishment_id}
     started = time.perf_counter()
-    vector_rows = connection.execute(
-        _VECTOR_SEARCH,
-        {
-            **params,
-            "embedding": "[" + ",".join(map(str, embedding)) + "]",
-            "k": settings.retrieval_vector_k,
-        },
-    ).all()
-    seconds["vector"] = time.perf_counter() - started
-
-    started = time.perf_counter()
-    text_rows = connection.execute(
-        _TEXT_SEARCH,
-        {
-            **params,
-            # websearch_to_tsquery never fails on user input; "or" makes every word optional.
-            "terms": " or ".join(re.findall(r"\w+", query)),
-            "k": settings.retrieval_text_k,
-        },
-    ).all()
-    seconds["text"] = time.perf_counter() - started
-
-    rows = {row.id: row for row in (*vector_rows, *text_rows)}
-    fused = reciprocal_rank_fusion(
-        ([row.id for row in vector_rows], [row.id for row in text_rows]), settings.retrieval_rrf_k
+    fused = document_candidates(
+        connection,
+        establishment_id,
+        query,
+        embedding,
+        vector_k=settings.retrieval_vector_k,
+        text_k=settings.retrieval_text_k,
+        rrf_k=settings.retrieval_rrf_k,
     )
+    seconds["search"] = time.perf_counter() - started
+
     candidates = fused[: settings.retrieval_establishment_rerank_candidates]
     started = time.perf_counter()
-    scores = reranker.score(query, [rows[chunk_id].content for chunk_id in candidates])
+    scores = reranker.score(query, [chunk.content for chunk in candidates])
     seconds["rerank"] = time.perf_counter() - started
-    ranked = sorted(zip(candidates, scores, strict=True), key=lambda pair: -pair[1])
-    chunks = []
-    for chunk_id, score in ranked[: settings.retrieval_establishment_top_k]:
-        row = rows[chunk_id]
-        chunks.append(
-            RetrievedChunk(
-                chunk_id=chunk_id,
-                content=row.content,
-                section_path=row.section_path,
-                language=row.language,
-                jurisdiction="",
-                source_id=row.document_id,
-                source_title=row.title or "",
-                source_version=str(row.version),
-                official_url="",
-                score=score,
-                source_type="tenant_document",
-                document_id=row.document_id,
-                document_title=row.title,
-                document_type=row.document_type,
-                document_version=row.version,
-            )
-        )
+    ranked = sorted(
+        (replace(chunk, score=score) for chunk, score in zip(candidates, scores, strict=True)),
+        key=lambda chunk: -chunk.score,
+    )
+    chunks = ranked[: settings.retrieval_establishment_top_k]
     # Ids, counts and times only: never the query, titles or chunk text.
     logger.info(
-        "establishment search tenant=%s establishment=%s vector=%d text=%d fused=%d "
-        "reranked=%d documents=%d top_score=%.3f seconds=%s",
+        "establishment search tenant=%s establishment=%s fused=%d reranked=%d documents=%d "
+        "top_score=%.3f seconds=%s",
         tenant,
         establishment_id,
-        len(vector_rows),
-        len(text_rows),
         len(fused),
         len(candidates),
         len({chunk.document_id for chunk in chunks}),

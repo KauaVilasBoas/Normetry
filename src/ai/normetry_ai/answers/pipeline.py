@@ -3,8 +3,9 @@
 `answer()` yields zero or more Claim events, then exactly one final event:
 
 - Answered: at least one claim survived the guard.
-- Refused: not enough basis in the regulation, either before any model call (best re-ranker
-  score under the threshold) or because no claim survived the guard. No Claim came before it.
+- Refused: not enough basis in the excerpts, either before any model call (the best re-ranker
+  score of any chunk, regulation or establishment document, under the threshold) or because no
+  claim survived the guard. No Claim came before it.
 - Unavailable: the model failed (rate limit, exhausted credit, outage, no API key). Claims
   yielded before it were checked and stand; the answer is incomplete.
 

@@ -1238,17 +1238,23 @@ class FakeRetriever:
 
 class RecordingRetriever:
     """Stands in for hybrid.Retriever on app.state: records the question, the tenant set on the
-    connection it is given and the scope, then returns its chunks."""
+    connection it is given, the scope and the establishment, then returns its chunks."""
 
     def __init__(self, *chunks: RetrievedChunk) -> None:
         self.chunks = list(chunks)
-        self.calls: list[tuple[str, str, JurisdictionScope]] = []
+        self.calls: list[tuple[str, str, JurisdictionScope, UUID | None]] = []
 
     def retrieve(
-        self, connection: Connection, question: str, scope: JurisdictionScope
+        self,
+        connection: Connection,
+        question: str,
+        scope: JurisdictionScope,
+        *,
+        establishment_id: UUID | None = None,
     ) -> list[RetrievedChunk]:
         setting = text("SELECT current_setting('app.tenant_id', true)")
-        self.calls.append((question, connection.execute(setting).scalar_one(), scope))
+        tenant = connection.execute(setting).scalar_one()
+        self.calls.append((question, tenant, scope, establishment_id))
         return self.chunks
 
 
@@ -1402,7 +1408,9 @@ def test_a_user_lists_reads_and_deletes_only_their_own_conversations(
     assert [c["id"] for c in chat_api.conversations(bob)] == [bobs]
 
 
-def test_a_turn_retrieves_in_the_callers_tenant_over_the_policy_scope(chat_api: ChatApi) -> None:
+def test_a_turn_retrieves_in_the_callers_tenant_scope_and_establishment(
+    chat_api: ChatApi,
+) -> None:
     alice = person(jurisdiction="BR")
     conversation = chat_api.create(alice)
     recorder = RecordingRetriever(RDC)
@@ -1414,8 +1422,14 @@ def test_a_turn_retrieves_in_the_callers_tenant_over_the_policy_scope(chat_api: 
     events = chat_api.events(alice, conversation, "Qual a temperatura dos alimentos frios?")
 
     assert [name for name, _ in events] == ["claim", "done"]
+    # The establishment whose documents are searched is the internal header's, never the body's.
     assert recorder.calls == [
-        ("Qual a temperatura dos alimentos frios?", str(alice.tenant), jurisdictions_for("BR"))
+        (
+            "Qual a temperatura dos alimentos frios?",
+            str(alice.tenant),
+            jurisdictions_for("BR"),
+            alice.establishment,
+        )
     ]
 
 
@@ -1477,6 +1491,7 @@ def test_guarded_claims_stream_in_order_then_done_and_are_stored(
     [citation] = cold["citations"]
     assert citation == {
         "id": citation["id"],
+        "sourceType": "regulation",
         "sourceTitle": "FDA Food Code",
         "sourceVersion": "2026",
         "language": "en",
