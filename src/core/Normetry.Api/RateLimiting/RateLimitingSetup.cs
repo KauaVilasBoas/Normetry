@@ -27,7 +27,10 @@ public sealed class RateLimitingOptions
 {
     public const string Section = "RateLimiting";
 
-    /// <summary>Every request, hubs included.</summary>
+    /// <summary>
+    /// Every HTTP request. For a hub that is its negotiate and WebSocket upgrade, not the method
+    /// calls made over the open connection.
+    /// </summary>
     public int GlobalPerMinute { get; init; } = 120;
 
     public int UploadsPerMinute { get; init; } = 20;

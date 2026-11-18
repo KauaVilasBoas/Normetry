@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Normetry.Application.Inspections;
 using Normetry.Infrastructure.Persistence;
 
 namespace Normetry.Infrastructure.Messaging;
@@ -16,12 +17,14 @@ namespace Normetry.Infrastructure.Messaging;
 /// <c>FOR UPDATE SKIP LOCKED</c>, so two API instances never publish the same row at once, and a
 /// row is marked sent only after the broker confirmed it. A crash between the confirm and the
 /// commit publishes the row again: delivery is at least once and consumers deduplicate.
+/// <c>InspectionRequested</c> expires when its inspection would time out (<see cref="ExpiresIn"/>).
 /// </summary>
 internal sealed class OutboxDispatcher(
     IServiceScopeFactory scopes,
     RabbitMqPublisher publisher,
     OutboxSignal signal,
     IConfiguration configuration,
+    InspectionsOptions inspections,
     TimeProvider clock,
     ILogger<OutboxDispatcher> logger
 ) : BackgroundService
@@ -130,7 +133,7 @@ internal sealed class OutboxDispatcher(
         {
             try
             {
-                await publisher.PublishAsync(message, cancellationToken);
+                await publisher.PublishAsync(message, ExpiresIn(message), cancellationToken);
             }
             catch (Exception error) when (!cancellationToken.IsCancellationRequested)
             {
@@ -152,4 +155,17 @@ internal sealed class OutboxDispatcher(
         await transaction.CommitAsync(cancellationToken);
         return sent;
     }
+
+    /// <summary>
+    /// How long the broker keeps the message queued; null for ever. An <c>InspectionRequested</c>
+    /// lives until the sweeper would fail its inspection, still Requested, as <c>timed_out</c>:
+    /// <see cref="InspectionsOptions.RunningTimeout"/> after the request, which wrote the row. A
+    /// worker then never starts an inspection that already failed; the broker dead-letters the
+    /// request instead. The time counts only while the message waits in the queue, not while a
+    /// worker holds it.
+    /// </summary>
+    private TimeSpan? ExpiresIn(OutboxMessage message) =>
+        message.Type == InspectionRequested.Type
+            ? message.CreatedAt + inspections.RunningTimeout - clock.GetUtcNow()
+            : null;
 }
