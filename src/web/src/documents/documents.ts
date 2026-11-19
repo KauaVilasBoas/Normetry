@@ -1,5 +1,4 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { Sent } from "../settings/profiles";
 import { documentStatuses, problemCodes } from "../api/contract";
 import {
   documentsKey,
@@ -7,6 +6,7 @@ import {
   type DocumentSummary,
   type DocumentVersion,
 } from "../api/queries";
+import type { Sent } from "../api/send";
 import { calendarDate, copy, format, localDate, relativeDays } from "../copy";
 
 /** The list's expiry filter: every document, the expired ones, or those expiring soon. */

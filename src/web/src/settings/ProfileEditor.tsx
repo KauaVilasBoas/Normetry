@@ -18,6 +18,7 @@ import {
   type Profile,
   type ProfileListItem,
 } from "../api/queries";
+import { useSend } from "../api/send";
 import { copy, format } from "../copy";
 import {
   Button,
@@ -32,7 +33,7 @@ import {
   Tag,
 } from "../ui/primitives";
 import { NameDialog } from "./NameDialog";
-import { groupPermissions, sameSet, togglePermission, useSend } from "./profiles";
+import { groupPermissions, sameSet, togglePermission } from "./profiles";
 
 export const EDITOR_TITLE_ID = "profile-title";
 

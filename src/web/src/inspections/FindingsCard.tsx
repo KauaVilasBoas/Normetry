@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { severities } from "../api/contract";
 import type { Finding, InspectionDetail } from "../api/queries";
+import { useSend } from "../api/send";
 import { copy, dateTime, format } from "../copy";
-import { useSend } from "../settings/profiles";
 import { Button, FilterSelect, Message, Sheet, th } from "../ui/primitives";
 import { FindingSheet, ReviewPill, VerdictPill } from "./FindingSheet";
 import {

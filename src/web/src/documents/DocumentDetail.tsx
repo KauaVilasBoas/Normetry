@@ -17,8 +17,8 @@ import {
   type Establishment,
   type Me,
 } from "../api/queries";
+import { useSend } from "../api/send";
 import { calendarDate, copy, fileSize, format, shortDate } from "../copy";
-import { useSend } from "../settings/profiles";
 import {
   Button,
   ConnectionNotice,

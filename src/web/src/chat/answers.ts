@@ -1,4 +1,4 @@
-import { problemCode } from "../api/client";
+import { problemCode, seconds } from "../api/client";
 import { answerEvents, problemCodes, sourceTypes } from "../api/contract";
 import type { ChatQuota, Citation, Claim, ConversationMessage } from "../api/queries";
 import { copy, format, locale } from "../copy";
@@ -221,12 +221,6 @@ export async function streamAnswer(
     // A failed or idle stream: what arrived stands, the rest is lost.
   }
   return "network";
-}
-
-/** Seconds from a header, or undefined when absent or malformed. */
-export function seconds(headers: Headers, name: string): number | undefined {
-  const value = headers.get(name);
-  return value !== null && /^\d+$/.test(value) ? Number(value) : undefined;
 }
 
 const nextUtcMidnight = (now: number) => {

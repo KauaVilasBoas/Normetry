@@ -21,6 +21,12 @@ export async function problemCode(response: Response): Promise<string | undefine
   }
 }
 
+/** Seconds from a header, or undefined when absent or malformed. */
+export function seconds(headers: Headers, name: string): number | undefined {
+  const value = headers.get(name);
+  return value !== null && /^\d+$/.test(value) ? Number(value) : undefined;
+}
+
 export interface ApiClientOptions {
   getAccessToken: () => Promise<string | undefined>;
   /** Refreshes the session once; resolves to the new access token, or null when that failed. */

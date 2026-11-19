@@ -8,8 +8,8 @@ import {
   type Finding,
   type InspectionDetail,
 } from "../api/queries";
+import type { Sent } from "../api/send";
 import { calendarDate, copy, dateTime, format, localDate, locale, relativeDays } from "../copy";
-import type { Sent } from "../settings/profiles";
 import { findingCount, rankIn, themeRank } from "./inspections";
 
 // The completed view (spec inspection-screen.md §4, §5): order, filters, due dates, edit rules.

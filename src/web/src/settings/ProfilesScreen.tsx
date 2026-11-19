@@ -13,12 +13,13 @@ import {
   type Profile,
   type ProfileListItem,
 } from "../api/queries";
+import { useSend } from "../api/send";
 import { copy, format } from "../copy";
 import { media, useMediaQuery } from "../ui/media";
 import { Button, ErrorMessage, Skeleton, TabStrip, Tag } from "../ui/primitives";
 import { NameDialog } from "./NameDialog";
 import { EDITOR_TITLE_ID, ProfileEditor } from "./ProfileEditor";
-import { countLabel, sortProfiles, useSend } from "./profiles";
+import { countLabel, sortProfiles } from "./profiles";
 import { UsersCard } from "./UsersCard";
 
 const PROFILES_TITLE_ID = "profiles-title";

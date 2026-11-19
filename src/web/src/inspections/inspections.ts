@@ -1,7 +1,7 @@
 import { inspectionStatuses, problemCodes } from "../api/contract";
 import type { Establishment, InspectionSummary, ThemeProgress } from "../api/queries";
+import type { Sent } from "../api/send";
 import { copy, format } from "../copy";
-import type { Sent } from "../settings/profiles";
 
 /** The core's inspections hub and its event (spec §5). */
 export const HUB_URL = "/hubs/inspections";
