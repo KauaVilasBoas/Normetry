@@ -8,8 +8,9 @@ internal static class InspectionsSetup
 {
     /// <summary>
     /// The <c>Inspections</c> settings, validated now against the chat plans (call it after
-    /// <c>AddChat</c>), and the notifier of <see cref="InspectionsHub"/>. SignalR and its JSON
-    /// options (enums by name) come from <c>AddDocuments</c>.
+    /// <c>AddChat</c>), the review handlers' <see cref="FindingReviewService"/> and the notifier
+    /// of <see cref="InspectionsHub"/>. SignalR and its JSON options (enums by name) come from
+    /// <c>AddDocuments</c>.
     /// </summary>
     public static WebApplicationBuilder AddInspections(this WebApplicationBuilder builder)
     {
@@ -22,6 +23,7 @@ internal static class InspectionsSetup
                 ?? new ChatOptions()
         );
         builder.Services.AddSingleton(options);
+        builder.Services.AddScoped<FindingReviewService>();
         builder.Services.AddSingleton<IInspectionNotifier, SignalRInspectionNotifier>();
         return builder;
     }

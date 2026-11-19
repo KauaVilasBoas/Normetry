@@ -1,25 +1,18 @@
-using Normetry.Application.Abstractions;
-using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections.ReviewFinding;
 
-internal sealed class ReviewFindingHandler(
-    IInspectionRepository inspections,
-    IUserRepository users,
-    ICurrentUser currentUser,
-    TimeProvider clock
-) : ICommandHandler<ReviewFindingCommand, FindingResponse>
+internal sealed class ReviewFindingHandler(FindingReviewService reviews, TimeProvider clock)
+    : ICommandHandler<ReviewFindingCommand, FindingResponse>
 {
     public async Task<Result<FindingResponse>> HandleAsync(
         ReviewFindingCommand request,
         CancellationToken cancellationToken
     )
     {
-        var loaded = await FindingReviews.CompletedInspectionAsync(
-            inspections,
+        var loaded = await reviews.CompletedInspectionAsync(
             request.EstablishmentId,
             request.InspectionId,
             InspectionErrors.FindingNotFound,
@@ -46,7 +39,7 @@ internal sealed class ReviewFindingHandler(
             return InspectionErrors.ActionNeedsTextAndDueOn;
         }
 
-        var reviewer = await FindingReviews.ReviewerAsync(users, currentUser, cancellationToken);
+        var reviewer = await reviews.ReviewerIdAsync(cancellationToken);
         var now = clock.GetUtcNow();
         switch (request.Decision)
         {
@@ -72,6 +65,6 @@ internal sealed class ReviewFindingHandler(
             default:
                 throw new ArgumentOutOfRangeException(nameof(request), request.Decision, null);
         }
-        return await FindingReviews.ResponseAsync(users, finding, cancellationToken);
+        return await reviews.ResponseAsync(finding, cancellationToken);
     }
 }
