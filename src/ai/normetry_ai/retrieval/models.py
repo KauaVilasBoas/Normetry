@@ -33,6 +33,12 @@ class RetrievedChunk:
     document_version: int | None = None
 
 
+def vector_literal(vector: Iterable[float]) -> str:
+    """A vector in pgvector's text form ("[0.1,0.2]"), for `CAST(:embedding AS public.vector)`.
+    Shared by both searches and both ingestions."""
+    return "[" + ",".join(map(str, vector)) + "]"
+
+
 def reciprocal_rank_fusion[T: Hashable](rankings: Iterable[Sequence[T]], k: int) -> list[T]:
     """Merge rankings: each item scores the sum of 1 / (k + rank) over the rankings it is in.
 

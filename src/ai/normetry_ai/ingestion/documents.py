@@ -35,6 +35,7 @@ from normetry_ai.messaging.contracts import (
     DocumentUploaded,
 )
 from normetry_ai.retrieval.language import detect_language
+from normetry_ai.retrieval.models import vector_literal
 from normetry_ai.settings import ParseSettings
 
 logger = logging.getLogger(__name__)
@@ -261,7 +262,7 @@ class DocumentWorker:
                         "section_path": chunk.section_path or None,
                         "content": chunk.content,
                         "content_hash": chunk.content_hash,
-                        "embedding": "[" + ",".join(map(str, vector)) + "]",
+                        "embedding": vector_literal(vector),
                         "metadata": metadata,
                     }
                     for chunk, vector in zip(chunks, vectors, strict=True)

@@ -24,7 +24,7 @@ from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
 from normetry_ai.retrieval.establishment import document_candidates
 from normetry_ai.retrieval.language import detect_language
-from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion
+from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion, vector_literal
 from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions
 from normetry_ai.settings import RetrievalSettings
 
@@ -177,7 +177,7 @@ class Retriever:
             _VECTOR_SEARCH,
             {
                 **params,
-                "embedding": "[" + ",".join(map(str, embedding)) + "]",
+                "embedding": vector_literal(embedding),
                 "k": settings.retrieval_vector_k,
             },
         ).all()
