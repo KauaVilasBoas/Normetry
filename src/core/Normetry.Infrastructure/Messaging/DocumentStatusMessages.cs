@@ -8,17 +8,6 @@ using Normetry.Infrastructure.Persistence;
 
 namespace Normetry.Infrastructure.Messaging;
 
-internal enum ConsumeOutcome
-{
-    Ack,
-
-    /// <summary>Wait, then reject with requeue: the broker counts the delivery.</summary>
-    Retry,
-
-    /// <summary>Reject without requeue, which dead-letters the message at once.</summary>
-    DeadLetter,
-}
-
 /// <summary>
 /// Handles one delivery of <c>core.document-status</c>. The tenant of the scope comes from the
 /// message envelope and from nothing else (not from AMQP properties or headers); the scope's
@@ -79,33 +68,5 @@ internal sealed class DocumentStatusMessages(
             );
         }
         return ConsumeOutcome.Ack;
-    }
-}
-
-internal static class Notify
-{
-    /// <summary>
-    /// A push that fails is logged, not retried: the change is committed, and the web app refetches
-    /// after a reconnect.
-    /// </summary>
-    public static async Task SafelyAsync<TChange>(
-        IEnumerable<TChange> changes,
-        Func<TChange, CancellationToken, Task> push,
-        Func<TChange, Guid> idOf,
-        ILogger logger,
-        CancellationToken cancellationToken
-    )
-    {
-        foreach (var change in changes)
-        {
-            try
-            {
-                await push(change, cancellationToken);
-            }
-            catch (Exception error) when (!cancellationToken.IsCancellationRequested)
-            {
-                logger.LogWarning(error, "Could not push the change of {ChangeId}", idOf(change));
-            }
-        }
     }
 }
