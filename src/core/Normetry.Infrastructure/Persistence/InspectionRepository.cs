@@ -59,8 +59,14 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
                 inspection.CompletedAt,
                 inspection.ItemsTotal,
                 inspection.ItemsEvaluated,
-                // Counted in memory: the query reads only the findings' verdicts.
-                VerdictCounts.Of(inspection.Findings.Select(finding => finding.Verdict)),
+                // Counted in SQL: the list is not paged, so it never loads the findings.
+                new VerdictCounts(
+                    inspection.Findings.Count(finding => finding.Verdict == Verdicts.Compliant),
+                    inspection.Findings.Count(finding => finding.Verdict == Verdicts.NonCompliant),
+                    inspection.Findings.Count(finding =>
+                        finding.Verdict == Verdicts.InsufficientEvidence
+                    )
+                ),
                 inspection.FailureReasonCode
             ))
             .ToListAsync(cancellationToken);
