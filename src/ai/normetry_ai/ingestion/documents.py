@@ -15,7 +15,8 @@ import json
 import logging
 import re
 from collections.abc import Callable
-from typing import Any, Literal
+from enum import Enum, auto
+from typing import Any
 from uuid import UUID
 
 from azure.core.exceptions import ResourceNotFoundError
@@ -155,18 +156,25 @@ _DELETE_CHUNKS = text(
     """
 )
 
-Verdict = Literal["index", "current", "drop"]
+
+class IndexAction(Enum):
+    """What a version's message calls for: index it, answer with the stored result (already
+    current), or drop it (the document is deleted, or a newer version is indexed)."""
+
+    INDEX = auto()
+    CURRENT = auto()
+    DROP = auto()
 
 
-def _verdict(row: Any, version: int) -> Verdict:
+def _index_action(row: Any, version: int) -> IndexAction:
     """What a version's message calls for, given its document's row (None: never seen)."""
     if row is None:
-        return "index"
+        return IndexAction.INDEX
     if row.deleted_at is not None:
-        return "drop"
+        return IndexAction.DROP
     if row.indexed_version is None or version > row.indexed_version:
-        return "index"
-    return "current" if version == row.indexed_version else "drop"
+        return IndexAction.INDEX
+    return IndexAction.CURRENT if version == row.indexed_version else IndexAction.DROP
 
 
 class DocumentWorker:
@@ -205,10 +213,11 @@ class DocumentWorker:
         keys = {"tenant_id": tenant_id, "document_id": message.document_id}
         with tenant_transaction(self.engine, tenant_id) as connection:
             row = connection.execute(_SELECT_DOCUMENT, keys).one_or_none()
-        verdict = _verdict(row, message.version_number)
-        if verdict != "index":
-            self._log("dropped" if verdict == "drop" else "already indexed", tenant_id, message)
-            return _indexed(message, row) if verdict == "current" else None
+        action = _index_action(row, message.version_number)
+        if action is not IndexAction.INDEX:
+            what = "dropped" if action is IndexAction.DROP else "already indexed"
+            self._log(what, tenant_id, message)
+            return _indexed(message, row) if action is IndexAction.CURRENT else None
 
         on_start()
         data = self.blobs.download(tenant_id, message.blob_path)
@@ -237,10 +246,11 @@ class DocumentWorker:
                 _ENSURE_DOCUMENT, {**keys, "establishment_id": message.establishment_id}
             )
             row = connection.execute(_LOCK_DOCUMENT, keys).one()
-            verdict = _verdict(row, message.version_number)
-            if verdict != "index":  # changed while this version was being parsed and embedded
-                self._log("dropped" if verdict == "drop" else "already indexed", tenant_id, message)
-                return _indexed(message, row) if verdict == "current" else None
+            action = _index_action(row, message.version_number)
+            if action is not IndexAction.INDEX:  # changed while it was parsed and embedded
+                what = "dropped" if action is IndexAction.DROP else "already indexed"
+                self._log(what, tenant_id, message)
+                return _indexed(message, row) if action is IndexAction.CURRENT else None
             version = {**keys, "version": message.version_number}
             connection.execute(
                 _INSERT_CHUNK,
