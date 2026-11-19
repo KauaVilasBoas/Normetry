@@ -17,6 +17,7 @@ from typing import Any
 import anthropic
 
 from normetry_ai.llm.usage import Usage
+from normetry_ai.messaging.contracts import Verdict
 from normetry_ai.settings import AnswerSettings
 
 logger = logging.getLogger(__name__)
@@ -79,10 +80,7 @@ JUDGE_SCHEMA: dict[str, object] = {
         "regulation_quotes": _QUOTES,
         "evidence_quotes": _QUOTES,
         "rationale": {"type": "string"},
-        "verdict": {
-            "type": "string",
-            "enum": ["compliant", "non_compliant", "insufficient_evidence"],
-        },
+        "verdict": {"type": "string", "enum": [verdict.value for verdict in Verdict]},
         "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
         "action": {"anyOf": [{"type": "string"}, {"type": "null"}]},
     },

@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from functools import cache
 from importlib.resources import files
 
+from normetry_ai.messaging.contracts import Severity
+
 THEMES = (
     "personal_hygiene",
     "temperature_control",
@@ -24,7 +26,6 @@ THEMES = (
     "waste",
     "documentation_training",
 )
-SEVERITIES = ("critical", "major", "minor")
 # Jurisdiction -> corpus code (corpus/manifest.json); the file is checklists/<code>.json.
 CHECKLIST_CODES = {"US": "food-code", "EU": "reg-852-2004", "BR": "rdc-216-2004"}
 ITEM_COUNT = range(30, 51)
@@ -50,7 +51,7 @@ class ChecklistItem:
     theme: str
     title: str
     section_paths: tuple[str, ...]
-    severity: str
+    severity: Severity
     applies_to: tuple[str, ...]
     evidence_hint: str
 
@@ -84,7 +85,7 @@ def _item_problems(item: object, jurisdiction: str) -> list[str]:
             f"id must be '{jurisdiction.lower()}.' and a kebab-case slug",
         ),
         (item["theme"] in THEMES, f"unknown theme {item['theme']!r}"),
-        (item["severity"] in SEVERITIES, f"unknown severity {item['severity']!r}"),
+        (item["severity"] in Severity, f"unknown severity {item['severity']!r}"),
         (isinstance(item["title"], str) and item["title"].strip(), "title is empty"),
         (
             not isinstance(item["title"], str) or len(item["title"]) <= TITLE_LIMIT,
@@ -136,7 +137,7 @@ def parse_checklist(data: object, jurisdiction: str) -> Checklist:
                 theme=item["theme"],
                 title=item["title"],
                 section_paths=tuple(item["section_paths"]),
-                severity=item["severity"],
+                severity=Severity(item["severity"]),
                 applies_to=tuple(item["applies_to"]),
                 evidence_hint=item["evidence_hint"],
             )

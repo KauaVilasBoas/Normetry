@@ -5,8 +5,8 @@ output against them, and the shared fixtures against both. Fields are camelCase 
 Readers are tolerant: a payload field this side does not know yet is ignored, so adding an
 optional field is not a breaking change (README.md there, "Versions").
 
-The reason codes are the StrEnums below, the only place their values are spelled out; each
-serializes to its value, as the schemas say.
+The reason codes, verdicts and severities are the StrEnums below, the only place their values are
+spelled out; each serializes to its value, as the schemas say.
 """
 
 import json
@@ -38,6 +38,22 @@ class InspectionFailureReason(StrEnum):
     BUDGET_EXCEEDED = "budget_exceeded"
     NO_DOCUMENTS = "no_documents"
     ERROR = "error"
+
+
+class Verdict(StrEnum):
+    """A finding's verdict: what the judge may answer and the guard keeps."""
+
+    COMPLIANT = "compliant"
+    NON_COMPLIANT = "non_compliant"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+
+
+class Severity(StrEnum):
+    """A checklist item's severity, most severe first: findings are listed in this order."""
+
+    CRITICAL = "critical"
+    MAJOR = "major"
+    MINOR = "minor"
 
 
 DocumentType = Literal["Sop", "License", "Log", "Report", "Other"]
@@ -213,8 +229,8 @@ class Finding(_Model):
     item_id: str = Field(min_length=1, max_length=100)
     theme: Theme
     title: str = Field(min_length=1, max_length=200)
-    severity: Literal["critical", "major", "minor"]
-    verdict: Literal["compliant", "non_compliant", "insufficient_evidence"]
+    severity: Severity
+    verdict: Verdict
     confidence: Literal["low", "medium", "high"]
     rationale: str = Field(min_length=1, max_length=4000)
     regulation_citations: tuple[RegulationCitation, ...] = Field(min_length=1)
@@ -224,9 +240,9 @@ class Finding(_Model):
     @model_validator(mode="after")
     def _check(self) -> Self:
         # The schema cannot say these; the guard and the action plan make them hold.
-        if self.verdict != "insufficient_evidence" and not self.evidence_citations:
+        if self.verdict != Verdict.INSUFFICIENT_EVIDENCE and not self.evidence_citations:
             raise ValueError("a compliant or non_compliant verdict needs an evidence citation")
-        if (self.action is None) != (self.verdict == "compliant"):
+        if (self.action is None) != (self.verdict == Verdict.COMPLIANT):
             raise ValueError("every verdict but compliant has an action, and compliant none")
         return self
 

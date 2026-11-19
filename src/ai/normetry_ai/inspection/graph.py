@@ -35,16 +35,18 @@ from langgraph.func import task
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
-from normetry_ai.inspection.checklist import SEVERITIES, ChecklistItem, items_for
+from normetry_ai.inspection.checklist import ChecklistItem, items_for
 from normetry_ai.inspection.guard import JudgedFinding
 from normetry_ai.inspection.judge import JudgeModel, judge_item
 from normetry_ai.llm.usage import Usage
-from normetry_ai.messaging.contracts import Finding, InspectionRequested, ThemeProgress
+from normetry_ai.messaging.contracts import Finding, InspectionRequested, Severity, ThemeProgress
 from normetry_ai.retrieval.models import RetrievedChunk
 from normetry_ai.settings import AnswerSettings
 
 # Days to fix a non_compliant or insufficient_evidence finding, from completion (research R5).
-DUE_IN_DAYS = {"critical": 7, "major": 30, "minor": 90}
+DUE_IN_DAYS = {Severity.CRITICAL: 7, Severity.MAJOR: 30, Severity.MINOR: 90}
+# Findings are listed most severe first, in the order Severity declares them.
+SEVERITY_RANK = {severity: rank for rank, severity in enumerate(Severity)}
 # The budget's estimate of a prompt's tokens. English runs about 4 characters a token, Portuguese
 # fewer; 3 overestimates both, so the ceiling holds.
 CHARS_PER_TOKEN = 3
@@ -200,6 +202,10 @@ async def load(checkpointer: BaseCheckpointSaver, inspection_id: UUID) -> Saved:
 
 def _plain(finding: JudgedFinding) -> dict[str, Any]:
     plain = {name.name: getattr(finding, name.name) for name in fields(finding)}
+    # The saver's serde would store an enum member with its class, which LangGraph is moving to
+    # refuse on load; the state keeps the values only.
+    for key in ("severity", "verdict"):
+        plain[key] = str(plain[key])
     for key in ("regulation_citations", "evidence_citations"):
         plain[key] = [citation.model_dump(mode="json") for citation in plain[key]]
     return plain
@@ -236,7 +242,9 @@ def _read_error(future: asyncio.Future[Any]) -> None:
 def _finding(judged: dict[str, Any]) -> dict[str, Any]:
     action = judged["action"]
     due = (
-        None if action is None else {"text": action, "due_in_days": DUE_IN_DAYS[judged["severity"]]}
+        None
+        if action is None
+        else {"text": action, "due_in_days": DUE_IN_DAYS[Severity(judged["severity"])]}
     )
     return Finding.model_validate({**judged, "action": due}).model_dump(mode="json")
 
@@ -260,7 +268,7 @@ def consolidate(state: State) -> dict[str, Any]:
         return {"judged": [], "budget_exceeded": True}
     order = {item_id: i for i, item_id in enumerate(chain.from_iterable(state["plan"].values()))}
     judged = [result["finding"] for result in results if result["finding"] is not None]
-    judged.sort(key=lambda f: (SEVERITIES.index(f["severity"]), order[f["item_id"]]))
+    judged.sort(key=lambda f: (SEVERITY_RANK[Severity(f["severity"])], order[f["item_id"]]))
     return {"judged": judged, "budget_exceeded": False}
 
 

@@ -27,7 +27,7 @@ from sqlalchemy import Engine, text
 
 from normetry_ai.ingestion.documents import BlobStore, DocumentWorker
 from normetry_ai.inspection import graph
-from normetry_ai.inspection.checklist import SEVERITIES, ChecklistItem, items_for
+from normetry_ai.inspection.checklist import ChecklistItem, items_for
 from normetry_ai.inspection.checkpoints import TenantCheckpointSaver
 from normetry_ai.inspection.guard import UNVERIFIED_RATIONALE
 from normetry_ai.inspection.worker import InspectionWorker
@@ -159,7 +159,8 @@ def test_an_inspection_judges_every_item_and_plans_an_action_for_each_finding() 
     assert sorted(f["itemId"] for f in findings) == sorted(item.id for item in ITEMS)
     # By severity, then in checklist order.
     order = [item.id for item in ITEMS]
-    keys = [(SEVERITIES.index(f["severity"]), order.index(f["itemId"])) for f in findings]
+    severities = ("critical", "major", "minor")
+    keys = [(severities.index(f["severity"]), order.index(f["itemId"])) for f in findings]
     assert keys == sorted(keys)
     for finding in findings:
         item = TITLES[finding["title"]]
