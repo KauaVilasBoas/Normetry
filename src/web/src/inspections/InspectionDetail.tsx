@@ -4,17 +4,14 @@ import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
 import { ApiError } from "../api/client";
 import { inspectionStatuses, permissions } from "../api/contract";
-import type { Live } from "../api/live";
 import {
-  can,
   inspectionsKey,
-  queryFailed,
   useInspection,
-  type Establishment,
   type InspectionDetail,
   type InspectionSummary,
-  type Me,
-} from "../api/queries";
+} from "../api/inspections";
+import type { Live } from "../api/live";
+import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
 import {
   Button,

@@ -1,7 +1,7 @@
 import axe from "axe-core";
 import type { User } from "oidc-client-ts";
 import { expect, vi } from "vitest";
-import type { Finding } from "../api/queries";
+import type { Finding } from "../api/inspections";
 import type { OidcClient } from "../auth/oidc";
 
 export function fakeUser(overrides: Partial<User> = {}): User {

@@ -2,16 +2,11 @@ import { Lock, Menu, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
+import { useConversations } from "../api/chat";
 import { permissions } from "../api/contract";
-import {
-  can,
-  useConversations,
-  useDocument,
-  useEstablishments,
-  useInspection,
-  useMe,
-  type Establishment,
-} from "../api/queries";
+import { useDocument } from "../api/documents";
+import { useInspection } from "../api/inspections";
+import { can, useEstablishments, useMe, type Establishment } from "../api/queries";
 import { ChatScreen } from "../chat/ChatScreen";
 import { copy, dateTime, format } from "../copy";
 import { DocumentsScreen } from "../documents/DocumentsScreen";

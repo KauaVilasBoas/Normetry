@@ -3,16 +3,9 @@ import { CircleAlert, ClipboardCheck, Clock, FileText, Play } from "lucide-react
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { permissions } from "../api/contract";
+import { inspectionsKey, useInspections, type InspectionSummary } from "../api/inspections";
 import type { Live } from "../api/live";
-import {
-  can,
-  inspectionsKey,
-  queryFailed,
-  useInspections,
-  type Establishment,
-  type InspectionSummary,
-  type Me,
-} from "../api/queries";
+import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { untilReset } from "../chat/answers";
 import { copy, dateTime, format } from "../copy";

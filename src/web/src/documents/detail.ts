@@ -5,11 +5,11 @@ import { problemCodes } from "../api/contract";
 import {
   documentKey,
   documentsKey,
-  queryFailed,
   useDocument,
   type DocumentDetail,
   type DocumentSummary,
-} from "../api/queries";
+} from "../api/documents";
+import { queryFailed } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy } from "../copy";
 import { cachedTitle, expiryProblem, inFlight } from "./documents";

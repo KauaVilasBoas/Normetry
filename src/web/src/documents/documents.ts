@@ -5,7 +5,7 @@ import {
   type DocumentDetail,
   type DocumentSummary,
   type DocumentVersion,
-} from "../api/queries";
+} from "../api/documents";
 import type { Sent } from "../api/send";
 import { calendarDate, copy, format, localDate, relativeDays } from "../copy";
 

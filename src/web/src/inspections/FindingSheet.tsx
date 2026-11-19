@@ -12,7 +12,7 @@ import { useEffect, useId, useRef, type ReactNode, type Ref } from "react";
 import { Link } from "react-router";
 import type { RequestOptions } from "../api/client";
 import { actionStatuses, reviewStatuses } from "../api/contract";
-import type { EvidenceCitation, Finding, RegulationCitation } from "../api/queries";
+import type { EvidenceCitation, Finding, RegulationCitation } from "../api/inspections";
 import type { Sent } from "../api/send";
 import { calendarDate, copy, format, languageName } from "../copy";
 import {

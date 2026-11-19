@@ -3,16 +3,9 @@ import { FileText, ListFilter, Upload } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 import { Link } from "react-router";
 import { permissions } from "../api/contract";
+import { documentsKey, useDocuments, type DocumentSummary } from "../api/documents";
 import type { Live } from "../api/live";
-import {
-  can,
-  documentsKey,
-  queryFailed,
-  useDocuments,
-  type DocumentSummary,
-  type Establishment,
-  type Me,
-} from "../api/queries";
+import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
 import {
   Button,

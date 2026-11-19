@@ -2,16 +2,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { inspectionStatuses } from "../api/contract";
-import { useLiveStatus } from "../api/live";
 import {
   inspectionKey,
   inspectionsKey,
   inspectionsQuery,
-  type Establishment,
   type InspectionDetail,
   type InspectionSummary,
-  type Me,
-} from "../api/queries";
+} from "../api/inspections";
+import { useLiveStatus } from "../api/live";
+import type { Establishment, Me } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { InspectionDetailView } from "./InspectionDetail";

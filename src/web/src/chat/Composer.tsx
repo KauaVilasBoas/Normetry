@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Clock, SendHorizontal } from "lucide-react";
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
-import { quotaKey, type ChatQuota } from "../api/queries";
+import { quotaKey, type ChatQuota } from "../api/chat";
 import { copy, format } from "../copy";
 import { Notice } from "../ui/primitives";
 import { quotaNoticeText } from "./answers";

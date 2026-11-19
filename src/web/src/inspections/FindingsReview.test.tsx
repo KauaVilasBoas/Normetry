@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ActionItem, Finding } from "../api/queries";
+import type { ActionItem, Finding } from "../api/inspections";
 import { App } from "../App";
 import { createAuth } from "../auth/session";
 import { calendarDate, dateTime } from "../copy";

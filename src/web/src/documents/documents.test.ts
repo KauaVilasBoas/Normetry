@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DocumentDetail, DocumentSummary, DocumentVersion } from "../api/queries";
+import type { DocumentDetail, DocumentSummary, DocumentVersion } from "../api/documents";
 import { fileSize } from "../copy";
 import {
   expiry,

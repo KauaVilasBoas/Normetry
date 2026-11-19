@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { useConversations, type Citation, type Establishment } from "../api/queries";
+import { useConversations, type Citation } from "../api/chat";
+import type { Establishment } from "../api/queries";
 import { copy } from "../copy";
 import { media, useMediaQuery } from "../ui/media";
 import { Sheet } from "../ui/primitives";

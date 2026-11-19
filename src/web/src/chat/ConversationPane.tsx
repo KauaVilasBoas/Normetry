@@ -1,7 +1,8 @@
 import { CircleAlert, History, SquarePen, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { Fragment, useRef, useState } from "react";
-import { useChatQuota, type Citation, type Establishment } from "../api/queries";
+import { useChatQuota, type Citation } from "../api/chat";
+import type { Establishment } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import {

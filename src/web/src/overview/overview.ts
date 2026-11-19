@@ -1,4 +1,4 @@
-import type { CompliancePoint, ThemeVerdicts, VerdictCounts } from "../api/queries";
+import type { CompliancePoint, ThemeVerdicts, VerdictCounts } from "../api/overview";
 import { copy, format, percent, shortDay } from "../copy";
 
 // The overview's numbers (spec overview-screen.md §4).

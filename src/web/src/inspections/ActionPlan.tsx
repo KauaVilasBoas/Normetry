@@ -1,7 +1,7 @@
 import { CircleAlert, ListChecks } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { actionStatuses } from "../api/contract";
-import type { ActionItem, InspectionDetail } from "../api/queries";
+import type { ActionItem, InspectionDetail } from "../api/inspections";
 import { useSend } from "../api/send";
 import { calendarDate, copy, format } from "../copy";
 import { Checkbox, Message, ReadOnlyCheckbox } from "../ui/primitives";

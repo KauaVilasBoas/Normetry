@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { Overview } from "../api/queries";
+import type { Overview } from "../api/overview";
 import { App } from "../App";
 import { createAuth } from "../auth/session";
 import { shortDay } from "../copy";

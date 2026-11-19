@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { reviewStatuses } from "../api/contract";
-import type { Finding } from "../api/queries";
+import type { Finding } from "../api/inspections";
 import { copy } from "../copy";
 import {
   draftOf,
