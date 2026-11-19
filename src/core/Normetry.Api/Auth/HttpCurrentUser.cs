@@ -20,9 +20,10 @@ internal sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentU
             : throw new InvalidOperationException("The token has no sub claim.");
 
     public string? DisplayName =>
-        User.FindFirstValue("name") ?? User.FindFirstValue("preferred_username");
+        User.FindFirstValue(JwtClaimNames.Name)
+        ?? User.FindFirstValue(JwtClaimNames.PreferredUsername);
 
-    public string? Email => User.FindFirstValue("email");
+    public string? Email => User.FindFirstValue(JwtClaimNames.Email);
 
     public Guid TenantId =>
         User.TryGetTenantId(out var tenantId)
