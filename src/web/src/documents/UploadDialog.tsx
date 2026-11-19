@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
 import type { RequestOptions } from "../api/client";
+import { problemCodes } from "../api/contract";
 import { documentKey, documentsKey, type DocumentDetail, type Establishment } from "../api/queries";
 import { copy, fileSize, format } from "../copy";
 import { useSend, type Sent } from "../settings/profiles";
@@ -217,7 +218,7 @@ function UploadForm({
     }
     const refusal = uploadRefusal(result, file.name);
     // The only field the client can't fully check is the date (the server reads it strictly).
-    if (result.code === "validation" && expiresOn) {
+    if (result.code === problemCodes.validation && expiresOn) {
       setErrors({ expiresOn: copy.upload.expiryInvalid });
       setFocusRequest({ field: "expiresOn" });
     } else if (refusal.file) {
@@ -225,7 +226,7 @@ function UploadForm({
       setErrors({ file: refusal.file });
       setFocusRequest({ field: "file" });
     } else setError(refusal.form);
-    if (result.code === "document.version_in_flight" && existing)
+    if (result.code === problemCodes.versionInFlight && existing)
       void queryClient.invalidateQueries({ queryKey: documentKey(existing.id) });
   };
 

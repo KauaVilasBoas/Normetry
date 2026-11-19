@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { Sent } from "../settings/profiles";
+import { problemCodes } from "../api/contract";
 import {
   documentsKey,
   type DocumentDetail,
@@ -82,18 +83,18 @@ export const withContentType = (file: File) => {
 export function uploadRefusal(result: Sent & { ok: false }, fileName: string) {
   const file = { file: fileName };
   switch (result.code) {
-    case "document.unsupported_format":
+    case problemCodes.unsupportedFormat:
       return { file: format(copy.upload.wrongType, file) };
-    case "document.invalid_content":
-    case "document.empty":
+    case problemCodes.invalidContent:
+    case problemCodes.emptyDocument:
       return { file: format(copy.upload.invalidContent, file) };
-    case "document.too_large":
+    case problemCodes.tooLarge:
       return { file: format(copy.upload.tooLarge, file) };
-    case "document.limit_reached":
+    case problemCodes.documentLimitReached:
       return { form: copy.upload.limitReached };
-    case "document.version_limit_reached":
+    case problemCodes.versionLimitReached:
       return { form: copy.upload.versionLimitReached };
-    case "document.version_in_flight":
+    case problemCodes.versionInFlight:
       return { form: copy.upload.inFlight };
   }
   return { form: result.status === 403 ? copy.settings.denied : copy.upload.network };

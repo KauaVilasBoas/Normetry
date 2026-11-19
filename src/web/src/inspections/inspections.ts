@@ -1,3 +1,4 @@
+import { problemCodes } from "../api/contract";
 import type { Establishment, InspectionSummary, ThemeProgress } from "../api/queries";
 import { copy, format } from "../copy";
 import type { Sent } from "../settings/profiles";
@@ -81,15 +82,16 @@ export type Refusal =
 export function runRefusal(result: Sent & { ok: false }, now: number): Refusal | "running" {
   if (result.status === 429)
     return {
-      kind: result.code === "inspection_quota" ? "quota" : "rateLimited",
+      kind: result.code === problemCodes.inspectionQuota ? "quota" : "rateLimited",
       // ponytail: a 429 without Retry-After waits a minute; the core always sends one today.
       until: now + (result.retryAfter ?? 60) * 1000,
     };
-  if (result.status === 409 && result.code === "inspection_running") return "running";
-  if (result.status === 409 && result.code === "no_indexed_documents")
+  if (result.status === 409 && result.code === problemCodes.inspectionRunning) return "running";
+  if (result.status === 409 && result.code === problemCodes.noIndexedDocuments)
     return { kind: "noDocuments" };
   // The tenant's other establishments fill its in-flight cap: nothing here to refetch.
-  if (result.status === 409 && result.code === "inspection_capacity") return { kind: "capacity" };
+  if (result.status === 409 && result.code === problemCodes.inspectionCapacity)
+    return { kind: "capacity" };
   if (result.status === 403) return { kind: "denied" };
   return { kind: "error" };
 }

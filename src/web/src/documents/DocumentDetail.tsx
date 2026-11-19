@@ -4,7 +4,7 @@ import { AlertDialog } from "radix-ui";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "../api/client";
-import { permissions } from "../api/contract";
+import { permissions, problemCodes } from "../api/contract";
 import type { Live } from "../api/live";
 import {
   can,
@@ -449,7 +449,8 @@ function ExpiryDialog({
     );
     setSubmitting(false);
     if (!result.ok) {
-      if (result.code === "validation") setFieldError({ text: copy.upload.expiryInvalid });
+      if (result.code === problemCodes.validation)
+        setFieldError({ text: copy.upload.expiryInvalid });
       else setError(result.status === 403 ? copy.settings.denied : copy.documents.expiryError);
       return;
     }
