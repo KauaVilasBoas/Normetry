@@ -24,14 +24,15 @@ from azure.storage.blob import ContainerClient
 from sqlalchemy import Engine, text
 
 from normetry_ai.db import tenant_transaction
-from normetry_ai.ingestion.chunking import chunk_sections
-from normetry_ai.ingestion.parsers import MAX_BYTES, Rejected
+from normetry_ai.ingestion.chunking import Chunk, chunk_sections
+from normetry_ai.ingestion.parsers import MAX_BYTES, Parsed, Rejected
 from normetry_ai.ingestion.sandbox import parse_in_subprocess
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.messaging.contracts import (
     DocumentDeleted,
     DocumentFailureReason,
     DocumentIndexed,
+    DocumentPayload,
     DocumentUploaded,
 )
 from normetry_ai.retrieval.language import detect_language
@@ -211,25 +212,53 @@ class DocumentWorker:
         current (a redelivery: nothing is redone). Returns None when the work is dropped: the
         document is deleted or a newer version is indexed. Calls `on_start` once, before any work.
         Raises Rejected for a file that cannot be indexed."""
-        keys = {"tenant_id": tenant_id, "document_id": message.document_id}
-        with tenant_transaction(self.engine, tenant_id) as connection:
-            row = connection.execute(_SELECT_DOCUMENT, keys).one_or_none()
-        action = _index_action(row, message.version_number)
+        action, row = self._index_action_for(tenant_id, message)
         if action is not IndexAction.INDEX:
-            what = "dropped" if action is IndexAction.DROP else "already indexed"
-            self._log(what, tenant_id, message)
-            return _indexed(message, row) if action is IndexAction.CURRENT else None
-
+            return self._not_indexed(action, tenant_id, message, row)
         on_start()
+        data = self._download_verified(tenant_id, message)
+        parsed, chunks = self._parse_and_chunk(data, message.content_type)
+        language = detect_language(" ".join(part.text for part in parsed.parts))
+        vectors = self.embedder.embed_documents([chunk.content for chunk in chunks])
+        return self._store_version(tenant_id, message, chunks, vectors, language, parsed.page_count)
+
+    def _index_action_for(
+        self, tenant_id: UUID, message: DocumentUploaded
+    ) -> tuple[IndexAction, Any]:
+        """What the message calls for, given its document's row as stored now, and that row."""
+        with tenant_transaction(self.engine, tenant_id) as connection:
+            row = connection.execute(
+                _SELECT_DOCUMENT, _document_keys(tenant_id, message)
+            ).one_or_none()
+        return _index_action(row, message.version_number), row
+
+    def _not_indexed(
+        self, action: IndexAction, tenant_id: UUID, message: DocumentUploaded, row: Any
+    ) -> DocumentIndexed | None:
+        """A version that is not indexed again: its stored DocumentIndexed when it is already
+        current, None when the work is dropped."""
+        what = "dropped" if action is IndexAction.DROP else "already indexed"
+        self._log(what, tenant_id, message)
+        if action is not IndexAction.CURRENT:
+            return None
+        return _indexed(message, row.chunk_count, row.page_count, row.language)
+
+    def _download_verified(self, tenant_id: UUID, message: DocumentUploaded) -> bytes:
+        """The uploaded file, checked against the message's SHA-256."""
         data = self.blobs.download(tenant_id, message.blob_path)
         if hashlib.sha256(data).hexdigest() != message.sha256:
             raise Rejected(
                 DocumentFailureReason.INTERNAL, "The stored file does not match the uploaded file."
             )
+        return data
+
+    def _parse_and_chunk(self, data: bytes, content_type: str) -> tuple[Parsed, list[Chunk]]:
+        """The file parsed into parts and their chunks. Over MAX_CHUNKS fails before anything is
+        embedded."""
         # In a child process without credentials (sandbox.py): the file is untrusted.
         parsed = parse_in_subprocess(
             data,
-            message.content_type,
+            content_type,
             timeout_s=self.parsing.parse_timeout_seconds,
             memory_mb=self.parsing.parse_memory_mb,
         )
@@ -238,10 +267,21 @@ class DocumentWorker:
             raise Rejected(
                 DocumentFailureReason.TOO_LARGE, "The document holds more text than 100 pages."
             )
-        language = detect_language(" ".join(part.text for part in parsed.parts))
-        vectors = self.embedder.embed_documents([chunk.content for chunk in chunks])
-        metadata = json.dumps({"embedding_model": self.embedder.name})
+        return parsed, chunks
 
+    def _store_version(
+        self,
+        tenant_id: UUID,
+        message: DocumentUploaded,
+        chunks: list[Chunk],
+        vectors: list[list[float]],
+        language: str,
+        page_count: int | None,
+    ) -> DocumentIndexed | None:
+        """In one transaction that creates and locks the document's row: check the version is
+        still to be indexed, insert its chunks, delete every other version's and record it as
+        current, with the message's title and document type."""
+        keys = _document_keys(tenant_id, message)
         with tenant_transaction(self.engine, tenant_id) as connection:
             connection.execute(
                 _ENSURE_DOCUMENT, {**keys, "establishment_id": message.establishment_id}
@@ -249,35 +289,11 @@ class DocumentWorker:
             row = connection.execute(_LOCK_DOCUMENT, keys).one()
             action = _index_action(row, message.version_number)
             if action is not IndexAction.INDEX:  # changed while it was parsed and embedded
-                what = "dropped" if action is IndexAction.DROP else "already indexed"
-                self._log(what, tenant_id, message)
-                return _indexed(message, row) if action is IndexAction.CURRENT else None
+                return self._not_indexed(action, tenant_id, message, row)
             version = {**keys, "version": message.version_number}
-            connection.execute(
-                _INSERT_CHUNK,
-                [
-                    {
-                        **version,
-                        "language": language,
-                        "section_path": chunk.section_path or None,
-                        "content": chunk.content,
-                        "content_hash": chunk.content_hash,
-                        "embedding": vector_literal(vector),
-                        "metadata": metadata,
-                    }
-                    for chunk, vector in zip(chunks, vectors, strict=True)
-                ],
-            )
+            connection.execute(_INSERT_CHUNK, self._chunk_rows(version, chunks, vectors, language))
             connection.execute(_DELETE_OTHER_VERSIONS, version)
-            result = DocumentIndexed(
-                establishment_id=message.establishment_id,
-                document_id=message.document_id,
-                version_id=message.version_id,
-                version_number=message.version_number,
-                chunk_count=len(chunks),
-                page_count=parsed.page_count,
-                language=language,
-            )
+            result = _indexed(message, len(chunks), page_count, language)
             connection.execute(
                 _SET_INDEXED,
                 {
@@ -292,10 +308,32 @@ class DocumentWorker:
         self._log("indexed", tenant_id, message, chunks=len(chunks))
         return result
 
+    def _chunk_rows(
+        self,
+        version: dict[str, Any],
+        chunks: list[Chunk],
+        vectors: list[list[float]],
+        language: str,
+    ) -> list[dict[str, Any]]:
+        """The version's ai.chunks rows: each chunk with its vector and the embedding model."""
+        metadata = json.dumps({"embedding_model": self.embedder.name})
+        return [
+            {
+                **version,
+                "language": language,
+                "section_path": chunk.section_path or None,
+                "content": chunk.content,
+                "content_hash": chunk.content_hash,
+                "embedding": vector_literal(vector),
+                "metadata": metadata,
+            }
+            for chunk, vector in zip(chunks, vectors, strict=True)
+        ]
+
     def delete(self, tenant_id: UUID, message: DocumentDeleted) -> None:
         """Mark the document deleted and remove its chunks; an ingestion in flight then stores
         nothing."""
-        keys = {"tenant_id": tenant_id, "document_id": message.document_id}
+        keys = _document_keys(tenant_id, message)
         with tenant_transaction(self.engine, tenant_id) as connection:
             connection.execute(
                 _MARK_DELETED, {**keys, "establishment_id": message.establishment_id}
@@ -325,14 +363,21 @@ class DocumentWorker:
         )
 
 
-def _indexed(message: DocumentUploaded, row: Any) -> DocumentIndexed:
-    """The DocumentIndexed of a version stored earlier, from its row."""
+def _document_keys(tenant_id: UUID, message: DocumentPayload) -> dict[str, Any]:
+    """The key of the document's ai.tenant_documents row (and of its chunks' source)."""
+    return {"tenant_id": tenant_id, "document_id": message.document_id}
+
+
+def _indexed(
+    message: DocumentUploaded, chunk_count: int, page_count: int | None, language: str
+) -> DocumentIndexed:
+    """The DocumentIndexed of a version: one just stored, or one stored earlier (from its row)."""
     return DocumentIndexed(
         establishment_id=message.establishment_id,
         document_id=message.document_id,
         version_id=message.version_id,
         version_number=message.version_number,
-        chunk_count=row.chunk_count,
-        page_count=row.page_count,
-        language=row.language,
+        chunk_count=chunk_count,
+        page_count=page_count,
+        language=language,
     )
