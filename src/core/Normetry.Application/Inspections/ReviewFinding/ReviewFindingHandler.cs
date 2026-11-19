@@ -12,6 +12,28 @@ internal sealed class ReviewFindingHandler(FindingReviewService reviews, TimePro
         CancellationToken cancellationToken
     )
     {
+        var found = await FindFindingOfCompletedInspectionAsync(request, cancellationToken);
+        if (!found.IsSuccess)
+        {
+            return found.Error;
+        }
+        var finding = found.Value;
+        var refusal = RefuseNewActionWithoutBothTextAndDueOn(request, finding);
+        if (refusal is not null)
+        {
+            return refusal;
+        }
+        var reviewer = await reviews.ReviewerIdAsync(cancellationToken);
+        ApplyReviewDecision(request, finding, reviewer, clock.GetUtcNow());
+        return await reviews.ResponseAsync(finding, cancellationToken);
+    }
+
+    /// <summary>The finding the route names, in its Completed inspection, tracked and locked.</summary>
+    private async Task<Result<Finding>> FindFindingOfCompletedInspectionAsync(
+        ReviewFindingCommand request,
+        CancellationToken cancellationToken
+    )
+    {
         var loaded = await reviews.CompletedInspectionAsync(
             request.EstablishmentId,
             request.InspectionId,
@@ -22,25 +44,34 @@ internal sealed class ReviewFindingHandler(FindingReviewService reviews, TimePro
         {
             return loaded.Error;
         }
-        if (
+        return
             loaded.Value.Findings.FirstOrDefault(finding => finding.Id == request.FindingId)
-            is not { } finding
-        )
-        {
-            return InspectionErrors.FindingNotFound;
-        }
-        // The domain refuses this too, but by throwing: here it is the caller's input.
-        if (
-            request.Decision == ReviewDecision.Edit
-            && finding.ActionItem is null
-            && (request.ActionText is null) != (request.DueOn is null)
-        )
-        {
-            return InspectionErrors.ActionNeedsTextAndDueOn;
-        }
+                is { } finding
+            ? finding
+            : InspectionErrors.FindingNotFound;
+    }
 
-        var reviewer = await reviews.ReviewerIdAsync(cancellationToken);
-        var now = clock.GetUtcNow();
+    /// <summary>
+    /// An edit creating a finding's action must give both its text and due date. The domain
+    /// refuses this too, but by throwing: here it is the caller's input.
+    /// </summary>
+    private static Error? RefuseNewActionWithoutBothTextAndDueOn(
+        ReviewFindingCommand request,
+        Finding finding
+    ) =>
+        request.Decision == ReviewDecision.Edit
+        && finding.ActionItem is null
+        && (request.ActionText is null) != (request.DueOn is null)
+            ? InspectionErrors.ActionNeedsTextAndDueOn
+            : null;
+
+    private static void ApplyReviewDecision(
+        ReviewFindingCommand request,
+        Finding finding,
+        Guid reviewer,
+        DateTimeOffset now
+    )
+    {
         switch (request.Decision)
         {
             case ReviewDecision.Accept:
@@ -65,6 +96,5 @@ internal sealed class ReviewFindingHandler(FindingReviewService reviews, TimePro
             default:
                 throw new ArgumentOutOfRangeException(nameof(request), request.Decision, null);
         }
-        return await reviews.ResponseAsync(finding, cancellationToken);
     }
 }
