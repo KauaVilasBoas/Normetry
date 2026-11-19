@@ -22,7 +22,7 @@ from sqlalchemy import Connection, text
 
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
-from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion
+from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion, vector_literal
 from normetry_ai.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def document_candidates(
     params = {"establishment_id": establishment_id}
     vector_rows = connection.execute(
         _VECTOR_SEARCH,
-        {**params, "embedding": "[" + ",".join(map(str, embedding)) + "]", "k": vector_k},
+        {**params, "embedding": vector_literal(embedding), "k": vector_k},
     ).all()
     text_rows = connection.execute(
         _TEXT_SEARCH,

@@ -22,6 +22,7 @@ from sqlalchemy.pool import NullPool
 from normetry_ai.ingestion.chunking import chunk_sections
 from normetry_ai.ingestion.corpus import CORPUS_DIR, Section, load_manifest, parse_source
 from normetry_ai.llm.embeddings import Embedder, SentenceTransformerEmbedder
+from normetry_ai.retrieval.models import vector_literal
 from normetry_ai.settings import CorpusSettings, EmbeddingSettings
 
 # The ai.sources columns copied from the manifest, and the manifest field of each.
@@ -120,7 +121,7 @@ def ingest_source(
     missing = [chunk for chunk in chunks if chunk.content_hash not in stored]
     vectors = embedder.embed_documents([chunk.content for chunk in missing]) if missing else []
     embeddings = stored | {
-        chunk.content_hash: "[" + ",".join(map(str, vector)) + "]"
+        chunk.content_hash: vector_literal(vector)
         for chunk, vector in zip(missing, vectors, strict=True)
     }
 
