@@ -100,10 +100,7 @@ class InspectionWorker:
         another establishment; raises on anything else, for the consumer to retry: the next
         delivery resumes from the last checkpoint."""
         saver = TenantCheckpointSaver(self.engine, tenant_id)
-        saved = await graph.load(saver, request.inspection_id)
-        if saved.exists and not saved.is_for(request):
-            raise InspectionMismatch("the checkpoints are for another establishment")
-        ids = {"establishment_id": request.establishment_id, "inspection_id": request.inspection_id}
+        saved = await _saved_for(saver, request)
         if saved.finished:
             self._log("already finished", tenant_id, request)
             return self._result(request, saved)
@@ -112,26 +109,24 @@ class InspectionWorker:
         )
         if not documents:
             self._log("has no documents", tenant_id, request)
-            return InspectionFailed(
-                **ids, reason_code=InspectionFailureReason.NO_DOCUMENTS, reason_text=NO_DOCUMENTS
-            )
-
-        async def started(themes: graph.Snapshot) -> None:
-            total = sum(theme.items_total for theme in themes)
-            await publish(InspectionStarted(**ids, items_total=total, themes=themes))
-
-        async def progressed(themes: graph.Snapshot) -> None:
-            await publish(
-                InspectionProgressed(
-                    **ids,
-                    items_evaluated=sum(theme.items_evaluated for theme in themes),
-                    items_total=sum(theme.items_total for theme in themes),
-                    themes=themes,
-                )
-            )
-
+            return _no_documents(request)
         began = time.perf_counter()
-        saved = await graph.run(
+        saved = await self._run_graph(saver, tenant_id, request, saved, publish)
+        result = self._result(request, saved)
+        self._log_run(tenant_id, request, saved, result, time.perf_counter() - began)
+        return result
+
+    async def _run_graph(
+        self,
+        saver: TenantCheckpointSaver,
+        tenant_id: UUID,
+        request: InspectionRequested,
+        saved: graph.Saved,
+        publish: Callable[[Payload], Awaitable[None]],
+    ) -> graph.Saved:
+        """Run the graph, or resume it from `saved`, publishing InspectionStarted first and an
+        InspectionProgressed after each item evaluated."""
+        return await graph.run(
             saver,
             request,
             saved,
@@ -149,18 +144,9 @@ class InspectionWorker:
                 prices=self.answers.model_prices,
                 feature=UsageFeature.INSPECTION,
             ),
-            on_start=started,
-            on_progress=progressed,
+            on_start=lambda themes: publish(_started(request, themes)),
+            on_progress=lambda themes: publish(_progressed(request, themes)),
         )
-        result = self._result(request, saved)
-        self._log(
-            "budget exceeded" if isinstance(result, InspectionFailed) else "completed",
-            tenant_id,
-            request,
-            f": {len(saved.results)} items, {len(saved.values['findings'])} findings, "
-            f"{time.perf_counter() - began:.1f} s",
-        )
-        return result
 
     def _has_documents(self, tenant_id: UUID, establishment_id: UUID) -> bool:
         with tenant_transaction(self.engine, tenant_id) as connection:
@@ -192,7 +178,7 @@ class InspectionWorker:
     def _result(
         request: InspectionRequested, saved: graph.Saved
     ) -> InspectionCompleted | InspectionFailed:
-        ids = {"establishment_id": request.establishment_id, "inspection_id": request.inspection_id}
+        ids = _inspection_ids(request)
         if saved.values.get("budget_exceeded"):
             return InspectionFailed(
                 **ids,
@@ -219,3 +205,56 @@ class InspectionWorker:
             counts,
             extra={"tenant_id": str(tenant_id)},
         )
+
+    @classmethod
+    def _log_run(
+        cls,
+        tenant_id: UUID,
+        request: InspectionRequested,
+        saved: graph.Saved,
+        result: InspectionCompleted | InspectionFailed,
+        seconds: float,
+    ) -> None:
+        cls._log(
+            "budget exceeded" if isinstance(result, InspectionFailed) else "completed",
+            tenant_id,
+            request,
+            f": {len(saved.results)} items, {len(saved.values['findings'])} findings, "
+            f"{seconds:.1f} s",
+        )
+
+
+async def _saved_for(saver: TenantCheckpointSaver, request: InspectionRequested) -> graph.Saved:
+    """The inspection's last checkpoint. Raises InspectionMismatch when its checkpoints were
+    started for another establishment, jurisdiction or type."""
+    saved = await graph.load(saver, request.inspection_id)
+    if saved.exists and not saved.is_for(request):
+        raise InspectionMismatch("the checkpoints are for another establishment")
+    return saved
+
+
+def _inspection_ids(request: InspectionRequested) -> dict[str, UUID]:
+    """The ids every event of the inspection carries."""
+    return {"establishment_id": request.establishment_id, "inspection_id": request.inspection_id}
+
+
+def _no_documents(request: InspectionRequested) -> InspectionFailed:
+    return InspectionFailed(
+        **_inspection_ids(request),
+        reason_code=InspectionFailureReason.NO_DOCUMENTS,
+        reason_text=NO_DOCUMENTS,
+    )
+
+
+def _started(request: InspectionRequested, themes: graph.Snapshot) -> InspectionStarted:
+    total = sum(theme.items_total for theme in themes)
+    return InspectionStarted(**_inspection_ids(request), items_total=total, themes=themes)
+
+
+def _progressed(request: InspectionRequested, themes: graph.Snapshot) -> InspectionProgressed:
+    return InspectionProgressed(
+        **_inspection_ids(request),
+        items_evaluated=sum(theme.items_evaluated for theme in themes),
+        items_total=sum(theme.items_total for theme in themes),
+        themes=themes,
+    )
