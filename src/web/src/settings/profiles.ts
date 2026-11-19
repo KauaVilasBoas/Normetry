@@ -1,4 +1,5 @@
-import type { ProfileListItem, ProfileSummary } from "../api/queries";
+import type { ProfileListItem } from "../api/profiles";
+import type { ProfileSummary } from "../api/queries";
 import { copy, format, locale } from "../copy";
 
 // Matched by system key, never by name, so the names can be translated.

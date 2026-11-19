@@ -3,8 +3,9 @@ import { AlertDialog } from "radix-ui";
 import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { documentStatuses, permissions } from "../api/contract";
+import type { DocumentDetail } from "../api/documents";
 import type { Live } from "../api/live";
-import { can, type DocumentDetail, type Establishment, type Me } from "../api/queries";
+import { can, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { calendarDate, copy, fileSize, format, shortDate } from "../copy";
 import {

@@ -1,17 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FocusEvent, type UIEvent } from "react";
-import { ApiError, seconds } from "../api/client";
-import { answerEvents } from "../api/contract";
 import {
   conversationsKey,
-  meKey,
   quotaKey,
   useConversation,
-  useEstablishments,
   type ChatQuota,
   type ConversationSummary,
-  type Establishment,
-} from "../api/queries";
+} from "../api/chat";
+import { ApiError, seconds } from "../api/client";
+import { answerEvents } from "../api/contract";
+import { meKey, useEstablishments, type Establishment } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import {

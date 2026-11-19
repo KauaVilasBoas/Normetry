@@ -1,7 +1,7 @@
 import { CircleAlert, FileText, SearchX, WifiOff, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import type { Citation, Claim } from "../api/chat";
 import { sourceTypes } from "../api/contract";
-import type { Citation, Claim } from "../api/queries";
 import { copy, format } from "../copy";
 import { LogoMark } from "../ui/Logo";
 import { media, useMediaQuery } from "../ui/media";

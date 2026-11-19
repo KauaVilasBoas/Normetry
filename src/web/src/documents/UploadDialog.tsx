@@ -3,7 +3,8 @@ import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
 import type { RequestOptions } from "../api/client";
 import { problemCodes } from "../api/contract";
-import { documentKey, documentsKey, type DocumentDetail, type Establishment } from "../api/queries";
+import { documentKey, documentsKey, type DocumentDetail } from "../api/documents";
+import type { Establishment } from "../api/queries";
 import { useSend, type Sent } from "../api/send";
 import { copy, fileSize, format } from "../copy";
 import {

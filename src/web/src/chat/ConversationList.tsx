@@ -2,7 +2,8 @@ import { CircleAlert, MessagesSquare, Plus, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useRef } from "react";
 import { Link } from "react-router";
-import { useConversations, type Establishment } from "../api/queries";
+import { useConversations } from "../api/chat";
+import type { Establishment } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
 import { Button, iconButton, Message, Skeleton, Spinner } from "../ui/primitives";
 

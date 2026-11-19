@@ -1,5 +1,6 @@
 import { inspectionStatuses, problemCodes } from "../api/contract";
-import type { Establishment, InspectionSummary, ThemeProgress } from "../api/queries";
+import type { InspectionSummary, ThemeProgress } from "../api/inspections";
+import type { Establishment } from "../api/queries";
 import type { Sent } from "../api/send";
 import { copy, format } from "../copy";
 

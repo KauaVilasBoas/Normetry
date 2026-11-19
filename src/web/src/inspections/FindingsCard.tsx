@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, ListFilter, SearchX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { severities } from "../api/contract";
-import type { Finding, InspectionDetail } from "../api/queries";
+import type { Finding, InspectionDetail } from "../api/inspections";
 import { useSend } from "../api/send";
 import { copy, dateTime, format } from "../copy";
 import { Button, FilterSelect, Message, Sheet, th } from "../ui/primitives";

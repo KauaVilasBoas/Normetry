@@ -1,6 +1,6 @@
 import { ArrowRight, type LucideIcon } from "lucide-react";
 import type { ButtonHTMLAttributes, Ref } from "react";
-import { quoteFound, type Citation } from "../api/queries";
+import { quoteFound, type Citation } from "../api/chat";
 import { copy, locale } from "../copy";
 
 /**

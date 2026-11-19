@@ -15,15 +15,12 @@ import { useEffect, useId, type ReactNode } from "react";
 import { Link } from "react-router";
 import { permissions, verdicts } from "../api/contract";
 import {
-  can,
-  queryFailed,
   useOverview,
   type CompliancePoint,
-  type Establishment,
   type LatestInspection,
-  type Me,
   type Overview,
-} from "../api/queries";
+} from "../api/overview";
+import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { calendarDate, copy, format, percent, shortDay } from "../copy";
 import { typeLabel } from "../documents/documents";
 import { ExpiryBadge } from "../documents/parts";

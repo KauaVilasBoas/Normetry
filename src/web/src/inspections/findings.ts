@@ -7,7 +7,7 @@ import {
   type ActionItem,
   type Finding,
   type InspectionDetail,
-} from "../api/queries";
+} from "../api/inspections";
 import type { Sent } from "../api/send";
 import { calendarDate, copy, dateTime, format, localDate, locale, relativeDays } from "../copy";
 import { findingCount, rankIn, themeRank } from "./inspections";

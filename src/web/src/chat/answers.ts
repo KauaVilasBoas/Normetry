@@ -1,6 +1,6 @@
+import type { ChatQuota, Citation, Claim, ConversationMessage } from "../api/chat";
 import { problemCode, seconds } from "../api/client";
 import { answerEvents, problemCodes, sourceTypes } from "../api/contract";
-import type { ChatQuota, Citation, Claim, ConversationMessage } from "../api/queries";
 import { copy, format, locale } from "../copy";
 
 /** How a turn's answer stands. `undefined` on a turn: no answer was stored. */

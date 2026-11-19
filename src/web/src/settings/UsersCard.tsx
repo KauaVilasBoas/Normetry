@@ -3,16 +3,8 @@ import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { permissions, problemCodes } from "../api/contract";
-import {
-  can,
-  meKey,
-  queryFailed,
-  usersKey,
-  useUsers,
-  type Me,
-  type ProfileSummary,
-  type TenantUser,
-} from "../api/queries";
+import { usersKey, useUsers, type TenantUser } from "../api/profiles";
+import { can, meKey, queryFailed, type Me, type ProfileSummary } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format, locale } from "../copy";
 import { Avatar, Button, ErrorMessage, Skeleton, Spinner, Tag } from "../ui/primitives";

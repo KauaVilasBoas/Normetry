@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ConversationMessage } from "../api/queries";
+import type { ConversationMessage } from "../api/chat";
 import {
   quotaAfter,
   rateLimited,

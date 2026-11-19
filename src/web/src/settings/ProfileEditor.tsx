@@ -6,18 +6,15 @@ import { Link } from "react-router";
 import { ApiError } from "../api/client";
 import { permissions } from "../api/contract";
 import {
-  can,
-  meKey,
   profileKey,
   profilesKey,
-  queryFailed,
   usePermissionCatalog,
   useProfile,
   usersKey,
-  type Me,
   type Profile,
   type ProfileListItem,
-} from "../api/queries";
+} from "../api/profiles";
+import { can, meKey, queryFailed, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
 import {

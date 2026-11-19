@@ -4,15 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { permissions } from "../api/contract";
 import {
-  can,
   profileKey,
   profilesKey,
-  queryFailed,
   useProfiles,
-  type Me,
   type Profile,
   type ProfileListItem,
-} from "../api/queries";
+} from "../api/profiles";
+import { can, queryFailed, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
 import { media, useMediaQuery } from "../ui/media";
