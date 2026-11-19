@@ -15,8 +15,9 @@ internal sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentU
             : throw new InvalidOperationException("The request has no authenticated user.");
 
     public string UserId =>
-        User.FindFirstValue("sub")
-        ?? throw new InvalidOperationException("The token has no sub claim.");
+        User.TryGetSubject(out var subject)
+            ? subject
+            : throw new InvalidOperationException("The token has no sub claim.");
 
     public string? DisplayName =>
         User.FindFirstValue("name") ?? User.FindFirstValue("preferred_username");
@@ -24,18 +25,9 @@ internal sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentU
     public string? Email => User.FindFirstValue("email");
 
     public Guid TenantId =>
-        TryGetTenantId(User, out var tenantId)
+        User.TryGetTenantId(out var tenantId)
             ? tenantId
             : throw new InvalidOperationException(
                 $"The request has no valid tenant: the endpoint must require a policy that includes {Policies.Tenant}."
             );
-
-    /// <summary>Exactly one <c>tenant_id</c> claim holding a non-empty UUID in 8-4-4-4-12 form.</summary>
-    internal static bool TryGetTenantId(ClaimsPrincipal user, out Guid tenantId)
-    {
-        tenantId = Guid.Empty;
-        return user.FindAll("tenant_id").ToArray() is [{ Value: { Length: 36 } value }]
-            && Guid.TryParseExact(value, "D", out tenantId)
-            && tenantId != Guid.Empty;
-    }
 }

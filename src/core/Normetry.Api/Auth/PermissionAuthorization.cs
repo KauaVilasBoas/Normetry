@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.Options;
@@ -57,11 +56,7 @@ internal sealed class PermissionHandler(IDispatcher dispatcher) : IAuthorization
         var pending = context.PendingRequirements.OfType<PermissionRequirement>().ToArray();
         // Without a non-empty sub and a valid tenant, the policy's Tenant part (AuthSetup) fails
         // anyway, and there is no user to load permissions for.
-        if (
-            pending.Length == 0
-            || context.User.FindFirstValue("sub") is not { Length: > 0 }
-            || !HttpCurrentUser.TryGetTenantId(context.User, out _)
-        )
+        if (pending.Length == 0 || !context.User.TryGetCaller(out _, out _))
         {
             return;
         }

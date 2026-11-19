@@ -131,9 +131,7 @@ internal static class RateLimitingSetup
 
     // The tenant id has a fixed form without ':', so two users never share a key.
     private static string? Key(ClaimsPrincipal user) =>
-        user.Identity?.IsAuthenticated == true
-        && HttpCurrentUser.TryGetTenantId(user, out var tenantId)
-        && user.FindFirstValue("sub") is { Length: > 0 } sub
+        user.Identity?.IsAuthenticated == true && user.TryGetCaller(out var tenantId, out var sub)
             ? $"{tenantId}:{sub}"
             : null;
 }
