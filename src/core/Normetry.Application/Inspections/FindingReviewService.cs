@@ -5,15 +5,21 @@ using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections;
 
-/// <summary>What the review of a finding and the status change of its action share.</summary>
-internal static class FindingReviews
+/// <summary>
+/// What the review of a finding and the status change of its action share. Public only so the
+/// composition root can register it; the handlers are its only callers.
+/// </summary>
+public sealed class FindingReviewService(
+    IInspectionRepository inspections,
+    IUserRepository users,
+    ICurrentUser currentUser
+)
 {
     /// <summary>
     /// The inspection, tracked and locked, when it is one of the establishment's (RLS hides another
     /// tenant's) and Completed. <paramref name="notFound"/> is what the route names.
     /// </summary>
-    public static async Task<Result<Inspection>> CompletedInspectionAsync(
-        IInspectionRepository inspections,
+    internal async Task<Result<Inspection>> CompletedInspectionAsync(
         Guid establishmentId,
         Guid inspectionId,
         Error notFound,
@@ -35,17 +41,12 @@ internal static class FindingReviews
     }
 
     /// <summary>The caller's user id. They hold a permission, so their user row exists.</summary>
-    public static async Task<Guid> ReviewerAsync(
-        IUserRepository users,
-        ICurrentUser currentUser,
-        CancellationToken cancellationToken
-    ) =>
+    internal async Task<Guid> ReviewerIdAsync(CancellationToken cancellationToken) =>
         await users.FindIdAsync(currentUser.UserId, cancellationToken)
         ?? throw new InvalidOperationException("The caller has no user row.");
 
     /// <summary>The finding as <c>GET</c> returns it, with its reviewer's and updater's names.</summary>
-    public static async Task<FindingResponse> ResponseAsync(
-        IUserRepository users,
+    internal async Task<FindingResponse> ResponseAsync(
         Finding finding,
         CancellationToken cancellationToken
     ) =>
