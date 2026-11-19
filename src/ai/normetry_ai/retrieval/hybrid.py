@@ -20,6 +20,7 @@ from uuid import UUID
 
 from sqlalchemy import Connection, text
 
+from normetry_ai.db import current_tenant
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
 from normetry_ai.retrieval.establishment import document_candidates
@@ -30,13 +31,12 @@ from normetry_ai.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
 
-# Transaction-local knobs for the vector search, and the check that a tenant is set. A filter that
-# keeps one source of four would leave most HNSW candidates filtered away without iterative scan.
+# Transaction-local knobs for the vector search. A filter that keeps one source of four would
+# leave most HNSW candidates filtered away without iterative scan.
 _PREPARE = text(
     """
     SELECT set_config('hnsw.ef_search', :ef_search, true),
-           set_config('hnsw.iterative_scan', 'strict_order', true),
-           current_setting('app.tenant_id', true)
+           set_config('hnsw.iterative_scan', 'strict_order', true)
     """
 )
 # Each search runs on ai.chunks alone, so it can use the corpus indexes; the join to ai.sources
@@ -156,11 +156,8 @@ class Retriever:
             raise TypeError("scope must come from policy.jurisdictions_for")
         settings = self.settings
         seconds: dict[str, float] = {}
-        tenant = connection.execute(
-            _PREPARE, {"ef_search": str(settings.retrieval_hnsw_ef_search)}
-        ).one()[2]
-        if not tenant:
-            raise RuntimeError("retrieval runs inside tenant_transaction")
+        tenant = current_tenant(connection)
+        connection.execute(_PREPARE, {"ef_search": str(settings.retrieval_hnsw_ef_search)})
         language = detect_language(question)
         versions = corpus_versions(scope, language)
         params = {

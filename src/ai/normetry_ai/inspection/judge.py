@@ -19,6 +19,7 @@ import anyio
 from sqlalchemy import Connection, text
 
 from normetry_ai.answers.prompt import excerpt_ids
+from normetry_ai.db import current_tenant
 from normetry_ai.inspection.checklist import ChecklistItem
 from normetry_ai.inspection.guard import JudgedFinding, check_finding
 from normetry_ai.inspection.prompt import system_prompt, user_message
@@ -88,17 +89,15 @@ def evidence_query(item: ChecklistItem) -> str:
     return f"{item.title}. {item.evidence_hint}"
 
 
-# The tenant check, and the language most of the establishment's indexed documents are in (ties
-# go to 'en'). A deleted document or one not indexed yet has no say.
+# The language most of the establishment's indexed documents are in (ties go to 'en'; no row
+# when it has none). A deleted document or one not indexed yet has no say.
 _DOCUMENT_LANGUAGE = text(
     """
-    SELECT current_setting('app.tenant_id', true) AS tenant,
-           (SELECT language FROM ai.tenant_documents
-            WHERE establishment_id = :establishment_id AND deleted_at IS NULL
-              AND language IS NOT NULL
-            GROUP BY language
-            ORDER BY count(*) DESC, language
-            LIMIT 1) AS language
+    SELECT language FROM ai.tenant_documents
+    WHERE establishment_id = :establishment_id AND deleted_at IS NULL AND language IS NOT NULL
+    GROUP BY language
+    ORDER BY count(*) DESC, language
+    LIMIT 1
     """
 )
 # Corpus rows only (tenant_id IS NULL, so the corpus index applies and a tenant chunk with the
@@ -135,10 +134,11 @@ def regulation_chunks(
     connection from `tenant_transaction` (the documents' language is tenant data) and raises
     without one.
     """
-    row = connection.execute(_DOCUMENT_LANGUAGE, {"establishment_id": establishment_id}).one()
-    if not row.tenant:
-        raise RuntimeError("retrieval runs inside tenant_transaction")
-    pairs = corpus_versions(jurisdictions_for(jurisdiction), row.language or "en")
+    current_tenant(connection)
+    language = connection.execute(
+        _DOCUMENT_LANGUAGE, {"establishment_id": establishment_id}
+    ).scalar_one_or_none()
+    pairs = corpus_versions(jurisdictions_for(jurisdiction), language or "en")
     rows = connection.execute(
         _REGULATION_CHUNKS,
         {

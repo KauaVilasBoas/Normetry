@@ -52,6 +52,15 @@ def tenant_transaction(engine: Engine, tenant_id: UUID) -> Iterator[Connection]:
         yield connection
 
 
+def current_tenant(connection: Connection) -> str:
+    """The tenant `tenant_transaction` set on this connection. Raises RuntimeError on a connection
+    with none, so a search never runs where RLS would show it only the public corpus."""
+    tenant = connection.execute(text("SELECT current_setting('app.tenant_id', true)")).scalar()
+    if not tenant:
+        raise RuntimeError("retrieval runs inside tenant_transaction")
+    return tenant
+
+
 def check_runtime_role(connection: Connection) -> None:
     """Refuse a runtime role that can get around RLS.
 
