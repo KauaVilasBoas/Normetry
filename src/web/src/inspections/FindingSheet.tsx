@@ -13,8 +13,8 @@ import { Link } from "react-router";
 import type { RequestOptions } from "../api/client";
 import { actionStatuses, reviewStatuses } from "../api/contract";
 import type { EvidenceCitation, Finding, RegulationCitation } from "../api/queries";
+import type { Sent } from "../api/send";
 import { calendarDate, copy, format, languageName } from "../copy";
-import type { Sent } from "../settings/profiles";
 import {
   Button,
   Disclosure,

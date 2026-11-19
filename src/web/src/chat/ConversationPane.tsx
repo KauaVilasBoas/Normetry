@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, History, SquarePen, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { ApiError } from "../api/client";
+import { ApiError, seconds } from "../api/client";
 import { answerEvents } from "../api/contract";
 import {
   conversationsKey,
@@ -33,7 +33,6 @@ import {
   quotaAfter,
   quotaNoticeText,
   rateLimited,
-  seconds,
   streamAnswer,
   toTurns,
   untilReset,

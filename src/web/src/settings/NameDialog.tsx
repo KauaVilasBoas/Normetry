@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { problemCodes } from "../api/contract";
+import type { Sent } from "../api/send";
 import { copy, format } from "../copy";
 import { FormDialog, TextField } from "../ui/primitives";
-import type { Sent } from "./profiles";
 
 /** Profile.NameMaxLength in the core. */
 const NAME_MAX_LENGTH = 100;

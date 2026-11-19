@@ -13,9 +13,9 @@ import {
   type InspectionSummary,
   type Me,
 } from "../api/queries";
+import { useSend } from "../api/send";
 import { untilReset } from "../chat/answers";
 import { copy, dateTime, format } from "../copy";
-import { useSend } from "../settings/profiles";
 import {
   Button,
   ConnectionNotice,

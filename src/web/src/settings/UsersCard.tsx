@@ -13,9 +13,10 @@ import {
   type ProfileSummary,
   type TenantUser,
 } from "../api/queries";
+import { useSend } from "../api/send";
 import { copy, format, locale } from "../copy";
 import { Avatar, Button, ErrorMessage, Skeleton, Spinner, Tag } from "../ui/primitives";
-import { sortProfiles, useSend } from "./profiles";
+import { sortProfiles } from "./profiles";
 
 export const USERS_TITLE_ID = "users-title";
 
