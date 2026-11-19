@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { problemCodes } from "../api/contract";
 import { copy, format } from "../copy";
 import { FormDialog, TextField } from "../ui/primitives";
 import type { Sent } from "./profiles";
@@ -58,7 +59,7 @@ export function NameDialog({
     if (result.ok) {
       saved.current = true;
       setOpen(false);
-    } else if (result.code === "profile.name_taken") {
+    } else if (result.code === problemCodes.nameTaken) {
       setFieldError({ text: format(copy.profiles.nameTaken, { name: trimmed }) });
     } else {
       setError(result.status === 403 ? copy.settings.denied : copy.profiles.nameError);

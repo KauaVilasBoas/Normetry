@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
-import { permissions } from "../api/contract";
+import { permissions, problemCodes } from "../api/contract";
 import {
   can,
   meKey,
@@ -173,7 +173,7 @@ function ProfilesMenu({
       await queryClient.invalidateQueries({ queryKey: usersKey });
     } else {
       setError(
-        result.code === "profile.last_owner"
+        result.code === problemCodes.lastOwner
           ? format(copy.users.lastOwner, { name })
           : result.status === 403
             ? copy.settings.denied

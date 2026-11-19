@@ -9,3 +9,22 @@ export const permissions = {
   inspections: { read: "inspections.read", run: "inspections.run", review: "inspections.review" },
   profiles: { read: "profiles.read", manage: "profiles.manage" },
 } as const;
+
+/** The `code` of a problem response the app reacts to (`problemCode` reads it). */
+export const problemCodes = {
+  validation: "validation",
+  rateLimited: "rate_limited",
+  unsupportedFormat: "document.unsupported_format",
+  invalidContent: "document.invalid_content",
+  emptyDocument: "document.empty",
+  tooLarge: "document.too_large",
+  documentLimitReached: "document.limit_reached",
+  versionLimitReached: "document.version_limit_reached",
+  versionInFlight: "document.version_in_flight",
+  inspectionQuota: "inspection_quota",
+  inspectionRunning: "inspection_running",
+  inspectionCapacity: "inspection_capacity",
+  noIndexedDocuments: "no_indexed_documents",
+  lastOwner: "profile.last_owner",
+  nameTaken: "profile.name_taken",
+} as const;

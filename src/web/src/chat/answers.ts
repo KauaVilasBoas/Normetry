@@ -1,4 +1,5 @@
 import { problemCode } from "../api/client";
+import { problemCodes } from "../api/contract";
 import type { ChatQuota, Citation, Claim, ConversationMessage } from "../api/queries";
 import { copy, format, locale } from "../copy";
 
@@ -256,7 +257,7 @@ export function quotaAfter(
  * quota (`chat.quota_exceeded`). Reads the body.
  */
 export const rateLimited = async (response: Response) =>
-  response.status === 429 && (await problemCode(response)) === "rate_limited";
+  response.status === 429 && (await problemCode(response)) === problemCodes.rateLimited;
 
 /**
  * "in 6 hours" from one hour on, "in 12 minutes" from one minute on, else "in 3 seconds" (a rate
