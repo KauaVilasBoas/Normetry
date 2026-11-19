@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FileText, ListFilter, Upload } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 import { Link } from "react-router";
+import { permissions } from "../api/contract";
 import type { Live } from "../api/live";
 import {
   can,
@@ -67,7 +68,7 @@ export function DocumentList({
 }) {
   const queryClient = useQueryClient();
   const documents = useDocuments(establishment.id, true);
-  const canUpload = can(me, "documents.upload");
+  const canUpload = can(me, permissions.documents.upload);
   const failed = queryFailed(documents);
   const retrying = failed && documents.isFetching;
   const [upload, setUpload] = useState<{ files: File[] }>();

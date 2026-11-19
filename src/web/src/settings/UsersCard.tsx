@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
+import { permissions } from "../api/contract";
 import {
   can,
   meKey,
@@ -30,8 +31,8 @@ export function UsersCard({
   /** Every profile, sorted, for the menus. */
   profiles: ProfileSummary[];
 }) {
-  const canManage = can(me, "profiles.manage");
-  const users = useUsers(can(me, "profiles.read"));
+  const canManage = can(me, permissions.profiles.manage);
+  const users = useUsers(can(me, permissions.profiles.read));
   const title = useRef<HTMLHeadingElement>(null);
   const failed = queryFailed(users);
   const retrying = failed && users.isFetching;

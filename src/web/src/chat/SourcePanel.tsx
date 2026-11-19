@@ -2,6 +2,7 @@ import { ExternalLink, FileText, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
+import { permissions } from "../api/contract";
 import { can, quoteFound, useMe, type Citation } from "../api/queries";
 import { copy, format, languageName } from "../copy";
 import { iconButton, QuotedPassage } from "../ui/primitives";
@@ -30,7 +31,7 @@ export function SourcePanel({
   }, [citation.id]);
 
   const found = quoteFound(citation);
-  const canReadDocuments = can(useMe().data, "documents.read");
+  const canReadDocuments = can(useMe().data, permissions.documents.read);
   const linkClass =
     "inline-flex items-center gap-1.5 text-body font-medium text-mint hover:underline";
   // A document opens its page in the app, only for those who may read documents; the regulation

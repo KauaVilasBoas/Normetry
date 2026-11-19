@@ -2,6 +2,7 @@ import { Lock, Menu, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
+import { permissions } from "../api/contract";
 import {
   can,
   useConversations,
@@ -47,10 +48,10 @@ const sectionRoots = {
  */
 export function AppShell({ screen }: { screen: Screen }) {
   const me = useMe();
-  const chatAllowed = can(me.data, "chat.ask");
-  const documentsAllowed = can(me.data, "documents.read");
-  const inspectionsAllowed = can(me.data, "inspections.read");
-  const establishmentsAllowed = can(me.data, "establishments.read");
+  const chatAllowed = can(me.data, permissions.chat.ask);
+  const documentsAllowed = can(me.data, permissions.documents.read);
+  const inspectionsAllowed = can(me.data, permissions.inspections.read);
+  const establishmentsAllowed = can(me.data, permissions.establishments.read);
   const establishments = useEstablishments(establishmentsAllowed);
   const state = listState(me, establishments);
   const { selected, select } = useEstablishmentSelection(me.data, establishments.data);
@@ -133,7 +134,10 @@ export function AppShell({ screen }: { screen: Screen }) {
   // The screens the user may open. Home goes to the first: Overview (either read permission opens
   // it, so Documents and Simulated Inspection are never home), the chat, then Settings.
   const canOpenAScreen =
-    chatAllowed || documentsAllowed || inspectionsAllowed || can(me.data, "profiles.read");
+    chatAllowed ||
+    documentsAllowed ||
+    inspectionsAllowed ||
+    can(me.data, permissions.profiles.read);
   const overviewAllowed = documentsAllowed || inspectionsAllowed;
   const home = overviewAllowed ? "/overview" : chatAllowed ? "/ask" : "/settings/profiles";
 
@@ -150,7 +154,7 @@ export function AppShell({ screen }: { screen: Screen }) {
     // A token without a valid tenant: the same on every route.
     content = <AccessCard title={copy.picker.noTenantTitle} body={copy.picker.noTenantBody} />;
   } else if (screen === "settings") {
-    if (me.data && !can(me.data, "profiles.read"))
+    if (me.data && !can(me.data, permissions.profiles.read))
       content = (
         <AccessCard
           title={format(copy.access.refusedTitle, { screen: copy.shell.settings })}

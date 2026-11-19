@@ -3,6 +3,7 @@ import { ArrowLeft, CircleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
 import { ApiError } from "../api/client";
+import { permissions } from "../api/contract";
 import type { Live } from "../api/live";
 import {
   can,
@@ -225,10 +226,10 @@ export function InspectionDetailView({
         <>
           <FindingsCard
             inspection={detail}
-            canReview={can(me, "inspections.review")}
-            canReadDocuments={can(me, "documents.read")}
+            canReview={can(me, permissions.inspections.review)}
+            canReadDocuments={can(me, permissions.documents.read)}
           />
-          <ActionPlan inspection={detail} canReview={can(me, "inspections.review")} />
+          <ActionPlan inspection={detail} canReview={can(me, permissions.inspections.review)} />
         </>
       )}
     </div>

@@ -1,20 +1,14 @@
 import { QueryCache, QueryClient, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
 import { ApiError, type ApiClient } from "./client";
+import { permissions } from "./contract";
+
+type Catalog = typeof permissions;
 
 /** The permission catalog the UI knows (the server may add more; unknown ones show as sent). */
-export type Permission =
-  | "establishments.read"
-  | "establishments.manage"
-  | "documents.read"
-  | "documents.upload"
-  | "documents.delete"
-  | "chat.ask"
-  | "inspections.read"
-  | "inspections.run"
-  | "inspections.review"
-  | "profiles.read"
-  | "profiles.manage";
+export type Permission = {
+  [Area in keyof Catalog]: Catalog[Area][keyof Catalog[Area]];
+}[keyof Catalog];
 
 /** A profile as other resources show it. `systemKey` names a system profile; null for custom. */
 export interface ProfileSummary {

@@ -12,6 +12,7 @@ import {
 import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
 import { Link, useMatch } from "react-router";
+import { permissions } from "../api/contract";
 import { can, type Establishment, type Me, type ProfileSummary } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
@@ -54,35 +55,35 @@ export function Sidebar({
       to: "/overview",
       label: copy.shell.overview,
       Icon: House,
-      shown: can(me.data, "inspections.read") || can(me.data, "documents.read"),
+      shown: can(me.data, permissions.inspections.read) || can(me.data, permissions.documents.read),
       active: atOverview,
     },
     {
       to: "/ask",
       label: copy.shell.askTheRegulation,
       Icon: MessagesSquare,
-      shown: can(me.data, "chat.ask"),
+      shown: can(me.data, permissions.chat.ask),
       active: atNew || atConversation,
     },
     {
       to: "/documents",
       label: copy.shell.documents,
       Icon: FileText,
-      shown: can(me.data, "documents.read"),
+      shown: can(me.data, permissions.documents.read),
       active: atDocuments,
     },
     {
       to: "/inspections",
       label: copy.shell.inspections,
       Icon: ClipboardCheck,
-      shown: can(me.data, "inspections.read"),
+      shown: can(me.data, permissions.inspections.read),
       active: atInspections,
     },
     {
       to: "/settings/profiles",
       label: copy.shell.settings,
       Icon: Settings,
-      shown: can(me.data, "profiles.read"),
+      shown: can(me.data, permissions.profiles.read),
       active: atSettings,
     },
   ].filter((item) => item.shown);
@@ -94,7 +95,7 @@ export function Sidebar({
       </div>
       <div className="mt-5 flex flex-col gap-2">
         <TenantLabel me={me} />
-        {(me.isPending || can(me.data, "establishments.read")) && (
+        {(me.isPending || can(me.data, permissions.establishments.read)) && (
           <EstablishmentSwitcher
             state={state}
             establishments={establishments}

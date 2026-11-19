@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useId, type ReactNode } from "react";
 import { Link } from "react-router";
+import { permissions } from "../api/contract";
 import {
   can,
   queryFailed,
@@ -101,8 +102,8 @@ export function OverviewScreen({
   me: Me | undefined;
   focusKey: number;
 }) {
-  const inspectionsRead = can(me, "inspections.read");
-  const documentsRead = can(me, "documents.read");
+  const inspectionsRead = can(me, permissions.inspections.read);
+  const documentsRead = can(me, permissions.documents.read);
   const overview = useOverview(establishment.id, inspectionsRead, documentsRead);
   const failed = queryFailed(overview);
   const retrying = failed && overview.isFetching;
@@ -162,7 +163,11 @@ export function OverviewScreen({
           />
         </div>
       ) : data ? (
-        <Sections data={data} establishment={establishment} canRun={can(me, "inspections.run")} />
+        <Sections
+          data={data}
+          establishment={establishment}
+          canRun={can(me, permissions.inspections.run)}
+        />
       ) : (
         <OverviewSkeleton inspections={inspectionsRead} documents={documentsRead} />
       )}

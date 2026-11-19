@@ -4,6 +4,7 @@ import { AlertDialog } from "radix-ui";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "../api/client";
+import { permissions } from "../api/contract";
 import {
   can,
   meKey,
@@ -62,8 +63,8 @@ export function ProfileEditor({
   const { send } = useSend();
   // Rename and Delete happen inside their dialogs (one open at a time).
   const inDialog = useSend({ inside: true });
-  const readable = can(me, "profiles.read");
-  const canManage = can(me, "profiles.manage");
+  const readable = can(me, permissions.profiles.read);
+  const canManage = can(me, permissions.profiles.manage);
   const profile = useProfile(id, readable);
   const catalog = usePermissionCatalog(readable);
   const [draft, setDraft] = useState<string[]>();

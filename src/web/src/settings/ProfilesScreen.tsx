@@ -2,6 +2,7 @@ import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { permissions } from "../api/contract";
 import {
   can,
   profileKey,
@@ -37,8 +38,8 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
   // Create happens inside its dialog.
   const { send, closed } = useSend({ inside: true });
   const wide = useMediaQuery(media.list);
-  const canManage = can(me.data, "profiles.manage");
-  const profiles = useProfiles(can(me.data, "profiles.read"));
+  const canManage = can(me.data, permissions.profiles.manage);
+  const profiles = useProfiles(can(me.data, permissions.profiles.read));
   const sorted = sortProfiles(profiles.data ?? []);
   // From 768px, the first profile (Owner) when none is chosen.
   const selectedId = profileId ?? (wide ? sorted[0]?.id : undefined);
