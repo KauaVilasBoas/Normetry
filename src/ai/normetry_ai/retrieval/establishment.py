@@ -14,7 +14,6 @@ establishment) re-ranks its candidates together with the corpus's, in one call.
 import logging
 import re
 from collections.abc import Sequence
-from dataclasses import replace
 from uuid import UUID
 
 from sqlalchemy import Connection, text
@@ -25,6 +24,7 @@ from normetry_ai.llm.reranker import Reranker
 from normetry_ai.retrieval.models import (
     RetrievedChunk,
     reciprocal_rank_fusion,
+    rerank,
     timed,
     vector_literal,
 )
@@ -153,11 +153,7 @@ def search_establishment(
         )
     candidates = fused[: settings.retrieval_establishment_rerank_candidates]
     with timed(seconds, "rerank"):
-        scores = reranker.score(query, [chunk.content for chunk in candidates])
-    ranked = sorted(
-        (replace(chunk, score=score) for chunk, score in zip(candidates, scores, strict=True)),
-        key=lambda chunk: -chunk.score,
-    )
+        ranked = rerank(reranker, query, candidates)
     chunks = ranked[: settings.retrieval_establishment_top_k]
     # Ids, counts and times only: never the query, titles or chunk text.
     logger.info(

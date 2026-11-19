@@ -14,7 +14,8 @@ the scores compare, and the top k keeps at most `retrieval_document_top_k` of th
 
 import logging
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Connection, text
@@ -27,6 +28,7 @@ from normetry_ai.retrieval.language import detect_language
 from normetry_ai.retrieval.models import (
     RetrievedChunk,
     reciprocal_rank_fusion,
+    rerank,
     timed,
     vector_literal,
 )
@@ -108,6 +110,22 @@ def best(chunks: list[RetrievedChunk], top_k: int, document_top_k: int) -> list[
         if len(kept) == top_k:
             break
     return kept
+
+
+def _regulation_candidate(row: Any) -> RetrievedChunk:
+    """A corpus search row as a chunk, not re-ranked yet (`score` 0)."""
+    return RetrievedChunk(
+        chunk_id=row.id,
+        content=row.content,
+        section_path=row.section_path,
+        language=row.language,
+        jurisdiction=row.jurisdiction,
+        source_id=row.source_id,
+        source_title=row.source_title,
+        source_version=row.source_version,
+        official_url=row.official_url,
+        score=0.0,
+    )
 
 
 @dataclass(frozen=True)
@@ -210,34 +228,14 @@ class Retriever:
                     rrf_k=settings.retrieval_rrf_k,
                 )[: settings.retrieval_document_k]
 
-        candidates = fused[: settings.retrieval_rerank_candidates]
+        candidates = [
+            _regulation_candidate(rows[chunk_id])
+            for chunk_id in fused[: settings.retrieval_rerank_candidates]
+        ]
         # One call over both sources: their scores compare, for the top k and the refusal.
         with timed(seconds, "rerank"):
-            scores = self.reranker.score(
-                question,
-                [rows[chunk_id].content for chunk_id in candidates]
-                + [chunk.content for chunk in documents],
-            )
-        regulation = [
-            RetrievedChunk(
-                chunk_id=chunk_id,
-                content=rows[chunk_id].content,
-                section_path=rows[chunk_id].section_path,
-                language=rows[chunk_id].language,
-                jurisdiction=rows[chunk_id].jurisdiction,
-                source_id=rows[chunk_id].source_id,
-                source_title=rows[chunk_id].source_title,
-                source_version=rows[chunk_id].source_version,
-                official_url=rows[chunk_id].official_url,
-                score=score,
-            )
-            for chunk_id, score in zip(candidates, scores[: len(candidates)], strict=True)
-        ]
-        own = [
-            replace(chunk, score=score)
-            for chunk, score in zip(documents, scores[len(candidates) :], strict=True)
-        ]
-        chunks = best(regulation + own, settings.retrieval_top_k, settings.retrieval_document_top_k)
+            ranked = rerank(self.reranker, question, candidates + documents)
+        chunks = best(ranked, settings.retrieval_top_k, settings.retrieval_document_top_k)
         # Ids, counts and times only: never the question or chunk text.
         logger.info(
             "retrieval tenant=%s establishment=%s language=%s versions=%s vector=%d text=%d "

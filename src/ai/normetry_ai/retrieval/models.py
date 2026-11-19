@@ -1,9 +1,11 @@
 import time
 from collections.abc import Hashable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 from uuid import UUID
+
+from normetry_ai.llm.reranker import Reranker
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +35,18 @@ class RetrievedChunk:
     document_title: str | None = None
     document_type: str | None = None
     document_version: int | None = None
+
+
+def rerank(
+    reranker: Reranker, query: str, candidates: Sequence[RetrievedChunk]
+) -> list[RetrievedChunk]:
+    """The candidates with the re-ranker's scores, from one call over all of them, best first
+    (ties keep the given order). Shared by both searches."""
+    scores = reranker.score(query, [chunk.content for chunk in candidates])
+    return sorted(
+        (replace(chunk, score=score) for chunk, score in zip(candidates, scores, strict=True)),
+        key=lambda chunk: -chunk.score,
+    )
 
 
 @contextmanager
