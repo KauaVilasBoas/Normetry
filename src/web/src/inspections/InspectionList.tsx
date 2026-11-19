@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, ClipboardCheck, Clock, FileText, Play } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
+import { permissions } from "../api/contract";
 import type { Live } from "../api/live";
 import {
   can,
@@ -62,7 +63,7 @@ export function InspectionList({
 }) {
   const queryClient = useQueryClient();
   const inspections = useInspections(establishment.id, true);
-  const canRun = can(me, "inspections.run");
+  const canRun = can(me, permissions.inspections.run);
   const failed = queryFailed(inspections);
   const retrying = failed && inspections.isFetching;
   const count = inspections.data?.length ?? 0;
@@ -161,7 +162,7 @@ export function InspectionList({
         now={now}
         bodyId={bodyId}
         establishment={establishment}
-        canReadDocuments={can(me, "documents.read")}
+        canReadDocuments={can(me, permissions.documents.read)}
       />
     );
   }

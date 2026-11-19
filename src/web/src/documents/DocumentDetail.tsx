@@ -4,6 +4,7 @@ import { AlertDialog } from "radix-ui";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "../api/client";
+import { permissions } from "../api/contract";
 import type { Live } from "../api/live";
 import {
   can,
@@ -76,8 +77,8 @@ export function DocumentDetailView({
   const detail = query.data;
   // The list's row, shown while the document loads.
   const title = detail?.title ?? cachedTitle(queryClient, establishment.id, id);
-  const canUpload = can(me, "documents.upload");
-  const canDelete = can(me, "documents.delete");
+  const canUpload = can(me, permissions.documents.upload);
+  const canDelete = can(me, permissions.documents.delete);
   const busy = detail?.versions[0] !== undefined && inFlight(detail.versions[0]);
   const [uploading, setUploading] = useState(false);
   const uploadButton = useRef<HTMLButtonElement>(null);
