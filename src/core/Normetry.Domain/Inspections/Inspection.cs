@@ -1,3 +1,4 @@
+using Normetry.BuildingBlocks.Time;
 using Normetry.Domain.Identity;
 
 namespace Normetry.Domain.Inspections;
@@ -144,7 +145,7 @@ public sealed class Inspection
         {
             return false;
         }
-        var completedOn = DateOnly.FromDateTime(now.UtcDateTime);
+        var completedOn = now.UtcDate();
         // All or nothing: a finding off the rules throws before anything changes.
         findings.AddRange([.. results.Select(result => Finding.Create(this, result, completedOn))]);
         InputTokens = inputTokens;

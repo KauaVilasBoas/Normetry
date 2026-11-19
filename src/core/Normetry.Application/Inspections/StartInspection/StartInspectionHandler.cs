@@ -4,6 +4,7 @@ using Normetry.Application.Establishments;
 using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.BuildingBlocks.Time;
 using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections.StartInspection;
@@ -49,7 +50,7 @@ internal sealed class StartInspectionHandler(
         if (
             await inspections.TryCountStartAsync(
                 tenant.TenantId,
-                DateOnly.FromDateTime(now.UtcDateTime),
+                now.UtcDate(),
                 options.DailyQuotaOf(plans.PlanOf(tenant.TenantId)),
                 cancellationToken
             )

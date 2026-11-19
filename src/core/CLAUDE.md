@@ -4,7 +4,7 @@
 
 Solution: `Normetry.slnx` at the repo root. Shared build settings live in the root `Directory.Build.props` (net10.0, nullable, warnings as errors) and package versions in `Directory.Packages.props` (central package management: `PackageReference` items carry no `Version`).
 
-- `Normetry.BuildingBlocks` — shared primitives with no Normetry, EF Core or ASP.NET Core dependency. `Cqrs/` holds the in-house dispatcher (ADR 009): commands, queries, handlers, `IDispatcher`, pipeline behaviors (logging, FluentValidation) and `AddDispatcher(...)`, which scans for handlers and validators. `Results/` holds `Result`, `Result<T>` and `Error` for expected failures; `Normetry.Api` maps a failed result to ProblemDetails with `ToProblemDetails()`.
+- `Normetry.BuildingBlocks` — shared primitives with no Normetry, EF Core or ASP.NET Core dependency. `Cqrs/` holds the in-house dispatcher (ADR 009): commands, queries, handlers, `IDispatcher`, pipeline behaviors (logging, FluentValidation) and `AddDispatcher(...)`, which scans for handlers and validators. `Results/` holds `Result`, `Result<T>` and `Error` for expected failures; `Normetry.Api` maps a failed result to ProblemDetails with `ToProblemDetails()`. `Time/` holds `UtcDate()` and `TimeProvider.UtcToday()`, the UTC day every daily count, due date and expiry check uses.
 - `Normetry.Domain` — entities, value objects, domain events. References only BuildingBlocks: no EF Core, ASP.NET Core or dispatcher.
 - `Normetry.Application` — commands, queries, handlers and validators, one folder per bounded context. References Domain and BuildingBlocks.
 - `Normetry.Infrastructure` — EF Core (Npgsql), outbox, messaging, blob storage; implements Application abstractions. References Application.

@@ -1,0 +1,13 @@
+namespace Normetry.BuildingBlocks.Time;
+
+/// <summary>
+/// The UTC calendar day, the one the daily counts, due dates and expiry dates use. Taking the
+/// day of the instant's own offset instead would move it near midnight.
+/// </summary>
+public static class UtcDateExtensions
+{
+    public static DateOnly UtcDate(this DateTimeOffset instant) =>
+        DateOnly.FromDateTime(instant.UtcDateTime);
+
+    public static DateOnly UtcToday(this TimeProvider clock) => clock.GetUtcNow().UtcDate();
+}

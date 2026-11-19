@@ -1,3 +1,5 @@
+using Normetry.BuildingBlocks.Time;
+
 namespace Normetry.Application.Usage;
 
 /// <summary>
@@ -6,12 +8,9 @@ namespace Normetry.Application.Usage;
 /// </summary>
 public sealed record ChatQuotaResponse(int? Limit, int? Remaining, DateTimeOffset ResetsAt)
 {
-    /// <summary>The UTC day a message sent at <paramref name="now"/> counts in.</summary>
-    internal static DateOnly Day(DateTimeOffset now) => DateOnly.FromDateTime(now.UtcDateTime);
-
     /// <summary>The next UTC midnight, when every count starts again.</summary>
     public static DateTimeOffset NextReset(DateTimeOffset now) =>
-        new(Day(now).AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        new(now.UtcDate().AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 
     internal static ChatQuotaResponse Create(int? limit, int used, DateTimeOffset now) =>
         new(limit, limit is { } max ? Math.Max(0, max - used) : null, NextReset(now));

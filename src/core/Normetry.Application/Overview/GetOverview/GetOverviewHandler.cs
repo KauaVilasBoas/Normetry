@@ -5,6 +5,7 @@ using Normetry.Application.Identity;
 using Normetry.Application.Inspections;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.BuildingBlocks.Time;
 using Normetry.Domain.Identity;
 using Normetry.Domain.Inspections;
 
@@ -41,7 +42,7 @@ internal sealed class GetOverviewHandler(
         var establishment = found.Value;
         // The action lets in a caller holding either permission; each section checks its own.
         var permissions = await users.GetPermissionsAsync(currentUser.UserId, cancellationToken);
-        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        var today = clock.UtcToday();
         var documentsOverview = permissions.Contains(Permissions.Documents.Read)
             ? await DocumentsAsync(establishment.Id, today, cancellationToken)
             : null;

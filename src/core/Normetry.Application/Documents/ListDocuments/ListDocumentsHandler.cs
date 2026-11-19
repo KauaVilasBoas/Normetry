@@ -2,6 +2,7 @@ using Normetry.Application.Establishments;
 using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.BuildingBlocks.Time;
 using Normetry.Domain.Documents;
 
 namespace Normetry.Application.Documents.ListDocuments;
@@ -31,7 +32,7 @@ internal sealed class ListDocumentsHandler(
             request.EstablishmentId,
             cancellationToken
         );
-        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        var today = clock.UtcToday();
         if (request.Expired)
         {
             list = list.Where(document => document.ExpiresOn < today);
