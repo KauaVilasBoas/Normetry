@@ -65,3 +65,14 @@ export const verdicts = {
 
 /** A finding's `severity`. */
 export const severities = { critical: "critical", major: "major", minor: "minor" } as const;
+
+/** A chat citation's `sourceType` (`chat-api.md`). */
+export const sourceTypes = { regulation: "regulation", document: "document" } as const;
+
+/** The events of an answer stream (`chat-api.md`, Stream); every stream ends with one but `claim`. */
+export const answerEvents = {
+  claim: "claim",
+  done: "done",
+  refusal: "refusal",
+  unavailable: "unavailable",
+} as const;

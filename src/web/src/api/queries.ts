@@ -1,7 +1,7 @@
 import { QueryCache, QueryClient, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
 import { ApiError, type ApiClient } from "./client";
-import { permissions } from "./contract";
+import { permissions, sourceTypes } from "./contract";
 
 type Catalog = typeof permissions;
 
@@ -110,13 +110,13 @@ interface CitedPassage {
  */
 export type Citation =
   | (CitedPassage & {
-      sourceType: "regulation";
+      sourceType: typeof sourceTypes.regulation;
       sourceTitle: string;
       sourceVersion: string;
       officialUrl: string | null;
     })
   | (CitedPassage & {
-      sourceType: "document";
+      sourceType: typeof sourceTypes.document;
       documentId: string;
       /** Null on documents uploaded before titles reached the AI service. */
       documentTitle: string | null;

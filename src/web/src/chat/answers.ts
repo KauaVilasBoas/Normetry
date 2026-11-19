@@ -1,5 +1,5 @@
 import { problemCode } from "../api/client";
-import { problemCodes } from "../api/contract";
+import { answerEvents, problemCodes, sourceTypes } from "../api/contract";
 import type { ChatQuota, Citation, Claim, ConversationMessage } from "../api/queries";
 import { copy, format, locale } from "../copy";
 
@@ -64,8 +64,8 @@ function toCitation(value: unknown): Citation | null {
     quoteStart: Number.isInteger(c.quoteStart) ? (c.quoteStart as number) : null,
     quoteEnd: Number.isInteger(c.quoteEnd) ? (c.quoteEnd as number) : null,
   };
-  const sourceType = c.sourceType ?? "regulation";
-  if (sourceType === "regulation" && isString(c.sourceTitle) && isString(c.sourceVersion))
+  const sourceType = c.sourceType ?? sourceTypes.regulation;
+  if (sourceType === sourceTypes.regulation && isString(c.sourceTitle) && isString(c.sourceVersion))
     return {
       ...passage,
       sourceType,
@@ -75,7 +75,7 @@ function toCitation(value: unknown): Citation | null {
       officialUrl: httpUrl(c.officialUrl),
     };
   if (
-    sourceType === "document" &&
+    sourceType === sourceTypes.document &&
     optionalString(c.documentId) &&
     Number.isInteger(c.documentVersion)
   )
@@ -175,7 +175,12 @@ export async function* readEvents(
   }
 }
 
-export type StreamEnd = "done" | "refusal" | "unavailable" | "network";
+/** The stream's final event, or "network" when it failed, went idle or ended without one. */
+export type StreamEnd =
+  | typeof answerEvents.done
+  | typeof answerEvents.refusal
+  | typeof answerEvents.unavailable
+  | "network";
 
 function parse(data: string): unknown {
   try {
@@ -199,12 +204,16 @@ export async function streamAnswer(
   if (!response.body) return "network";
   try {
     for await (const { event, data } of readEvents(response.body, idleMs)) {
-      if (event === "claim") {
+      if (event === answerEvents.claim) {
         const value = parse(data);
         const claim = toClaim(value);
         const language = (value as { language?: unknown } | null)?.language;
         if (claim) onClaim(claim, isString(language) ? language : undefined);
-      } else if (event === "done" || event === "refusal" || event === "unavailable") {
+      } else if (
+        event === answerEvents.done ||
+        event === answerEvents.refusal ||
+        event === answerEvents.unavailable
+      ) {
         return event;
       }
     }

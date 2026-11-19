@@ -1,5 +1,6 @@
 import { CircleAlert, FileText, SearchX, WifiOff, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { sourceTypes } from "../api/contract";
 import type { Citation, Claim } from "../api/queries";
 import { copy, format } from "../copy";
 import { LogoMark } from "../ui/Logo";
@@ -214,7 +215,7 @@ function Claims({
                   {claim.citations.map((citation) => {
                     const open = citation.id === openCitationId;
                     const section = citation.sectionPath;
-                    if (citation.sourceType === "regulation")
+                    if (citation.sourceType === sourceTypes.regulation)
                       return (
                         <CitationChip
                           key={citation.id}
