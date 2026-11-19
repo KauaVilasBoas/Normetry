@@ -7,7 +7,8 @@ import { Sheet } from "../ui/primitives";
 import { chipId } from "./answers";
 import { COMPOSER_ID } from "./Composer";
 import { ConversationList } from "./ConversationList";
-import { ConversationPane, SHOW_CONVERSATIONS_ID, TITLE_ID } from "./ConversationPane";
+import { SHOW_CONVERSATIONS_ID, TITLE_ID } from "./conversation";
+import { ConversationPane } from "./ConversationPane";
 import { SourcePanel } from "./SourcePanel";
 
 const focusById = (id: string) => document.getElementById(id)?.focus();

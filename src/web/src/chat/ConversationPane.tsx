@@ -1,21 +1,7 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, History, SquarePen, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
-import { Fragment, useEffect, useRef, useState } from "react";
-import { ApiError, seconds } from "../api/client";
-import { answerEvents } from "../api/contract";
-import {
-  conversationsKey,
-  meKey,
-  quotaKey,
-  useChatQuota,
-  useConversation,
-  useEstablishments,
-  type ChatQuota,
-  type Citation,
-  type ConversationSummary,
-  type Establishment,
-} from "../api/queries";
+import { Fragment, useRef, useState } from "react";
+import { useChatQuota, type Citation, type Establishment } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import {
@@ -29,22 +15,16 @@ import {
   TypeTile,
 } from "../ui/primitives";
 import { Answer } from "./Answer";
-import {
-  quotaAfter,
-  quotaNoticeText,
-  rateLimited,
-  streamAnswer,
-  toTurns,
-  untilReset,
-  type Turn,
-} from "./answers";
 import { Composer } from "./Composer";
-
-export const TITLE_ID = "conversation-title";
-export const SHOW_CONVERSATIONS_ID = "show-conversations";
-
-/** Follow new content only while the reader is this close to the bottom. */
-const STICK_PX = 80;
+import {
+  SHOW_CONVERSATIONS_ID,
+  TITLE_ID,
+  useAnswerStream,
+  useConversationView,
+  useDeleteConversation,
+  useNotFoundFocus,
+  useStickToBottom,
+} from "./conversation";
 
 interface PaneProps {
   establishment: Establishment;
@@ -67,8 +47,6 @@ interface PaneProps {
   announce: (text: string, lang?: string) => void;
 }
 
-const path = (id: string) => encodeURIComponent(id);
-
 /**
  * One conversation: stored turns, then the ones asked here. Mounted per conversation, so leaving
  * it aborts the answer in progress; the server stores what was sent, and reopening shows it.
@@ -87,255 +65,30 @@ export function ConversationPane({
   onShowConversations,
   announce,
 }: PaneProps) {
-  const { api, profile } = useSession();
-  const queryClient = useQueryClient();
-  const establishments = useEstablishments();
+  const { profile } = useSession();
   const quota = useChatQuota().data;
   const place = copy.jurisdictions[establishment.jurisdiction];
   const regulation = place?.regulation ?? establishment.jurisdiction;
-
-  const [createdId, setCreatedId] = useState<string>();
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [draft, setDraft] = useState("");
-  const [notFound, setNotFound] = useState(false);
-  /** A rate limit holds Send `until` then; `when` says it ("in 3 seconds"). */
-  const [limit, setLimit] = useState<{ until: number; when: string }>();
-  const nextKey = useRef(0);
-  const inFlight = useRef<AbortController | null>(null);
-  const input = useRef<HTMLTextAreaElement>(null);
-  const scroller = useRef<HTMLDivElement>(null);
-  const list = useRef<HTMLOListElement>(null);
-  const stick = useRef(true);
-  const composerFocused = useRef(false);
-  const startNew = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => () => inFlight.current?.abort(), []);
-
-  // A rate limit lasts seconds (at most a minute): no countdown, the notice clears at its end.
-  useEffect(() => {
-    if (!limit) return;
-    const end = setTimeout(() => setLimit(undefined), Math.max(0, limit.until - Date.now()));
-    return () => clearTimeout(end);
-  }, [limit]);
-
-  // A conversation this view created has nothing stored that it does not already show.
-  const savedId = conversationId ?? createdId;
-  const load = conversationId !== undefined && conversationId !== createdId;
-  const conversation = useConversation(load ? conversationId : undefined);
-  const loadFailed =
-    load && (conversation.isError || (conversation.isPending && conversation.errorUpdateCount > 0));
-  const retryingLoad = loadFailed && conversation.isFetching;
-  const loadStatus = conversation.error instanceof ApiError ? conversation.error.status : 0;
-  const stored = conversation.data;
-  const owner =
-    stored && stored.establishmentId !== establishment.id
-      ? establishments.data?.find((item) => item.id === stored.establishmentId)
-      : undefined;
-
-  let view: "new" | "loading" | "error" | "not-found" | "ready";
-  if (notFound) view = "not-found";
-  else if (!load) view = turns.length > 0 ? "ready" : "new";
-  else if (loadFailed) view = loadStatus === 404 || loadStatus === 422 ? "not-found" : "error";
-  else if (!stored) view = "loading";
-  // Another of the user's establishments: it gets selected (below). Anyone else's: not found.
-  else if (stored.establishmentId !== establishment.id) view = owner ? "loading" : "not-found";
-  else view = "ready";
-
-  useEffect(() => {
-    if (owner) onEstablishment(owner);
-  }, [owner, onEstablishment]);
-
-  const allTurns = [...(view === "ready" && stored ? toTurns(stored.messages) : []), ...turns];
-  const lastTurn = allTurns.at(-1);
-  const busy = turns.some((turn) => turn.status === "pending" || turn.status === "streaming");
-  const title =
-    view === "new"
-      ? copy.chat.newTitle
-      : (stored?.title ??
-        knownTitle ??
-        turns[0]?.question ??
-        (view === "loading" ? undefined : copy.chat.newTitle));
-
-  // Keeps the latest content in view while the reader is at the bottom; leaves them if they
-  // scrolled up. The list appears with the ready view.
-  useEffect(() => {
-    const area = scroller.current;
-    const content = list.current;
-    if (!area || !content) return;
-    const observer = new ResizeObserver(() => {
-      if (stick.current) area.scrollTop = area.scrollHeight;
-    });
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, [view]);
-
-  // A 404 (on send, or on load while typing) replaces the composer that had focus: the way out
-  // takes it, so focus does not fall to the page.
-  useEffect(() => {
-    if (view !== "not-found" || !composerFocused.current) return;
-    if (document.activeElement === null || document.activeElement === document.body)
-      startNew.current?.focus();
-  }, [view]);
-
-  async function ask(key: string, question: string) {
-    const abort = new AbortController();
-    inFlight.current = abort;
-    const { signal } = abort;
-    const update = (change: (turn: Turn) => Partial<Turn>) => {
-      if (signal.aborted) return;
-      setTurns((list) =>
-        list.map((turn) => (turn.key === key ? { ...turn, ...change(turn) } : turn)),
-      );
-    };
-    // 5xx from the gateway: the assistant is unavailable; any other 4xx: a generic failure. A 403
-    // is a permission taken away: /me again, which closes the chat if chat.ask is gone.
-    const fail = (status: number) => {
-      if (status === 403) void queryClient.invalidateQueries({ queryKey: meKey });
-      update(() => ({ status: status >= 500 ? "unavailable" : "error" }));
-    };
-    // A 429: nothing was sent, so the question goes back to the composer.
-    const giveBack = () => {
-      setTurns((list) => list.filter((turn) => turn.key !== key));
-      setDraft(question);
-    };
-    // The rate limit, not the quota: Send waits for Retry-After (seconds), the quota is unchanged.
-    const limited = (response: Response) => {
-      if (signal.aborted) return;
-      giveBack();
-      const now = Date.now();
-      // ponytail: a 429 without Retry-After waits a minute; the core always sends one.
-      const until = now + (seconds(response.headers, "Retry-After") ?? 60) * 1000;
-      const when = untilReset(until, now);
-      setLimit({ until, when });
-      announce(copy.chat.rateLimitedTitle);
-      announce(format(copy.chat.rateLimitedBody, { when }));
-    };
-    announce(format(copy.chat.checking, { regulation }));
-    try {
-      let id = savedId;
-      if (id === undefined) {
-        const created = await api.request(
-          `/ai/establishments/${path(establishment.id)}/conversations`,
-          { method: "POST", signal },
-        );
-        if (!created.ok)
-          return (await rateLimited(created)) ? limited(created) : fail(created.status);
-        const summary = (await created.json()) as ConversationSummary;
-        id = summary.id;
-        setCreatedId(id);
-        // At the top of the list right away, titled by this question.
-        queryClient.setQueryData<ConversationSummary[]>(conversationsKey, (list = []) => [
-          { ...summary, title: question },
-          ...list.filter((item) => item.id !== summary.id),
-        ]);
-        onCreated(id);
-      }
-
-      const response = await api.request(
-        `/ai/establishments/${path(establishment.id)}/conversations/${path(id)}/messages`,
-        { method: "POST", json: { text: question }, accept: "text/event-stream", signal },
-      );
-      if (await rateLimited(response)) return limited(response);
-      const before = queryClient.getQueryData<ChatQuota>(quotaKey);
-      const after = quotaAfter(response, before);
-      if (after && after !== before) queryClient.setQueryData(quotaKey, after);
-
-      if (response.status === 429) {
-        // The daily quota.
-        if (signal.aborted) return;
-        giveBack();
-        if (after) {
-          const notice = quotaNoticeText(after);
-          announce(notice.title);
-          announce(notice.body);
-        }
-        return;
-      }
-      if (response.status === 404) {
-        if (!signal.aborted) setNotFound(true);
-        return;
-      }
-      if (!response.ok) return fail(response.status);
-
-      update(() => ({ status: "streaming" }));
-      let shown = 0;
-      const end = await streamAnswer(response, (claim, language) => {
-        if (signal.aborted) return;
-        shown += 1;
-        update((turn) => ({
-          claims: [...turn.claims, claim],
-          language: turn.language ?? language,
-        }));
-        // A Portuguese claim in the English interface is read with a Portuguese voice.
-        announce(claim.text, language);
-      });
-      if (signal.aborted) return;
-      update(() => ({ status: end }));
-      if (end === answerEvents.done && shown > 0) announce(copy.chat.answerComplete);
-      else if (end === answerEvents.done || end === answerEvents.refusal) {
-        announce(format(copy.chat.refusal, { regulation }));
-        announce(copy.chat.refusalHint);
-      }
-    } catch {
-      // The request failed (a 401 after renewal also lands here, as the session-expired flow
-      // takes over the screen).
-      update(() => ({ status: "network" }));
-    } finally {
-      if (inFlight.current === abort) inFlight.current = null;
-      void queryClient.invalidateQueries({ queryKey: conversationsKey });
-    }
-  }
-
-  function submit() {
-    const question = draft.trim();
-    const key = `asked-${nextKey.current++}`;
-    stick.current = true;
-    setTurns((list) => [
-      ...list,
-      { key, question, status: "pending", claims: [], live: true, attempt: 0 },
-    ]);
-    setDraft("");
-    void ask(key, question);
-  }
-
-  function retry(turn: Turn) {
-    setTurns((list) =>
-      list.map((item) =>
-        item.key === turn.key
-          ? { ...item, status: "pending", claims: [], attempt: item.attempt + 1 }
-          : item,
-      ),
-    );
-    void ask(turn.key, turn.question);
-    // The button goes away with the failure; focus goes where Send leaves it.
-    input.current?.focus();
-  }
-
-  // Try again after a failed load: once it works the button goes away, so focus moves to the heading.
-  async function reload() {
-    if ((await conversation.refetch()).isSuccess) document.getElementById(TITLE_ID)?.focus();
-  }
-
-  async function deleteConversation(): Promise<boolean> {
-    if (savedId === undefined) return false;
-    try {
-      const response = await api.request(`/ai/conversations/${path(savedId)}`, {
-        method: "DELETE",
-      });
-      // 404: it is already gone, which is what the user asked for.
-      if (!response.ok && response.status !== 404) {
-        if (response.status === 403) void queryClient.invalidateQueries({ queryKey: meKey });
-        return false;
-      }
-    } catch {
-      return false;
-    }
-    queryClient.setQueryData<ConversationSummary[]>(conversationsKey, (list) =>
-      list?.filter((item) => item.id !== savedId),
-    );
-    onDeleted();
-    return true;
-  }
+  const { scroller, content, onScroll, follow } = useStickToBottom();
+  const asked = useAnswerStream({
+    establishment,
+    conversationId,
+    regulation,
+    announce,
+    onCreated,
+    onAsk: follow,
+  });
+  const { view, turns, lastTurn, title, retryingLoad, reload } = useConversationView({
+    establishment,
+    conversationId,
+    knownTitle,
+    createdId: asked.createdId,
+    notFound: asked.notFound,
+    asked: asked.turns,
+    onEstablishment,
+  });
+  const { startNew, onComposerFocus, onComposerBlur } = useNotFoundFocus(view);
+  const deleteConversation = useDeleteConversation(asked.savedId, onDeleted);
 
   const userName = profile.name ?? profile.email ?? "";
   return (
@@ -379,23 +132,16 @@ export function ConversationPane({
             <SquarePen aria-hidden="true" className="size-5" />
           </button>
         )}
-        {savedId !== undefined && view === "ready" && (
+        {asked.savedId !== undefined && view === "ready" && (
           <DeleteConversation
             title={title ?? copy.conversations.untitled}
-            busy={busy}
+            busy={asked.busy}
             onDelete={deleteConversation}
           />
         )}
       </header>
 
-      <div
-        ref={scroller}
-        onScroll={(event) => {
-          const area = event.currentTarget;
-          stick.current = area.scrollHeight - area.scrollTop - area.clientHeight <= STICK_PX;
-        }}
-        className="min-h-0 flex-1 overflow-y-auto p-5"
-      >
+      <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto p-5">
         {view === "new" && (
           <div className="flex min-h-full flex-col items-center justify-center gap-2 text-center">
             <TypeTile type={establishment.type} />
@@ -446,11 +192,11 @@ export function ConversationPane({
 
         {view === "ready" && (
           <ol
-            ref={list}
+            ref={content}
             aria-label={copy.chat.messages}
             className="mx-auto flex w-full max-w-180 flex-col gap-4"
           >
-            {allTurns.map((turn) => (
+            {turns.map((turn) => (
               <Fragment key={turn.key}>
                 <li className="flex justify-end gap-3">
                   <p className="max-w-[85%] rounded-control bg-bubble-user px-3.5 py-2.5 text-body whitespace-pre-wrap wrap-break-word">
@@ -465,7 +211,7 @@ export function ConversationPane({
                     regulation={regulation}
                     openCitationId={openCitationId}
                     onOpenSource={onOpenSource}
-                    onRetry={turn.live && turn === lastTurn ? () => retry(turn) : undefined}
+                    onRetry={turn.live && turn === lastTurn ? () => asked.retry(turn) : undefined}
                     retryCosts={quota?.limit != null}
                   />
                 )}
@@ -476,22 +222,16 @@ export function ConversationPane({
       </div>
 
       {view !== "not-found" && (
-        <div
-          onFocus={() => (composerFocused.current = true)}
-          // Only a move to another element counts: removing a focused element may blur it too.
-          onBlur={(event) => {
-            if (event.relatedTarget) composerFocused.current = false;
-          }}
-        >
+        <div onFocus={onComposerFocus} onBlur={onComposerBlur}>
           <Composer
-            value={draft}
-            onChange={setDraft}
-            onSubmit={submit}
+            value={asked.draft}
+            onChange={asked.setDraft}
+            onSubmit={asked.submit}
             regulation={regulation}
-            ready={(view === "new" || view === "ready") && !busy}
+            ready={(view === "new" || view === "ready") && !asked.busy}
             quota={quota}
-            limitedWhen={limit?.when}
-            inputRef={input}
+            limitedWhen={asked.limitedWhen}
+            inputRef={asked.input}
           />
         </div>
       )}
