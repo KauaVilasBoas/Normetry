@@ -8,8 +8,8 @@ namespace Normetry.Application.Inspections;
 // core stores as they come (ThemeProgress, FindingResult and its citations) are domain records.
 // Enums of the domain travel by name (Jurisdiction, EstablishmentType, DocumentType); the
 // contract's own codes (theme, severity, verdict, confidence, reasonCode) are snake_case strings,
-// checked by the reader against the domain's sets (ThemeProgress.Themes, Finding.Severities,
-// Finding.Verdicts, Finding.Confidences) and InspectionFailed.ReasonCodes. A new code is a new
+// checked by the reader against the domain's sets (ThemeProgress.Themes, Severities.All,
+// Verdicts.All, Confidences.All, InspectionFailureReasons.ContractCodes). A new code is a new
 // message version.
 
 /// <summary>An ai to core event about one inspection: what the status consumer applies.</summary>

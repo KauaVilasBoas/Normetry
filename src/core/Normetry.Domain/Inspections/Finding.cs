@@ -17,33 +17,6 @@ public sealed class Finding
     public const int EditedRationaleMaxLength = 2000;
     public const int ReviewNoteMaxLength = 1000;
 
-    public static readonly IReadOnlySet<string> Severities = new HashSet<string>(
-        StringComparer.Ordinal
-    )
-    {
-        "critical",
-        "major",
-        "minor",
-    };
-
-    public static readonly IReadOnlySet<string> Verdicts = new HashSet<string>(
-        StringComparer.Ordinal
-    )
-    {
-        "compliant",
-        "non_compliant",
-        "insufficient_evidence",
-    };
-
-    public static readonly IReadOnlySet<string> Confidences = new HashSet<string>(
-        StringComparer.Ordinal
-    )
-    {
-        "low",
-        "medium",
-        "high",
-    };
-
     private List<RegulationCitation> regulationCitations;
     private List<EvidenceCitation> evidenceCitations;
 
@@ -89,13 +62,13 @@ public sealed class Finding
 
     public string Title { get; private set; }
 
-    /// <summary>One of <see cref="Severities"/>.</summary>
+    /// <summary>One of <see cref="Severities.All"/>.</summary>
     public string Severity { get; private set; }
 
-    /// <summary>One of <see cref="Verdicts"/>.</summary>
+    /// <summary>One of <see cref="Verdicts.All"/>.</summary>
     public string Verdict { get; private set; }
 
-    /// <summary>One of <see cref="Confidences"/>; a reviewer does not change it.</summary>
+    /// <summary>One of <see cref="Confidences.All"/>; a reviewer does not change it.</summary>
     public string Confidence { get; private set; }
 
     /// <summary>English.</summary>
@@ -134,9 +107,9 @@ public sealed class Finding
             Names.Required(result.ItemId, ItemIdMaxLength, nameof(result)),
             Code(result.Theme, ThemeProgress.Themes, nameof(result)),
             Names.Required(result.Title, TitleMaxLength, nameof(result)),
-            Code(result.Severity, Severities, nameof(result)),
-            Code(result.Verdict, Verdicts, nameof(result)),
-            Code(result.Confidence, Confidences, nameof(result)),
+            Code(result.Severity, Severities.All, nameof(result)),
+            Code(result.Verdict, Verdicts.All, nameof(result)),
+            Code(result.Confidence, Confidences.All, nameof(result)),
             Names.Required(result.Rationale, RationaleMaxLength, nameof(result))
         )
         {
@@ -190,10 +163,12 @@ public sealed class Finding
             );
         }
         Names.RequiredId(reviewer, nameof(reviewer));
-        var verdict = edit.Verdict is null ? Verdict : Code(edit.Verdict, Verdicts, nameof(edit));
+        var verdict = edit.Verdict is null
+            ? Verdict
+            : Code(edit.Verdict, Verdicts.All, nameof(edit));
         var severity = edit.Severity is null
             ? Severity
-            : Code(edit.Severity, Severities, nameof(edit));
+            : Code(edit.Severity, Severities.All, nameof(edit));
         var rationale = edit.Rationale is null
             ? Rationale
             : Names.Required(edit.Rationale, EditedRationaleMaxLength, nameof(edit));
@@ -239,6 +214,74 @@ public sealed class Finding
             : throw new ArgumentException($"'{value}' is not a known code.", paramName);
 }
 
+/// <summary>A finding's verdict codes, as the inspection contract writes them.</summary>
+public static class Verdicts
+{
+    public const string Compliant = "compliant";
+    public const string NonCompliant = "non_compliant";
+    public const string InsufficientEvidence = "insufficient_evidence";
+
+    public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Compliant,
+        NonCompliant,
+        InsufficientEvidence,
+    };
+
+    /// <summary>
+    /// The share of its severity's weight a finding adds to its theme's risk: all of it when
+    /// non-compliant, half when the evidence is insufficient, none when compliant.
+    /// </summary>
+    public static double RiskFactor(string verdict) =>
+        verdict switch
+        {
+            NonCompliant => 1,
+            InsufficientEvidence => 0.5,
+            _ => 0,
+        };
+}
+
+/// <summary>A finding's severity codes, as the inspection contract writes them.</summary>
+public static class Severities
+{
+    public const string Critical = "critical";
+    public const string Major = "major";
+    public const string Minor = "minor";
+
+    /// <summary>The severities, most severe first.</summary>
+    public static readonly IReadOnlyList<string> InOrder = [Critical, Major, Minor];
+
+    /// <summary>The same severities as a set; a set's order is not guaranteed.</summary>
+    public static readonly IReadOnlySet<string> All = new HashSet<string>(
+        InOrder,
+        StringComparer.Ordinal
+    );
+
+    /// <summary>What a finding of <paramref name="severity"/> weighs in its theme's risk: critical 3, major 2, minor 1.</summary>
+    public static int RiskWeight(string severity) =>
+        severity switch
+        {
+            Critical => 3,
+            Major => 2,
+            _ => 1,
+        };
+}
+
+/// <summary>A finding's confidence codes, as the inspection contract writes them.</summary>
+public static class Confidences
+{
+    public const string Low = "low";
+    public const string Medium = "medium";
+    public const string High = "high";
+
+    public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Low,
+        Medium,
+        High,
+    };
+}
+
 public enum ReviewStatus
 {
     Pending = 1,
@@ -249,7 +292,7 @@ public enum ReviewStatus
 
 /// <summary>
 /// One checklist item's verdict as the AI service sends it in <c>InspectionCompleted</c>.
-/// <see cref="Action"/> is null for <c>compliant</c> only.
+/// <see cref="Action"/> is null for <see cref="Verdicts.Compliant"/> only.
 /// </summary>
 public sealed record FindingResult(
     string ItemId,
