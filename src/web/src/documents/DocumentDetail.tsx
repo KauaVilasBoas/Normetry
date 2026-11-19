@@ -1,22 +1,10 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CircleAlert, Clock, Trash2, Upload } from "lucide-react";
 import { AlertDialog } from "radix-ui";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ApiError } from "../api/client";
-import { documentStatuses, permissions, problemCodes } from "../api/contract";
+import { documentStatuses, permissions } from "../api/contract";
 import type { Live } from "../api/live";
-import {
-  can,
-  documentKey,
-  documentsKey,
-  queryFailed,
-  useDocument,
-  type DocumentDetail,
-  type DocumentSummary,
-  type Establishment,
-  type Me,
-} from "../api/queries";
+import { can, type DocumentDetail, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { calendarDate, copy, fileSize, format, shortDate } from "../copy";
 import {
@@ -34,15 +22,8 @@ import {
   textAction,
   th,
 } from "../ui/primitives";
-import {
-  cachedTitle,
-  expiryProblem,
-  failureText,
-  inFlight,
-  statusLabel,
-  typeLabel,
-  versionNotice,
-} from "./documents";
+import { useDocumentDetail, useExpiryForm } from "./detail";
+import { failureText, statusLabel, typeLabel, versionNotice } from "./documents";
 import { DETAIL_TITLE_ID, ExpiryBadge, VersionText } from "./parts";
 import { UploadDialog } from "./UploadDialog";
 
@@ -68,30 +49,22 @@ export function DocumentDetailView({
   onDeleted: (title: string) => void;
   announce: (text: string) => void;
 }) {
-  const queryClient = useQueryClient();
-  const query = useDocument(id, true);
-  const status = query.error instanceof ApiError ? query.error.status : 0;
-  const notFound = queryFailed(query) && (status === 404 || status === 400);
-  const failed = queryFailed(query) && !notFound;
-  const retrying = failed && query.isFetching;
-  const detail = query.data;
-  // The list's row, shown while the document loads.
-  const title = detail?.title ?? cachedTitle(queryClient, establishment.id, id);
+  const {
+    detail,
+    title,
+    notFound,
+    failed,
+    retrying,
+    retry,
+    newestInFlight: busy,
+    deleted,
+    uploaded,
+  } = useDocumentDetail({ id, establishmentId: establishment.id, onDeleted, announce });
   const canUpload = can(me, permissions.documents.upload);
   const canDelete = can(me, permissions.documents.delete);
-  const busy = detail?.versions[0] !== undefined && inFlight(detail.versions[0]);
   const [uploading, setUploading] = useState(false);
   const uploadButton = useRef<HTMLButtonElement>(null);
   const afterId = useId();
-
-  // Try again: the error card (and its button) goes once the document loads, so focus moves to
-  // the title, after the commit that shows it.
-  const retried = useRef(false);
-  useEffect(() => {
-    if (!retried.current || !detail) return;
-    retried.current = false;
-    document.getElementById(DETAIL_TITLE_ID)?.focus();
-  }, [detail]);
 
   const back = (
     <Link
@@ -130,14 +103,7 @@ export function DocumentDetailView({
                 variant="secondary"
                 className="mt-2"
                 aria-disabled={retrying}
-                onClick={
-                  retrying
-                    ? undefined
-                    : () => {
-                        retried.current = true;
-                        void query.refetch();
-                      }
-                }
+                onClick={retrying ? undefined : retry}
               >
                 {retrying && <Spinner />}
                 {copy.documents.tryAgain}
@@ -206,17 +172,7 @@ export function DocumentDetailView({
                 <DeleteDocument
                   detail={detail}
                   establishment={establishment}
-                  onDeleted={() => {
-                    queryClient.removeQueries({ queryKey: documentKey(id) });
-                    queryClient.setQueryData<DocumentSummary[]>(
-                      documentsKey(establishment.id),
-                      (list) => list?.filter((row) => row.id !== id),
-                    );
-                    void queryClient.invalidateQueries({
-                      queryKey: documentsKey(establishment.id),
-                    });
-                    onDeleted(detail.title);
-                  }}
+                  onDeleted={() => deleted(detail.title)}
                 />
               )}
               {canUpload && (
@@ -252,12 +208,7 @@ export function DocumentDetailView({
           establishment={establishment}
           existing={detail}
           returnFocus={uploadButton}
-          onUploaded={(uploaded) => {
-            // Set before the dialog closes, so focus comes back to a button already disabled.
-            queryClient.setQueryData(documentKey(id), uploaded);
-            void queryClient.invalidateQueries({ queryKey: documentsKey(establishment.id) });
-            announce(copy.documents.versionUploaded);
-          }}
+          onUploaded={uploaded}
         />
       )}
     </div>
@@ -423,46 +374,20 @@ function ExpiryDialog({
   detail: DocumentDetail;
   announce: (text: string) => void;
 }) {
-  const queryClient = useQueryClient();
-  // A 403 refetches /me once the dialog closes, so its message stays readable until then.
-  const { send, closed } = useSend({ inside: true });
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("");
-  // A new object per refusal, so the same error twice still moves focus to the field.
-  const [fieldError, setFieldError] = useState<{ text: string }>();
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-  const saved = useRef<string>(undefined);
-  const input = useRef<HTMLInputElement>(null);
-  const current = detail.expiresOn ?? "";
-
-  useEffect(() => {
-    if (fieldError) input.current?.focus();
-  }, [fieldError]);
-
-  const save = async (expiresOn: string | null) => {
-    setError(undefined);
-    setSubmitting(true);
-    const result = await send(
-      `/establishments/${encodeURIComponent(detail.establishmentId)}/documents/${encodeURIComponent(detail.id)}`,
-      { method: "PATCH", json: { expiresOn } },
-    );
-    setSubmitting(false);
-    if (!result.ok) {
-      if (result.code === problemCodes.validation)
-        setFieldError({ text: copy.upload.expiryInvalid });
-      else setError(result.status === 403 ? copy.settings.denied : copy.documents.expiryError);
-      return;
-    }
-    queryClient.setQueryData<DocumentDetail>(
-      documentKey(detail.id),
-      (cached) => cached && { ...cached, expiresOn },
-    );
-    void queryClient.invalidateQueries({ queryKey: documentKey(detail.id) });
-    void queryClient.invalidateQueries({ queryKey: documentsKey(detail.establishmentId) });
-    saved.current = expiresOn ? copy.documents.expirySaved : copy.documents.expiryRemoved;
-    setOpen(false);
-  };
+  const {
+    open,
+    openChange,
+    value,
+    changeValue,
+    input,
+    fieldError,
+    error,
+    submitting,
+    ready,
+    submit,
+    removeDate,
+    afterClose,
+  } = useExpiryForm(detail, announce);
 
   return (
     <FormDialog
@@ -472,31 +397,15 @@ function ExpiryDialog({
         </button>
       }
       open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) {
-          closed();
-          return;
-        }
-        setValue(current);
-        setFieldError(undefined);
-        setError(undefined);
-      }}
+      onOpenChange={openChange}
       title={copy.documents.editExpiry}
       submitLabel={submitting ? copy.documents.saving : copy.documents.save}
       cancelLabel={copy.documents.cancel}
       submitting={submitting}
-      ready={value !== current}
+      ready={ready}
       error={error}
-      onSubmit={() => {
-        const problem = expiryProblem(input.current);
-        if (problem) setFieldError({ text: problem });
-        else void save(value || null);
-      }}
-      onCloseAutoFocus={() => {
-        if (saved.current) announce(saved.current);
-        saved.current = undefined;
-      }}
+      onSubmit={submit}
+      onCloseAutoFocus={afterClose}
     >
       <div className="flex flex-col items-start gap-2">
         <div className="w-full">
@@ -506,25 +415,13 @@ function ExpiryDialog({
             max="9999-12-31"
             label={copy.upload.expiryLabel}
             hint={copy.upload.expiryHint}
-            error={fieldError?.text}
+            error={fieldError}
             value={value}
-            onChange={(event) => {
-              setValue(event.target.value);
-              setFieldError(undefined);
-            }}
+            onChange={changeValue}
           />
         </div>
         {detail.expiresOn && value && (
-          <button
-            type="button"
-            className={textAction}
-            onClick={() => {
-              // Focus moves first: the button goes once the field is empty.
-              input.current?.focus();
-              setValue("");
-              setFieldError(undefined);
-            }}
-          >
+          <button type="button" className={textAction} onClick={removeDate}>
             {copy.documents.removeExpiry}
           </button>
         )}
