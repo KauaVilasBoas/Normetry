@@ -1,4 +1,4 @@
-using Normetry.BuildingBlocks.Cqrs;
+using Normetry.Application.Abstractions;
 
 namespace Normetry.Application.Documents.RecordIngestion;
 
@@ -12,4 +12,4 @@ public sealed record RecordIngestionCommand(
     Guid MessageId,
     string MessageType,
     IDocumentVersionEvent Event
-) : ICommand<DocumentStatusChange?>;
+) : IInboxCommand<DocumentStatusChange>;
