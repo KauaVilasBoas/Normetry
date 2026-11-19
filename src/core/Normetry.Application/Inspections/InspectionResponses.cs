@@ -22,7 +22,32 @@ public sealed record InspectionSummary(
 );
 
 /// <summary>The inspection's findings by their verdict as it stands (a reviewer's edit included).</summary>
-public sealed record VerdictCounts(int Compliant, int NonCompliant, int InsufficientEvidence);
+public sealed record VerdictCounts(int Compliant, int NonCompliant, int InsufficientEvidence)
+{
+    /// <summary>How many of <paramref name="verdicts"/> are each verdict.</summary>
+    public static VerdictCounts Of(IEnumerable<string> verdicts)
+    {
+        int compliant = 0,
+            nonCompliant = 0,
+            insufficientEvidence = 0;
+        foreach (var verdict in verdicts)
+        {
+            switch (verdict)
+            {
+                case Verdicts.Compliant:
+                    compliant++;
+                    break;
+                case Verdicts.NonCompliant:
+                    nonCompliant++;
+                    break;
+                case Verdicts.InsufficientEvidence:
+                    insufficientEvidence++;
+                    break;
+            }
+        }
+        return new(compliant, nonCompliant, insufficientEvidence);
+    }
+}
 
 /// <summary>An inspection with its progress and its findings, most severe first.</summary>
 public sealed record InspectionResponse(
@@ -40,7 +65,7 @@ public sealed record InspectionResponse(
     IReadOnlyList<FindingResponse> Findings
 )
 {
-    private static readonly string[] SeverityOrder = ["critical", "major", "minor"];
+    private static readonly string[] SeverityOrder = [.. Severities.InOrder];
 
     internal static InspectionResponse From(
         Inspection inspection,

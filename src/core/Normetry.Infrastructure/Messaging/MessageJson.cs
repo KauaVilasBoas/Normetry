@@ -216,9 +216,9 @@ internal static partial class MessageJson
             RequireLength(finding.ItemId, 1, 100, "itemId");
             Require(ThemeProgress.Themes.Contains(finding.Theme), "unknown theme");
             RequireLength(finding.Title, 1, 200, "title");
-            Require(Finding.Severities.Contains(finding.Severity), "unknown severity");
-            Require(Finding.Verdicts.Contains(finding.Verdict), "unknown verdict");
-            Require(Finding.Confidences.Contains(finding.Confidence), "unknown confidence");
+            Require(Severities.All.Contains(finding.Severity), "unknown severity");
+            Require(Verdicts.All.Contains(finding.Verdict), "unknown verdict");
+            Require(Confidences.All.Contains(finding.Confidence), "unknown confidence");
             RequireLength(finding.Rationale, 1, 4000, "rationale");
             Require(finding.RegulationCitations.Count >= 1, "a finding cites the regulation");
             foreach (var citation in finding.RegulationCitations)

@@ -59,11 +59,8 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
                 inspection.CompletedAt,
                 inspection.ItemsTotal,
                 inspection.ItemsEvaluated,
-                new VerdictCounts(
-                    inspection.Findings.Count(finding => finding.Verdict == "compliant"),
-                    inspection.Findings.Count(finding => finding.Verdict == "non_compliant"),
-                    inspection.Findings.Count(finding => finding.Verdict == "insufficient_evidence")
-                ),
+                // Counted in memory: the query reads only the findings' verdicts.
+                VerdictCounts.Of(inspection.Findings.Select(finding => finding.Verdict)),
                 inspection.FailureReasonCode
             ))
             .ToListAsync(cancellationToken);
@@ -86,7 +83,8 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
                 inspection.Id,
                 inspection.CompletedAt!.Value,
                 inspection.Findings.Count(finding =>
-                    finding.ReviewStatus != ReviewStatus.Rejected && finding.Verdict == "compliant"
+                    finding.ReviewStatus != ReviewStatus.Rejected
+                    && finding.Verdict == Verdicts.Compliant
                 ),
                 inspection.Findings.Count(finding => finding.ReviewStatus != ReviewStatus.Rejected)
             ))

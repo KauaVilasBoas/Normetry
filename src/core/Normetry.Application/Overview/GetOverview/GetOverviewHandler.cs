@@ -78,20 +78,11 @@ internal sealed class GetOverviewHandler(
                 latest.CompletedAt,
                 InspectionResponse.RegulationOf(establishment.Jurisdiction),
                 Compliance(latest.Compliant, latest.Evaluated),
-                new VerdictCounts(
-                    Count(findings, "compliant"),
-                    Count(findings, "non_compliant"),
-                    Count(findings, "insufficient_evidence")
-                ),
+                VerdictCounts.Of(findings.Select(finding => finding.Verdict)),
                 findings
                     .GroupBy(finding => finding.Theme)
                     .OrderBy(theme => Array.IndexOf(ThemeOrder, theme.Key))
-                    .Select(theme => new ThemeVerdicts(
-                        theme.Key,
-                        Count(theme, "compliant"),
-                        Count(theme, "non_compliant"),
-                        Count(theme, "insufficient_evidence")
-                    ))
+                    .Select(ThemeVerdictsOf)
                     .ToArray(),
                 findings
                     .GroupBy(finding => finding.Theme)
@@ -139,22 +130,17 @@ internal sealed class GetOverviewHandler(
     private static double? Compliance(int compliant, int evaluated) =>
         evaluated == 0 ? null : (double)compliant / evaluated;
 
-    private static int Count(IEnumerable<FindingTally> findings, string verdict) =>
-        findings.Count(finding => finding.Verdict == verdict);
+    private static ThemeVerdicts ThemeVerdictsOf(IGrouping<string, FindingTally> theme)
+    {
+        var counts = VerdictCounts.Of(theme.Select(finding => finding.Verdict));
+        return new ThemeVerdicts(
+            theme.Key,
+            counts.Compliant,
+            counts.NonCompliant,
+            counts.InsufficientEvidence
+        );
+    }
 
     private static double Risk(FindingTally finding) =>
-        (
-            finding.Severity switch
-            {
-                "critical" => 3,
-                "major" => 2,
-                _ => 1,
-            }
-        )
-        * finding.Verdict switch
-        {
-            "non_compliant" => 1,
-            "insufficient_evidence" => 0.5,
-            _ => 0,
-        };
+        Severities.RiskWeight(finding.Severity) * Verdicts.RiskFactor(finding.Verdict);
 }

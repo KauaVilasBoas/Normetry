@@ -73,15 +73,12 @@ internal sealed class FindingConfiguration : IEntityTypeConfiguration<Finding>
         {
             table.HasCheckConstraint(
                 "ck_findings_severity",
-                $"severity IN ({Codes(Finding.Severities)})"
+                $"severity IN ({Codes(Severities.InOrder)})"
             );
-            table.HasCheckConstraint(
-                "ck_findings_verdict",
-                $"verdict IN ({Codes(Finding.Verdicts)})"
-            );
+            table.HasCheckConstraint("ck_findings_verdict", $"verdict IN ({Codes(Verdicts.All)})");
             table.HasCheckConstraint(
                 "ck_findings_confidence",
-                $"confidence IN ({Codes(Finding.Confidences)})"
+                $"confidence IN ({Codes(Confidences.All)})"
             );
             table.HasCheckConstraint(
                 "ck_findings_review_status",

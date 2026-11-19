@@ -34,12 +34,16 @@ internal sealed class ReviewFindingValidator : AbstractValidator<ReviewFindingCo
                     )
                     .OverridePropertyName("Edit");
                 RuleFor(command => command.Verdict)
-                    .Must(verdict => Finding.Verdicts.Contains(verdict!))
-                    .WithMessage("Use compliant, non_compliant or insufficient_evidence.")
+                    .Must(verdict => Verdicts.All.Contains(verdict!))
+                    .WithMessage(
+                        $"Use {Verdicts.Compliant}, {Verdicts.NonCompliant} or {Verdicts.InsufficientEvidence}."
+                    )
                     .When(command => command.Verdict is not null);
                 RuleFor(command => command.Severity)
-                    .Must(severity => Finding.Severities.Contains(severity!))
-                    .WithMessage("Use critical, major or minor.")
+                    .Must(severity => Severities.All.Contains(severity!))
+                    .WithMessage(
+                        $"Use {Severities.Critical}, {Severities.Major} or {Severities.Minor}."
+                    )
                     .When(command => command.Severity is not null);
                 RuleFor(command => command.Rationale)
                     .NotEmpty()
