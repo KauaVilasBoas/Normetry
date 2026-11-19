@@ -14,7 +14,6 @@ the scores compare, and the top k keeps at most `retrieval_document_top_k` of th
 
 import logging
 import re
-import time
 from dataclasses import dataclass, replace
 from uuid import UUID
 
@@ -25,7 +24,12 @@ from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
 from normetry_ai.retrieval.establishment import document_candidates
 from normetry_ai.retrieval.language import detect_language
-from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion, vector_literal
+from normetry_ai.retrieval.models import (
+    RetrievedChunk,
+    reciprocal_rank_fusion,
+    timed,
+    vector_literal,
+)
 from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions
 from normetry_ai.settings import RetrievalSettings
 
@@ -165,32 +169,28 @@ class Retriever:
             "languages": [version for _, version in versions],
         }
 
-        started = time.perf_counter()
-        embedding = self.embedder.embed_query(question)
-        seconds["embed"] = time.perf_counter() - started
-
-        started = time.perf_counter()
-        vector_rows = connection.execute(
-            _VECTOR_SEARCH,
-            {
-                **params,
-                "embedding": vector_literal(embedding),
-                "k": settings.retrieval_vector_k,
-            },
-        ).all()
-        seconds["vector"] = time.perf_counter() - started
-
-        started = time.perf_counter()
-        text_rows = connection.execute(
-            _TEXT_SEARCH,
-            {
-                **params,
-                # websearch_to_tsquery never fails on user input; "or" makes every word optional.
-                "terms": " or ".join(re.findall(r"\w+", question)),
-                "k": settings.retrieval_text_k,
-            },
-        ).all()
-        seconds["text"] = time.perf_counter() - started
+        with timed(seconds, "embed"):
+            embedding = self.embedder.embed_query(question)
+        with timed(seconds, "vector"):
+            vector_rows = connection.execute(
+                _VECTOR_SEARCH,
+                {
+                    **params,
+                    "embedding": vector_literal(embedding),
+                    "k": settings.retrieval_vector_k,
+                },
+            ).all()
+        with timed(seconds, "text"):
+            text_rows = connection.execute(
+                _TEXT_SEARCH,
+                {
+                    **params,
+                    # websearch_to_tsquery never fails on user input; "or" makes every word
+                    # optional.
+                    "terms": " or ".join(re.findall(r"\w+", question)),
+                    "k": settings.retrieval_text_k,
+                },
+            ).all()
 
         rows = {row.id: row for row in (*vector_rows, *text_rows)}
         vector = [row.id for row in vector_rows]
@@ -199,27 +199,25 @@ class Retriever:
 
         documents: list[RetrievedChunk] = []
         if establishment_id is not None:
-            started = time.perf_counter()
-            documents = document_candidates(
-                connection,
-                establishment_id,
-                question,
-                embedding,
-                vector_k=settings.retrieval_document_k,
-                text_k=settings.retrieval_document_k,
-                rrf_k=settings.retrieval_rrf_k,
-            )[: settings.retrieval_document_k]
-            seconds["documents"] = time.perf_counter() - started
+            with timed(seconds, "documents"):
+                documents = document_candidates(
+                    connection,
+                    establishment_id,
+                    question,
+                    embedding,
+                    vector_k=settings.retrieval_document_k,
+                    text_k=settings.retrieval_document_k,
+                    rrf_k=settings.retrieval_rrf_k,
+                )[: settings.retrieval_document_k]
 
         candidates = fused[: settings.retrieval_rerank_candidates]
-        started = time.perf_counter()
         # One call over both sources: their scores compare, for the top k and the refusal.
-        scores = self.reranker.score(
-            question,
-            [rows[chunk_id].content for chunk_id in candidates]
-            + [chunk.content for chunk in documents],
-        )
-        seconds["rerank"] = time.perf_counter() - started
+        with timed(seconds, "rerank"):
+            scores = self.reranker.score(
+                question,
+                [rows[chunk_id].content for chunk_id in candidates]
+                + [chunk.content for chunk in documents],
+            )
         regulation = [
             RetrievedChunk(
                 chunk_id=chunk_id,

@@ -13,7 +13,6 @@ establishment) re-ranks its candidates together with the corpus's, in one call.
 
 import logging
 import re
-import time
 from collections.abc import Sequence
 from dataclasses import replace
 from uuid import UUID
@@ -23,7 +22,12 @@ from sqlalchemy import Connection, text
 from normetry_ai.db import current_tenant
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
-from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion, vector_literal
+from normetry_ai.retrieval.models import (
+    RetrievedChunk,
+    reciprocal_rank_fusion,
+    timed,
+    vector_literal,
+)
 from normetry_ai.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
@@ -135,26 +139,21 @@ def search_establishment(
     tenant = current_tenant(connection)
     seconds: dict[str, float] = {}
 
-    started = time.perf_counter()
-    embedding = embedder.embed_query(query)
-    seconds["embed"] = time.perf_counter() - started
-
-    started = time.perf_counter()
-    fused = document_candidates(
-        connection,
-        establishment_id,
-        query,
-        embedding,
-        vector_k=settings.retrieval_vector_k,
-        text_k=settings.retrieval_text_k,
-        rrf_k=settings.retrieval_rrf_k,
-    )
-    seconds["search"] = time.perf_counter() - started
-
+    with timed(seconds, "embed"):
+        embedding = embedder.embed_query(query)
+    with timed(seconds, "search"):
+        fused = document_candidates(
+            connection,
+            establishment_id,
+            query,
+            embedding,
+            vector_k=settings.retrieval_vector_k,
+            text_k=settings.retrieval_text_k,
+            rrf_k=settings.retrieval_rrf_k,
+        )
     candidates = fused[: settings.retrieval_establishment_rerank_candidates]
-    started = time.perf_counter()
-    scores = reranker.score(query, [chunk.content for chunk in candidates])
-    seconds["rerank"] = time.perf_counter() - started
+    with timed(seconds, "rerank"):
+        scores = reranker.score(query, [chunk.content for chunk in candidates])
     ranked = sorted(
         (replace(chunk, score=score) for chunk, score in zip(candidates, scores, strict=True)),
         key=lambda chunk: -chunk.score,
