@@ -21,12 +21,15 @@ from typing import Literal
 
 from normetry_ai.answers.guard import Citation, verify_quote
 from normetry_ai.inspection.checklist import ChecklistItem
-from normetry_ai.messaging.contracts import EvidenceCitation, RegulationCitation
+from normetry_ai.messaging.contracts import (
+    EvidenceCitation,
+    RegulationCitation,
+    Severity,
+    Verdict,
+)
 from normetry_ai.retrieval.models import RetrievedChunk
 
-Verdict = Literal["compliant", "non_compliant", "insufficient_evidence"]
 Confidence = Literal["low", "medium", "high"]
-VERDICTS: tuple[Verdict, ...] = ("compliant", "non_compliant", "insufficient_evidence")
 CONFIDENCES: tuple[Confidence, ...] = ("low", "medium", "high")
 # The bounds of contracts.py Finding.rationale and Action.text.
 RATIONALE_LIMIT, ACTION_LIMIT = 4000, 2000
@@ -48,7 +51,7 @@ class JudgedFinding:
     item_id: str
     theme: str
     title: str
-    severity: str
+    severity: Severity
     verdict: Verdict
     confidence: Confidence
     rationale: str  # English
@@ -71,26 +74,27 @@ def check_finding(
     """
     if not isinstance(raw, dict):
         return None
-    verdict, confidence = raw.get("verdict"), raw.get("confidence")
+    raw_verdict, confidence = raw.get("verdict"), raw.get("confidence")
     rationale, action = raw.get("rationale"), raw.get("action")
-    if verdict not in VERDICTS or confidence not in CONFIDENCES:
+    if raw_verdict not in Verdict or confidence not in CONFIDENCES:
         return None
+    verdict = Verdict(raw_verdict)
     if not isinstance(rationale, str) or not rationale.strip():
         return None
     regulation_quotes = _verified(raw.get("regulation_quotes"), regulation, min_quote_words)
     if not regulation_quotes:
         return None
     evidence_quotes = _verified(raw.get("evidence_quotes"), documents, min_quote_words)
-    if verdict != "insufficient_evidence" and not evidence_quotes:
+    if verdict != Verdict.INSUFFICIENT_EVIDENCE and not evidence_quotes:
         verdict, confidence, rationale, action = (
-            "insufficient_evidence",
+            Verdict.INSUFFICIENT_EVIDENCE,
             "low",
             UNVERIFIED_RATIONALE,
             None,
         )
-    if verdict == "insufficient_evidence":
+    if verdict == Verdict.INSUFFICIENT_EVIDENCE:
         evidence_quotes = []
-    if verdict == "compliant":
+    if verdict == Verdict.COMPLIANT:
         action = None
     elif not isinstance(action, str) or not action.strip():
         action = fallback_action(item)
