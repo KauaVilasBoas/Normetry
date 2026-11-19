@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { RequestOptions } from "../api/client";
-import { reviewStatuses } from "../api/contract";
+import { reviewStatuses, severities, verdicts } from "../api/contract";
 import {
   inspectionKey,
   inspectionsKey,
@@ -14,8 +14,12 @@ import { findingCount, rankIn, themeRank } from "./inspections";
 
 // The completed view (spec inspection-screen.md §4, §5): order, filters, due dates, edit rules.
 
-export const severityOrder = ["critical", "major", "minor"];
-export const verdictOrder = ["non_compliant", "insufficient_evidence", "compliant"];
+export const severityOrder = [severities.critical, severities.major, severities.minor];
+export const verdictOrder = [
+  verdicts.nonCompliant,
+  verdicts.insufficientEvidence,
+  verdicts.compliant,
+];
 const severityRank = rankIn(severityOrder);
 const verdictRank = rankIn(verdictOrder);
 

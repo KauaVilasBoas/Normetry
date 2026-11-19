@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useId, type ReactNode } from "react";
 import { Link } from "react-router";
-import { permissions } from "../api/contract";
+import { permissions, verdicts } from "../api/contract";
 import {
   can,
   queryFailed,
@@ -74,14 +74,14 @@ const noResult = (
 
 /** In donut and legend order (spec §8.4: data is blue, red only for the non-compliant share). */
 const verdictRows = [
-  { code: "compliant", key: "compliant", dot: "bg-chart-2", stroke: "stroke-chart-2" },
+  { code: verdicts.compliant, key: "compliant", dot: "bg-chart-2", stroke: "stroke-chart-2" },
   {
-    code: "insufficient_evidence",
+    code: verdicts.insufficientEvidence,
     key: "insufficientEvidence",
     dot: "bg-chart-1",
     stroke: "stroke-chart-1",
   },
-  { code: "non_compliant", key: "nonCompliant", dot: "bg-danger", stroke: "stroke-danger" },
+  { code: verdicts.nonCompliant, key: "nonCompliant", dot: "bg-danger", stroke: "stroke-danger" },
 ] as const;
 
 const inspectionLink = (id: string, filter = "") =>
@@ -381,7 +381,7 @@ function VerdictsCard({ latest }: { latest: LatestInspection }) {
         <DonutChart
           segments={verdictRows.map((row) => ({ value: counts[row.key], className: row.stroke }))}
           value={pointsText(share(counts.compliant, total))}
-          caption={verdictLabel("compliant")}
+          caption={verdictLabel(verdicts.compliant)}
         />
         <ul aria-labelledby="verdicts-title" className="w-full @sm:flex-1">
           {verdictRows.map((row) => {
