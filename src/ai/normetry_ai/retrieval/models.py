@@ -1,4 +1,6 @@
-from collections.abc import Hashable, Iterable, Sequence
+import time
+from collections.abc import Hashable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
@@ -31,6 +33,15 @@ class RetrievedChunk:
     document_title: str | None = None
     document_type: str | None = None
     document_version: int | None = None
+
+
+@contextmanager
+def timed(seconds: dict[str, float], step: str) -> Iterator[None]:
+    """Store how long the block took, in seconds, as `seconds[step]` (the searches' step times,
+    which they log and the evals report)."""
+    started = time.perf_counter()
+    yield
+    seconds[step] = time.perf_counter() - started
 
 
 def vector_literal(vector: Iterable[float]) -> str:
