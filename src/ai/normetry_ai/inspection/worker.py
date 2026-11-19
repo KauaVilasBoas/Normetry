@@ -31,6 +31,7 @@ from normetry_ai.messaging.contracts import (
     Finding,
     InspectionCompleted,
     InspectionFailed,
+    InspectionFailureReason,
     InspectionProgressed,
     InspectionRequested,
     InspectionStarted,
@@ -111,7 +112,9 @@ class InspectionWorker:
         )
         if not documents:
             self._log("has no documents", tenant_id, request)
-            return InspectionFailed(**ids, reason_code="no_documents", reason_text=NO_DOCUMENTS)
+            return InspectionFailed(
+                **ids, reason_code=InspectionFailureReason.NO_DOCUMENTS, reason_text=NO_DOCUMENTS
+            )
 
         async def started(themes: graph.Snapshot) -> None:
             total = sum(theme.items_total for theme in themes)
@@ -192,7 +195,9 @@ class InspectionWorker:
         ids = {"establishment_id": request.establishment_id, "inspection_id": request.inspection_id}
         if saved.values.get("budget_exceeded"):
             return InspectionFailed(
-                **ids, reason_code="budget_exceeded", reason_text=BUDGET_EXCEEDED
+                **ids,
+                reason_code=InspectionFailureReason.BUDGET_EXCEEDED,
+                reason_text=BUDGET_EXCEEDED,
             )
         return InspectionCompleted(
             **ids,

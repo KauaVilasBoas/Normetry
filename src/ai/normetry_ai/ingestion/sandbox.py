@@ -31,7 +31,7 @@ from typing import TypedDict
 from pydantic import TypeAdapter, ValidationError
 
 from normetry_ai.ingestion.parsers import Parsed, Rejected
-from normetry_ai.messaging.contracts import FailureReason
+from normetry_ai.messaging.contracts import DocumentFailureReason
 
 if sys.platform != "win32":
     import resource
@@ -49,7 +49,7 @@ _FAILED = "The file could not be read."
 
 
 class _Rejection(TypedDict):
-    reason: FailureReason
+    reason: DocumentFailureReason
     text: str
 
 
@@ -98,7 +98,7 @@ def parse_in_subprocess(
 ) -> Parsed:
     """`parse_file` in a child process: the same sections, or the same Rejected. A child that
     crashes, runs out of memory, outlives `timeout_s` or writes anything else raises
-    Rejected("parse_error")."""
+    Rejected(DocumentFailureReason.PARSE_ERROR)."""
     try:
         child = subprocess.run(  # noqa: S603 (fixed argv; the content type is one argument)
             [*COMMAND, content_type],
@@ -113,15 +113,17 @@ def parse_in_subprocess(
     except subprocess.TimeoutExpired:
         # run() has killed the child. Its output can hold document text: never chained or logged.
         logger.warning("Parsing subprocess killed after %s seconds", timeout_s)
-        raise Rejected("parse_error", "The file took too long to read.") from None
+        raise Rejected(
+            DocumentFailureReason.PARSE_ERROR, "The file took too long to read."
+        ) from None
     if child.returncode != 0:
         logger.warning("Parsing subprocess exited with code %d", child.returncode)
-        raise Rejected("parse_error", _FAILED)
+        raise Rejected(DocumentFailureReason.PARSE_ERROR, _FAILED)
     try:
         output = _OUTPUT.validate_json(child.stdout)
     except ValidationError:
         logger.warning("Parsing subprocess wrote unexpected output")
-        raise Rejected("parse_error", _FAILED) from None
+        raise Rejected(DocumentFailureReason.PARSE_ERROR, _FAILED) from None
     if isinstance(output, Parsed):
         return output
     raise Rejected(output["rejected"]["reason"], output["rejected"]["text"])

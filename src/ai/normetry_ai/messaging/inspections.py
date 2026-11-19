@@ -32,6 +32,7 @@ from normetry_ai.messaging.contracts import (
     Envelope,
     InspectionCompleted,
     InspectionFailed,
+    InspectionFailureReason,
     InspectionPayload,
     InspectionProgressed,
     InspectionRequested,
@@ -176,7 +177,7 @@ async def _inspect(
         failed = InspectionFailed(
             establishment_id=request.establishment_id,
             inspection_id=request.inspection_id,
-            reason_code="error",
+            reason_code=InspectionFailureReason.ERROR,
             reason_text=ERROR,
         )
         try:

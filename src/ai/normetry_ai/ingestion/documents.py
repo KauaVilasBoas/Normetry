@@ -27,7 +27,12 @@ from normetry_ai.ingestion.chunking import chunk_sections
 from normetry_ai.ingestion.parsers import MAX_BYTES, Rejected
 from normetry_ai.ingestion.sandbox import parse_in_subprocess
 from normetry_ai.llm.embeddings import Embedder
-from normetry_ai.messaging.contracts import DocumentDeleted, DocumentIndexed, DocumentUploaded
+from normetry_ai.messaging.contracts import (
+    DocumentDeleted,
+    DocumentFailureReason,
+    DocumentIndexed,
+    DocumentUploaded,
+)
 from normetry_ai.retrieval.language import detect_language
 from normetry_ai.settings import ParseSettings
 
@@ -71,14 +76,19 @@ class BlobStore:
         """The file at `path`. Raises Rejected when the path is outside the tenant's prefix, the
         blob is missing or it is larger than MAX_BYTES (checked before downloading)."""
         if not in_tenant(tenant_id, path):
-            raise Rejected("blob_path_outside_tenant", "The file is not stored under its tenant.")
+            raise Rejected(
+                DocumentFailureReason.BLOB_PATH_OUTSIDE_TENANT,
+                "The file is not stored under its tenant.",
+            )
         blob = self._container.get_blob_client(path)
         try:
             if blob.get_blob_properties().size > MAX_BYTES:
-                raise Rejected("too_large", "The file is larger than 10 MiB.")
+                raise Rejected(DocumentFailureReason.TOO_LARGE, "The file is larger than 10 MiB.")
             return blob.download_blob().readall()
         except ResourceNotFoundError as error:
-            raise Rejected("blob_missing", "The uploaded file is missing from storage.") from error
+            raise Rejected(
+                DocumentFailureReason.BLOB_MISSING, "The uploaded file is missing from storage."
+            ) from error
 
     def reachable(self) -> None:
         """Raises when blob storage does not answer or refuses the credential. The AI service holds
@@ -203,7 +213,9 @@ class DocumentWorker:
         on_start()
         data = self.blobs.download(tenant_id, message.blob_path)
         if hashlib.sha256(data).hexdigest() != message.sha256:
-            raise Rejected("internal", "The stored file does not match the uploaded file.")
+            raise Rejected(
+                DocumentFailureReason.INTERNAL, "The stored file does not match the uploaded file."
+            )
         # In a child process without credentials (sandbox.py): the file is untrusted.
         parsed = parse_in_subprocess(
             data,
@@ -213,7 +225,9 @@ class DocumentWorker:
         )
         chunks = chunk_sections(parsed.parts)
         if len(chunks) > MAX_CHUNKS:
-            raise Rejected("too_large", "The document holds more text than 100 pages.")
+            raise Rejected(
+                DocumentFailureReason.TOO_LARGE, "The document holds more text than 100 pages."
+            )
         language = detect_language(" ".join(part.text for part in parsed.parts))
         vectors = self.embedder.embed_documents([chunk.content for chunk in chunks])
         metadata = json.dumps({"embedding_model": self.embedder.name})
