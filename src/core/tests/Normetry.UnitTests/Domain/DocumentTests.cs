@@ -78,7 +78,7 @@ public sealed class DocumentTests
         Assert.False(version.TimeOut(timeout, Now.AddMinutes(14)));
         Assert.True(version.TimeOut(timeout, Now.AddMinutes(15)));
         Assert.Equal(
-            (DocumentVersionStatus.Failed, DocumentVersion.TimedOut),
+            (DocumentVersionStatus.Failed, DocumentIngestionFailureReasons.TimedOut),
             (version.Status, version.FailureCode)
         );
 

@@ -108,14 +108,4 @@ public sealed record InspectionFailed(
     public static int Version => 1;
 
     public static string RoutingKey => "inspection.failed.v1";
-
-    /// <summary>The contract's codes; the core's own <c>timed_out</c> is not one.</summary>
-    public static readonly IReadOnlySet<string> ReasonCodes = new HashSet<string>(
-        StringComparer.Ordinal
-    )
-    {
-        "budget_exceeded",
-        "no_documents",
-        "error",
-    };
 }

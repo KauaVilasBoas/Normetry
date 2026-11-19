@@ -6,7 +6,7 @@ namespace Normetry.Application.Inspections;
 
 /// <summary>
 /// A row of the establishment's inspections. <see cref="FailureReasonCode"/> is a contract reason
-/// code or <c>timed_out</c>; the web app shows its own text for it.
+/// code or <see cref="InspectionFailureReasons.TimedOut"/>; the web app shows its own text for it.
 /// </summary>
 public sealed record InspectionSummary(
     Guid Id,

@@ -113,19 +113,4 @@ public sealed record DocumentIngestionFailed(
     public static int Version => 1;
 
     public static string RoutingKey => "document.ingestion-failed.v1";
-
-    /// <summary>The contract's codes; a new one is a new message version.</summary>
-    public static readonly IReadOnlySet<string> ReasonCodes = new HashSet<string>(
-        StringComparer.Ordinal
-    )
-    {
-        "unsupported_format",
-        "no_text_layer",
-        "too_many_pages",
-        "too_large",
-        "blob_missing",
-        "blob_path_outside_tenant",
-        "parse_error",
-        "internal",
-    };
 }

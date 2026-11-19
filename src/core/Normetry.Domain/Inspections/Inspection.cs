@@ -15,9 +15,6 @@ public sealed class Inspection
     public const int FailureCodeMaxLength = 50;
     public const int FailureReasonMaxLength = 500;
 
-    /// <summary>The core's own failure code: Running for longer than the timeout.</summary>
-    public const string TimedOut = "timed_out";
-
     private readonly List<Finding> findings = [];
     private List<ThemeProgress> themes = [];
 
@@ -69,7 +66,10 @@ public sealed class Inspection
 
     public decimal? CostUsd { get; private set; }
 
-    /// <summary>A code of the contract's failure reasons, or <see cref="TimedOut"/>.</summary>
+    /// <summary>
+    /// One of <see cref="InspectionFailureReasons.ContractCodes"/>, or
+    /// <see cref="InspectionFailureReasons.TimedOut"/>.
+    /// </summary>
     public string? FailureReasonCode { get; private set; }
 
     public string? FailureReason { get; private set; }
@@ -174,8 +174,8 @@ public sealed class Inspection
     /// <summary>
     /// Running for at least <paramref name="timeout"/> since it started, or still Requested that
     /// long after the request (its message was lost or no worker took it): Failed with
-    /// <see cref="TimedOut"/>, so it no longer holds the tenant's in-flight slots. A late
-    /// completion still applies.
+    /// <see cref="InspectionFailureReasons.TimedOut"/>, so it no longer holds the tenant's
+    /// in-flight slots. A late completion still applies.
     /// </summary>
     public bool TimeOut(TimeSpan timeout, DateTimeOffset now) =>
         Status switch
@@ -183,10 +183,41 @@ public sealed class Inspection
             InspectionStatus.Running => now - StartedAt!.Value >= timeout,
             InspectionStatus.Requested => now - RequestedAt >= timeout,
             _ => false,
-        } && Fail(TimedOut, "The inspection took too long and was stopped.", now);
+        }
+        && Fail(
+            InspectionFailureReasons.TimedOut,
+            "The inspection took too long and was stopped.",
+            now
+        );
 
     private static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength];
+}
+
+/// <summary>The codes an inspection fails with, as the inspection contract writes them.</summary>
+public static class InspectionFailureReasons
+{
+    public const string BudgetExceeded = "budget_exceeded";
+    public const string NoDocuments = "no_documents";
+    public const string Error = "error";
+
+    /// <summary>
+    /// The core's own code: Running, or still Requested, for longer than the timeout.
+    /// </summary>
+    public const string TimedOut = "timed_out";
+
+    /// <summary>
+    /// The codes <c>InspectionFailed</c> may carry; <see cref="TimedOut"/> is not one. A new one
+    /// is a new message version.
+    /// </summary>
+    public static readonly IReadOnlySet<string> ContractCodes = new HashSet<string>(
+        StringComparer.Ordinal
+    )
+    {
+        BudgetExceeded,
+        NoDocuments,
+        Error,
+    };
 }
 
 public enum InspectionStatus

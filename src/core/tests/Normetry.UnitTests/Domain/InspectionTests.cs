@@ -326,11 +326,11 @@ public sealed class InspectionTests
         Assert.False(running.TimeOut(timeout, Now.AddMinutes(31)));
 
         Assert.Equal(
-            (InspectionStatus.Failed, Inspection.TimedOut),
+            (InspectionStatus.Failed, InspectionFailureReasons.TimedOut),
             (requested.Status, requested.FailureReasonCode)
         );
         Assert.Equal(
-            (InspectionStatus.Failed, Inspection.TimedOut),
+            (InspectionStatus.Failed, InspectionFailureReasons.TimedOut),
             (running.Status, running.FailureReasonCode)
         );
     }

@@ -11,9 +11,6 @@ public sealed class DocumentVersion
     public const int FailureCodeMaxLength = 50;
     public const int FailureReasonMaxLength = 500;
 
-    /// <summary>The core's own failure code: Processing for longer than the timeout.</summary>
-    public const string TimedOut = "timed_out";
-
     private DocumentVersion(
         Guid id,
         Guid tenantId,
@@ -78,7 +75,10 @@ public sealed class DocumentVersion
 
     public DateTimeOffset StatusChangedAt { get; private set; }
 
-    /// <summary>A code of the contract's failure reasons, or <see cref="TimedOut"/>.</summary>
+    /// <summary>
+    /// One of <see cref="DocumentIngestionFailureReasons.ContractCodes"/>, or
+    /// <see cref="DocumentIngestionFailureReasons.TimedOut"/>.
+    /// </summary>
     public string? FailureCode { get; private set; }
 
     public string? FailureReason { get; private set; }
@@ -152,13 +152,18 @@ public sealed class DocumentVersion
     }
 
     /// <summary>
-    /// Processing for at least <paramref name="timeout"/>: Failed with <see cref="TimedOut"/>.
-    /// Uploaded never times out: the queue is durable and the version waits for the AI service.
+    /// Processing for at least <paramref name="timeout"/>: Failed with
+    /// <see cref="DocumentIngestionFailureReasons.TimedOut"/>. Uploaded never times out: the queue
+    /// is durable and the version waits for the AI service.
     /// </summary>
     public bool TimeOut(TimeSpan timeout, DateTimeOffset now) =>
         Status == DocumentVersionStatus.Processing
         && now - StatusChangedAt >= timeout
-        && MarkFailed(TimedOut, "Processing took too long and was stopped.", now);
+        && MarkFailed(
+            DocumentIngestionFailureReasons.TimedOut,
+            "Processing took too long and was stopped.",
+            now
+        );
 
     private bool Move(DocumentVersionStatus status, DateTimeOffset now)
     {
@@ -169,4 +174,38 @@ public sealed class DocumentVersion
 
     private static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength];
+}
+
+/// <summary>The codes a version's ingestion fails with, as the document contract writes them.</summary>
+public static class DocumentIngestionFailureReasons
+{
+    public const string UnsupportedFormat = "unsupported_format";
+    public const string NoTextLayer = "no_text_layer";
+    public const string TooManyPages = "too_many_pages";
+    public const string TooLarge = "too_large";
+    public const string BlobMissing = "blob_missing";
+    public const string BlobPathOutsideTenant = "blob_path_outside_tenant";
+    public const string ParseError = "parse_error";
+    public const string Internal = "internal";
+
+    /// <summary>The core's own code: Processing for longer than the timeout.</summary>
+    public const string TimedOut = "timed_out";
+
+    /// <summary>
+    /// The codes <c>DocumentIngestionFailed</c> may carry; <see cref="TimedOut"/> is not one. A new
+    /// one is a new message version.
+    /// </summary>
+    public static readonly IReadOnlySet<string> ContractCodes = new HashSet<string>(
+        StringComparer.Ordinal
+    )
+    {
+        UnsupportedFormat,
+        NoTextLayer,
+        TooManyPages,
+        TooLarge,
+        BlobMissing,
+        BlobPathOutsideTenant,
+        ParseError,
+        Internal,
+    };
 }
