@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { documentStatuses } from "../api/contract";
 import { useLiveStatus } from "../api/live";
 import { documentKey, documentsKey, type Establishment, type Me } from "../api/queries";
 import { copy, format } from "../copy";
@@ -74,8 +75,9 @@ export function DocumentsScreen({
   // Only the end of processing is announced: Indexed or Failed.
   const changed = (change: DocumentStatusChange) => {
     refetch(change.documentId);
-    if (change.status !== "Indexed" && change.status !== "Failed") return;
-    const indexed = change.status === "Indexed";
+    if (change.status !== documentStatuses.indexed && change.status !== documentStatuses.failed)
+      return;
+    const indexed = change.status === documentStatuses.indexed;
     const reason = failureText(change.failureCode).short;
     if (change.documentId === documentId) {
       const n = String(change.versionNumber);

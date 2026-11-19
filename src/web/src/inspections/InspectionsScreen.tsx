@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { inspectionStatuses } from "../api/contract";
 import { useLiveStatus } from "../api/live";
 import {
   inspectionKey,
@@ -102,7 +103,7 @@ export function InspectionsScreen({
       );
     }
 
-    if (id === inspectionId && status === "Running") {
+    if (id === inspectionId && status === inspectionStatuses.running) {
       const last =
         reached.current?.id === id
           ? reached.current.milestone
@@ -120,11 +121,11 @@ export function InspectionsScreen({
     list.catch(() => {});
     if (!statusChanged) return;
     void queryClient.invalidateQueries({ queryKey: detailKey });
-    if (status === "Failed")
+    if (status === inspectionStatuses.failed)
       announce(
         format(copy.inspections.failed, { reason: failureText(change.failureReasonCode).short }),
       );
-    if (status === "Completed")
+    if (status === inspectionStatuses.completed)
       list.then(
         (rows) => {
           const counts = rows.find((r) => r.id === id)?.verdictCounts;

@@ -1,5 +1,6 @@
 import { CircleAlert, ListChecks } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { actionStatuses } from "../api/contract";
 import type { ActionItem, InspectionDetail } from "../api/queries";
 import { calendarDate, copy, format } from "../copy";
 import { useSend } from "../settings/profiles";
@@ -29,7 +30,7 @@ export function ActionPlan({
   const busy = useRef(new Set<string>());
   const rows = actionPlan(inspection.findings);
   const statusOf = (action: ActionItem) => toggled[action.id] ?? action.status;
-  const done = rows.filter((row) => statusOf(row.actionItem) === "Done").length;
+  const done = rows.filter((row) => statusOf(row.actionItem) === actionStatuses.done).length;
 
   // A 403 takes the checkboxes away (/me is fetched again): focus, lost with the one that was
   // toggled, goes to the heading. The row's error stays.
@@ -43,7 +44,10 @@ export function ActionPlan({
   const toggle = async (action: ActionItem, checked: boolean) => {
     if (busy.current.has(action.id)) return;
     busy.current.add(action.id);
-    setToggled((map) => ({ ...map, [action.id]: checked ? "Done" : "Open" }));
+    setToggled((map) => ({
+      ...map,
+      [action.id]: checked ? actionStatuses.done : actionStatuses.open,
+    }));
     setErrors((map) => ({ ...map, [action.id]: undefined }));
     const refusal = await review(
       `action-items/${encodeURIComponent(action.id)}/${checked ? "done" : "reopen"}`,
@@ -92,7 +96,7 @@ export function ActionPlan({
       ) : (
         <ul className="divide-y divide-border border-t border-border">
           {rows.map(({ actionItem: action, title }) => {
-            const isDone = statusOf(action) === "Done";
+            const isDone = statusOf(action) === actionStatuses.done;
             const description = format(copy.actions.meta, {
               finding: title,
               date: calendarDate(action.dueOn),

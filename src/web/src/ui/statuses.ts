@@ -1,6 +1,8 @@
 // Which StatusPill an API status shows as (DESIGN.md Status, Ingestion and Review status pills;
 // inspection-screen.md §4). Labels come from copy.ts.
 
+import { documentStatuses, inspectionStatuses, reviewStatuses } from "../api/contract";
+
 export type PillVariant =
   | "waiting"
   | "processing"
@@ -14,17 +16,17 @@ export type PillVariant =
 const variants = {
   /** A document version's ingestion. */
   ingestion: {
-    Uploaded: "waiting",
-    Processing: "processing",
-    Indexed: "done",
-    Failed: "attention",
+    [documentStatuses.uploaded]: "waiting",
+    [documentStatuses.processing]: "processing",
+    [documentStatuses.indexed]: "done",
+    [documentStatuses.failed]: "attention",
   },
   /** An inspection: a process state, so the ingestion styles. */
   inspection: {
-    Requested: "waiting",
-    Running: "processing",
-    Completed: "done",
-    Failed: "attention",
+    [inspectionStatuses.requested]: "waiting",
+    [inspectionStatuses.running]: "processing",
+    [inspectionStatuses.completed]: "done",
+    [inspectionStatuses.failed]: "attention",
   },
   /** A finding's verdict: a compliance state, so status colors. */
   verdict: {
@@ -33,7 +35,12 @@ const variants = {
     insufficient_evidence: "attention",
   },
   /** A finding's review: not compliance, so no green or red. */
-  review: { Pending: "waiting", Accepted: "done", Edited: "edited", Rejected: "rejected" },
+  review: {
+    [reviewStatuses.pending]: "waiting",
+    [reviewStatuses.accepted]: "done",
+    [reviewStatuses.edited]: "edited",
+    [reviewStatuses.rejected]: "rejected",
+  },
 } satisfies Record<string, Record<string, PillVariant>>;
 
 /** The pill for `status` of this `kind`; an unknown status looks like Waiting. */

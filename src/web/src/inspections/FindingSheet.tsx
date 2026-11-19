@@ -11,6 +11,7 @@ import { Dialog } from "radix-ui";
 import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from "react";
 import { Link } from "react-router";
 import type { RequestOptions } from "../api/client";
+import { actionStatuses, reviewStatuses } from "../api/contract";
 import type { EvidenceCitation, Finding, RegulationCitation } from "../api/queries";
 import { calendarDate, copy, format, languageName } from "../copy";
 import type { Sent } from "../settings/profiles";
@@ -246,7 +247,7 @@ function FindingBody({
               <time dateTime={action.dueOn}>
                 {format(copy.findings.due, { date: calendarDate(action.dueOn) })}
               </time>
-              {action.status === "Done" ? (
+              {action.status === actionStatuses.done ? (
                 <StatusPill variant="done" label={copy.actions.doneBadge} />
               ) : (
                 <DueBadge dueOn={action.dueOn} />
@@ -262,7 +263,7 @@ function FindingBody({
         <p id={reviewId} className="text-body">
           {reviewSentence(finding)}
         </p>
-        {finding.reviewStatus === "Rejected" && finding.reviewNote && (
+        {finding.reviewStatus === reviewStatuses.rejected && finding.reviewNote && (
           <>
             <p className="mt-3 text-small text-text-secondary">{copy.findings.reason}</p>
             <p className={`mt-1 rounded-sm bg-inset p-3 ${text}`}>{finding.reviewNote}</p>
@@ -393,7 +394,7 @@ function ReviewFooter({
 }) {
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string>();
-  const accepted = finding.reviewStatus === "Accepted";
+  const accepted = finding.reviewStatus === reviewStatuses.accepted;
   const path = `findings/${encodeURIComponent(finding.id)}`;
 
   const accept = async () => {
@@ -490,7 +491,7 @@ function RejectDialog({
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) return;
-        setNote(finding.reviewStatus === "Rejected" ? (finding.reviewNote ?? "") : "");
+        setNote(finding.reviewStatus === reviewStatuses.rejected ? (finding.reviewNote ?? "") : "");
         setFieldError(undefined);
         setError(undefined);
       }}
