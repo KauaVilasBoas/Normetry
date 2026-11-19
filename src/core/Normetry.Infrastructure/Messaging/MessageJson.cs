@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 using Normetry.Application.Inspections;
+using Normetry.Domain.Documents;
 using Normetry.Domain.Establishments;
 using Normetry.Domain.Inspections;
 
@@ -164,7 +165,7 @@ internal static partial class MessageJson
     {
         RequireVersionNumber(message.VersionNumber);
         Require(
-            DocumentIngestionFailed.ReasonCodes.Contains(message.ReasonCode),
+            DocumentIngestionFailureReasons.ContractCodes.Contains(message.ReasonCode),
             "unknown reasonCode"
         );
         Require(
@@ -253,7 +254,10 @@ internal static partial class MessageJson
 
     private static InspectionFailed Check(InspectionFailed message)
     {
-        Require(InspectionFailed.ReasonCodes.Contains(message.ReasonCode), "unknown reasonCode");
+        Require(
+            InspectionFailureReasons.ContractCodes.Contains(message.ReasonCode),
+            "unknown reasonCode"
+        );
         RequireLength(message.ReasonText, 1, InspectionFailed.ReasonTextMaxLength, "reasonText");
         return message;
     }

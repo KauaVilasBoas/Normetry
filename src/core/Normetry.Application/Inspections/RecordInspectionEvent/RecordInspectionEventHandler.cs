@@ -3,6 +3,7 @@ using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections.RecordInspectionEvent;
 
@@ -64,7 +65,7 @@ internal sealed class RecordInspectionEventHandler(
                 @event.EstablishmentId
             );
             return inspection.Fail(
-                "error",
+                InspectionFailureReasons.Error,
                 "The inspection cited a document that is not one of this establishment's.",
                 now
             )
