@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Normetry.Application.Abstractions;
 using Normetry.BuildingBlocks.Results;
+using Normetry.Domain.Documents;
 
 namespace Normetry.Application.Documents.RecordIngestion;
 
@@ -12,6 +13,28 @@ internal sealed class RecordIngestionHandler(
 ) : InboxCommandHandler<RecordIngestionCommand, DocumentStatusChange>(inbox)
 {
     protected override async Task<Result<DocumentStatusChange?>> ApplyAsync(
+        RecordIngestionCommand request,
+        CancellationToken cancellationToken
+    )
+    {
+        var located = await LockVersionOrLogDroppedEventAsync(request, cancellationToken);
+        if (located is null)
+        {
+            return Unchanged;
+        }
+        var (document, version) = located.Value;
+        var changed = ApplyEventToVersion(request, version, clock.GetUtcNow());
+        return changed ? DocumentStatusChange.From(document, version) : Unchanged;
+    }
+
+    /// <summary>
+    /// The document, locked, and the version the event names, or null (logged) when this tenant
+    /// has no such version of the event's establishment.
+    /// </summary>
+    private async Task<(
+        Document Document,
+        DocumentVersion Version
+    )?> LockVersionOrLogDroppedEventAsync(
         RecordIngestionCommand request,
         CancellationToken cancellationToken
     )
@@ -32,11 +55,18 @@ internal sealed class RecordIngestionHandler(
                 request.MessageType,
                 request.MessageId
             );
-            return Unchanged;
+            return null;
         }
+        return (document, version);
+    }
 
-        var now = clock.GetUtcNow();
-        var changed = @event switch
+    /// <summary>Runs the event's domain transition; true when it changed the version.</summary>
+    private static bool ApplyEventToVersion(
+        RecordIngestionCommand request,
+        DocumentVersion version,
+        DateTimeOffset now
+    ) =>
+        request.Event switch
         {
             DocumentIngestionStarted => version.StartProcessing(now),
             DocumentIndexed indexed => version.MarkIndexed(
@@ -52,10 +82,8 @@ internal sealed class RecordIngestionHandler(
             ),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(request),
-                @event.GetType().Name,
+                request.Event.GetType().Name,
                 null
             ),
         };
-        return changed ? DocumentStatusChange.From(document, version) : Unchanged;
-    }
 }
