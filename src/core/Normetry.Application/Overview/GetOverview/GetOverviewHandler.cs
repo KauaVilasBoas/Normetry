@@ -1,7 +1,6 @@
 using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 using Normetry.Application.Establishments;
-using Normetry.Application.Establishments.GetEstablishment;
 using Normetry.Application.Identity;
 using Normetry.Application.Inspections;
 using Normetry.BuildingBlocks.Cqrs;
@@ -31,13 +30,15 @@ internal sealed class GetOverviewHandler(
         CancellationToken cancellationToken
     )
     {
-        if (
-            await establishments.GetAsync(request.EstablishmentId, cancellationToken)
-            is not { } establishment
-        )
+        var found = await establishments.FindOrNotFoundAsync(
+            request.EstablishmentId,
+            cancellationToken
+        );
+        if (!found.IsSuccess)
         {
-            return GetEstablishmentHandler.NotFound;
+            return found.Error;
         }
+        var establishment = found.Value;
         // The action lets in a caller holding either permission; each section checks its own.
         var permissions = await users.GetPermissionsAsync(currentUser.UserId, cancellationToken);
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);

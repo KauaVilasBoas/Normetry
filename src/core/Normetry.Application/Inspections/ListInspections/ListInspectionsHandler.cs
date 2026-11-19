@@ -1,5 +1,4 @@
 using Normetry.Application.Establishments;
-using Normetry.Application.Establishments.GetEstablishment;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 
@@ -15,13 +14,15 @@ internal sealed class ListInspectionsHandler(
         CancellationToken cancellationToken
     )
     {
-        if (
-            await establishments.GetAsync(request.EstablishmentId, cancellationToken)
-            is not { } establishment
-        )
+        var found = await establishments.FindOrNotFoundAsync(
+            request.EstablishmentId,
+            cancellationToken
+        );
+        if (!found.IsSuccess)
         {
-            return GetEstablishmentHandler.NotFound;
+            return found.Error;
         }
+        var establishment = found.Value;
         var regulation = InspectionResponse.RegulationOf(establishment.Jurisdiction);
         return (await inspections.ListAsync(establishment.Id, cancellationToken))
             .Select(row => row with { Regulation = regulation })

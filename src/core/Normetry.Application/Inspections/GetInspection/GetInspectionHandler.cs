@@ -1,5 +1,4 @@
 using Normetry.Application.Establishments;
-using Normetry.Application.Establishments.GetEstablishment;
 using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
@@ -17,13 +16,15 @@ internal sealed class GetInspectionHandler(
         CancellationToken cancellationToken
     )
     {
-        if (
-            await establishments.GetAsync(request.EstablishmentId, cancellationToken)
-            is not { } establishment
-        )
+        var found = await establishments.FindOrNotFoundAsync(
+            request.EstablishmentId,
+            cancellationToken
+        );
+        if (!found.IsSuccess)
         {
-            return GetEstablishmentHandler.NotFound;
+            return found.Error;
         }
+        var establishment = found.Value;
         // Another establishment's inspection is not found here either.
         if (
             await inspections.GetAsync(request.Id, cancellationToken) is not { } inspection
