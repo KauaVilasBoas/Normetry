@@ -27,12 +27,26 @@ internal sealed class ListDocumentsHandler(
         {
             return found.Error;
         }
-        // Filtered in memory: an establishment holds at most MaxDocumentsPerEstablishment.
-        IEnumerable<Document> list = await documents.ListAsync(
-            request.EstablishmentId,
+        var listed = await documents.ListAsync(request.EstablishmentId, cancellationToken);
+        var filtered = KeepRequestedExpiry(listed, request, clock.UtcToday());
+        var uploaders = await users.GetDisplayNamesAsync(
+            filtered.Select(document => document.Newest.UploadedBy).Distinct(),
             cancellationToken
         );
-        var today = clock.UtcToday();
+        return SummariesNewestFirst(filtered, uploaders);
+    }
+
+    /// <summary>
+    /// The documents the expiry filter keeps: all of them, the expired ones or the ones expiring
+    /// within the requested days. Filtered in memory: an establishment holds at most
+    /// MaxDocumentsPerEstablishment.
+    /// </summary>
+    private static Document[] KeepRequestedExpiry(
+        IEnumerable<Document> list,
+        ListDocumentsQuery request,
+        DateOnly today
+    )
+    {
         if (request.Expired)
         {
             list = list.Where(document => document.ExpiresOn < today);
@@ -43,15 +57,17 @@ internal sealed class ListDocumentsHandler(
                 document.ExpiresOn >= today && document.ExpiresOn <= today.AddDays(days)
             );
         }
-        var filtered = list.ToArray();
-        var uploaders = await users.GetDisplayNamesAsync(
-            filtered.Select(document => document.Newest.UploadedBy).Distinct(),
-            cancellationToken
-        );
-        return filtered
+        return list.ToArray();
+    }
+
+    /// <summary>The summaries, most recently updated first.</summary>
+    private static DocumentSummary[] SummariesNewestFirst(
+        Document[] filtered,
+        IReadOnlyDictionary<Guid, string?> uploaders
+    ) =>
+        filtered
             .OrderByDescending(document => document.UpdatedAt)
             .ThenByDescending(document => document.Id)
             .Select(document => DocumentSummary.From(document, uploaders))
             .ToArray();
-    }
 }
