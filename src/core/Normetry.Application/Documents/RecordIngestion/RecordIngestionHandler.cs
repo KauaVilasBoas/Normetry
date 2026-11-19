@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Normetry.Application.Abstractions;
-using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 
 namespace Normetry.Application.Documents.RecordIngestion;
@@ -10,21 +9,13 @@ internal sealed class RecordIngestionHandler(
     IDocumentRepository documents,
     TimeProvider clock,
     ILogger<RecordIngestionHandler> logger
-) : ICommandHandler<RecordIngestionCommand, DocumentStatusChange?>
+) : InboxCommandHandler<RecordIngestionCommand, DocumentStatusChange>(inbox)
 {
-    private static readonly Result<DocumentStatusChange?> Unchanged =
-        Result<DocumentStatusChange?>.Success(null);
-
-    public async Task<Result<DocumentStatusChange?>> HandleAsync(
+    protected override async Task<Result<DocumentStatusChange?>> ApplyAsync(
         RecordIngestionCommand request,
         CancellationToken cancellationToken
     )
     {
-        if (!await inbox.TryAcceptAsync(request.MessageId, request.MessageType, cancellationToken))
-        {
-            return Unchanged;
-        }
-
         var @event = request.Event;
         // RLS shows only the message's tenant, so another tenant's ids find nothing here.
         var document = await documents.GetForUpdateAsync(@event.DocumentId, cancellationToken);

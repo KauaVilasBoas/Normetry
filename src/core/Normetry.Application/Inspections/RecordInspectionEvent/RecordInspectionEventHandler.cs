@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
-using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 using Normetry.Domain.Inspections;
 
@@ -13,22 +12,13 @@ internal sealed class RecordInspectionEventHandler(
     IDocumentRepository documents,
     TimeProvider clock,
     ILogger<RecordInspectionEventHandler> logger
-) : ICommandHandler<RecordInspectionEventCommand, InspectionChange?>
+) : InboxCommandHandler<RecordInspectionEventCommand, InspectionChange>(inbox)
 {
-    private static readonly Result<InspectionChange?> Unchanged = Result<InspectionChange?>.Success(
-        null
-    );
-
-    public async Task<Result<InspectionChange?>> HandleAsync(
+    protected override async Task<Result<InspectionChange?>> ApplyAsync(
         RecordInspectionEventCommand request,
         CancellationToken cancellationToken
     )
     {
-        if (!await inbox.TryAcceptAsync(request.MessageId, request.MessageType, cancellationToken))
-        {
-            return Unchanged;
-        }
-
         var @event = request.Event;
         // RLS shows only the message's tenant, so another tenant's ids find nothing here.
         var inspection = await inspections.GetForUpdateAsync(

@@ -1,4 +1,4 @@
-using Normetry.BuildingBlocks.Cqrs;
+using Normetry.Application.Abstractions;
 
 namespace Normetry.Application.Inspections.RecordInspectionEvent;
 
@@ -12,4 +12,4 @@ public sealed record RecordInspectionEventCommand(
     Guid MessageId,
     string MessageType,
     IInspectionEvent Event
-) : ICommand<InspectionChange?>;
+) : IInboxCommand<InspectionChange>;
