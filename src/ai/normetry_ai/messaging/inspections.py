@@ -1,5 +1,5 @@
 """The inspection consumer: ai.inspections, inside the AI service process, next to the document
-consumer (`consumer.py`, whose topology, publishing and retries it shares).
+consumer (`consumer.py`, whose topology, publishing, retries and delivery template it shares).
 
 One inspection at a time, on a connection and channel of its own (prefetch 1). The message stays
 unacknowledged while the inspection runs, minutes rather than seconds, and is acknowledged once
@@ -14,17 +14,15 @@ from contextvars import ContextVar
 from typing import Any, Protocol
 from uuid import UUID, uuid5
 
-import anyio
 from aio_pika.abc import AbstractRobustConnection
-from opentelemetry import trace
 
 from normetry_ai.inspection.worker import InspectionMismatch
 from normetry_ai.messaging.consumer import (
-    DELIVERY_LIMIT,
     EVENT_IDS,
     Action,
     Publish,
     consume,
+    handle_delivery,
     queue_arguments,
     retry_delay,
 )
@@ -38,7 +36,6 @@ from normetry_ai.messaging.contracts import (
     InspectionRequested,
     Payload,
     envelope,
-    parse,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,6 +43,9 @@ logger = logging.getLogger(__name__)
 QUEUE = "ai.inspections"
 DEAD_LETTER_QUEUE = "ai.inspections.dead-letter"
 QUEUE_ARGUMENTS = queue_arguments(QUEUE)
+# What ai.inspections takes: the queue is bound to its routing key, and anything else is
+# dead-lettered.
+CONSUMED: tuple[type[Payload], ...] = (InspectionRequested,)
 ERROR = "The inspection could not be completed. Try running it again."
 
 # The envelope's tenant while a delivery is handled. The judge and the Claude adapter log without
@@ -99,46 +99,34 @@ async def handle(body: bytes, delivery_count: int, worker: Worker, publish: Publ
     unreachable (`wait`) and is retried otherwise; the last delivery publishes InspectionFailed
     (`error`) first, so the core does not wait for its timeout.
     """
-    try:
-        message = parse(body)
-    except ValueError as error:
-        logger.warning("Dead-lettered a message off its contract (%s)", type(error).__name__)
-        return "dead-letter"
-    tenant_id, request = message.tenant_id, message.payload
-    trace.get_current_span().set_attributes(
-        {"normetry.tenant_id": str(tenant_id), "normetry.message.type": message.type}
+
+    async def process(message: Envelope[Any]) -> Action:
+        return await _inspect(message.tenant_id, message.payload, worker, publish)
+
+    return await handle_delivery(
+        body,
+        delivery_count,
+        accepts=CONSUMED,
+        process=process,
+        reachable=worker.reachable,
+        unreachable="the database",
+        subject=lambda message: f"inspection {message.payload.inspection_id}",
+        last_failure=_last_failure,
+        publish=publish,
     )
-    if not isinstance(request, InspectionRequested):
-        logger.warning(
-            "Dead-lettered a %s of tenant %s, which this queue does not take",
-            message.type,
-            tenant_id,
-            extra={"tenant_id": str(tenant_id)},
-        )
-        return "dead-letter"
-    token = TENANT_ID.set(str(tenant_id))
-    try:
-        return await _inspect(
-            tenant_id, request, message.message_id, delivery_count, worker, publish
-        )
-    finally:
-        TENANT_ID.reset(token)
 
 
 async def _inspect(
-    tenant_id: UUID,
-    request: InspectionRequested,
-    message_id: UUID,
-    delivery_count: int,
-    worker: Worker,
-    publish: Publish,
+    tenant_id: UUID, request: InspectionRequested, worker: Worker, publish: Publish
 ) -> Action:
+    """Run the inspection with the envelope's tenant in TENANT_ID and publish its result."""
+
     async def emit(payload: InspectionPayload) -> None:
         await publish(event(tenant_id, payload))
 
+    token = TENANT_ID.set(str(tenant_id))
     try:
         await emit(await worker.inspect(tenant_id, request, emit))
-        return "ack"
     except InspectionMismatch:
         # The core sent another establishment for an inspection id it already used: nothing to
         # resume or publish, and no retry would change that.
@@ -150,46 +138,21 @@ async def _inspect(
             extra={"tenant_id": str(tenant_id)},
         )
         return "dead-letter"
-    except Exception as error:
-        if not await anyio.to_thread.run_sync(worker.reachable):
-            logger.warning(
-                "Holding %s %s of tenant %s: the database is unreachable (%s)",
-                request.TYPE,
-                message_id,
-                tenant_id,
-                type(error).__name__,
-                extra={"tenant_id": str(tenant_id)},
-            )
-            return "wait"
-        last = delivery_count >= DELIVERY_LIMIT
-        # The error type only: a database or model error's text can quote stored rows.
-        logger.warning(
-            "Delivery %d of inspection %s of tenant %s failed (%s)%s",
-            delivery_count + 1,
-            request.inspection_id,
-            tenant_id,
-            type(error).__name__,
-            ", dead-lettered" if last else ", retrying",
-            extra={"tenant_id": str(tenant_id)},
-        )
-        if not last:
-            return "retry"
-        failed = InspectionFailed(
-            establishment_id=request.establishment_id,
-            inspection_id=request.inspection_id,
-            reason_code=InspectionFailureReason.ERROR,
-            reason_text=ERROR,
-        )
-        try:
-            await emit(failed)
-        except Exception as publish_error:  # the core's timeout fails the inspection instead
-            logger.warning(
-                "Could not publish the failure for tenant %s (%s)",
-                tenant_id,
-                type(publish_error).__name__,
-                extra={"tenant_id": str(tenant_id)},
-            )
-        return "dead-letter"
+    finally:
+        TENANT_ID.reset(token)
+    return "ack"
+
+
+def _last_failure(message: Envelope[Any], _error: Exception) -> Envelope[Any]:
+    """The InspectionFailed (`error`) of a request on its last delivery."""
+    request: InspectionRequested = message.payload
+    failed = InspectionFailed(
+        establishment_id=request.establishment_id,
+        inspection_id=request.inspection_id,
+        reason_code=InspectionFailureReason.ERROR,
+        reason_text=ERROR,
+    )
+    return event(message.tenant_id, failed)
 
 
 async def start(
@@ -201,5 +164,4 @@ async def start(
     async def handler(body: bytes, delivery_count: int, publish: Publish) -> Action:
         return await handle(body, delivery_count, worker, publish)
 
-    consumed: tuple[type[Payload], ...] = (InspectionRequested,)
-    return await consume(url, QUEUE, consumed, handler, delay)
+    return await consume(url, QUEUE, CONSUMED, handler, delay)
