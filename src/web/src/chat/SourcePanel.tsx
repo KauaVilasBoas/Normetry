@@ -2,7 +2,7 @@ import { ExternalLink, FileText, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
-import { permissions } from "../api/contract";
+import { permissions, sourceTypes } from "../api/contract";
 import { can, quoteFound, useMe, type Citation } from "../api/queries";
 import { copy, format, languageName } from "../copy";
 import { iconButton, QuotedPassage } from "../ui/primitives";
@@ -37,7 +37,7 @@ export function SourcePanel({
   // A document opens its page in the app, only for those who may read documents; the regulation
   // its official page in a new tab.
   const link =
-    citation.sourceType === "document"
+    citation.sourceType === sourceTypes.document
       ? canReadDocuments && (
           <Link
             to={`/documents/${encodeURIComponent(citation.documentId)}`}
@@ -87,7 +87,7 @@ export function SourcePanel({
         </button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        {citation.sourceType === "document" ? (
+        {citation.sourceType === sourceTypes.document ? (
           <>
             <p className="text-small text-text-secondary">
               {citation.documentType
@@ -133,7 +133,7 @@ export function SourcePanel({
       <footer className="border-t border-border px-5 py-4">
         {link}
         <p className={`text-caption text-text-secondary ${link ? "mt-2" : ""}`}>
-          {citation.sourceType === "document"
+          {citation.sourceType === sourceTypes.document
             ? copy.source.documentStoredCopy
             : copy.source.storedCopy}
         </p>

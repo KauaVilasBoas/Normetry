@@ -3,6 +3,7 @@ import { CircleAlert, History, SquarePen, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/client";
+import { answerEvents } from "../api/contract";
 import {
   conversationsKey,
   meKey,
@@ -271,8 +272,8 @@ export function ConversationPane({
       });
       if (signal.aborted) return;
       update(() => ({ status: end }));
-      if (end === "done" && shown > 0) announce(copy.chat.answerComplete);
-      else if (end === "done" || end === "refusal") {
+      if (end === answerEvents.done && shown > 0) announce(copy.chat.answerComplete);
+      else if (end === answerEvents.done || end === answerEvents.refusal) {
         announce(format(copy.chat.refusal, { regulation }));
         announce(copy.chat.refusalHint);
       }
