@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useRef, type ReactNode, type Ref } from "react";
 import { Link } from "react-router";
 import type { RequestOptions } from "../api/client";
 import { actionStatuses, reviewStatuses } from "../api/contract";
@@ -32,13 +32,8 @@ import {
 import { pillVariant } from "../ui/statuses";
 import {
   confidenceLabel,
-  draftOf,
   dueBadge,
-  editChanges,
-  editErrors,
-  editFields,
   originalValues,
-  reviewError,
   reviewLabel,
   reviewSentence,
   severityLabel,
@@ -47,10 +42,8 @@ import {
   useReview,
   verdictLabel,
   verdictOrder,
-  type EditDraft,
-  type EditErrors,
-  type Refusal,
 } from "./findings";
+import { useAccept, useEditForm, useRejectForm, type Review } from "./review";
 
 /** Rejected note and edited texts, as the core limits them. */
 const NOTE_MAX_LENGTH = 1000;
@@ -377,8 +370,6 @@ function EvidenceQuote({
   );
 }
 
-type Review = (path: string, options: RequestOptions) => Promise<Refusal | undefined>;
-
 /** Reject and Edit (each with its dialog), then the primary Accept, under an inline error. */
 function ReviewFooter({
   finding,
@@ -392,19 +383,9 @@ function ReviewFooter({
   review: Review;
   announce: (text: string) => void;
 }) {
-  const [accepting, setAccepting] = useState(false);
-  const [error, setError] = useState<string>();
-  const accepted = finding.reviewStatus === reviewStatuses.accepted;
   const path = `findings/${encodeURIComponent(finding.id)}`;
-
-  const accept = async () => {
-    setAccepting(true);
-    setError(undefined);
-    const refusal = await review(`${path}/accept`, { method: "POST" });
-    setAccepting(false);
-    if (refusal) setError(reviewError(refusal));
-    else announce(copy.findings.accepted);
-  };
+  const { accepting, error, accept } = useAccept(path, review, announce);
+  const accepted = finding.reviewStatus === reviewStatuses.accepted;
 
   return (
     <footer className="border-t border-border px-5 py-4">
@@ -448,36 +429,18 @@ function RejectDialog({
   review: Review;
   announce: (text: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [note, setNote] = useState("");
-  // A new object per refusal, so the same error twice still moves focus to the field.
-  const [fieldError, setFieldError] = useState<{ text: string }>();
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-  const saved = useRef(false);
-  const field = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (fieldError) field.current?.focus();
-  }, [fieldError]);
-
-  const submit = async () => {
-    const trimmed = note.trim();
-    setError(undefined);
-    if (!trimmed) {
-      setFieldError({ text: copy.findings.reasonRequired });
-      return;
-    }
-    setSubmitting(true);
-    const refusal = await review(`${path}/reject`, { method: "POST", json: { note: trimmed } });
-    setSubmitting(false);
-    if (refusal) {
-      setError(reviewError(refusal));
-      return;
-    }
-    saved.current = true;
-    setOpen(false);
-  };
+  const {
+    open,
+    openChange,
+    note,
+    changeNote,
+    field,
+    fieldError,
+    error,
+    submitting,
+    submit,
+    afterClose,
+  } = useRejectForm(finding, path, review, announce);
 
   return (
     <FormDialog
@@ -488,36 +451,24 @@ function RejectDialog({
         </Button>
       }
       open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) return;
-        setNote(finding.reviewStatus === reviewStatuses.rejected ? (finding.reviewNote ?? "") : "");
-        setFieldError(undefined);
-        setError(undefined);
-      }}
+      onOpenChange={openChange}
       title={copy.findings.rejectTitle}
       submitLabel={submitting ? copy.findings.rejecting : copy.findings.rejectSubmit}
       cancelLabel={copy.findings.cancel}
       submitting={submitting}
       error={error}
       onSubmit={() => void submit()}
-      onCloseAutoFocus={() => {
-        if (saved.current) announce(copy.findings.rejected);
-        saved.current = false;
-      }}
+      onCloseAutoFocus={afterClose}
     >
       <TextAreaField
         ref={field}
         label={copy.findings.reason}
         hint={copy.findings.reasonHint}
-        error={fieldError?.text}
+        error={fieldError}
         value={note}
         maxLength={NOTE_MAX_LENGTH}
         required
-        onChange={(event) => {
-          setNote(event.target.value);
-          setFieldError(undefined);
-        }}
+        onChange={changeNote}
       />
     </FormDialog>
   );
@@ -538,53 +489,22 @@ function EditDialog({
   review: Review;
   announce: (text: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(() => draftOf(finding));
-  const [errors, setErrors] = useState<EditErrors>({});
-  const [focusRequest, setFocusRequest] = useState<{ field: keyof EditDraft }>();
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-  const saved = useRef(false);
-  const rationale = useRef<HTMLTextAreaElement>(null);
-  const actionText = useRef<HTMLTextAreaElement>(null);
-  const dueOn = useRef<HTMLInputElement>(null);
-  const changes = editChanges(finding, draft);
+  const {
+    open,
+    openChange,
+    draft,
+    change,
+    errors,
+    rationaleField,
+    actionTextField,
+    dueOnField,
+    error,
+    submitting,
+    ready,
+    submit,
+    afterClose,
+  } = useEditForm(finding, path, review, announce);
   const keepsAction = finding.actionItem !== null;
-
-  useEffect(() => {
-    if (!focusRequest) return;
-    const fields: Partial<Record<keyof EditDraft, HTMLElement | null>> = {
-      rationale: rationale.current,
-      actionText: actionText.current,
-      dueOn: dueOn.current,
-    };
-    fields[focusRequest.field]?.focus();
-  }, [focusRequest]);
-
-  const change = (key: keyof EditDraft) => (event: { target: { value: string } }) => {
-    setDraft({ ...draft, [key]: event.target.value });
-    setErrors({ ...errors, [key]: undefined });
-  };
-
-  const submit = async () => {
-    setError(undefined);
-    const found = editErrors(finding, draft);
-    const first = editFields.find((key) => found[key]);
-    if (first) {
-      setErrors(found);
-      setFocusRequest({ field: first });
-      return;
-    }
-    setSubmitting(true);
-    const refusal = await review(path, { method: "PATCH", json: changes });
-    setSubmitting(false);
-    if (refusal) {
-      setError(reviewError(refusal));
-      return;
-    }
-    saved.current = true;
-    setOpen(false);
-  };
 
   return (
     <FormDialog
@@ -595,24 +515,15 @@ function EditDialog({
         </Button>
       }
       open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) return;
-        setDraft(draftOf(finding));
-        setErrors({});
-        setError(undefined);
-      }}
+      onOpenChange={openChange}
       title={copy.findings.editTitle}
       submitLabel={submitting ? copy.findings.saving : copy.findings.save}
       cancelLabel={copy.findings.cancel}
       submitting={submitting}
-      ready={Object.keys(changes).length > 0}
+      ready={ready}
       error={error}
       onSubmit={() => void submit()}
-      onCloseAutoFocus={() => {
-        if (saved.current) announce(copy.findings.edited);
-        saved.current = false;
-      }}
+      onCloseAutoFocus={afterClose}
       wide
     >
       <div className="flex flex-col gap-4">
@@ -634,7 +545,7 @@ function EditDialog({
           />
         </div>
         <TextAreaField
-          ref={rationale}
+          ref={rationaleField}
           label={copy.findings.rationale}
           error={errors.rationale}
           value={draft.rationale}
@@ -643,7 +554,7 @@ function EditDialog({
           onChange={change("rationale")}
         />
         <TextAreaField
-          ref={actionText}
+          ref={actionTextField}
           label={copy.findings.action}
           hint={copy.findings.actionHint}
           error={errors.actionText}
@@ -653,7 +564,7 @@ function EditDialog({
           onChange={change("actionText")}
         />
         <TextField
-          ref={dueOn}
+          ref={dueOnField}
           type="date"
           label={copy.findings.dueDate}
           error={errors.dueOn}
