@@ -6,6 +6,7 @@ using Normetry.Application.Inspections;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 using Normetry.BuildingBlocks.Time;
+using Normetry.Domain.Establishments;
 using Normetry.Domain.Identity;
 using Normetry.Domain.Inspections;
 
@@ -21,6 +22,7 @@ internal sealed class GetOverviewHandler(
 ) : IQueryHandler<GetOverviewQuery, OverviewResponse>
 {
     private const int SeriesLength = 12;
+    private const int TopRiskThemeCount = 3;
     private const int ExpiringWithinDays = 30;
     private const int DocumentListLength = 10;
 
@@ -43,9 +45,12 @@ internal sealed class GetOverviewHandler(
         // The action lets in a caller holding either permission; each section checks its own.
         var permissions = await users.GetPermissionsAsync(currentUser.UserId, cancellationToken);
         var today = clock.UtcToday();
-        var documentsOverview = permissions.Contains(Permissions.Documents.Read)
-            ? await DocumentsAsync(establishment.Id, today, cancellationToken)
-            : null;
+        var documentsOverview = await BuildDocumentsSectionIfAllowedAsync(
+            permissions,
+            establishment.Id,
+            today,
+            cancellationToken
+        );
         if (!permissions.Contains(Permissions.Inspections.Read))
         {
             return new OverviewResponse(documentsOverview);
@@ -57,59 +62,40 @@ internal sealed class GetOverviewHandler(
             SeriesLength,
             cancellationToken
         );
-        var series = completed
-            .Reverse()
-            .Select(row => new CompliancePoint(
-                row.Id,
-                row.CompletedAt,
-                Compliance(row.Compliant, row.Evaluated)
-            ))
-            .ToArray();
+        var series = BuildComplianceSeries(completed);
         if (completed is not [var latest, ..])
         {
             return new InspectionsOverviewResponse(null, 0, 0, 0, series, documentsOverview);
         }
 
         var findings = await inspections.ListFindingTalliesAsync(latest.Id, cancellationToken);
-        var open = findings
-            .Where(finding => finding.ActionStatus == ActionItemStatus.Open)
-            .ToArray();
+        var (openActions, overdueActions) = CountOpenAndOverdueActions(findings, today);
         return new InspectionsOverviewResponse(
-            new LatestInspectionOverview(
-                latest.Id,
-                latest.CompletedAt,
-                InspectionResponse.RegulationOf(establishment.Jurisdiction),
-                Compliance(latest.Compliant, latest.Evaluated),
-                VerdictCounts.Of(findings.Select(finding => finding.Verdict)),
-                findings
-                    .GroupBy(finding => finding.Theme)
-                    .OrderBy(theme => Array.IndexOf(ThemeOrder, theme.Key))
-                    .Select(ThemeVerdictsOf)
-                    .ToArray(),
-                findings
-                    .GroupBy(finding => finding.Theme)
-                    .Select(theme => new ThemeRisk(theme.Key, theme.Sum(Risk)))
-                    .Where(theme => theme.Score > 0)
-                    .OrderByDescending(theme => theme.Score)
-                    .ThenBy(theme => Array.IndexOf(ThemeOrder, theme.Theme))
-                    .Take(3)
-                    .ToArray()
-            ),
-            open.Length,
-            open.Count(finding => finding.ActionDueOn < today),
-            findings.Count(finding => finding.ReviewStatus == ReviewStatus.Pending),
+            BuildLatestInspectionSection(latest, establishment, findings),
+            openActions,
+            overdueActions,
+            CountPendingReviews(findings),
             series,
             documentsOverview
         );
     }
 
-    // Filtered in memory: an establishment holds at most MaxDocumentsPerEstablishment.
-    private async Task<DocumentsOverview> DocumentsAsync(
+    /// <summary>
+    /// The expired and soon expiring documents, or null when the caller lacks
+    /// <c>documents.read</c>.
+    /// </summary>
+    private async Task<DocumentsOverview?> BuildDocumentsSectionIfAllowedAsync(
+        IReadOnlyList<string> permissions,
         Guid establishmentId,
         DateOnly today,
         CancellationToken cancellationToken
     )
     {
+        if (!permissions.Contains(Permissions.Documents.Read))
+        {
+            return null;
+        }
+        // Filtered in memory: an establishment holds at most MaxDocumentsPerEstablishment.
         var dated = (await documents.ListAsync(establishmentId, cancellationToken))
             .Where(document => document.ExpiresOn <= today.AddDays(ExpiringWithinDays))
             .Select(document => new ExpiringDocument(
@@ -129,19 +115,81 @@ internal sealed class GetOverviewHandler(
         );
     }
 
+    /// <summary>The compliance of each listed inspection, oldest first.</summary>
+    private static CompliancePoint[] BuildComplianceSeries(
+        IReadOnlyList<CompletedInspection> completed
+    ) =>
+        completed
+            .Reverse()
+            .Select(row => new CompliancePoint(
+                row.Id,
+                row.CompletedAt,
+                Compliance(row.Compliant, row.Evaluated)
+            ))
+            .ToArray();
+
+    private static LatestInspectionOverview BuildLatestInspectionSection(
+        CompletedInspection latest,
+        Establishment establishment,
+        IReadOnlyList<FindingTally> findings
+    ) =>
+        new(
+            latest.Id,
+            latest.CompletedAt,
+            InspectionResponse.RegulationOf(establishment.Jurisdiction),
+            Compliance(latest.Compliant, latest.Evaluated),
+            VerdictCounts.Of(findings.Select(finding => finding.Verdict)),
+            CountVerdictsByTheme(findings),
+            PickTopRiskThemes(findings)
+        );
+
+    /// <summary>The verdict counts of each theme with findings, in checklist order.</summary>
+    private static ThemeVerdicts[] CountVerdictsByTheme(IReadOnlyList<FindingTally> findings) =>
+        findings
+            .GroupBy(finding => finding.Theme)
+            .OrderBy(theme => Array.IndexOf(ThemeOrder, theme.Key))
+            .Select(theme =>
+            {
+                var counts = VerdictCounts.Of(theme.Select(finding => finding.Verdict));
+                return new ThemeVerdicts(
+                    theme.Key,
+                    counts.Compliant,
+                    counts.NonCompliant,
+                    counts.InsufficientEvidence
+                );
+            })
+            .ToArray();
+
+    /// <summary>
+    /// The themes with the highest risk score above 0, highest first, ties in checklist order.
+    /// </summary>
+    private static ThemeRisk[] PickTopRiskThemes(IReadOnlyList<FindingTally> findings) =>
+        findings
+            .GroupBy(finding => finding.Theme)
+            .Select(theme => new ThemeRisk(theme.Key, theme.Sum(Risk)))
+            .Where(theme => theme.Score > 0)
+            .OrderByDescending(theme => theme.Score)
+            .ThenBy(theme => Array.IndexOf(ThemeOrder, theme.Theme))
+            .Take(TopRiskThemeCount)
+            .ToArray();
+
+    /// <summary>The open action items, and how many of them were due before today.</summary>
+    private static (int Open, int Overdue) CountOpenAndOverdueActions(
+        IReadOnlyList<FindingTally> findings,
+        DateOnly today
+    )
+    {
+        var open = findings
+            .Where(finding => finding.ActionStatus == ActionItemStatus.Open)
+            .ToArray();
+        return (open.Length, open.Count(finding => finding.ActionDueOn < today));
+    }
+
+    private static int CountPendingReviews(IReadOnlyList<FindingTally> findings) =>
+        findings.Count(finding => finding.ReviewStatus == ReviewStatus.Pending);
+
     private static double? Compliance(int compliant, int evaluated) =>
         evaluated == 0 ? null : (double)compliant / evaluated;
-
-    private static ThemeVerdicts ThemeVerdictsOf(IGrouping<string, FindingTally> theme)
-    {
-        var counts = VerdictCounts.Of(theme.Select(finding => finding.Verdict));
-        return new ThemeVerdicts(
-            theme.Key,
-            counts.Compliant,
-            counts.NonCompliant,
-            counts.InsufficientEvidence
-        );
-    }
 
     private static double Risk(FindingTally finding) =>
         Severities.RiskWeight(finding.Severity) * Verdicts.RiskFactor(finding.Verdict);
