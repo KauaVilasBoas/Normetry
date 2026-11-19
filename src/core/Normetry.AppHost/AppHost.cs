@@ -212,6 +212,8 @@ builder
             HttpMethod.Get,
             new Uri(new Uri(aiHttp.Url), "/health")
         );
+        // InternalHeaders.Token in Normetry.Api, spelled here because the AppHost does not
+        // reference the Api assembly.
         request.Headers.Add(
             "X-Normetry-Internal-Token",
             await internalToken.Resource.GetValueAsync(cancellationToken)
