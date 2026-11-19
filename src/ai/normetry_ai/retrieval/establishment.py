@@ -14,6 +14,7 @@ establishment) re-ranks its candidates together with the corpus's, in one call.
 import logging
 import re
 from collections.abc import Sequence
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Connection, text
@@ -100,26 +101,29 @@ def document_candidates(
     fused = reciprocal_rank_fusion(
         ([row.id for row in vector_rows], [row.id for row in text_rows]), rrf_k
     )
-    return [
-        RetrievedChunk(
-            chunk_id=chunk_id,
-            content=rows[chunk_id].content,
-            section_path=rows[chunk_id].section_path,
-            language=rows[chunk_id].language,
-            jurisdiction="",
-            source_id=rows[chunk_id].document_id,
-            source_title=rows[chunk_id].title or "",
-            source_version=str(rows[chunk_id].version),
-            official_url="",
-            score=0.0,
-            source_type="tenant_document",
-            document_id=rows[chunk_id].document_id,
-            document_title=rows[chunk_id].title,
-            document_type=rows[chunk_id].document_type,
-            document_version=rows[chunk_id].version,
-        )
-        for chunk_id in fused
-    ]
+    return [_document_candidate(rows[chunk_id]) for chunk_id in fused]
+
+
+def _document_candidate(row: Any) -> RetrievedChunk:
+    """A document search row as a chunk, not re-ranked yet (`score` 0); its source fields repeat
+    the document's."""
+    return RetrievedChunk(
+        chunk_id=row.id,
+        content=row.content,
+        section_path=row.section_path,
+        language=row.language,
+        jurisdiction="",
+        source_id=row.document_id,
+        source_title=row.title or "",
+        source_version=str(row.version),
+        official_url="",
+        score=0.0,
+        source_type="tenant_document",
+        document_id=row.document_id,
+        document_title=row.title,
+        document_type=row.document_type,
+        document_version=row.version,
+    )
 
 
 def search_establishment(
@@ -155,6 +159,18 @@ def search_establishment(
     with timed(seconds, "rerank"):
         ranked = rerank(reranker, query, candidates)
     chunks = ranked[: settings.retrieval_establishment_top_k]
+    _log_search(tenant, establishment_id, fused, candidates, chunks, seconds)
+    return chunks
+
+
+def _log_search(
+    tenant: str,
+    establishment_id: UUID,
+    fused: list[RetrievedChunk],
+    candidates: list[RetrievedChunk],
+    chunks: list[RetrievedChunk],
+    seconds: dict[str, float],
+) -> None:
     # Ids, counts and times only: never the query, titles or chunk text.
     logger.info(
         "establishment search tenant=%s establishment=%s fused=%d reranked=%d documents=%d "
@@ -168,4 +184,3 @@ def search_establishment(
         {step: round(value, 3) for step, value in seconds.items()},
         extra={"tenant_id": tenant},
     )
-    return chunks
