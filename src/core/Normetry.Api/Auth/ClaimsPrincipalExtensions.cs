@@ -19,7 +19,9 @@ internal static class ClaimsPrincipalExtensions
         [NotNullWhen(true)] out string? subject
     )
     {
-        subject = user.FindFirstValue("sub") is { Length: > 0 } value ? value : null;
+        subject = user.FindFirstValue(JwtClaimNames.Subject) is { Length: > 0 } value
+            ? value
+            : null;
         return subject is not null;
     }
 
@@ -27,7 +29,7 @@ internal static class ClaimsPrincipalExtensions
     public static bool TryGetTenantId(this ClaimsPrincipal user, out Guid tenantId)
     {
         tenantId = Guid.Empty;
-        return user.FindAll("tenant_id").ToArray() is [{ Value: { Length: 36 } value }]
+        return user.FindAll(JwtClaimNames.TenantId).ToArray() is [{ Value: { Length: 36 } value }]
             && Guid.TryParseExact(value, "D", out tenantId)
             && tenantId != Guid.Empty;
     }

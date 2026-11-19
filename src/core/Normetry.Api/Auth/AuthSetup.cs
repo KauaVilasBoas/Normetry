@@ -71,7 +71,7 @@ internal static class AuthSetup
                     ValidateIssuerSigningKey = true,
                     RequireSignedTokens = true,
                     RequireExpirationTime = true,
-                    NameClaimType = "sub",
+                    NameClaimType = JwtClaimNames.Subject,
                 };
                 // Back to its default (null), so the metadata address is derived from Authority.
                 options.MetadataAddress = null!;
@@ -83,7 +83,7 @@ internal static class AuthSetup
                     options.ForwardSignOut =
                         null;
                 options.RequireHttpsMetadata = !isDevelopment;
-                // Keep claim names as issued (sub, tenant_id, azp): no mapping to WS-* URIs.
+                // Keep claim names as issued (JwtClaimNames): no mapping to WS-* URIs.
                 options.MapInboundClaims = false;
 
                 options.Events = new JwtBearerEvents
@@ -104,7 +104,7 @@ internal static class AuthSetup
                     OnTokenValidated = context =>
                     {
                         if (
-                            context.Principal!.FindAll("azp").ToArray()
+                            context.Principal!.FindAll(JwtClaimNames.AuthorizedParty).ToArray()
                                 is not [{ Value: var clientId }]
                             || !acceptedClients.Contains(clientId)
                         )
