@@ -1,7 +1,6 @@
 using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 using Normetry.Application.Establishments;
-using Normetry.Application.Establishments.GetEstablishment;
 using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
@@ -26,13 +25,15 @@ internal sealed class StartInspectionHandler(
         CancellationToken cancellationToken
     )
     {
-        if (
-            await establishments.GetAsync(request.EstablishmentId, cancellationToken)
-            is not { } establishment
-        )
+        var found = await establishments.FindOrNotFoundAsync(
+            request.EstablishmentId,
+            cancellationToken
+        );
+        if (!found.IsSuccess)
         {
-            return GetEstablishmentHandler.NotFound;
+            return found.Error;
         }
+        var establishment = found.Value;
         // A concurrent start that passes this check ends at the partial unique index, which
         // TransactionBehavior turns into the same refusal.
         if (await inspections.HasInFlightAsync(establishment.Id, cancellationToken))

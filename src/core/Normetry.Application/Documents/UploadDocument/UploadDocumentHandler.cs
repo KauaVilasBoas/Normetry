@@ -1,6 +1,5 @@
 using Normetry.Application.Abstractions;
 using Normetry.Application.Establishments;
-using Normetry.Application.Establishments.GetEstablishment;
 using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
@@ -31,9 +30,13 @@ internal sealed class UploadDocumentHandler(
             return file.Error;
         }
         // Held until the transaction ends, so two uploads cannot both take the last free place.
-        if (!await establishments.LockAsync(request.EstablishmentId, cancellationToken))
+        var locked = await establishments.LockOrNotFoundAsync(
+            request.EstablishmentId,
+            cancellationToken
+        );
+        if (!locked.IsSuccess)
         {
-            return GetEstablishmentHandler.NotFound;
+            return locked.Error;
         }
         if (
             await documents.CountAsync(request.EstablishmentId, cancellationToken)

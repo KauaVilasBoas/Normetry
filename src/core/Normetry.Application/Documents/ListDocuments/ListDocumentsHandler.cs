@@ -1,5 +1,4 @@
 using Normetry.Application.Establishments;
-using Normetry.Application.Establishments.GetEstablishment;
 using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
@@ -19,9 +18,13 @@ internal sealed class ListDocumentsHandler(
         CancellationToken cancellationToken
     )
     {
-        if (await establishments.GetAsync(request.EstablishmentId, cancellationToken) is null)
+        var found = await establishments.FindOrNotFoundAsync(
+            request.EstablishmentId,
+            cancellationToken
+        );
+        if (!found.IsSuccess)
         {
-            return GetEstablishmentHandler.NotFound;
+            return found.Error;
         }
         // Filtered in memory: an establishment holds at most MaxDocumentsPerEstablishment.
         IEnumerable<Document> list = await documents.ListAsync(
