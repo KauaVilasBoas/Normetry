@@ -1,6 +1,7 @@
 using Normetry.Application.Abstractions;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.BuildingBlocks.Time;
 
 namespace Normetry.Application.Usage.CountChatMessage;
 
@@ -28,7 +29,7 @@ internal sealed class CountChatMessageHandler(
         var count = await counter.TryIncrementAsync(
             tenant.TenantId,
             user.UserId,
-            ChatQuotaResponse.Day(now),
+            now.UtcDate(),
             limit,
             cancellationToken
         );
