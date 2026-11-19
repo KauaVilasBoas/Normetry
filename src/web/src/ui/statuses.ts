@@ -1,7 +1,7 @@
 // Which StatusPill an API status shows as (DESIGN.md Status, Ingestion and Review status pills;
 // inspection-screen.md §4). Labels come from copy.ts.
 
-import { documentStatuses, inspectionStatuses, reviewStatuses } from "../api/contract";
+import { documentStatuses, inspectionStatuses, reviewStatuses, verdicts } from "../api/contract";
 
 export type PillVariant =
   | "waiting"
@@ -30,9 +30,9 @@ const variants = {
   },
   /** A finding's verdict: a compliance state, so status colors. */
   verdict: {
-    compliant: "compliant",
-    non_compliant: "nonCompliant",
-    insufficient_evidence: "attention",
+    [verdicts.compliant]: "compliant",
+    [verdicts.nonCompliant]: "nonCompliant",
+    [verdicts.insufficientEvidence]: "attention",
   },
   /** A finding's review: not compliance, so no green or red. */
   review: {

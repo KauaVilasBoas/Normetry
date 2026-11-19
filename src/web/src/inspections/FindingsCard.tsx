@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, ListFilter, SearchX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { severities } from "../api/contract";
 import type { Finding, InspectionDetail } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
 import { useSend } from "../settings/profiles";
@@ -299,7 +300,7 @@ function FindingsTable({
               </td>
               <td
                 className={`hidden px-3 py-2.5 text-body whitespace-nowrap md:table-cell ${
-                  finding.severity === "critical"
+                  finding.severity === severities.critical
                     ? "font-semibold text-text-primary"
                     : "text-text-secondary"
                 }`}

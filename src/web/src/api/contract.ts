@@ -55,3 +55,13 @@ export const reviewStatuses = {
 
 /** An action item's `status`. */
 export const actionStatuses = { open: "Open", done: "Done" } as const;
+
+/** A finding's `verdict`. */
+export const verdicts = {
+  compliant: "compliant",
+  nonCompliant: "non_compliant",
+  insufficientEvidence: "insufficient_evidence",
+} as const;
+
+/** A finding's `severity`. */
+export const severities = { critical: "critical", major: "major", minor: "minor" } as const;
