@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Normetry.Api.Auth;
 using Normetry.Api.RateLimiting;
 using Normetry.Domain.Identity;
@@ -173,11 +172,7 @@ internal static class AiGateway
             }
 
             // The route policy guarantees both; failing here means the policy was removed.
-            var user = context.HttpContext.User;
-            if (
-                !HttpCurrentUser.TryGetTenantId(user, out var tenantId)
-                || user.FindFirstValue("sub") is not { Length: > 0 } userId
-            )
+            if (!context.HttpContext.User.TryGetCaller(out var tenantId, out var userId))
             {
                 throw new InvalidOperationException(
                     $"The /ai route must require a policy that includes {Policies.Tenant}."
