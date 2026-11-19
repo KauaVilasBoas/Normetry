@@ -20,6 +20,7 @@ from uuid import UUID
 
 from sqlalchemy import Connection, text
 
+from normetry_ai.db import current_tenant
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
 from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion, vector_literal
@@ -68,13 +69,6 @@ _TEXT_SEARCH = text(
 )
 
 
-def _tenant(connection: Connection) -> str:
-    tenant = connection.execute(text("SELECT current_setting('app.tenant_id', true)")).scalar()
-    if not tenant:
-        raise RuntimeError("retrieval runs inside tenant_transaction")
-    return tenant
-
-
 def document_candidates(
     connection: Connection,
     establishment_id: UUID,
@@ -87,7 +81,7 @@ def document_candidates(
 ) -> list[RetrievedChunk]:
     """The establishment's current document chunks for the query, fused with Reciprocal Rank
     Fusion, best first, not re-ranked yet (`score` 0). `embedding` is the query's."""
-    _tenant(connection)
+    current_tenant(connection)
     params = {"establishment_id": establishment_id}
     vector_rows = connection.execute(
         _VECTOR_SEARCH,
@@ -138,7 +132,7 @@ def search_establishment(
     The establishment comes from the core (the queue message or `X-Normetry-Establishment-Id`),
     never from the client; the tenant is the transaction's.
     """
-    tenant = _tenant(connection)
+    tenant = current_tenant(connection)
     seconds: dict[str, float] = {}
 
     started = time.perf_counter()
