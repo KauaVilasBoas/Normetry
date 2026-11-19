@@ -1,4 +1,4 @@
-import { problemCodes } from "../api/contract";
+import { inspectionStatuses, problemCodes } from "../api/contract";
 import type { Establishment, InspectionSummary, ThemeProgress } from "../api/queries";
 import { copy, format } from "../copy";
 import type { Sent } from "../settings/profiles";
@@ -23,7 +23,8 @@ export const DETAIL_TITLE_ID = "inspection-title";
 export const FINDINGS_TITLE_ID = "findings-title";
 
 /** Waiting or Running: live, and no other inspection may start. */
-export const inFlight = (status: string) => status === "Requested" || status === "Running";
+export const inFlight = (status: string) =>
+  status === inspectionStatuses.requested || status === inspectionStatuses.running;
 
 export const statusLabel = (status: string) => copy.inspections.statuses[status] ?? status;
 
@@ -43,15 +44,15 @@ const counts = (evaluated: number, total: number) => ({
 
 /** The status cell's caption: the count while running, the short reason once failed. */
 export function statusCaption(row: InspectionSummary): string | undefined {
-  if (row.status === "Running" && row.itemsTotal > 0)
+  if (row.status === inspectionStatuses.running && row.itemsTotal > 0)
     return format(copy.inspections.checked, counts(row.itemsEvaluated, row.itemsTotal));
-  if (row.status === "Failed") return failureText(row.failureReasonCode).short;
+  if (row.status === inspectionStatuses.failed) return failureText(row.failureReasonCode).short;
   return undefined;
 }
 
 /** The Results cell: the verdict counts once completed. */
 export function resultText({ status, verdictCounts: v }: InspectionSummary): string | undefined {
-  if (status !== "Completed") return undefined;
+  if (status !== inspectionStatuses.completed) return undefined;
   return format(copy.inspections.resultCounts, {
     nonCompliant: String(v.nonCompliant),
     insufficient: String(v.insufficientEvidence),
@@ -62,7 +63,7 @@ export function resultText({ status, verdictCounts: v }: InspectionSummary): str
 /** The list row a started inspection shows as until the refetch brings the server's. */
 export const requestedRow = (id: string, regulation: string): InspectionSummary => ({
   id,
-  status: "Requested",
+  status: inspectionStatuses.requested,
   regulation,
   requestedAt: new Date().toISOString(),
   startedAt: null,
@@ -109,7 +110,7 @@ export function runningView(
   }: Pick<InspectionSummary, "status" | "itemsEvaluated" | "itemsTotal" | "regulation">,
   establishment: string,
 ) {
-  if (status !== "Running")
+  if (status !== inspectionStatuses.running)
     return {
       step: 0,
       title: copy.inspections.waitingTitle,

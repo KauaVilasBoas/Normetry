@@ -3,7 +3,7 @@ import { ArrowLeft, CircleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
 import { ApiError } from "../api/client";
-import { permissions } from "../api/contract";
+import { inspectionStatuses, permissions } from "../api/contract";
 import type { Live } from "../api/live";
 import {
   can,
@@ -213,7 +213,7 @@ export function InspectionDetailView({
         <RunningSkeleton label={requestedAt !== undefined} />
       ) : inFlight(detail.status) ? (
         <RunningCard inspection={detail} establishment={establishment} live={live} />
-      ) : detail.status === "Failed" ? (
+      ) : detail.status === inspectionStatuses.failed ? (
         <div className={card}>
           <Message
             className="items-start"

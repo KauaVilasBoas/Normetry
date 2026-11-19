@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { RequestOptions } from "../api/client";
+import { reviewStatuses } from "../api/contract";
 import {
   inspectionKey,
   inspectionsKey,
@@ -78,7 +79,7 @@ export function themeOptions(findings: Finding[]) {
 
 /** "43 findings · 12 pending review", or "· All reviewed". */
 export function findingsCaption(findings: Finding[]): string {
-  const pending = findings.filter((f) => f.reviewStatus === "Pending").length;
+  const pending = findings.filter((f) => f.reviewStatus === reviewStatuses.pending).length;
   return format(copy.findings.caption, {
     findings: findingCount(findings.length),
     review:
@@ -106,7 +107,7 @@ export function actionPlan(findings: Finding[]) {
   return findings
     .filter(
       (f): f is Finding & { actionItem: ActionItem } =>
-        f.actionItem !== null && f.reviewStatus !== "Rejected",
+        f.actionItem !== null && f.reviewStatus !== reviewStatuses.rejected,
     )
     .sort(
       (a, b) =>
@@ -117,9 +118,9 @@ export function actionPlan(findings: Finding[]) {
 }
 
 const reviewedBy: Record<string, string | undefined> = {
-  Accepted: copy.findings.acceptedBy,
-  Rejected: copy.findings.rejectedBy,
-  Edited: copy.findings.editedBy,
+  [reviewStatuses.accepted]: copy.findings.acceptedBy,
+  [reviewStatuses.rejected]: copy.findings.rejectedBy,
+  [reviewStatuses.edited]: copy.findings.editedBy,
 };
 
 /** "Accepted by {name} on {date}.", or "No one has reviewed this finding yet." */

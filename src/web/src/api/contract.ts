@@ -28,3 +28,30 @@ export const problemCodes = {
   lastOwner: "profile.last_owner",
   nameTaken: "profile.name_taken",
 } as const;
+
+/** A document version's `status`. */
+export const documentStatuses = {
+  uploaded: "Uploaded",
+  processing: "Processing",
+  indexed: "Indexed",
+  failed: "Failed",
+} as const;
+
+/** An inspection's `status`. */
+export const inspectionStatuses = {
+  requested: "Requested",
+  running: "Running",
+  completed: "Completed",
+  failed: "Failed",
+} as const;
+
+/** A finding's `reviewStatus`. */
+export const reviewStatuses = {
+  pending: "Pending",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  edited: "Edited",
+} as const;
+
+/** An action item's `status`. */
+export const actionStatuses = { open: "Open", done: "Done" } as const;

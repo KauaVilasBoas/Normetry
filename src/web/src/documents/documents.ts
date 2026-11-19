@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { Sent } from "../settings/profiles";
-import { problemCodes } from "../api/contract";
+import { documentStatuses, problemCodes } from "../api/contract";
 import {
   documentsKey,
   type DocumentDetail,
@@ -102,7 +102,7 @@ export function uploadRefusal(result: Sent & { ok: false }, fileName: string) {
 
 /** Waiting or Processing: a new version is refused until it finishes. */
 export const inFlight = ({ status }: DocumentVersion) =>
-  status === "Uploaded" || status === "Processing";
+  status === documentStatuses.uploaded || status === documentStatuses.processing;
 
 export const statusLabel = (status: string) => copy.documents.statuses[status] ?? status;
 
@@ -126,7 +126,8 @@ export function rowCaption({
   currentVersionNumber: current,
 }: DocumentSummary): string | undefined {
   const n = String(newest.number);
-  const reason = newest.status === "Failed" ? failureText(newest.failureCode).short : undefined;
+  const reason =
+    newest.status === documentStatuses.failed ? failureText(newest.failureCode).short : undefined;
   if (current === null || newest.number === current) return reason;
   return reason
     ? format(copy.documents.versionAndReason, { n, reason })
@@ -139,10 +140,10 @@ export function rowCaption({
  */
 export function versionNotice({ versions, currentVersionNumber }: DocumentDetail) {
   const [newest] = versions;
-  if (!newest || newest.status === "Indexed") return undefined;
+  if (!newest || newest.status === documentStatuses.indexed) return undefined;
   const n = String(newest.number);
   const c = currentVersionNumber === null ? undefined : String(currentVersionNumber);
-  if (newest.status === "Failed")
+  if (newest.status === documentStatuses.failed)
     return {
       status: newest.status,
       title: format(copy.documents.failedTitle, { n }),
@@ -154,7 +155,9 @@ export function versionNotice({ versions, currentVersionNumber }: DocumentDetail
   return {
     status: newest.status,
     title: format(
-      newest.status === "Processing" ? copy.documents.processingTitle : copy.documents.waitingTitle,
+      newest.status === documentStatuses.processing
+        ? copy.documents.processingTitle
+        : copy.documents.waitingTitle,
       { n },
     ),
     lines: [c ? format(copy.documents.staysInUse, { c, n }) : copy.documents.readableOnceIndexed],

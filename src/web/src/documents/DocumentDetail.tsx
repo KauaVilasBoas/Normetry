@@ -4,7 +4,7 @@ import { AlertDialog } from "radix-ui";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "../api/client";
-import { permissions, problemCodes } from "../api/contract";
+import { documentStatuses, permissions, problemCodes } from "../api/contract";
 import type { Live } from "../api/live";
 import {
   can,
@@ -291,9 +291,9 @@ function Versions({
         <Notice
           className="mx-5 mb-4"
           icon={
-            notice.status === "Failed" ? (
+            notice.status === documentStatuses.failed ? (
               <CircleAlert aria-hidden="true" className="size-4" />
-            ) : notice.status === "Processing" ? (
+            ) : notice.status === documentStatuses.processing ? (
               <Spinner />
             ) : (
               <Clock aria-hidden="true" className="size-4" />
@@ -304,7 +304,7 @@ function Versions({
           {notice.lines.map((line) => (
             <p key={line}>{line}</p>
           ))}
-          {notice.status !== "Failed" && afterId && (
+          {notice.status !== documentStatuses.failed && afterId && (
             <p id={afterId}>{copy.documents.uploadAfter}</p>
           )}
         </Notice>
@@ -359,7 +359,7 @@ function Versions({
                 </td>
                 <td className="py-2.5 pr-5 pl-3 md:pr-3">
                   <IngestionPill status={version.status} label={statusLabel(version.status)} />
-                  {version.status === "Failed" && (
+                  {version.status === documentStatuses.failed && (
                     <>
                       {" "}
                       <span className="mt-0.5 block text-caption text-text-secondary">
