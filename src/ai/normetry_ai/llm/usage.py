@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal
+from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Engine, text
@@ -11,8 +11,13 @@ from sqlalchemy import Engine, text
 from normetry_ai.db import tenant_transaction
 from normetry_ai.settings import ModelPrice
 
-# What made a call: the chat answer, the follow-up rewrite, or an inspection's judge.
-Feature = Literal["chat", "rewrite", "inspection"]
+
+class UsageFeature(StrEnum):
+    """What made a call: ai.model_usage.feature, which a CHECK holds to these values."""
+
+    CHAT = "chat"  # the chat answer
+    REWRITE = "rewrite"  # the follow-up rewrite
+    INSPECTION = "inspection"  # an inspection's judge
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +57,7 @@ def record_usage(
     tenant_id: UUID,
     user_id: str,
     prices: Mapping[str, ModelPrice],
-    feature: Feature | None = None,
+    feature: UsageFeature | None = None,
 ) -> None:
     """Store one call's tokens and cost for the tenant and user from the internal headers (or the
     queue message), labelled with the feature that made the call.

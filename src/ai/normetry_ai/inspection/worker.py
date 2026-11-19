@@ -26,7 +26,7 @@ from normetry_ai.inspection.checkpoints import TenantCheckpointSaver
 from normetry_ai.inspection.judge import JudgeModel, evidence_query, regulation_chunks
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
-from normetry_ai.llm.usage import record_usage
+from normetry_ai.llm.usage import UsageFeature, record_usage
 from normetry_ai.messaging.contracts import (
     Finding,
     InspectionCompleted,
@@ -147,7 +147,7 @@ class InspectionWorker:
                 tenant_id=tenant_id,
                 user_id=request.requested_by,
                 prices=self.answers.model_prices,
-                feature="inspection",
+                feature=UsageFeature.INSPECTION,
             ),
             on_start=started,
             on_progress=progressed,

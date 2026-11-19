@@ -22,7 +22,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # The values of llm/usage.py Feature; a new feature adds its value here.
+    # The values of llm/usage.py UsageFeature; a new feature adds its value here.
     op.execute(
         """
         ALTER TABLE ai.model_usage

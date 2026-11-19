@@ -11,6 +11,7 @@ import logging
 from collections.abc import AsyncGenerator, AsyncIterable, Callable
 from contextlib import aclosing
 from dataclasses import dataclass
+from enum import StrEnum
 from functools import partial
 from typing import Annotated, Any
 from uuid import UUID, uuid4
@@ -39,7 +40,7 @@ from normetry_ai.api.context import (
 from normetry_ai.conversations import store
 from normetry_ai.conversations.rewrite import TextModel, Turn, standalone_question
 from normetry_ai.db import tenant_transaction
-from normetry_ai.llm.usage import record_usage
+from normetry_ai.llm.usage import UsageFeature, record_usage
 from normetry_ai.retrieval import hybrid
 from normetry_ai.retrieval.language import detect_language
 from normetry_ai.retrieval.models import RetrievedChunk
@@ -50,6 +51,16 @@ logger = logging.getLogger(__name__)
 
 MAX_QUESTION_CHARS = 2000
 _NOT_FOUND = "Conversation not found."
+
+
+class AnswerEvent(StrEnum):
+    """The SSE event names of an answer (chat-api.md): claims, then exactly one of the others."""
+
+    CLAIM = "claim"
+    DONE = "done"
+    REFUSAL = "refusal"
+    UNAVAILABLE = "unavailable"
+
 
 # Runs in a worker thread: the standalone question and the caller (tenant, establishment,
 # jurisdiction) in, the chunks to answer from out, best first.
@@ -245,7 +256,7 @@ async def answer_turn(
             turn.history,
             model=chat.rewrite_model,
             settings=chat.conversation_settings,
-            record_usage=partial(record, feature="rewrite"),
+            record_usage=partial(record, feature=UsageFeature.REWRITE),
         )
         # The claims are written in the question's language, detected as retrieval detects it;
         # a citation keeps its chunk's, which can differ (BR and US corpora have one language).
@@ -256,14 +267,16 @@ async def answer_turn(
             chunks,
             model=chat.claim_model,
             settings=chat.answer_settings,
-            record_usage=partial(record, feature="chat"),
+            record_usage=partial(record, feature=UsageFeature.CHAT),
         )
         async with aclosing(events):
             async for event in events:
                 if isinstance(event, Claim):
                     claims.append(claim_json(event))
                     # The stream also says the language, so a live claim gets its `lang`.
-                    yield ServerSentEvent(event="claim", data={**claims[-1], "language": language})
+                    yield ServerSentEvent(
+                        event=AnswerEvent.CLAIM, data={**claims[-1], "language": language}
+                    )
                 else:
                     ending = event
     except Exception as error:
@@ -293,11 +306,11 @@ async def answer_turn(
                 ending = Unavailable()
     match ending:
         case Answered():
-            yield ServerSentEvent(event="done", data={})
+            yield ServerSentEvent(event=AnswerEvent.DONE, data={})
         case Refused(reason=refusal):
-            yield ServerSentEvent(event="refusal", data={"reason": refusal.value})
+            yield ServerSentEvent(event=AnswerEvent.REFUSAL, data={"reason": refusal.value})
         case _:
-            yield ServerSentEvent(event="unavailable", data={})
+            yield ServerSentEvent(event=AnswerEvent.UNAVAILABLE, data={})
 
 
 def _stored_as(

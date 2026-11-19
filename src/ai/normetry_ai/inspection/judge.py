@@ -55,7 +55,8 @@ async def judge_item(
 
     `record_usage` stores the call's tokens and cost once, in a worker thread, also when the
     finding is dropped, typically `functools.partial(llm.usage.record_usage, engine,
-    tenant_id=..., user_id=<requestedBy>, prices=settings.model_prices, feature="inspection")`
+    tenant_id=..., user_id=<requestedBy>, prices=settings.model_prices,
+    feature=UsageFeature.INSPECTION)`
     with the tenant and user from the queue message; a budget can wrap it to count tokens.
     Raises ModelUnavailable when the model fails (nothing recorded: no usage came back).
     """
