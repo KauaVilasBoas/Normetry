@@ -40,7 +40,7 @@ from normetry_ai.api.context import (
 from normetry_ai.conversations import store
 from normetry_ai.conversations.rewrite import TextModel, Turn, standalone_question
 from normetry_ai.db import tenant_transaction
-from normetry_ai.llm.usage import UsageFeature, record_usage
+from normetry_ai.llm.usage import Usage, UsageFeature, record_usage
 from normetry_ai.retrieval import hybrid
 from normetry_ai.retrieval.language import detect_language
 from normetry_ai.retrieval.models import RetrievedChunk
@@ -239,14 +239,6 @@ async def answer_turn(
     The answer is stored before the final event, and also when the stream stops early (the
     client went away): then with the claims sent so far.
     """
-    # Usage is recorded for the tenant and user of the internal headers only.
-    record = partial(
-        record_usage,
-        engine,
-        tenant_id=ctx.tenant_id,
-        user_id=ctx.user_id,
-        prices=chat.answer_settings.model_prices,
-    )
     claims: list[dict[str, Any]] = []
     language: str | None = None
     ending: Answered | Refused | Unavailable | None = None
@@ -256,7 +248,7 @@ async def answer_turn(
             turn.history,
             model=chat.rewrite_model,
             settings=chat.conversation_settings,
-            record_usage=partial(record, feature=UsageFeature.REWRITE),
+            record_usage=_usage_recorder(engine, ctx, chat, UsageFeature.REWRITE),
         )
         # The claims are written in the question's language, detected as retrieval detects it;
         # a citation keeps its chunk's, which can differ (BR and US corpora have one language).
@@ -267,7 +259,7 @@ async def answer_turn(
             chunks,
             model=chat.claim_model,
             settings=chat.answer_settings,
-            record_usage=partial(record, feature=UsageFeature.CHAT),
+            record_usage=_usage_recorder(engine, ctx, chat, UsageFeature.CHAT),
         )
         async with aclosing(events):
             async for event in events:
@@ -284,33 +276,61 @@ async def answer_turn(
         logger.error("Answer failed: %s", type(error).__name__)
         ending = Unavailable()
     finally:
-        kind, reason = _stored_as(ending, claims)
-        # Shielded: a cancelled stream (the client went away) still stores what it sent.
-        with anyio.CancelScope(shield=True):
-            try:
-                await anyio.to_thread.run_sync(
-                    partial(
-                        _store_answer,
-                        engine,
-                        ctx,
-                        turn.conversation_id,
-                        kind,
-                        reason,
-                        language,
-                        claims,
-                    )
-                )
-            except Exception as error:
-                # As above. The answer is lost, so the stream ends unavailable.
-                logger.error("Storing the answer failed: %s", type(error).__name__)
-                ending = Unavailable()
+        stored = await _store_answer_shielded(
+            engine, ctx, turn.conversation_id, ending, language, claims
+        )
+        if not stored:  # the answer is lost, so the stream ends unavailable
+            ending = Unavailable()
+    yield _final_event(ending)
+
+
+def _usage_recorder(
+    engine: Engine, ctx: EstablishmentContext, chat: Chat, feature: UsageFeature
+) -> Callable[[Usage], None]:
+    """`record_usage` for one kind of model call of the turn, for the tenant and user of the
+    internal headers only."""
+    return partial(
+        record_usage,
+        engine,
+        tenant_id=ctx.tenant_id,
+        user_id=ctx.user_id,
+        prices=chat.answer_settings.model_prices,
+        feature=feature,
+    )
+
+
+async def _store_answer_shielded(
+    engine: Engine,
+    ctx: EstablishmentContext,
+    conversation_id: UUID,
+    ending: Answered | Refused | Unavailable | None,
+    language: str | None,
+    claims: list[dict[str, Any]],
+) -> bool:
+    """Store the answer as it ended, in a worker thread; False when it could not be stored.
+    Shielded: a cancelled stream (the client went away) still stores what it sent."""
+    kind, reason = _stored_as(ending, claims)
+    with anyio.CancelScope(shield=True):
+        try:
+            await anyio.to_thread.run_sync(
+                partial(_store_answer, engine, ctx, conversation_id, kind, reason, language, claims)
+            )
+        except Exception as error:
+            # The type only: the message of a database error can carry the question.
+            logger.error("Storing the answer failed: %s", type(error).__name__)
+            return False
+    return True
+
+
+def _final_event(ending: Answered | Refused | Unavailable | None) -> ServerSentEvent:
+    """The event that ends the stream: `done`, `refusal` with its reason, or `unavailable`."""
     match ending:
         case Answered():
-            yield ServerSentEvent(event=AnswerEvent.DONE, data={})
+            return ServerSentEvent(event=AnswerEvent.DONE, data={})
         case Refused(reason=refusal):
-            yield ServerSentEvent(event=AnswerEvent.REFUSAL, data={"reason": refusal.value})
+            return ServerSentEvent(event=AnswerEvent.REFUSAL, data={"reason": refusal.value})
         case _:
-            yield ServerSentEvent(event=AnswerEvent.UNAVAILABLE, data={})
+            return ServerSentEvent(event=AnswerEvent.UNAVAILABLE, data={})
 
 
 def _stored_as(
