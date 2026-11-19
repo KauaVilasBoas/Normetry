@@ -29,7 +29,7 @@ from docx.text.paragraph import Paragraph
 
 from normetry_ai.ingestion.chunking import CHUNK_LIMIT
 from normetry_ai.ingestion.normalize import normalize_text
-from normetry_ai.messaging.contracts import FailureReason
+from normetry_ai.messaging.contracts import DocumentFailureReason
 
 MAX_BYTES = 10 * 1024 * 1024
 MAX_PAGES = 100
@@ -45,7 +45,7 @@ CSV = "text/csv"
 class Rejected(Exception):
     """A file that cannot be indexed: a permanent failure, reported to the core."""
 
-    def __init__(self, reason: FailureReason, text: str) -> None:
+    def __init__(self, reason: DocumentFailureReason, text: str) -> None:
         super().__init__(text)
         self.reason = reason
         self.text = text
@@ -83,14 +83,16 @@ def _pdf(data: bytes) -> Parsed:
         pages = len(pdf)
         if pages > MAX_PAGES:
             raise Rejected(
-                "too_many_pages", f"The PDF has {pages} pages; the limit is {MAX_PAGES}."
+                DocumentFailureReason.TOO_MANY_PAGES,
+                f"The PDF has {pages} pages; the limit is {MAX_PAGES}.",
             )
         texts = [_clean(pdf[index].get_textpage().get_text_range()) for index in range(pages)]
     finally:
         pdf.close()
     if sum(len(text.replace(" ", "")) for text in texts) < MIN_TEXT_PER_PAGE * max(pages, 1):
         raise Rejected(
-            "no_text_layer", "The PDF has no text layer. Scanned pages cannot be indexed."
+            DocumentFailureReason.NO_TEXT_LAYER,
+            "The PDF has no text layer. Scanned pages cannot be indexed.",
         )
     parts = [Part(f"Page {number}", text) for number, text in enumerate(texts, 1) if text]
     return Parsed(parts, pages)
@@ -106,7 +108,9 @@ def _heading_level(paragraph: Paragraph) -> int | None:
 def _docx(data: bytes) -> Parsed:
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         if sum(info.file_size for info in archive.infolist()) > MAX_DOCX_UNPACKED_BYTES:
-            raise Rejected("too_large", "The DOCX file unpacks to more than 50 MiB.")
+            raise Rejected(
+                DocumentFailureReason.TOO_LARGE, "The DOCX file unpacks to more than 50 MiB."
+            )
     headings: list[str] = []
     body: list[str] = []
     parts: list[Part] = []
@@ -178,16 +182,21 @@ def parse_file(data: bytes, content_type: str) -> Parsed:
     """The sections of a file of one of the four accepted media types (parameters ignored)."""
     format_ = _PARSERS.get(content_type.split(";")[0].strip().lower())
     if format_ is None:
-        raise Rejected("unsupported_format", "Only PDF, DOCX, TXT and CSV files can be indexed.")
+        raise Rejected(
+            DocumentFailureReason.UNSUPPORTED_FORMAT,
+            "Only PDF, DOCX, TXT and CSV files can be indexed.",
+        )
     if len(data) > MAX_BYTES:
-        raise Rejected("too_large", "The file is larger than 10 MiB.")
+        raise Rejected(DocumentFailureReason.TOO_LARGE, "The file is larger than 10 MiB.")
     name, parser = format_
     try:
         parsed = parser(data)
     except Rejected:
         raise
     except Exception as error:  # the libraries raise many types on malformed files
-        raise Rejected("parse_error", f"The file could not be read as {name}.") from error
+        raise Rejected(
+            DocumentFailureReason.PARSE_ERROR, f"The file could not be read as {name}."
+        ) from error
     if not parsed.parts:
-        raise Rejected("parse_error", "The file holds no text to index.")
+        raise Rejected(DocumentFailureReason.PARSE_ERROR, "The file holds no text to index.")
     return parsed

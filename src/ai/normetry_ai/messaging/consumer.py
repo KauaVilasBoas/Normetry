@@ -24,6 +24,7 @@ from normetry_ai.ingestion.documents import DocumentWorker
 from normetry_ai.ingestion.parsers import Rejected
 from normetry_ai.messaging.contracts import (
     DocumentDeleted,
+    DocumentFailureReason,
     DocumentIngestionFailed,
     DocumentIngestionStarted,
     DocumentUploaded,
@@ -183,7 +184,7 @@ async def handle(
         if isinstance(payload, DocumentUploaded) and not isinstance(error, IndexedNotPublished):
             failed = DocumentIngestionFailed(
                 **_version(payload),
-                reason_code="internal",
+                reason_code=DocumentFailureReason.INTERNAL,
                 reason_text="The document could not be indexed. Try uploading it again.",
             )
             try:

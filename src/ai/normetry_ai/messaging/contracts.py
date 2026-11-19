@@ -4,27 +4,42 @@ The JSON Schemas there are the source of truth; `tests/test_contracts.py` valida
 output against them, and the shared fixtures against both. Fields are camelCase on the wire.
 Readers are tolerant: a payload field this side does not know yet is ignored, so adding an
 optional field is not a breaking change (README.md there, "Versions").
+
+The reason codes are the StrEnums below, the only place their values are spelled out; each
+serializes to its value, as the schemas say.
 """
 
 import json
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, ClassVar, Literal, Self
 from uuid import UUID, uuid4
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
-FailureReason = Literal[
-    "unsupported_format",
-    "no_text_layer",
-    "too_many_pages",
-    "too_large",
-    "blob_missing",
-    "blob_path_outside_tenant",
-    "parse_error",
-    "internal",
-]
-InspectionFailureReason = Literal["budget_exceeded", "no_documents", "error"]
+
+class DocumentFailureReason(StrEnum):
+    """The `reasonCode` of DocumentIngestionFailed."""
+
+    UNSUPPORTED_FORMAT = "unsupported_format"
+    NO_TEXT_LAYER = "no_text_layer"
+    TOO_MANY_PAGES = "too_many_pages"
+    TOO_LARGE = "too_large"
+    BLOB_MISSING = "blob_missing"
+    BLOB_PATH_OUTSIDE_TENANT = "blob_path_outside_tenant"
+    PARSE_ERROR = "parse_error"
+    INTERNAL = "internal"
+
+
+class InspectionFailureReason(StrEnum):
+    """The `reasonCode` of InspectionFailed."""
+
+    BUDGET_EXCEEDED = "budget_exceeded"
+    NO_DOCUMENTS = "no_documents"
+    ERROR = "error"
+
+
 DocumentType = Literal["Sop", "License", "Log", "Report", "Other"]
 Language = Literal["en", "pt"]
 # The checklist themes (inspection/checklist.py THEMES, held equal by tests/test_contracts.py).
@@ -115,7 +130,7 @@ class DocumentIngestionFailed(VersionPayload):
     VERSION = 1
     ROUTING_KEY = "document.ingestion-failed.v1"
 
-    reason_code: FailureReason
+    reason_code: DocumentFailureReason
     reason_text: str = Field(min_length=1, max_length=500)
 
 
