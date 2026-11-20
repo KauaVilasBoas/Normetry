@@ -45,7 +45,7 @@ Item types:
 | Bakery Austin (Demo Bakery), US, en | 2 | 4 | 2 | 0 | 2 | 10 |
 | Total | 6 | 12 | 4 | 4 | 6 | 32 |
 
-Austin has no `cross_establishment` items because Demo Bakery has only one establishment. By expected behavior: 24 answers and 8 refusals (the cross-tenant and cross-establishment items). The answers carry 72 document quotes from 23 of the 28 demo documents, and 20 regulation quotes.
+Austin has no `cross_establishment` items because Demo Bakery has only one establishment. By expected behavior: 24 answers and 8 refusals (the cross-tenant and cross-establishment items). The answers carry 72 document quotes from 23 of the 31 demo documents, and 20 regulation quotes.
 
 ## How the items were built
 
