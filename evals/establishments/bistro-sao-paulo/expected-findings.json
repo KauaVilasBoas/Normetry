@@ -285,7 +285,12 @@
       "item": "br.ice-steam-potable",
       "verdict": "insufficient_evidence",
       "evidence": [],
-      "note": "Left without evidence: no document mentions ice or steam."
+      "nearMiss": [
+        {"file": "laudo-analise-gelo.pdf", "quote": "A amostra analisada atende ao padrão de potabilidade da água para consumo humano em todos os parâmetros analisados.", "kind": "period"},
+        {"file": "laudo-analise-gelo.pdf", "quote": "Laudo nº LA-2024-03175, emitido em 24/09/2024.", "kind": "period"},
+        {"file": "laudo-analise-gelo.pdf", "quote": "Data da coleta 17/09/2024, às 10h20", "kind": "period"}
+      ],
+      "note": "Near miss, wrong period: the only ice record is a laboratory report on one bag of supplier ice sampled on 17 Sep 2024, two years before the October and November 2026 records, and it says its results refer only to that sample. Nothing shows the ice used now, and no document mentions steam."
     },
     {
       "item": "br.reservoir-cleaning",
