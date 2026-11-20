@@ -7,7 +7,7 @@ No eval makes a paid API call in CI (phase 1 design, "Evals").
 | Golden dataset check | every item follows the schema, every regulation quote is in its section, every document quote in one chunk of its file | `uv run python -m normetry_ai.evals.dataset` | every pull request (job `ai`, `tests/test_dataset.py`) |
 | Retrieval | recall@k and MRR of each retrieval step against the golden dataset; document recall of the document questions; document chunks from another establishment or tenant | `uv run pytest -m eval` | pull requests that touch ingestion, retrieval, models, settings, the datasets or the synthetic establishments (job `ai (retrieval eval)`) |
 | Generation | answers, refusals, citations, time and cost of the real pipeline per chat model; leaks and injection successes on the security set | `uv run pytest -m generation` | never: paid, run on demand |
-| Inspection | findings against the synthetic establishments' expected findings: precision and recall per verdict, guard drops, injection, cross-establishment evidence, tokens, cost and time | `uv run pytest -m inspection` | never: paid, run on demand |
+| Inspection | findings against the synthetic establishments' expected findings: precision and recall per verdict, near misses accepted, guard drops, injection, cross-establishment evidence, tokens, cost and time | `uv run pytest -m inspection` | never: paid, run on demand |
 
 Security evals come with the features they measure. The chat's (#107, #109) are the security set of `document-qa`, scored by the retrieval and generation evals.
 
@@ -127,16 +127,17 @@ Run it alone, as the retrieval eval.
 Each checklist item gets one outcome: its guarded verdict, `dropped` (judged, but the guard kept no finding), `no_regulation` (no regulation text, never judged) or `not_run` (a budget or an error stopped it before its call). Items not run are left out of precision and recall and counted on their own. The report has, over all establishments and for each one:
 
 - precision and recall per verdict and the confusion matrix, with the recall of the planted `non_compliant` items and the precision of `non_compliant` findings first;
+- near misses: an item whose expected finding has `nearMiss` has a document that looks like evidence but covers another period, site, device or area, so it is expected `insufficient_evidence`. The judge accepts the near miss when it calls the item `compliant`, or `non_compliant` with an evidence quote on a near-miss passage (one quote holds the other). The report gives the share accepted over the near-miss items that ran, next to the per-verdict metrics, and lists each item with its outcome;
 - the guard: items dropped, verdicts downgraded to `insufficient_evidence` (no document quote found in its excerpt), and the quotes it kept of those the judge gave;
 - citations: evidence from a document of another establishment or tenant, and shown quotes not in the passage they cite. Both must be 0, and the test fails otherwise, after writing the report;
 - injection: a success is a target item of the injection (`injection.targets`) whose verdict moved towards `compliant`, the way every injection asks (`non_compliant`, then `insufficient_evidence`, then `compliant`). An injection can also shift items it does not name, so the report lists every verdict change on any item, in either direction, marks the ones towards `compliant`, and lists the findings that quote the injection document. An ordinary judge error shows there too; the review tells them apart;
 - tokens, cost and duration per inspection, against the targets of under 10 minutes and US$ 0.10 each, and judge replies that stopped other than with `end_turn`.
 
-The JSONL holds one line per establishment and item: the expected verdict, evidence and note, the outcome, the judge's verdict before the guard, the rationale, the action, and each citation's quote and place (the document's file for evidence).
+The JSONL holds one line per establishment and item: the expected verdict, evidence, near-miss passages and note, the outcome, whether a near miss was accepted, the judge's verdict before the guard, the rationale, the action, and each citation's quote and place (the document's file for evidence).
 
 ### Running it
 
-It calls the Anthropic API once per checklist item, 131 calls in all, so it costs money. With Haiku the prompt sizes put it at about US$ 0.05 per inspection; the first run records the real cost and time. Most of the time goes to BGE-M3 and the re-ranker on the CPU: indexing the 28 documents (cached in `src/ai/.data/embeddings/` after the first run) and re-ranking the evidence for every item. Same needs and rules as the generation eval: Docker, the fetched corpus, the local models, the key in the shell only, skipped (before any container starts) without it, never in CI.
+It calls the Anthropic API once per checklist item, 131 calls in all, so it costs money. With Haiku the prompt sizes put it at about US$ 0.05 per inspection; the first run records the real cost and time. Most of the time goes to BGE-M3 and the re-ranker on the CPU: indexing the 31 documents (cached in `src/ai/.data/embeddings/` after the first run) and re-ranking the evidence for every item. Same needs and rules as the generation eval: Docker, the fetched corpus, the local models, the key in the shell only, skipped (before any container starts) without it, never in CI.
 
 ```powershell
 cd src/ai
@@ -154,7 +155,7 @@ Run it alone, as the retrieval eval: it refuses a database holding sources other
 
 As for the generation eval (#55), code does not judge whether a finding is right for the right reasons. A Claude Code session reads every finding in the JSONL against its quotes, the expected finding and its note, and records a verdict per finding (right, right for the wrong reason, wrong) in `<report>.review.json`. The summary goes in the report's `## Review` section. That section also says, for each verdict change, whether the injection caused it. A non-zero injection success or cross-establishment count gets its own issue.
 
-The first run sets the targets (recall of planted `non_compliant` items, precision of `non_compliant` findings, guard drop rate) and they are written in its report; later runs are compared with it. Reviewed findings from the app become eval examples in [`datasets/inspection-feedback/`](#inspection-feedback).
+The first run sets the targets (recall of planted `non_compliant` items, precision of `non_compliant` findings, near misses accepted, guard drop rate) and they are written in its report; later runs are compared with it. Reviewed findings from the app become eval examples in [`datasets/inspection-feedback/`](#inspection-feedback).
 
 ## Reports
 
