@@ -1,0 +1,194 @@
+%PDF-1.3
+%יכס¿
+1 0 obj
+<<
+/Count 1
+/Kids [3 0 R]
+/MediaBox [0 0 595.28 841.89]
+/Type /Pages
+>>
+endobj
+2 0 obj
+<<
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+/Pages 1 0 R
+/Type /Catalog
+>>
+endobj
+3 0 obj
+<<
+/Contents 4 0 R
+/Parent 1 0 R
+/Resources 7 0 R
+/Type /Page
+>>
+endobj
+4 0 obj
+<<
+/Length 3997
+>>
+stream
+2 J
+0.57 w
+BT /F1 16.00 Tf ET
+BT 59.53 769.06 Td (Backflow Prevention Assembly Test Report) Tj ET
+BT /F2 10.00 Tf ET
+BT 59.53 746.76 Td (Fictional document for demonstration: it describes no real business.) Tj ET
+q BT 59.53 726.92 Td 1.237 Tw (Tester: Hill Country Backflow Testing \(a fictional company\), Austin, Texas. Certified tester: Omar Reyes,) Tj ET Q
+q BT 59.53 712.75 Td 2.771 Tw (backflow prevention assembly tester license no. BPAT-DEMO-0000. Test gauge: differential pressure) Tj ET Q
+BT 59.53 698.58 Td (gauge G-4471, accuracy verified on January 8, 2026.) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 667.20 Td (Customer and assembly) Tj ET
+56.69 642.05 240.95 14.17 re S
+BT /F1 9.00 Tf ET
+BT 59.53 646.43 Td (Field) Tj ET
+297.64 642.05 240.95 14.17 re S
+BT /F1 9.00 Tf ET
+BT 300.47 646.43 Td (Value) Tj ET
+56.69 627.87 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 632.26 Td (Customer) Tj ET
+297.64 627.87 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 632.26 Td (Bakery Austin, attention Evelyn Harper) Tj ET
+56.69 613.70 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 618.09 Td (Customer mailing address) Tj ET
+297.64 613.70 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 618.09 Td (1207 Mesquite Bend Road, Suite B, Austin, Texas) Tj ET
+56.69 599.53 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 603.91 Td (Service address \(location of the assembly\)) Tj ET
+297.64 599.53 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 603.91 Td (880 Cedar Elm Street, Building 2, Austin, Texas) Tj ET
+56.69 585.35 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 589.74 Td (Assembly type) Tj ET
+297.64 585.35 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 589.74 Td (Reduced pressure principle assembly, 3/4 inch) Tj ET
+56.69 571.18 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 575.57 Td (Assembly location) Tj ET
+297.64 571.18 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 575.57 Td (Utility room, on the water line after the meter) Tj ET
+56.69 557.01 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 561.39 Td (Serial number) Tj ET
+297.64 557.01 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 561.39 Td (RP-0613-2291) Tj ET
+56.69 542.83 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 547.22 Td (Reason for test) Tj ET
+297.64 542.83 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 547.22 Td (Annual test) Tj ET
+56.69 528.66 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 533.05 Td (Test date) Tj ET
+297.64 528.66 240.95 14.17 re S
+BT /F2 9.00 Tf ET
+BT 300.47 533.05 Td (March 12, 2026) Tj ET
+BT /F1 13.00 Tf ET
+BT 59.53 498.54 Td (Test results) Tj ET
+56.69 473.39 160.63 14.17 re S
+BT /F1 9.00 Tf ET
+BT 59.53 477.77 Td (Check) Tj ET
+217.32 473.39 160.63 14.17 re S
+BT /F1 9.00 Tf ET
+BT 220.16 477.77 Td (Reading) Tj ET
+377.96 473.39 160.63 14.17 re S
+BT /F1 9.00 Tf ET
+BT 380.79 477.77 Td (Result) Tj ET
+56.69 459.21 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 463.60 Td (Check valve 1) Tj ET
+217.32 459.21 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 220.16 463.60 Td (6.2 psid, closed tight) Tj ET
+377.96 459.21 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 380.79 463.60 Td (Pass) Tj ET
+56.69 445.04 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 449.43 Td (Relief valve) Tj ET
+217.32 445.04 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 220.16 449.43 Td (Opened at 3.1 psid) Tj ET
+377.96 445.04 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 380.79 449.43 Td (Pass) Tj ET
+56.69 430.87 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 59.53 435.25 Td (Check valve 2) Tj ET
+217.32 430.87 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 220.16 435.25 Td (1.8 psid, closed tight) Tj ET
+377.96 430.87 160.63 14.17 re S
+BT /F2 9.00 Tf ET
+BT 380.79 435.25 Td (Pass) Tj ET
+BT /F2 10.00 Tf ET
+q BT 59.53 412.28 Td 2.544 Tw (The assembly passed all three checks of the annual test and was returned to service. No repair or) Tj ET Q
+BT 59.53 398.10 Td (replacement parts were needed.) Tj ET
+q BT 59.53 378.26 Td 1.386 Tw (Next annual test due: March 2027. A copy of this report was sent to the water utility's cross-connection) Tj ET Q
+BT 59.53 364.09 Td (control program.) Tj ET
+
+endstream
+endobj
+5 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+6 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+7 0 obj
+<<
+/Font <</F1 5 0 R
+/F2 6 0 R>>
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+>>
+endobj
+8 0 obj
+<<
+/CreationDate (D:20260101000000Z)
+/Creator (Normetry build_documents.py)
+/Producer (Normetry build_documents.py)
+/Title (Backflow Prevention Assembly Test Report)
+>>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000015 00000 n 
+0000000102 00000 n 
+0000000205 00000 n 
+0000000285 00000 n 
+0000004334 00000 n 
+0000004436 00000 n 
+0000004533 00000 n 
+0000004630 00000 n 
+trailer
+<<
+/Size 9
+/Root 2 0 R
+/Info 8 0 R
+/ID [<7D4D211A17D1AAECAB7EE7925D660546><7D4D211A17D1AAECAB7EE7925D660546>]
+>>
+startxref
+4814
+%%EOF
