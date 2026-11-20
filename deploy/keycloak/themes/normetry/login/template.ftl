@@ -71,15 +71,28 @@
         <div class="normetry-brand">
             <#-- The SPA's Logo (src/web/src/ui/Logo.tsx) at its 40px auth-screen height. -->
             <div class="normetry-wordmark">
-                <svg viewBox="0 0 132 32" width="165" height="40" role="img" aria-label="Normetry">
+                <svg viewBox="0 0 382 100" width="153" height="40" role="img" aria-label="Normetry">
                     <defs>
-                        <linearGradient id="normetry-mark" x1="0" y1="0" x2="1" y2="1">
-                            <stop offset="0" style="stop-color: var(--mint)" />
+                        <linearGradient id="normetry-mark" x1="12" y1="10" x2="88" y2="90" gradientUnits="userSpaceOnUse">
+                            <stop offset="0" style="stop-color: var(--logo-mint-light)" />
+                            <stop offset="0.5" style="stop-color: var(--mint)" />
                             <stop offset="1" style="stop-color: var(--teal)" />
                         </linearGradient>
+                        <mask id="normetry-mark-mask" maskUnits="userSpaceOnUse" x="-2" y="-2" width="104" height="104">
+                            <rect x="-2" y="-2" width="104" height="104" fill="white" />
+                            <rect x="11" y="47.6" width="15" height="4.8" fill="black" />
+                            <rect x="11" y="63.6" width="15" height="4.8" fill="black" />
+                            <rect x="11" y="79.6" width="15" height="4.8" fill="black" />
+                            <path d="M77 9H89V21Z" fill="black" />
+                            <path d="M77 9V21H89" fill="none" stroke="black" stroke-width="4.4" />
+                        </mask>
                     </defs>
-                    <path fill="url(#normetry-mark)" d="M4 28V4h6l12 15.5V4h6v24h-6L10 12.5V28z" />
-                    <text x="36" y="23" font-size="20" font-weight="600" fill="currentColor">Normetry</text>
+                    <g mask="url(#normetry-mark-mask)" fill="url(#normetry-mark)">
+                        <path d="M12 10H34V90H12ZM66 10H88V90H66Z" />
+                        <path d="M12 10H37L88 90H63Z" />
+                    </g>
+                    <path d="M79.2 15.31V18.8H82.69Z" style="fill: var(--logo-fold)" />
+                    <text x="102" y="72.4" font-size="61.6" font-weight="600" letter-spacing="-0.74" fill="currentColor">Normetry</text>
                 </svg>
             </div>
             <p class="normetry-mobile-tagline">${msg("normetryTagline")}</p>

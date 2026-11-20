@@ -27,7 +27,8 @@ links to unimplemented product pages.
 
 - Canvas: `--bg-canvas`, with the existing `--canvas-glow` radial treatment.
 - Wordmark: the SPA's `Logo` (`src/web/src/ui/Logo.tsx`) at its 40px auth-screen
-  height, drawn with the same SVG geometry: no letter-spacing.
+  height, drawn with the same SVG geometry, with -1.2% letter-spacing (-0.74 at
+  font-size 61.6) as in `brand/README.md`.
 - Tagline: "Understand Regulations. Stay Ahead." (DESIGN.md §1 casing) in both
   layouts. Intro heading: `--text-auth-hero` (40/48, 600, no letter-spacing);
   compact tagline: 13px, `--text-secondary`.
