@@ -17,6 +17,7 @@ import pytest
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.ingestion.parsers import CSV, DOCX, PDF, TXT, Rejected, parse_file
 from normetry_ai.inspection.checklist import CHECKLIST_CODES, items_for
+from normetry_ai.messaging.contracts import Verdict
 
 ESTABLISHMENTS = Path(__file__).resolve().parents[3] / "evals" / "establishments"
 FOLDERS = sorted(path.parent for path in ESTABLISHMENTS.glob("*/expected-findings.json"))
@@ -24,6 +25,8 @@ FOLDERS = sorted(path.parent for path in ESTABLISHMENTS.glob("*/expected-finding
 DEMO = {"Bistro São Paulo": "BR", "Bistro Lisboa": "EU", "Bakery Austin": "US"}
 TYPES = {"Sop", "License", "Log", "Report", "Other"}
 VERDICTS = {"compliant", "non_compliant", "insufficient_evidence"}
+# How a near-miss document misses its item: wrong date range, wrong site, wrong device or area.
+NEAR_MISS_KINDS = {"period", "site", "scope"}
 CONTENT_TYPES = {".pdf": PDF, ".docx": DOCX, ".txt": TXT, ".csv": CSV}
 DISCLAIMERS = ("Documento fictício para demonstração", "Fictional document for demonstration")
 
@@ -79,6 +82,20 @@ def _iso_date(value: object) -> bool:
         return isinstance(value, str) and date.fromisoformat(value).isoformat() == value
     except ValueError:
         return False
+
+
+def _quote_problems(item: str, entries: list[dict], folder: Path) -> list[str]:
+    """Each `{file, quote}` entry whose file is not in the manifest or whose quote is not whole in
+    one part of that file's extracted text."""
+    files, texts = _files(folder), _texts(folder)
+    problems = []
+    for entry in entries:
+        file, quote = entry["file"], normalize_text(entry["quote"])
+        if file not in files:
+            problems.append(f"{item}: {file} is not in the manifest")
+        elif not quote or not any(quote in part for part in texts[file]):
+            problems.append(f"{item}: not in any one part of {file}: {entry['quote']!r}")
+    return problems
 
 
 def test_every_demo_establishment_has_a_folder() -> None:
@@ -139,7 +156,6 @@ def test_every_applicable_item_has_exactly_one_finding(folder: Path) -> None:
 
 @per_establishment
 def test_every_quote_is_in_one_part_of_a_manifest_file(folder: Path) -> None:
-    files, texts = _files(folder), _texts(folder)
     problems = []
     for finding in _findings(folder)["findings"]:
         item, verdict, evidence = finding["item"], finding["verdict"], finding["evidence"]
@@ -147,14 +163,43 @@ def test_every_quote_is_in_one_part_of_a_manifest_file(folder: Path) -> None:
             problems.append(f"{item}: unknown verdict {verdict!r}")
         if (verdict == "insufficient_evidence") == bool(evidence):
             problems.append(f"{item}: {verdict} with {len(evidence)} evidence entries")
-        for entry in evidence:
-            file, quote = entry["file"], normalize_text(entry["quote"])
-            if file not in files:
-                problems.append(f"{item}: {file} is not in the manifest")
-            elif not quote or not any(quote in part for part in texts[file]):
-                problems.append(f"{item}: not in any one part of {file}: {entry['quote']!r}")
+        problems += _quote_problems(item, evidence, folder)
 
     assert problems == []
+
+
+@per_establishment
+def test_at_least_one_item_is_a_near_miss_lacking_evidence_with_its_quotes_in_the_file(
+    folder: Path,
+) -> None:
+    near_misses = _near_misses(folder)
+    problems = []
+    for finding in near_misses:
+        item, entries = finding["item"], finding["nearMiss"]
+        if finding["verdict"] != Verdict.INSUFFICIENT_EVIDENCE:
+            problems.append(
+                f"{item}: a near miss is insufficient_evidence, not {finding['verdict']}"
+            )
+        problems += [
+            f"{item}: unknown near-miss kind {entry.get('kind')!r}"
+            for entry in entries
+            if entry.get("kind") not in NEAR_MISS_KINDS
+        ]
+        problems += _quote_problems(item, entries, folder)
+
+    assert near_misses
+    assert problems == []
+
+
+def test_the_near_misses_cover_at_least_two_kinds() -> None:
+    kinds = {
+        entry["kind"]
+        for folder in FOLDERS
+        for finding in _near_misses(folder)
+        for entry in finding["nearMiss"]
+    }
+
+    assert len(kinds) >= 2
 
 
 @per_establishment
