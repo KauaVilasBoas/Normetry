@@ -52,7 +52,7 @@ By language: 30 in English, 29 in Portuguese. By expected behavior: 44 answers (
 - Questions are written the way an operator talks ("How fast does the chili have to cool down?"), in the item's language. EU Portuguese items use European Portuguese and BR items Brazilian Portuguese.
 - An expected answer restates what its quotes say, with the provision's own conditions ("where necessary", "if there is any likelihood of contamination"). Where the question names a dish (chili, potato salad), the answer states the rule for the category the text uses (time/temperature control for safety food) and does not claim the dish belongs to it.
 - `wrong_jurisdiction` topics are ones another jurisdiction's ingested text covers. The expected answer names that provision so reviewers can check it, but the chat must not cite it.
-- The FDA parser from #46 folds sections numbered with three digits after the point (`4-501.114`, `6-501.115`, 35 in all) into the section before them (`4-501.19`, `6-501.19`). No item quotes those sections, so a parser fix will not move any quote.
+- Until #114 the FDA parser folded the sections numbered with three digits after the point (`4-501.114`, `6-501.115`, 38 in all) into the section before them (`4-501.19`, `6-501.19`). No item quotes those sections, so the fix moved no quote.
 
 ## Validation
 
