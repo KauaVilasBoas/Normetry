@@ -367,13 +367,21 @@
       "item": "us.backflow-prevention",
       "verdict": "insufficient_evidence",
       "evidence": [],
-      "note": "No document mentions backflow preventers, air gaps or cross connections (espresso machine, dish machine, mop sink)."
+      "nearMiss": [
+        {"file": "backflow-test-report.pdf", "quote": "The assembly passed all three checks of the annual test and was returned to service.", "kind": "site"},
+        {"file": "backflow-test-report.pdf", "quote": "Service address (location of the assembly) 880 Cedar Elm Street, Building 2, Austin, Texas", "kind": "site"}
+      ],
+      "note": "Near miss, wrong site: the only backflow record is the annual test of a reduced pressure assembly at 880 Cedar Elm Street, Building 2, while the bakery is at 1207 Mesquite Bend Road, Suite B (the report's own customer mailing address, the permit and the pest report). No document mentions backflow preventers, air gaps or cross connections at the bakery (espresso machine, dish machine, mop sink)."
     },
     {
       "item": "us.water-device-service",
       "verdict": "insufficient_evidence",
       "evidence": [],
-      "note": "No backflow test report or water filter or softener service record in any document."
+      "nearMiss": [
+        {"file": "backflow-test-report.pdf", "quote": "The assembly passed all three checks of the annual test and was returned to service.", "kind": "site"},
+        {"file": "backflow-test-report.pdf", "quote": "Service address (location of the assembly) 880 Cedar Elm Street, Building 2, Austin, Texas", "kind": "site"}
+      ],
+      "note": "Near miss, wrong site: the backflow test report covers an assembly at 880 Cedar Elm Street, Building 2, not at the bakery's 1207 Mesquite Bend Road, Suite B. No backflow test, water filter or softener service record covers the bakery itself."
     },
     {
       "item": "us.facility-repair",
