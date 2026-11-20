@@ -132,7 +132,7 @@
       "id": "us.sanitizer-concentration",
       "theme": "cleaning_sanitizing",
       "title": "Chemical sanitizer is used at its label concentration, checked with a test kit",
-      "section_paths": ["4-501.19", "4-302.14"],
+      "section_paths": ["4-501.114", "4-501.116", "4-302.14"],
       "severity": "critical",
       "applies_to": ["Restaurant"],
       "evidence_hint": "sanitizer concentration test logs; sanitizer product label or safety data sheet; warewashing SOP"
@@ -276,7 +276,7 @@
       "id": "us.hot-water-sanitizing",
       "theme": "cleaning_sanitizing",
       "title": "Hot-water sanitizing reaches 77°C (171°F) by manual immersion or a 71°C (160°F) utensil surface",
-      "section_paths": ["4-501.19", "4-703.11"],
+      "section_paths": ["4-501.111", "4-703.11"],
       "severity": "critical",
       "applies_to": ["Restaurant"],
       "evidence_hint": "three-compartment sink sanitizing temperature logs; dishwasher logs or irreversible temperature indicator records"
@@ -285,7 +285,7 @@
       "id": "us.warewashing-temperatures",
       "theme": "cleaning_sanitizing",
       "title": "Warewashing wash solutions and the machine hot-water rinse stay within the Code temperature limits",
-      "section_paths": ["4-501.19"],
+      "section_paths": ["4-501.19", "4-501.110", "4-501.112"],
       "severity": "major",
       "applies_to": ["Restaurant"],
       "evidence_hint": "dishwasher temperature logs (final rinse 82-90°C, 180-194°F); manual wash at 43°C (110°F) or more; dishwasher service reports"
@@ -312,7 +312,7 @@
       "id": "us.pest-control",
       "theme": "pest_control",
       "title": "The premises are kept free of pests by routine inspection and control measures",
-      "section_paths": ["6-501.19"],
+      "section_paths": ["6-501.111"],
       "severity": "major",
       "applies_to": ["Restaurant"],
       "evidence_hint": "pest control service reports; pest sighting log; delivery inspection records"
@@ -402,7 +402,7 @@
       "id": "us.refuse-receptacles",
       "theme": "waste",
       "title": "Refuse receptacles are durable, pest-resistant, leakproof, kept clean and covered when required",
-      "section_paths": ["5-501.13", "5-501.19"],
+      "section_paths": ["5-501.13", "5-501.113", "5-501.116"],
       "severity": "minor",
       "applies_to": ["Restaurant"],
       "evidence_hint": "waste management SOP; cleaning schedule for bins and the refuse area"
