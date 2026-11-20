@@ -83,8 +83,9 @@ def _pdf_pages(data: bytes) -> list[list[str]]:
 _FDA_CHAPTER_PAGE = re.compile(r"FDA Food Code 2026 Chapter [1-8]\b")
 # A title starts with a capital or a quote ('4-202.13 "V" Threads, ...'); a wrapped cross-reference
 # ("2-201.12 and 2-201.13.") does not.
-# Part 4-10 has four-digit subparts: "4-1001.11".
-_FDA_SECTION = re.compile(r"(\d-\d{3,4}\.\d{2})\s+([A-Z\"“].*)")
+# Part 4-10 has four-digit subparts ("4-1001.11"), and a subpart's sections after .19 run on with
+# three digits ("6-501.110", "6-501.111").
+_FDA_SECTION = re.compile(r"(\d-\d{3,4}\.\d{2,3})\s+([A-Z\"“].*)")
 # Chapter title, part ("3-5 Limitation of ...") and subpart ("3-501 Temperature ...") headings.
 _FDA_STRUCTURE = re.compile(r"Chapter \d\.|Parts:|Subparts:|\d-\d{1,4}\s+[A-Z]")
 
