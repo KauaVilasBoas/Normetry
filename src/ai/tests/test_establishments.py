@@ -47,6 +47,15 @@ def _files(folder: Path) -> set[str]:
     return {entry["file"] for entry in _manifest(folder)["documents"]}
 
 
+def _near_misses(folder: Path) -> list[dict]:
+    """The findings with a near-miss document: one that looks like evidence but misses the item."""
+    return [finding for finding in _findings(folder)["findings"] if finding.get("nearMiss")]
+
+
+def _near_miss_files(folder: Path) -> set[str]:
+    return {entry["file"] for finding in _near_misses(folder) for entry in finding["nearMiss"]}
+
+
 @cache
 def _texts(folder: Path) -> dict[str, list[str]]:
     """Each manifest file's parts as the worker parses them, normalized as quotes are."""
@@ -77,7 +86,7 @@ def test_every_demo_establishment_has_a_folder() -> None:
 
 
 @per_establishment
-def test_the_manifest_lists_6_to_10_existing_documents_of_known_types(folder: Path) -> None:
+def test_the_manifest_lists_6_to_10_existing_documents_besides_near_misses(folder: Path) -> None:
     documents = _manifest(folder)["documents"]
     problems = []
     for entry in documents:
@@ -90,7 +99,8 @@ def test_the_manifest_lists_6_to_10_existing_documents_of_known_types(folder: Pa
             problems.append(f"{file}: expiresOn {entry['expiresOn']!r} is not YYYY-MM-DD")
 
     assert problems == []
-    assert 6 <= len(documents) <= 10
+    # 6 to 10 (the phase 2 design), plus the near-miss documents added on top of them (#116).
+    assert 6 <= len(documents) - len(_near_miss_files(folder)) <= 10
 
 
 @per_establishment
