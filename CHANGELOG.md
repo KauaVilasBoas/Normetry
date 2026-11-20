@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.6.0...v0.7.0) (2026-11-20)
+
+
+### Features
+
+* **evals:** near-miss acceptance rate in the inspection eval ([8b4df6c](https://github.com/KauaVilasBoas/Normetry/commit/8b4df6c19bcfd1be53f446e5e81022a7c0e13de1))
+* **evals:** near-miss backflow test report for Bakery Austin ([7d79cc0](https://github.com/KauaVilasBoas/Normetry/commit/7d79cc0a8e66b28582318b4ee0b9e47264408b11))
+* **evals:** near-miss ice analysis for Bistro São Paulo ([f33c4cc](https://github.com/KauaVilasBoas/Normetry/commit/f33c4cc24261da1d3d9a4f6f7ae5b4aa99b5943a))
+* **evals:** near-miss terrace rules for Bistro Lisboa ([c30a4e2](https://github.com/KauaVilasBoas/Normetry/commit/c30a4e23fdbb3c2d67793ed93b834fcccad3dd26))
+* **infra:** show the new logo on the Keycloak login ([45e2e50](https://github.com/KauaVilasBoas/Normetry/commit/45e2e50f9d3e9763a423e7140604d792742a4fe0)), closes [#142](https://github.com/KauaVilasBoas/Normetry/issues/142)
+* **web:** draw the new Normetry logo and favicon ([139d32a](https://github.com/KauaVilasBoas/Normetry/commit/139d32a39d346fd32b1868dfef8abfcc138c10be)), closes [#142](https://github.com/KauaVilasBoas/Normetry/issues/142)
+
+
+### Bug Fixes
+
+* **ai:** cite the FDA subsections the checklist items rest on ([5be9bd3](https://github.com/KauaVilasBoas/Normetry/commit/5be9bd397fd6af047e49188410e04a34d8d53d97))
+* **ai:** recognise three-digit FDA Food Code section numbers ([c7c2eda](https://github.com/KauaVilasBoas/Normetry/commit/c7c2edafc1258e358c4588de1fbacfe5d8eab7f4))
+* **corpus:** strip AnvisaLegis's daily cache busters before hashing RDC 216 ([a4c64ea](https://github.com/KauaVilasBoas/Normetry/commit/a4c64eab32cd9855dbce33c0174f1a9d72003133)), closes [#136](https://github.com/KauaVilasBoas/Normetry/issues/136)
+* **evals:** apply the near-miss review to the ground truth ([a8c93d2](https://github.com/KauaVilasBoas/Normetry/commit/a8c93d2736a5c0a0637e5137f509b4ca4afb7632))
+
 ## [0.6.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.5.0...v0.6.0) (2026-11-20)
 
 
