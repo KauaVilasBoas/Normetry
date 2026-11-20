@@ -61,6 +61,12 @@ def test_normalize_joins_line_break_hyphenation_and_collapses_whitespace() -> No
         (FDA, "1-101.10", "Food Code. These provisions shall be known as the “Food Code,”"),
         (FDA, "4-202.13", '"V" Threads, Use Limitation. Except for hot oil cooking'),
         (FDA, "4-1001.11", "Food-Contact, NonFood-Contact Surfaces, and Utensils *EQUIPMENT"),
+        (FDA, "6-501.111", "Controlling Pests. The *PREMISES shall be maintained free of insects"),
+        (
+            FDA,
+            "4-501.114",
+            "Manual and Mechanical Warewashing Equipment, Chemical Sanitization - Temperature, pH",
+        ),
         (
             EU_EN,
             "Article 4",
@@ -121,7 +127,7 @@ def test_fda_keeps_chapters_1_to_8_only() -> None:
     sections = texts(FDA)
     paths = list(sections)
 
-    assert all(re.fullmatch(r"[1-8]-\d{3,4}\.\d{2}", path) for path in paths)
+    assert all(re.fullmatch(r"[1-8]-\d{3,4}\.\d{2,3}", path) for path in paths)
     assert paths[0] == "1-101.10"
     assert paths[-1] == "8-501.40"
     # Annex 1 continues chapter 8's numbering; none of it is a code section here.
@@ -136,6 +142,19 @@ def test_fda_keeps_chapters_1_to_8_only() -> None:
         assert annex_text not in every_text
     # Set without hyphenation: line-end hyphens stay ("earliest-prepared", not "earliestprepared").
     assert "earliest-prepared" in sections["3-501.17"]
+
+
+def test_fda_three_digit_sections_follow_their_subpart_in_document_order() -> None:
+    sections = texts(FDA)
+    paths = list(sections)
+
+    # "6-501.19" < "6-501.110": the number after the point counts up, not as a decimal.
+    assert paths == sorted(paths, key=lambda path: [int(n) for n in re.split(r"[-.]", path)])
+    assert len(paths) == 404
+    assert "Controlling Pests" not in sections["6-501.19"]
+    assert "Molluscan Shellfish Tanks" not in sections["4-204.19"]
+    # A cross-reference wrapped onto its own line ("as specified under § 4-204.122.") is no heading.
+    assert "4-204.122." in sections["3-305.11"]
 
 
 def test_eu_keeps_articles_and_annex_parts_and_chapters() -> None:
