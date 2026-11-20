@@ -48,6 +48,11 @@
       "expiresOn": "2026-12-31"
     },
     {
+      "title": "Regras de funcionamento da esplanada",
+      "type": "Sop",
+      "file": "regras-da-esplanada.txt"
+    },
+    {
       "title": "Nota do fornecedor: entregas de dezembro",
       "type": "Other",
       "file": "nota-do-fornecedor.txt"

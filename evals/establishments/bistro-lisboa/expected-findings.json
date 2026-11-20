@@ -464,7 +464,14 @@
       "item": "eu.domestic-animals-excluded",
       "verdict": "insufficient_evidence",
       "evidence": [],
-      "note": "No document has any rule about domestic animals in food areas."
+      "nearMiss": [
+        {
+          "file": "regras-da-esplanada.txt",
+          "quote": "Na esplanada são bem-vindos cães e outros animais de companhia, com trela ou em transportadora, sempre junto do dono.",
+          "kind": "scope"
+        }
+      ],
+      "note": "Near miss, wrong scope: the only rule on animals is the terrace's, which welcomes dogs and other pets at the outdoor tables, where food is served but neither prepared nor stored. No document says how animals are kept out of the kitchen and the stores."
     },
     {
       "item": "eu.insect-screens",
