@@ -171,10 +171,11 @@ jobs:
       # Local models and a PostgreSQL container only: no paid API call.
       - name: Eval
         run: uv run pytest -m eval
+      # The job log gets the report too: the step summary cannot be read through the API.
       - name: Report
         if: ${{ !cancelled() }}
         run: |
-          if [ -f "$NORMETRY_EVAL_REPORT" ]; then cat "$NORMETRY_EVAL_REPORT" >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f "$NORMETRY_EVAL_REPORT" ]; then tee -a "$GITHUB_STEP_SUMMARY" < "$NORMETRY_EVAL_REPORT"; fi
 
   web:
     name: web (React)
