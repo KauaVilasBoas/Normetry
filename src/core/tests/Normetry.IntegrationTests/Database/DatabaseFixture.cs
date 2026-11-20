@@ -57,8 +57,8 @@ public sealed class DatabaseFixture : IAsyncLifetime
                     )
                 )
                 .WithResourceMapping(
-                    new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "postgres-init")),
-                    "/docker-entrypoint-initdb.d/"
+                    DirectoryPath.Of(Path.Combine(AppContext.BaseDirectory, "postgres-init")),
+                    DirectoryPath.Of("/docker-entrypoint-initdb.d/")
                 )
                 .Build();
             await container.StartAsync(TestContext.Current.CancellationToken);
