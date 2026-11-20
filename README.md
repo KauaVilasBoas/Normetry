@@ -1,5 +1,9 @@
-<!-- TODO(fill later): replace the text title with the logo once docs/design/logo.svg exists -->
-<h1 align="center">Normetry</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/design/brand/logo-horizontal-light.svg">
+    <img src="docs/design/brand/logo-horizontal-dark.svg" alt="Normetry" height="64">
+  </picture>
+</p>
 
 <p align="center">
   <i>Multi-tenant compliance copilot for regulated establishments.<br/>
