@@ -2,16 +2,15 @@
 
 ![Approved reference](reference.png)
 
-`reference.png` is the approved mock and the source of truth for look and feel. This file turns it into exact values and rules. When they disagree, the image wins on appearance and this file wins on numbers — then fix this file.
+`reference.png` is the approved mock and the source of truth for look and feel. This file turns it into exact values and rules. When they disagree, the image wins on appearance and this file wins on numbers — then fix this file. One exception: the logo. The mock still shows the old geometric N, and the logo in [`brand/`](brand/README.md) supersedes it.
 
 > **Content in the mock is placeholder.** ISO 27001 controls, "Acme Corporation", "Jane Cooper" and the dates only illustrate layout. Normetry's real domain is food-safety regulation (FDA Food Code, EU Regulation 852/2004, Anvisa RDC 216/2004): keep the layout and style, swap the content.
 
 ## 1. Brand
 
-- **Logo:** geometric "N" mark with a mint → teal gradient, followed by the wordmark "Normetry" in white Inter semibold. Mark alone is used in compact places (chat avatar, panel headers).
+- **Logo:** an "N" drawn as a document: text lines cut into the left stem and a folded top-right corner, filled with a mint-light → mint → teal gradient, followed by the wordmark "Normetry" in Inter semibold (white on dark). The brand files outline Inter Display; the app sets live Inter SemiBold, about 6% wider. Mark alone is used in compact places (chat avatar, panel headers, favicon). Files, construction, colors and usage rules: [`brand/README.md`](brand/README.md). Wherever the symbol's box is 40px or less (the sidebar at 28px, the sign-in screen at 40px, the chat avatar at 18px, the favicon), use the compact mark (three lines). In code: `src/web/src/ui/Logo.tsx`.
 - **Tagline:** "Understand Regulations. Stay Ahead."
 - **Mood:** dark, calm, precise. Deep navy surfaces, **one** mint accent for action, blues for data, status colors only for status.
-<!-- TODO(fill later): export the logo as SVG to docs/design/logo.svg; today it exists only inside reference.png -->
 
 ## 2. Color tokens
 
@@ -42,6 +41,8 @@ Values sampled from the rendered mock. The mock's palette card labels slightly d
 | `--teal` | `#005E7A` | active sidebar item background |
 | `--teal-border` | `#2E7D99` | secondary button and outlined action borders; 1px border of inputs, textareas and selects (3.8:1 against `--bg-card`) |
 | `--teal-deep` | `#064C5E` | "NEW" badge background and open citation chip (mint text, 4.5:1); quote highlight (white text) |
+| `--logo-mint-light` | `#4FE6DE` | logo gradient start only, never UI |
+| `--logo-fold` | `#A6F5EF` | the logo's folded corner only, never UI |
 | `--text-primary` | `#FFFFFF` | titles, KPI values, table primary text |
 | `--text-secondary` | `#A9B8CC` | subtitles, card labels, legend labels |
 | `--text-muted` | `#6B7F99` | table headers on `--bg-inset`, captions and timestamps on the sidebar; only on `--bg-sidebar` and `--bg-inset` |
@@ -77,6 +78,7 @@ Values sampled from the rendered mock. The mock's palette card labels slightly d
   --canvas-glow: #001427; --scrim: rgb(1 10 24 / 0.7);
   --mint: #0dc6ce; --mint-hover: #09b9b8; --on-mint: #06283a;
   --teal: #005e7a; --teal-border: #2e7d99; --teal-deep: #064c5e;
+  --logo-mint-light: #4fe6de; --logo-fold: #a6f5ef;
   --text-primary: #ffffff; --text-secondary: #a9b8cc; --text-muted: #6b7f99;
   --success: #03da96; --warning: #f2ae13; --danger: #ed3f45; --neutral: #5b6b82;
   --alert: #f4c33a; --info: #0decff; --info-bg: #06315e;
