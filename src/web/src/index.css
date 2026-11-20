@@ -20,6 +20,9 @@
   --teal: #005e7a;
   --teal-border: #2e7d99;
   --teal-deep: #064c5e;
+  /* Logo-only colors (docs/design/brand/README.md): never used for UI. */
+  --logo-mint-light: #4fe6de;
+  --logo-fold: #a6f5ef;
 
   --text-primary: #ffffff;
   --text-secondary: #a9b8cc;
