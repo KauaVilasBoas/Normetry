@@ -386,6 +386,8 @@ With documents ([#109](https://github.com/KauaVilasBoas/Normetry/issues/109), [r
 
 The documents leave regulation recall@10 where it was but push regulation chunks down the top 10, so MRR@10 falls from 0.883 to 0.613. No result held a chunk from another establishment or tenant.
 
+Two later changes left the re-ranked numbers above unchanged. Splitting the FDA Food Code's three-digit subsections into sections of their own ([#114](https://github.com/KauaVilasBoas/Normetry/issues/114), [report](evals/reports/2026-11-20-retrieval-bge-m3-fda-subsections.md)) took the corpus from 724 to 750 chunks; only the fused list moved, recall@10 from 0.864 to 0.847, mostly on FDA items, and the re-ranker recovers it. The three near-miss documents ([#116](https://github.com/KauaVilasBoas/Normetry/issues/116)) changed nothing.
+
 Generation numbers come from Claude Haiku 5.5 answering all 59 questions through the real pipeline ([report](evals/reports/2026-11-15-generation-claude-haiku-5-5.md)). The guard checks every quote at runtime. A review session then judged each claim against its quotes and the section around them:
 
 | Generation (Claude Haiku 5.5) | Result | Target |
