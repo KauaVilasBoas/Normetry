@@ -1,9 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0dc6ce" />
-      <stop offset="1" stop-color="#005e7a" />
-    </linearGradient>
-  </defs>
-  <path fill="url(#g)" d="M4 28V4h6l12 15.5V4h6v24h-6L10 12.5V28z" />
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Normetry"><title>Normetry</title><defs><linearGradient id="fg" x1="12" y1="10" x2="88" y2="90" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4FE6DE"/><stop offset=".5" stop-color="#0DC6CE"/><stop offset="1" stop-color="#005E7A"/></linearGradient><mask id="fm" maskUnits="userSpaceOnUse" x="-2" y="-2" width="104" height="104"><rect x="-2" y="-2" width="104" height="104" fill="white"/><rect x="11" y="47.60" width="15" height="4.80" fill="black"/><rect x="11" y="63.60" width="15" height="4.80" fill="black"/><rect x="11" y="79.60" width="15" height="4.80" fill="black"/><path d="M77,9 L89,9 L89,21 Z" fill="black"/><path d="M77,9 V21 H89" fill="none" stroke="black" stroke-width="4.4"/></mask></defs><g mask="url(#fm)" fill="url(#fg)"><path d="M12,10 L34,10 L34,90 L12,90 Z"/><path d="M66,10 L88,10 L88,90 L66,90 Z"/><path d="M12,10 L37,10 L88,90 L63,90 Z"/></g><path d="M79.2,15.31 L79.2,18.80 L82.69,18.80 Z" fill="#A6F5EF"/></svg>
