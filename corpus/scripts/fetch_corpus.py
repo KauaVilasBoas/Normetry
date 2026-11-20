@@ -10,11 +10,16 @@
 
 Files land in corpus/<jurisdiction>/<code>/<version>/<file>. A file whose hash already
 matches the manifest is skipped, so running the script twice changes nothing.
+
+An HTML page is stored without its cache-busting `?YYYYMMDD` link suffixes: AnvisaLegis stamps
+the current date on every stylesheet, script and image link, so the raw page changes daily
+while the text does not.
 """
 
 import argparse
 import hashlib
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -24,10 +29,17 @@ import httpx
 CORPUS = Path(__file__).resolve().parent.parent
 MANIFEST = CORPUS / "manifest.json"
 USER_AGENT = "regulation-corpus-fetch/0.1 (python-httpx)"
+# A date query string closing an attribute value: `main.css?20261120"`.
+CACHE_BUSTER = re.compile(rb"\?\d{8}(?=[\"'])")
 
 
 def local_path(source: dict) -> Path:
     return CORPUS / source["jurisdiction"].lower() / source["code"] / source["version"] / source["file"]
+
+
+def without_cache_busters(path: Path, data: bytes) -> bytes:
+    """The page as pinned: an HTML file loses its daily `?YYYYMMDD` link suffixes."""
+    return CACHE_BUSTER.sub(b"", data) if path.suffix == ".html" else data
 
 
 def main() -> int:
@@ -56,7 +68,7 @@ def main() -> int:
             except httpx.HTTPError as error:
                 failures.append(f"{rel}: download failed: {error}")
                 continue
-            data = response.content
+            data = without_cache_busters(path, response.content)
             if path.suffix == ".pdf" and not data.startswith(b"%PDF"):
                 failures.append(f"{rel}: expected a PDF, got {response.headers.get('content-type')}")
                 continue
