@@ -1,5 +1,118 @@
 # Changelog
 
+## [0.6.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.5.0...v0.6.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** drop roles from /me
+* **core:** Keycloak realm roles no longer authorize anything; a user needs a profile in the core database.
+
+### Features
+
+* **ai:** add ai.tenant_documents under tenant RLS ([1afdfb1](https://github.com/KauaVilasBoas/Normetry/commit/1afdfb15fed534f2096c23deadaf69dd72f205f8)), closes [#86](https://github.com/KauaVilasBoas/Normetry/issues/86)
+* **ai:** chat answers that cite the establishment's documents ([6339b15](https://github.com/KauaVilasBoas/Normetry/commit/6339b15ff967b7ef07fc5c7f88c4858abc0a06a5)), closes [#107](https://github.com/KauaVilasBoas/Normetry/issues/107)
+* **ai:** consume document messages from RabbitMQ in the service process ([8599dd4](https://github.com/KauaVilasBoas/Normetry/commit/8599dd43e370937855293889e7291b0e5336b530)), closes [#86](https://github.com/KauaVilasBoas/Normetry/issues/86)
+* **ai:** index tenant document versions from blob storage ([474be1f](https://github.com/KauaVilasBoas/Normetry/commit/474be1f9569f28150e53fdb7cd7d610976b45928)), closes [#86](https://github.com/KauaVilasBoas/Normetry/issues/86)
+* **ai:** inspection agent with checkpoints, budget and queue consumer ([7237e1b](https://github.com/KauaVilasBoas/Normetry/commit/7237e1b5934887c79a177d70424d61092d59ebe6)), closes [#101](https://github.com/KauaVilasBoas/Normetry/issues/101)
+* **ai:** inspection checklists for the three regulations ([bc56b83](https://github.com/KauaVilasBoas/Normetry/commit/bc56b839f46ab68e5ed4ed5e10bb9a964b2287f8))
+* **ai:** inspection judge with verified citations ([4226021](https://github.com/KauaVilasBoas/Normetry/commit/42260215a842cef9a135e9fe6589dd817fed382c)), closes [#100](https://github.com/KauaVilasBoas/Normetry/issues/100)
+* **ai:** parse tenant PDF, DOCX, TXT and CSV uploads ([a27f97a](https://github.com/KauaVilasBoas/Normetry/commit/a27f97a8517dd5baa611f0348c126388db1a5b05)), closes [#86](https://github.com/KauaVilasBoas/Normetry/issues/86)
+* **ai:** search an establishment's documents ([bf3c5bc](https://github.com/KauaVilasBoas/Normetry/commit/bf3c5bc3ecb31ca71d67dd174d0af5b79c97a903)), closes [#98](https://github.com/KauaVilasBoas/Normetry/issues/98)
+* **core:** add a transactional outbox published to RabbitMQ ([be11cde](https://github.com/KauaVilasBoas/Normetry/commit/be11cdec8b1ef527a547356c7a5c015916e36e20))
+* **core:** add the profile and user management API ([6ce26cb](https://github.com/KauaVilasBoas/Normetry/commit/6ce26cbd236150793994f551a6a2249fb4b1a393)), closes [#82](https://github.com/KauaVilasBoas/Normetry/issues/82)
+* **core:** add users, profiles and the permission catalog with RLS ([d21dbba](https://github.com/KauaVilasBoas/Normetry/commit/d21dbbaf74177fb03ef4faa921a4da2aea7e6a7f)), closes [#80](https://github.com/KauaVilasBoas/Normetry/issues/80)
+* **core:** apply ingestion status events and time out stuck versions ([9f952b6](https://github.com/KauaVilasBoas/Normetry/commit/9f952b62deec12b3537de4faf1ab8e8ed12a46cd))
+* **core:** authorize every action by permissions from the core database ([a42e0c1](https://github.com/KauaVilasBoas/Normetry/commit/a42e0c19706ede68c344b6ac3a6e6765dea39beb)), closes [#81](https://github.com/KauaVilasBoas/Normetry/issues/81)
+* **core:** cap the versions a document holds ([1bf6bb6](https://github.com/KauaVilasBoas/Normetry/commit/1bf6bb672b84ccd2edf5702c9a622575e042b226))
+* **core:** create the user row at first sign-in and read its permissions ([1860b6a](https://github.com/KauaVilasBoas/Normetry/commit/1860b6ab1658d754de2ec841451794ce08a1cd6d)), closes [#80](https://github.com/KauaVilasBoas/Normetry/issues/80)
+* **core:** establishment overview query ([cb93b6a](https://github.com/KauaVilasBoas/Normetry/commit/cb93b6a98632b4ff5bb9460a22a3103dcc34c038)), closes [#112](https://github.com/KauaVilasBoas/Normetry/issues/112)
+* **core:** inspections, findings and action items with RLS ([b09900e](https://github.com/KauaVilasBoas/Normetry/commit/b09900e1f8b31c04f1ad8211ffb2aaf9c6131eed)), closes [#102](https://github.com/KauaVilasBoas/Normetry/issues/102)
+* **core:** optional expiry date on documents ([65663c8](https://github.com/KauaVilasBoas/Normetry/commit/65663c819c89e5e2d7fe9c950da7de8de1dafb91)), closes [#97](https://github.com/KauaVilasBoas/Normetry/issues/97)
+* **core:** push document status changes over SignalR ([afa8f93](https://github.com/KauaVilasBoas/Normetry/commit/afa8f93f14d913c464312bb89579fab1fe597112))
+* **core:** rate limiting per tenant and user ([cbff598](https://github.com/KauaVilasBoas/Normetry/commit/cbff5989212772bf3c108911edb6188d2407a3de)), closes [#110](https://github.com/KauaVilasBoas/Normetry/issues/110)
+* **core:** review findings and action items, with a feedback export ([9e2a7a0](https://github.com/KauaVilasBoas/Normetry/commit/9e2a7a0e09a1e46644f887ed9f7a47d186d080ce))
+* **core:** run RabbitMQ and Azurite from the AppHost ([c2a5f0c](https://github.com/KauaVilasBoas/Normetry/commit/c2a5f0c079df1935ac1155b0334a0ec27a2c5a27))
+* **core:** seed the system profiles and the demo users ([951f6b1](https://github.com/KauaVilasBoas/Normetry/commit/951f6b14d132b6facf5422f113eb0891922825ef)), closes [#80](https://github.com/KauaVilasBoas/Normetry/issues/80)
+* **core:** start inspections, apply their results and push live progress ([dd459ab](https://github.com/KauaVilasBoas/Normetry/commit/dd459abed8a03a03a612a47072a8d4f415d8fb9e)), closes [#102](https://github.com/KauaVilasBoas/Normetry/issues/102)
+* **core:** upload, list, get and delete tenant documents ([279ab68](https://github.com/KauaVilasBoas/Normetry/commit/279ab684244205c9e24427860e0f347af8351038))
+* **evals:** document questions and a security set for the chat ([80e355b](https://github.com/KauaVilasBoas/Normetry/commit/80e355b8ca081673f224081f6e73413c3e3ea285)), closes [#109](https://github.com/KauaVilasBoas/Normetry/issues/109)
+* **evals:** inspection eval against the synthetic establishments ([8f1c832](https://github.com/KauaVilasBoas/Normetry/commit/8f1c832afb02de7f5c006b4a58b70a5ad46f62b9)), closes [#106](https://github.com/KauaVilasBoas/Normetry/issues/106)
+* **evals:** score document questions and the chat security set ([13053fb](https://github.com/KauaVilasBoas/Normetry/commit/13053fb92226336453ad87db2789c54d237435b4)), closes [#109](https://github.com/KauaVilasBoas/Normetry/issues/109)
+* **evals:** synthetic documents and ground truth for Bakery Austin ([293978f](https://github.com/KauaVilasBoas/Normetry/commit/293978f2fc4e52861b45e61263e25b4e492befc7)), closes [#96](https://github.com/KauaVilasBoas/Normetry/issues/96)
+* **evals:** synthetic documents and ground truth for Bistro Lisboa ([4100c9e](https://github.com/KauaVilasBoas/Normetry/commit/4100c9e36e9aee0759dd4b69a730a28e574ad78e)), closes [#96](https://github.com/KauaVilasBoas/Normetry/issues/96)
+* **evals:** synthetic documents and ground truth for Bistro São Paulo ([8b45bbe](https://github.com/KauaVilasBoas/Normetry/commit/8b45bbe00b83d5f09f5616fb4a1e2ba6eb6a6a05)), closes [#96](https://github.com/KauaVilasBoas/Normetry/issues/96)
+* **shared:** inspection message contracts and document titles on uploads ([e961370](https://github.com/KauaVilasBoas/Normetry/commit/e9613707016666b53af61dbaed976bbd9125633d))
+* **shared:** versioned queue message contracts for tenant documents ([0f71285](https://github.com/KauaVilasBoas/Normetry/commit/0f71285f6724f2abca1a0b2a3913ecfc7d18320e)), closes [#16](https://github.com/KauaVilasBoas/Normetry/issues/16)
+* **web:** add the ingestion pill, drop zone, notice and select field primitives ([92775a6](https://github.com/KauaVilasBoas/Normetry/commit/92775a660c2665f23021b600766bd1486ab716ca))
+* **web:** add the stepper, radial progress, checklist rows and status pills ([93af7e8](https://github.com/KauaVilasBoas/Normetry/commit/93af7e8ce0ca5f1062636da68563c48b6fc0a751))
+* **web:** add the tab strip, tag, checkbox, text field and form dialog primitives ([e8ed116](https://github.com/KauaVilasBoas/Normetry/commit/e8ed116293daa50e38a1620ea20e84264b1e5832))
+* **web:** document citations in the chat ([b78daf9](https://github.com/KauaVilasBoas/Normetry/commit/b78daf964b41167a3bda83f45e0d56c0708714a5)), closes [#108](https://github.com/KauaVilasBoas/Normetry/issues/108)
+* **web:** documents screen with upload, versions and live status ([2d28c1a](https://github.com/KauaVilasBoas/Normetry/commit/2d28c1a609e76cf568e30ac0f98663bad8da7a63)), closes [#88](https://github.com/KauaVilasBoas/Normetry/issues/88)
+* **web:** findings review and action plan ([b51db2f](https://github.com/KauaVilasBoas/Normetry/commit/b51db2f537a26d0324418a013b7194444d38ca03))
+* **web:** hide what the user's permissions from /me do not allow ([8c80dee](https://github.com/KauaVilasBoas/Normetry/commit/8c80dee46b19f41a32395477045852ffcded9136))
+* **web:** open with the remembered or the first establishment ([1065605](https://github.com/KauaVilasBoas/Normetry/commit/1065605a62681f8691fdcf4c2c5cdb0256b0b3b8))
+* **web:** Overview screen for the selected establishment ([538dc6d](https://github.com/KauaVilasBoas/Normetry/commit/538dc6daebdb3934ecdcbd38371d648938702264)), closes [#112](https://github.com/KauaVilasBoas/Normetry/issues/112)
+* **web:** profiles tab under settings ([a785a06](https://github.com/KauaVilasBoas/Normetry/commit/a785a0695883510facb1498dcc3e4378bcf1ef1d))
+* **web:** show and filter document expiry dates ([429c092](https://github.com/KauaVilasBoas/Normetry/commit/429c0920646bc357d59f1dd5a49985f82c7bd9fb)), closes [#97](https://github.com/KauaVilasBoas/Normetry/issues/97)
+* **web:** simulated inspection screen with live progress ([689c057](https://github.com/KauaVilasBoas/Normetry/commit/689c0575bfc8528a566575cbc559f1c5fb177fd7)), closes [#104](https://github.com/KauaVilasBoas/Normetry/issues/104)
+* **web:** tell a user whose profile opens no screen ([88f4395](https://github.com/KauaVilasBoas/Normetry/commit/88f4395f7c3ef0af83e4bb8db141ccb5d85feafe))
+
+
+### Bug Fixes
+
+* **ai:** cap a tenant document version at 500 chunks ([686a548](https://github.com/KauaVilasBoas/Normetry/commit/686a548e82af07b19b1819e3017e6fffb17233cb)), closes [#86](https://github.com/KauaVilasBoas/Normetry/issues/86)
+* **ai:** dead-letter a message whose type or version is a list or an object ([07b53da](https://github.com/KauaVilasBoas/Normetry/commit/07b53dafd684f78c20cbdcb4187f5674106d86a3))
+* **ai:** derive result event ids from the tenant too ([8a795c7](https://github.com/KauaVilasBoas/Normetry/commit/8a795c7ebd5de08975bb24a8b11fc258d717427e)), closes [#86](https://github.com/KauaVilasBoas/Normetry/issues/86)
+* **ai:** harden the inspection agent after its isolation review ([c51fd3e](https://github.com/KauaVilasBoas/Normetry/commit/c51fd3e84a7d7a241d4b33932dd4908fa62b741c))
+* **ai:** keep document text from callers without documents.read ([2a798b4](https://github.com/KauaVilasBoas/Normetry/commit/2a798b49ea572fd817716c342aed3fb03fc44d4f)), closes [#107](https://github.com/KauaVilasBoas/Normetry/issues/107)
+* **ai:** keep file names out of logs and tag consumer spans with the tenant ([8b2d988](https://github.com/KauaVilasBoas/Normetry/commit/8b2d988b70b8e60ded48336ac7a859406f6bc569)), closes [#86](https://github.com/KauaVilasBoas/Normetry/issues/86)
+* **ai:** keep the parsing subprocess from reading the service's environment ([9bdcb5c](https://github.com/KauaVilasBoas/Normetry/commit/9bdcb5c43d6c20aba01afbcafd6ca2b76c6db2af)), closes [#90](https://github.com/KauaVilasBoas/Normetry/issues/90)
+* **ai:** never report an indexed version as failed when only its result could not be sent ([87a457c](https://github.com/KauaVilasBoas/Normetry/commit/87a457c1eb21eab0435b85a69ea5d67ac857163d))
+* **ai:** parse uploads in a credential-free subprocess with limits ([9760af4](https://github.com/KauaVilasBoas/Normetry/commit/9760af4d4faacd2507c62fd8af62b6df2e3da35b)), closes [#90](https://github.com/KauaVilasBoas/Normetry/issues/90)
+* **ai:** put the tenant id on document worker and consumer log lines ([ec24538](https://github.com/KauaVilasBoas/Normetry/commit/ec24538efa9e42a7baf5d236997c7f1cf79f3d51)), closes [#86](https://github.com/KauaVilasBoas/Normetry/issues/86)
+* **core:** answer 409 when two requests give profiles the same name ([1736076](https://github.com/KauaVilasBoas/Normetry/commit/1736076ae79514d4e5f594cd99cc5c31c00c3fa2))
+* **core:** close the inspection cap's midnight race and time out lost requests ([500f815](https://github.com/KauaVilasBoas/Normetry/commit/500f815f5165a9692bfd5e3396f7efecf4450388))
+* **core:** count text limits in characters, as the message contract does ([81c622e](https://github.com/KauaVilasBoas/Normetry/commit/81c622eaa51a4b1072804ee7e0aa11906d7b7d8d))
+* **core:** expire inspection requests the core has already timed out ([999b1bf](https://github.com/KauaVilasBoas/Normetry/commit/999b1bfd7554d913b677d58e75978fa812aaea70))
+* **core:** keep edited findings in the feedback export after an accept ([39f65ee](https://github.com/KauaVilasBoas/Normetry/commit/39f65eefcaea6bedcfeb46a9b6d67463f9bbc8a5))
+* **core:** log the tenant id when a status delivery is retried ([eff4914](https://github.com/KauaVilasBoas/Normetry/commit/eff491472a77e64cc1cea7f316e4cc002ee7ce35))
+* **core:** read the outbox tenant list only as core_dispatcher ([913cac1](https://github.com/KauaVilasBoas/Normetry/commit/913cac1ea5b8073f97dddc6f18ff4005c69d66e9))
+* **core:** refuse a file name with an overlong extension instead of failing with 500 ([13e0172](https://github.com/KauaVilasBoas/Normetry/commit/13e01722b00f6ec19e5648f33443d17579deff1a))
+* **core:** start the status consumer again when the broker cancels it ([f1221a9](https://github.com/KauaVilasBoas/Normetry/commit/f1221a9bfade812b3e933b56f9794d9320ba1fa8))
+* **core:** tell the AI service whether the caller may read documents ([cec5f7d](https://github.com/KauaVilasBoas/Normetry/commit/cec5f7df917105d909bbe99e034fae02170ee4a2))
+* **core:** tighten tenant handling in the background services and the hub ([1044ce5](https://github.com/KauaVilasBoas/Normetry/commit/1044ce58db748a06cb924dda0033e401fd4484ff))
+* hold a message while the database or blob storage is down instead of dead-lettering it ([7fad802](https://github.com/KauaVilasBoas/Normetry/commit/7fad8028863e410909b1d90e9bf4fdab312d60f3))
+* **infra:** give the AI service a read-only blob credential ([04624dd](https://github.com/KauaVilasBoas/Normetry/commit/04624dd135fd7c122fde583ae43afc4b29cfd4cc)), closes [#90](https://github.com/KauaVilasBoas/Normetry/issues/90)
+* **infra:** keep PUBLIC from executing functions the schema owners create ([f7da13d](https://github.com/KauaVilasBoas/Normetry/commit/f7da13d27d0f07d12713fd2f4f5519b07d5d8477))
+* retry a failed delivery for 102 seconds before dead-lettering it ([b59b8ba](https://github.com/KauaVilasBoas/Normetry/commit/b59b8ba43c92e82af3f12acfe1989a96f66e2907))
+* **web:** apply the design review of the chat document citations ([04ae7e4](https://github.com/KauaVilasBoas/Normetry/commit/04ae7e46f4ebcc67dda440c0d0ffc743695c08e5))
+* **web:** apply the design review of the document expiry dates ([2eecceb](https://github.com/KauaVilasBoas/Normetry/commit/2eeccebd87a57dcd26c32e6d77be1c1640f96648)), closes [#97](https://github.com/KauaVilasBoas/Normetry/issues/97)
+* **web:** apply the design review of the findings review ([fb97136](https://github.com/KauaVilasBoas/Normetry/commit/fb971362502b3ec9f3dfc33febdf0b9c3675c3f9)), closes [#105](https://github.com/KauaVilasBoas/Normetry/issues/105)
+* **web:** apply the design review of the inspection screen ([4a0787b](https://github.com/KauaVilasBoas/Normetry/commit/4a0787be02a995b908da548f9e3604cebd028da4)), closes [#104](https://github.com/KauaVilasBoas/Normetry/issues/104)
+* **web:** apply the design review of the Overview ([7766a30](https://github.com/KauaVilasBoas/Normetry/commit/7766a303552a3ec4e6d2623fafaafbf6a9dfe320)), closes [#112](https://github.com/KauaVilasBoas/Normetry/issues/112)
+* **web:** divide the account menu with --bg-inset ([dc8952f](https://github.com/KauaVilasBoas/Normetry/commit/dc8952f543fec24db390845f576b5079bd0f2453))
+* **web:** keep a refusal in its dialog or menu until it closes ([fa8fe28](https://github.com/KauaVilasBoas/Normetry/commit/fa8fe2858a92a27d6bc41a2c3bf949c7f984c5ef))
+* **web:** keep the focus ring of the settings tab and back link visible ([dec2395](https://github.com/KauaVilasBoas/Normetry/commit/dec23959ed3a8cfdda97f293e649ab7df8ec6a93))
+* **web:** keep the profiles screen when a background /me refetch fails ([c4e99a0](https://github.com/KauaVilasBoas/Normetry/commit/c4e99a02813196b83e68a58f1cac90ac340574ad))
+* **web:** keep the upload dialog and the live status heard and in place ([d2ac181](https://github.com/KauaVilasBoas/Normetry/commit/d2ac181c6687e305e15dd235d12c392b3ad60c2a))
+* **web:** label the nav skeleton and sort the account menu's profiles ([83aa6f1](https://github.com/KauaVilasBoas/Normetry/commit/83aa6f16c5d4ed9c5bc0e047230bd3632b53fc64))
+* **web:** move focus to a heading when a lost permission removes the focused control ([15fd03c](https://github.com/KauaVilasBoas/Normetry/commit/15fd03c06955504398c28d08db03fbee8f3b1ca5))
+* **web:** put a user's Profiles button on the tag line below 640px ([9adcb99](https://github.com/KauaVilasBoas/Normetry/commit/9adcb992bc5a2bef70815566b2192e42a6e06a81))
+* **web:** send the content type the core expects for the file's extension ([b06fda6](https://github.com/KauaVilasBoas/Normetry/commit/b06fda6677a5749348674b2607b5511c779afd8e))
+* **web:** show the error icon, and the error in the heading, in the profile editor ([5ae04ef](https://github.com/KauaVilasBoas/Normetry/commit/5ae04eff397eebeb9696eb9d7e185a4b8c12c4ea))
+
+
+### Performance Improvements
+
+* **core:** count the inspection list's verdicts in SQL again ([835dbed](https://github.com/KauaVilasBoas/Normetry/commit/835dbede67a6839bf73a80bdfee5d1e7aa580b4c)), closes [#119](https://github.com/KauaVilasBoas/Normetry/issues/119)
+* **core:** wake the outbox dispatcher when messages commit instead of polling ([8fef0b8](https://github.com/KauaVilasBoas/Normetry/commit/8fef0b8e69a5bc2c4bb8c5b260057b35ad7ce96a))
+
+
+### Code Refactoring
+
+* **core:** drop roles from /me ([ac1e235](https://github.com/KauaVilasBoas/Normetry/commit/ac1e23554e2516e176081739a8d7138fafa08cda))
+
 ## [0.5.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.4.0...v0.5.0) (2026-11-15)
 
 
