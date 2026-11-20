@@ -43,6 +43,11 @@
       "expiresOn": "2026-12-15"
     },
     {
+      "title": "Laudo de análise de gelo",
+      "type": "Report",
+      "file": "laudo-analise-gelo.pdf"
+    },
+    {
       "title": "Comunicado do fornecedor Laticínios Campo Sereno",
       "type": "Other",
       "file": "comunicado-fornecedor-laticinios.txt"
