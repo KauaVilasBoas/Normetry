@@ -8,7 +8,7 @@ itself: test_rabbitmq.py."""
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -23,7 +23,9 @@ from test_inspection_graph import ITEMS, SETTINGS, stub_regulation
 
 from normetry_ai.ingestion.documents import BlobStore, DocumentWorker
 from normetry_ai.ingestion.parsers import TXT
-from normetry_ai.inspection.worker import NO_DOCUMENTS, InspectionWorker
+from normetry_ai.inspection import checklist
+from normetry_ai.inspection.checklist import Checklist
+from normetry_ai.inspection.worker import CORPUS_INCOMPLETE, NO_DOCUMENTS, InspectionWorker
 from normetry_ai.llm.claude import ModelUnavailable
 from normetry_ai.messaging import inspections
 from normetry_ai.messaging.consumer import DELIVERY_LIMIT
@@ -312,6 +314,35 @@ def test_an_establishment_without_an_indexed_document_fails_no_documents(
     assert deliver(establishment.worker, requested(other))[1].sent[0][1].reason_code == (
         "no_documents"
     )
+
+
+@pytest.mark.integration
+def test_a_checklist_section_missing_from_the_corpus_fails_before_any_item_is_judged(
+    establishment: Establishment,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A corpus ingested before a parser fix: an item cites a section it has and one it lacks.
+    kept, gone = ITEMS[0].section_paths[0], f"test-{uuid4()}"
+    items = (replace(ITEMS[0], section_paths=(kept, gone)), *ITEMS[1:])
+    fake = Checklist("food-code", "US", items)
+    monkeypatch.setattr(checklist, "load_checklist", lambda jurisdiction: fake)
+    request = requested(establishment.with_document())
+
+    action, broker = deliver(establishment.worker, request)
+
+    assert action == "ack"
+    [(kind, failed)] = broker.sent
+    assert (kind, failed.reason_code, failed.reason_text) == (
+        "InspectionFailed",
+        "error",
+        CORPUS_INCOMPLETE,
+    )
+    [message] = broker.published
+    assert errors(schema_name(type(message.payload)), json.loads(message.model_dump_json())) == []
+    assert establishment.judge.judged == []
+    [warning] = [r for r in caplog.records if r.name == "normetry_ai.inspection.worker"]
+    assert gone in warning.getMessage() and kept not in warning.getMessage()
 
 
 @pytest.mark.integration

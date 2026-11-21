@@ -21,7 +21,7 @@ from sqlalchemy import Engine, text
 
 from normetry_ai.db import tenant_transaction
 from normetry_ai.inspection import graph
-from normetry_ai.inspection.checklist import ChecklistItem
+from normetry_ai.inspection.checklist import ChecklistItem, items_for
 from normetry_ai.inspection.checkpoints import TenantCheckpointSaver
 from normetry_ai.inspection.judge import JudgeModel, evidence_query, regulation_chunks
 from normetry_ai.llm.embeddings import Embedder
@@ -53,6 +53,10 @@ _HAS_DOCUMENTS = text(
 )
 NO_DOCUMENTS = "The establishment has no indexed document to use as evidence."
 BUDGET_EXCEEDED = "The inspection stopped before a model call that could pass its token ceiling."
+CORPUS_INCOMPLETE = (
+    "The regulation corpus lacks sections this inspection's checklist cites. An operator must "
+    "re-run corpus-ingest, then the inspection can be run again."
+)
 
 
 class InspectionMismatch(ValueError):
@@ -96,9 +100,11 @@ class InspectionWorker:
         """The inspection's result: its findings, or its failure (`budget_exceeded`,
         `no_documents`). Publishes InspectionStarted, then an InspectionProgressed after each item
         evaluated, through `publish`; a finished inspection publishes nothing and returns its
-        stored result. Raises InspectionMismatch when the inspection's checkpoints are for
-        another establishment; raises on anything else, for the consumer to retry: the next
-        delivery resumes from the last checkpoint."""
+        stored result. Fails `error` (CORPUS_INCOMPLETE) before any model call when a section the
+        checklist cites has no corpus chunk in the establishment's corpus version: a corpus
+        ingested before a parser fix, which only `corpus-ingest` mends. Raises InspectionMismatch
+        when the inspection's checkpoints are for another establishment; raises on anything else,
+        for the consumer to retry: the next delivery resumes from the last checkpoint."""
         saver = TenantCheckpointSaver(self.engine, tenant_id)
         saved = await _saved_for(saver, request)
         if saved.finished:
@@ -110,6 +116,10 @@ class InspectionWorker:
         if not documents:
             self._log("has no documents", tenant_id, request)
             return _no_documents(request)
+        missing = await anyio.to_thread.run_sync(self._missing_sections, tenant_id, request)
+        if missing:
+            self._log_missing_sections(tenant_id, request, missing)
+            return _corpus_incomplete(request)
         began = time.perf_counter()
         saved = await self._run_graph(saver, tenant_id, request, saved, publish)
         result = self._result(request, saved)
@@ -152,6 +162,21 @@ class InspectionWorker:
         with tenant_transaction(self.engine, tenant_id) as connection:
             params = {"establishment_id": establishment_id}
             return connection.execute(_HAS_DOCUMENTS, params).scalar_one()
+
+    def _missing_sections(self, tenant_id: UUID, request: InspectionRequested) -> list[str]:
+        """The section paths the request's checklist items cite that have no corpus chunk in the
+        corpus version `regulation_chunks` reads for the establishment."""
+        cited = {
+            path
+            for items in items_for(request.jurisdiction, request.establishment_type).values()
+            for item in items
+            for path in item.section_paths
+        }
+        with tenant_transaction(self.engine, tenant_id) as connection:
+            chunks = regulation_chunks(
+                connection, request.establishment_id, request.jurisdiction, sorted(cited)
+            )
+        return sorted(cited - {chunk.section_path for chunk in chunks})
 
     def _excerpts(
         self, tenant_id: UUID, request: InspectionRequested, item: ChecklistItem
@@ -206,6 +231,21 @@ class InspectionWorker:
             extra={"tenant_id": str(tenant_id)},
         )
 
+    @staticmethod
+    def _log_missing_sections(
+        tenant_id: UUID, request: InspectionRequested, missing: list[str]
+    ) -> None:
+        # Public corpus section paths: no tenant text.
+        logger.warning(
+            "Inspection %s of tenant %s failed: no corpus chunk for %d checklist sections (%s); "
+            "re-run corpus-ingest",
+            request.inspection_id,
+            tenant_id,
+            len(missing),
+            ", ".join(missing),
+            extra={"tenant_id": str(tenant_id)},
+        )
+
     @classmethod
     def _log_run(
         cls,
@@ -243,6 +283,14 @@ def _no_documents(request: InspectionRequested) -> InspectionFailed:
         **_inspection_ids(request),
         reason_code=InspectionFailureReason.NO_DOCUMENTS,
         reason_text=NO_DOCUMENTS,
+    )
+
+
+def _corpus_incomplete(request: InspectionRequested) -> InspectionFailed:
+    return InspectionFailed(
+        **_inspection_ids(request),
+        reason_code=InspectionFailureReason.ERROR,
+        reason_text=CORPUS_INCOMPLETE,
     )
 
 
