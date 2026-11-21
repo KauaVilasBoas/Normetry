@@ -91,7 +91,7 @@ The body is authoritative. The AMQP properties and headers below repeat or add t
 |---|---|
 | `budget_exceeded` | the next model call could pass `tokenCeiling`; no partial findings are sent |
 | `no_documents` | the establishment has no indexed document to use as evidence |
-| `error` | anything else, after the last retry failed |
+| `error` | anything else, after the last retry failed; at once, with no retry, when the regulation corpus lacks a section the checklist cites (it needs a `corpus-ingest` run) |
 
 As for documents, the core's own "timed out" is not a code here.
 
