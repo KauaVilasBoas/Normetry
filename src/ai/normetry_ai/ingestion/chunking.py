@@ -1,14 +1,16 @@
 """Cut parsed sections into chunks: one per section, split only when a section is too long.
 
-A chunk never crosses a section, so it keeps its `section_path`. A long section is cut at sentence
-ends first, then at `;` or `,`, then at spaces, and the pieces are packed into chunks of similar
-size. Joining a section's chunks with single spaces gives the section text back: every sentence
-lives whole in exactly one chunk, so there is no overlap to deduplicate at retrieval time.
+A chunk never crosses a section, so it keeps its `section_path`, and its `position_in_section`
+(0, 1, ...) says where it falls in it. A long section is cut at sentence ends first, then at `;`
+or `,`, then at spaces, and the pieces are packed into chunks of similar size. Joining a section's
+chunks with single spaces, in position order, gives the section text back: every sentence lives
+whole in exactly one chunk, so there is no overlap to deduplicate at retrieval time.
 """
 
 import hashlib
 import math
 import re
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Protocol
@@ -46,6 +48,7 @@ class Chunk:
     section_path: str
     content: str
     content_hash: str
+    position_in_section: int
 
 
 def split_text(text: str, limit: int = CHUNK_LIMIT, level: int = 0) -> list[str]:
@@ -78,10 +81,16 @@ def content_hash(section_path: str, content: str) -> str:
 
 
 def chunk_sections(sections: Iterable[Section], limit: int = CHUNK_LIMIT) -> list[Chunk]:
-    """The chunks of a source's sections, in document order, without duplicates."""
+    """The chunks of a source's sections, in document order, without duplicates. Positions count
+    the kept chunks of each section path, so a path that comes back later (two DOCX headings with
+    the same title) carries on from where it stopped."""
     chunks: dict[str, Chunk] = {}
+    positions: Counter[str] = Counter()
     for section in sections:
         for content in split_text(section.text, limit):
             digest = content_hash(section.section_path, content)
-            chunks.setdefault(digest, Chunk(section.section_path, content, digest))
+            if digest not in chunks:
+                position = positions[section.section_path]
+                chunks[digest] = Chunk(section.section_path, content, digest, position)
+                positions[section.section_path] += 1
     return list(chunks.values())

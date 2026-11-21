@@ -103,7 +103,8 @@ _DOCUMENT_LANGUAGE = text(
 # Corpus rows only (tenant_id IS NULL, so the corpus index applies and a tenant chunk with the
 # same section path never comes back), in the versions corpus_versions picks, joined to
 # ai.sources on all three foreign key columns ("Retrieval under RLS" in src/ai/CLAUDE.md). In the
-# item's section order; a section's chunks have no stored order, so by id for determinism.
+# item's section order, then each section's chunks in text order (a section over CHUNK_LIMIT is
+# several chunks), with the id as tie-break for rows stored before positions were (all at 0).
 _REGULATION_CHUNKS = text(
     """
     SELECT c.id, c.content, c.section_path, c.language, c.jurisdiction, c.source_id,
@@ -115,7 +116,8 @@ _REGULATION_CHUNKS = text(
       AND (c.jurisdiction, c.language) IN (
           SELECT * FROM unnest(CAST(:jurisdictions AS text[]), CAST(:languages AS text[])))
       AND c.section_path = ANY(CAST(:section_paths AS text[]))
-    ORDER BY array_position(CAST(:section_paths AS text[]), c.section_path), c.id
+    ORDER BY array_position(CAST(:section_paths AS text[]), c.section_path),
+             c.position_in_section, c.id
     """
 )
 

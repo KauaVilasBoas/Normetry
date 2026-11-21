@@ -66,3 +66,21 @@ def test_chunk_sections_keeps_paths_hashes_location_and_text_and_drops_duplicate
     assert [chunk.section_path for chunk in chunks] == ["3-501.16", "3-501.17"]
     assert chunks[0].content_hash == content_hash("3-501.16", "Hot and cold holding.")
     assert chunks[0].content_hash != chunks[1].content_hash
+
+
+def test_chunk_sections_numbers_each_sections_chunks_in_order() -> None:
+    long = " ".join(f"Paragraph {n} sets a requirement." for n in range(12))
+    chunks = chunk_sections(
+        [
+            section("4-501.114", long),
+            section("4-501.115", "Short."),
+            section("4-501.114", "Heading again."),  # a path that comes back carries on
+        ],
+        limit=100,
+    )
+
+    split = [chunk for chunk in chunks if chunk.section_path == "4-501.114"]
+    assert len(split) > 2
+    assert [chunk.position_in_section for chunk in split] == list(range(len(split)))
+    assert " ".join(chunk.content for chunk in split[:-1]) == long
+    assert [c.position_in_section for c in chunks if c.section_path == "4-501.115"] == [0]

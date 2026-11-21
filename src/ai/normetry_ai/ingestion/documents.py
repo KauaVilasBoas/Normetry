@@ -118,9 +118,11 @@ _ENSURE_DOCUMENT = text(
 _INSERT_CHUNK = text(
     """
     INSERT INTO ai.chunks (tenant_id, source_type, source_id, source_version, language,
-                           section_path, content, content_hash, embedding, metadata)
+                           section_path, position_in_section, content, content_hash, embedding,
+                           metadata)
     VALUES (:tenant_id, 'tenant_document', :document_id, :version, :language, :section_path,
-            :content, :content_hash, CAST(:embedding AS public.vector), CAST(:metadata AS jsonb))
+            :position_in_section, :content, :content_hash, CAST(:embedding AS public.vector),
+            CAST(:metadata AS jsonb))
     ON CONFLICT ON CONSTRAINT chunks_source_content_key DO NOTHING
     """
 )
@@ -322,6 +324,7 @@ class DocumentWorker:
                 **version,
                 "language": language,
                 "section_path": chunk.section_path or None,
+                "position_in_section": chunk.position_in_section,
                 "content": chunk.content,
                 "content_hash": chunk.content_hash,
                 "embedding": vector_literal(vector),
