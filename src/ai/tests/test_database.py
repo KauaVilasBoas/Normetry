@@ -812,6 +812,22 @@ def test_a_new_source_version_replaces_its_chunks(corpus: Engine, app_ai: Engine
         assert connection.execute(tenant_row).one() == tenant_before  # untouched
 
 
+def test_a_parser_fix_at_the_same_version_replaces_the_sources_chunks(corpus: Engine) -> None:
+    # The FDA three-digit fix: what was one section is now two, at the same manifest version.
+    source = manifest_source()
+    ingest_source(corpus, source, sections(source, "Pests. Shellfish tanks."), FakeEmbedder())
+
+    fixed = sections(source, "Pests.", "Shellfish tanks.")
+    result = ingest_source(corpus, source, fixed, FakeEmbedder())
+
+    after = stored(corpus, source["id"])
+    assert (result.status, after["source"][3]) == ("updated", 1)  # same version: same revision
+    assert {chunk[2:5] for chunk in after["chunks"]} == {
+        (1, "Article 1", "Pests."),
+        (1, "Article 2", "Shellfish tanks."),
+    }
+
+
 def test_another_embedding_model_re_embeds_the_source(corpus: Engine) -> None:
     source = manifest_source()
     parsed = sections(source, "First article.", "Second article.")

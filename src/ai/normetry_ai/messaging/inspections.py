@@ -94,10 +94,10 @@ async def handle(body: bytes, delivery_count: int, worker: Worker, publish: Publ
     A body that breaks the contract, or a message this queue does not take, is dead-lettered at
     once, and so is a request whose inspection id already has checkpoints for another
     establishment (`InspectionMismatch`), with nothing published. The inspection's result
-    (completed, or failed `budget_exceeded` or `no_documents`) is published and the message
-    acknowledged. Any other error waits while the database is
-    unreachable (`wait`) and is retried otherwise; the last delivery publishes InspectionFailed
-    (`error`) first, so the core does not wait for its timeout.
+    (completed, or failed `budget_exceeded`, `no_documents`, or `error` for a corpus missing a
+    checklist section) is published and the message acknowledged. Any other error waits while
+    the database is unreachable (`wait`) and is retried otherwise; the last delivery publishes
+    InspectionFailed (`error`) first, so the core does not wait for its timeout.
     """
 
     async def process(message: Envelope[Any]) -> Action:
