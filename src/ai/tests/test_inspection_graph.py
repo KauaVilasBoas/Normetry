@@ -365,7 +365,7 @@ def stub_regulation(corpus: Engine, items: Sequence[ChecklistItem]) -> None:
 
 
 def ingest_bakery(engine: Engine, embedder: Embedder, tenant: UUID, establishment: UUID) -> None:
-    """Index Bakery Austin's nine synthetic documents as the consumer would."""
+    """Index Bakery Austin's synthetic documents as the consumer would."""
     blobs = FakeContainer()
     worker = DocumentWorker(engine, embedder, BlobStore(blobs))
     manifest = json.loads((BAKERY / "manifest.json").read_text(encoding="utf-8"))
