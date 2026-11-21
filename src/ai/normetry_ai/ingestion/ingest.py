@@ -3,10 +3,12 @@
     uv run python -m normetry_ai.ingestion.ingest    # needs NORMETRY_CORPUS_DATABASE_URL
 
 For each source in corpus/manifest.json: parse its sections, chunk them, embed the chunks the
-database does not hold yet, and write. A source whose registry row and chunk hashes already match
-is left untouched, so a second run changes nothing and loads no model. Otherwise one transaction
-updates the source and replaces all its chunks, reusing the stored embedding of every unchanged
-chunk; a new manifest version also bumps the source's revision (the chunks' source_version).
+database does not hold yet, and write. A source whose registry row, chunk hashes and chunk
+positions already match is left untouched, so a second run changes nothing and loads no model.
+Otherwise one transaction updates the source and replaces all its chunks, reusing the stored
+embedding of every unchanged chunk; a new manifest version also bumps the source's revision (the
+chunks' source_version). A parser fix at the same version changes the hashes, and chunks stored
+before positions were (all at 0) differ in position, so both are rewritten.
 """
 
 import argparse
@@ -43,9 +45,9 @@ _SELECT_SOURCE = text(
     """
 )
 # Embeddings stay in pgvector's text form: read back and written again without parsing.
-_SELECT_EMBEDDINGS = text(
+_SELECT_STORED_CHUNKS = text(
     """
-    SELECT content_hash, embedding::text FROM ai.chunks
+    SELECT content_hash, embedding::text AS embedding, position_in_section FROM ai.chunks
     WHERE tenant_id IS NULL AND source_id = :source_id
       AND metadata ->> 'embedding_model' = :embedding_model
     """
@@ -70,10 +72,11 @@ _DELETE_CHUNKS = text("DELETE FROM ai.chunks WHERE tenant_id IS NULL AND source_
 _INSERT_CHUNK = text(
     """
     INSERT INTO ai.chunks (tenant_id, source_type, source_id, source_version, jurisdiction,
-                           language, section_path, content, content_hash, embedding, metadata)
+                           language, section_path, position_in_section, content, content_hash,
+                           embedding, metadata)
     VALUES (NULL, 'regulation', :source_id, :source_version, :jurisdiction, :language,
-            :section_path, :content, :content_hash, CAST(:embedding AS public.vector),
-            CAST(:metadata AS jsonb))
+            :section_path, :position_in_section, :content, :content_hash,
+            CAST(:embedding AS public.vector), CAST(:metadata AS jsonb))
     ON CONFLICT ON CONSTRAINT chunks_source_content_key DO NOTHING
     """
 )
@@ -101,10 +104,11 @@ def ingest_source(
 
     with engine.begin() as connection:
         row = connection.execute(_SELECT_SOURCE, {"manifest_id": source["id"]}).one_or_none()
-        stored: dict[str, str] = {}
+        stored_chunks = []
         if row is not None:
             params = {"source_id": row.id, "embedding_model": embedder.name}
-            stored = dict(connection.execute(_SELECT_EMBEDDINGS, params).all())
+            stored_chunks = connection.execute(_SELECT_STORED_CHUNKS, params).all()
+    stored = {chunk.content_hash: chunk.embedding for chunk in stored_chunks}
 
     def result(status: str, embedded: int = 0) -> SourceResult:
         elapsed = time.perf_counter() - started
@@ -113,7 +117,8 @@ def ingest_source(
     if (
         row is not None
         and {column: getattr(row, column) for column in _REGISTRY} == registry
-        and stored.keys() == {chunk.content_hash for chunk in chunks}
+        and {(chunk.content_hash, chunk.position_in_section) for chunk in stored_chunks}
+        == {(chunk.content_hash, chunk.position_in_section) for chunk in chunks}
     ):
         return result("unchanged")
 
@@ -145,6 +150,7 @@ def ingest_source(
                     "jurisdiction": source["jurisdiction"],
                     "language": source["language"],
                     "section_path": chunk.section_path,
+                    "position_in_section": chunk.position_in_section,
                     "content": chunk.content,
                     "content_hash": chunk.content_hash,
                     "embedding": embeddings[chunk.content_hash],

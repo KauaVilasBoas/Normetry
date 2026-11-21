@@ -604,6 +604,46 @@ def test_a_tenant_chunk_with_the_section_path_is_not_regulation_text(
 
 
 @pytest.mark.integration
+def test_a_long_sections_chunks_come_in_text_order(app_ai: Engine, corpus: Engine) -> None:
+    path, tenant = f"test-{uuid4()}", uuid4()
+    # Ids in the reverse of text order: ordered by id alone, the section would read backwards.
+    ids = sorted((uuid4() for _ in range(3)), reverse=True)
+    with corpus.begin() as connection:
+        params = {"manifest_id": f"test-{uuid4()}", "jurisdiction": "US", "language": "en"}
+        source = connection.execute(INSERT_SOURCE, {**params, "title": "US en"}).scalar_one()
+        connection.execute(
+            text(
+                """
+                INSERT INTO ai.chunks (id, tenant_id, source_type, source_id, source_version,
+                                       jurisdiction, language, section_path, position_in_section,
+                                       content, content_hash)
+                VALUES (:id, NULL, 'regulation', :source_id, 1, 'US', 'en', :path, :position,
+                        :content, :content_hash)
+                """
+            ),
+            [
+                {
+                    "id": chunk_id,
+                    "source_id": source,
+                    "path": path,
+                    "position": position,
+                    "content": f"Paragraph {position} of the section.",
+                    "content_hash": uuid4().hex,
+                }
+                for position, chunk_id in enumerate(ids)
+            ],
+        )
+    establishment = establishment_with(app_ai, tenant, [])
+
+    with tenant_transaction(app_ai, tenant) as connection:
+        chunks = regulation_chunks(connection, establishment, "US", [path])
+
+    assert [chunk.content for chunk in chunks] == [
+        f"Paragraph {position} of the section." for position in range(3)
+    ]
+
+
+@pytest.mark.integration
 def test_regulation_text_needs_a_tenant_transaction(app_ai: Engine) -> None:
     with app_ai.begin() as connection, pytest.raises(RuntimeError):
         regulation_chunks(connection, uuid4(), "US", ["3-501.16"])

@@ -734,7 +734,7 @@ def stored(engine: Engine, manifest_id: str) -> dict[str, object]:
             text(
                 """
                 SELECT id, xmin::text, source_version, section_path, content,
-                       embedding::text AS embedding
+                       embedding::text AS embedding, position_in_section
                 FROM ai.chunks WHERE tenant_id IS NULL AND source_id = :source_id
                 """
             ),
@@ -826,6 +826,47 @@ def test_a_parser_fix_at_the_same_version_replaces_the_sources_chunks(corpus: En
         (1, "Article 1", "Pests."),
         (1, "Article 2", "Shellfish tanks."),
     }
+
+
+def test_chunks_stored_before_positions_are_rewritten_in_text_order(corpus: Engine) -> None:
+    source = manifest_source()
+    parsed = sections(source, LONG_ARTICLE)
+    ingest_source(corpus, source, parsed, FakeEmbedder())
+    # As the migration left them: every chunk of the split article at position 0.
+    with corpus.begin() as connection:
+        rows = connection.execute(
+            text(
+                """
+                DELETE FROM ai.chunks WHERE tenant_id IS NULL AND source_id = :source_id
+                RETURNING source_id, source_version, jurisdiction, language, section_path,
+                          content, content_hash, embedding::text AS embedding,
+                          metadata::text AS metadata
+                """
+            ),
+            {"source_id": stored(corpus, source["id"])["source"][0]},
+        ).mappings()
+        connection.execute(
+            text(
+                """
+                INSERT INTO ai.chunks (tenant_id, source_type, source_id, source_version,
+                                       jurisdiction, language, section_path, content,
+                                       content_hash, embedding, metadata)
+                VALUES (NULL, 'regulation', :source_id, :source_version, :jurisdiction,
+                        :language, :section_path, :content, :content_hash,
+                        CAST(:embedding AS public.vector), CAST(:metadata AS jsonb))
+                """
+            ),
+            [dict(row) for row in rows],
+        )
+    embedder = FakeEmbedder()
+
+    result = ingest_source(corpus, source, parsed, embedder)
+
+    assert (result.status, embedder.embedded) == ("updated", [])  # embeddings reused
+    positions = {chunk[4]: chunk[6] for chunk in stored(corpus, source["id"])["chunks"]}
+    contents = [chunk.content for chunk in chunk_sections(parsed)]
+    assert len(contents) > 1  # the long article is split
+    assert [positions[content] for content in contents] == list(range(len(contents)))
 
 
 def test_another_embedding_model_re_embeds_the_source(corpus: Engine) -> None:

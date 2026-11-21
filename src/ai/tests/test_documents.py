@@ -306,6 +306,23 @@ def test_a_version_is_stored_as_tenant_chunks_with_its_result(
 
 
 @integration
+def test_a_long_section_keeps_its_chunks_positions_in_text_order(docs: Docs) -> None:
+    tenant, document = uuid4(), uuid4()
+    body = " ".join(f"Reading {n} was taken at the walk-in cooler." for n in range(80))
+    docs.ingest(tenant, docs.upload(tenant, document, 1, body.encode(), TXT))
+    query = text(
+        "SELECT position_in_section, content FROM ai.chunks WHERE source_id = :document"
+        " ORDER BY position_in_section"
+    )
+    with tenant_transaction(docs.engine, tenant) as connection:
+        rows = connection.execute(query, {"document": document}).all()
+
+    assert len(rows) > 1
+    assert [position for position, _ in rows] == list(range(len(rows)))
+    assert " ".join(content for _, content in rows) == body
+
+
+@integration
 def test_a_new_version_replaces_the_previous_versions_chunks(docs: Docs) -> None:
     tenant, document = uuid4(), uuid4()
     docs.ingest(tenant, docs.upload(tenant, document, 1, b"Version one of the cold holding SOP."))
