@@ -150,11 +150,12 @@ def test_fda_keeps_chapters_1_to_8_only() -> None:
 
 def test_fda_three_digit_sections_follow_their_subpart_in_document_order() -> None:
     sections = texts(FDA)
-    paths = list(sections)
+    # From the parsed list, not the dict: a section path parsed twice would collapse in it.
+    paths = [section.section_path for section in _parse(FDA)]
 
     # "6-501.19" < "6-501.110": the number after the point counts up, not as a decimal.
     assert paths == sorted(paths, key=lambda path: [int(n) for n in re.split(r"[-.]", path)])
-    assert len(paths) == 404
+    assert len(paths) == len(set(paths)) == 404
     assert "Controlling Pests" not in sections["6-501.19"]
     assert "Molluscan Shellfish Tanks" not in sections["4-204.19"]
     # A cross-reference wrapped onto its own line ("as specified under § 4-204.122.") is no heading.
