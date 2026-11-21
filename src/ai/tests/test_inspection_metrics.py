@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
+import pytest
 from conftest import AI_DIR
 from fakes import EchoJudge
 from langgraph.checkpoint.memory import InMemorySaver
@@ -248,20 +249,16 @@ def on_the_report(item_id: str, verdict: str, quote: str) -> dict[str, Any]:
     return found
 
 
-def test_a_near_miss_judged_compliant_or_non_compliant_on_its_quote_is_accepted() -> None:
+def test_a_near_miss_judged_compliant_or_non_compliant_on_its_lure_is_accepted() -> None:
     backflow, device = NEAR_MISS
-    _, address = (entry["quote"] for entry in NEAR_MISS[device])  # the pass, the service address
+    lure, _ = (entry["quote"] for entry in NEAR_MISS[device])  # the pass, the service address
     inspection = run(
         perfect(
-            # A part of the recorded passage, and a longer passage around one.
+            # A part of the recorded lure, and a longer passage around it.
             stored(backflow, on_the_report(backflow, "compliant", "passed all three checks")),
             stored(
                 device,
-                on_the_report(
-                    device,
-                    "non_compliant",
-                    f"1207 Mesquite Bend Road, Suite B, Austin, Texas {address} Assembly type",
-                ),
+                on_the_report(device, "non_compliant", f"Assembly type RP. {lure} Next test"),
             ),
         )
     )
@@ -271,7 +268,7 @@ def test_a_near_miss_judged_compliant_or_non_compliant_on_its_quote_is_accepted(
             "item": item_id,
             "kinds": ["site"],
             "outcome": outcome,
-            "cites_near_miss": True,
+            "cites_lure": True,
             "accepted": True,
         }
         for item_id, outcome in ((backflow, "compliant"), (device, "non_compliant"))
@@ -279,10 +276,10 @@ def test_a_near_miss_judged_compliant_or_non_compliant_on_its_quote_is_accepted(
     assert metrics([inspection])["near misses accepted"] == (2, 2)
     report = render([inspection], "m", [])
     assert (
-        "| Near misses accepted: judged compliant, or non_compliant on a near-miss quote"
+        "| Near misses accepted: judged compliant, or non_compliant on a near-miss lure"
         " | 2/2 (100%) | set from the first run |"
     ) in report
-    assert f"- {backflow} (site): compliant, cites the near miss, **accepted**" in report
+    assert f"- {backflow} (site): compliant, cites the lure, **accepted**" in report
     assert (
         f"| {device} (near miss) | major | insufficient_evidence | non_compliant | no |" in report
     )
@@ -293,15 +290,22 @@ def test_a_near_miss_judged_compliant_or_non_compliant_on_its_quote_is_accepted(
     assert record["near_miss_accepted"] is True
 
 
-def test_a_near_miss_missed_on_other_text_is_not_accepted_and_one_not_run_is_left_out() -> None:
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Next annual test due: March 2027.",  # a passage that is no near-miss quote
+        # The tell: a judge that saw the other address and overreached, not one fooled by it.
+        "Service address (location of the assembly) 880 Cedar Elm Street, Building 2",
+    ],
+    ids=["other-text", "tell"],
+)
+def test_a_near_miss_not_judged_on_its_lure_is_not_accepted_and_one_not_run_is_left_out(
+    quote: str,
+) -> None:
     backflow, device = NEAR_MISS
     inspection = run(
         perfect(
-            # Wrong, but on a passage of the report that is not a near-miss quote.
-            stored(
-                backflow,
-                on_the_report(backflow, "non_compliant", "Next annual test due: March 2027."),
-            ),
+            stored(backflow, on_the_report(backflow, "non_compliant", quote)),
             stored(device, None, called=False, stopped=True),
         )
     )
@@ -311,7 +315,7 @@ def test_a_near_miss_missed_on_other_text_is_not_accepted_and_one_not_run_is_lef
             "item": backflow,
             "kinds": ["site"],
             "outcome": "non_compliant",
-            "cites_near_miss": False,
+            "cites_lure": False,
             "accepted": False,
         }
     ]

@@ -27,6 +27,9 @@ TYPES = {"Sop", "License", "Log", "Report", "Other"}
 VERDICTS = {"compliant", "non_compliant", "insufficient_evidence"}
 # How a near-miss document misses its item: wrong date range, wrong site, wrong device or area.
 NEAR_MISS_KINDS = {"period", "site", "scope"}
+# A near-miss passage either makes the document look like evidence (lure) or gives the miss away
+# (tell); only a lure quoted for non_compliant counts as the near miss accepted.
+NEAR_MISS_ROLES = {"lure", "tell"}
 CONTENT_TYPES = {".pdf": PDF, ".docx": DOCX, ".txt": TXT, ".csv": CSV}
 DISCLAIMERS = ("Documento fictício para demonstração", "Fictional document for demonstration")
 
@@ -185,6 +188,13 @@ def test_at_least_one_item_is_a_near_miss_lacking_evidence_with_its_quotes_in_th
             for entry in entries
             if entry.get("kind") not in NEAR_MISS_KINDS
         ]
+        problems += [
+            f"{item}: near-miss role {entry.get('role')!r} is not lure or tell"
+            for entry in entries
+            if entry.get("role") not in NEAR_MISS_ROLES
+        ]
+        if not any(entry.get("role") == "lure" for entry in entries):
+            problems.append(f"{item}: no lure, the passage that looks like evidence")
         problems += _quote_problems(item, entries, folder)
 
     assert near_misses

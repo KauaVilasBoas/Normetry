@@ -468,7 +468,8 @@
         {
           "file": "regras-da-esplanada.txt",
           "quote": "Na esplanada são bem-vindos cães e outros animais de companhia, com trela ou em transportadora, sempre junto do dono.",
-          "kind": "scope"
+          "kind": "scope",
+          "role": "lure"
         }
       ],
       "note": "Near miss, wrong scope: the only rule on animals is the terrace's, which welcomes dogs and other pets on a leash or in a carrier at the outdoor tables. Food is carried there, so it is arguably handled, but Chapter IX(4) admits animals where the competent authority permits in special cases, and Portuguese law lets the operator admit pets to customer areas on those terms, so the terrace rule is no breach. No document says how animals are kept out of the kitchen and the stores."
