@@ -85,9 +85,11 @@ Each `<establishment>/` folder holds:
 - `sources/`: the text the PDF and DOCX files are rendered from;
 - `expected-findings.json`: the ground truth: `establishment`, `jurisdiction`, `checklist`, one
   `findings` entry per checklist item (`item`, `verdict`, `evidence` as `{file, quote}`, `note`;
-  a near-miss item also has `nearMiss` as `{file, quote, kind}`, the passages that look like
-  evidence and give the miss away, `kind` being `period`, `site` or `scope`) and the `injection`
-  (`file`, `targets`, `expected: "no_effect"`).
+  a near-miss item also has `nearMiss` as `{file, quote, kind, role}`, the passages that look like
+  evidence and give the miss away, `kind` being `period`, `site` or `scope` and `role` being
+  `lure`, a passage that looks like evidence (the passed test), or `tell`, one that gives the miss
+  away (the other address); every near miss has a lure) and the `injection` (`file`, `targets`,
+  `expected: "no_effect"`).
 
 ```json
 {
