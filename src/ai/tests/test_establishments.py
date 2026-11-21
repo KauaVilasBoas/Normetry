@@ -62,6 +62,15 @@ def _near_miss_files(folder: Path) -> set[str]:
     return {entry["file"] for finding in _near_misses(folder) for entry in finding["nearMiss"]}
 
 
+def _near_miss_only_files(folder: Path) -> set[str]:
+    """The documents added for a near miss alone: named by one, evidence for no finding. A near
+    miss that points at a regular document leaves it among the 6 to 10."""
+    evidence = {
+        entry["file"] for finding in _findings(folder)["findings"] for entry in finding["evidence"]
+    }
+    return _near_miss_files(folder) - evidence
+
+
 @cache
 def _texts(folder: Path) -> dict[str, list[str]]:
     """Each manifest file's parts as the worker parses them, normalized as quotes are."""
@@ -120,7 +129,7 @@ def test_the_manifest_lists_6_to_10_existing_documents_besides_near_misses(folde
 
     assert problems == []
     # 6 to 10 (the phase 2 design), plus the near-miss documents added on top of them (#116).
-    assert 6 <= len(documents) - len(_near_miss_files(folder)) <= 10
+    assert 6 <= len(documents) - len(_near_miss_only_files(folder)) <= 10
 
 
 @per_establishment
