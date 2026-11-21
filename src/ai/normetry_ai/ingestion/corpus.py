@@ -11,7 +11,8 @@ Only the parts the phase 1 design makes citable are kept:
 - RDC 216/2004: the Technical Regulation in the annex, one section per item ("4.8.15"). The
   resolution's preamble articles stay out.
 
-The files must match the manifest's SHA-256 (fetch them with corpus/scripts/fetch_corpus.py).
+The files must match the manifest's SHA-256 (fetch them with corpus/scripts/fetch_corpus.py), an
+HTML page once stripped of its daily cache-busting link suffixes, as the fetch script stores it.
 """
 
 import argparse
@@ -30,6 +31,10 @@ from normetry_ai.ingestion.normalize import normalize_text
 
 CORPUS_DIR = Path(__file__).resolve().parents[4] / "corpus"
 DEFAULT_OUTPUT = Path(__file__).resolve().parents[2] / ".data" / "corpus-sections.jsonl"
+# AnvisaLegis stamps the day's date on every link of its page (`main.css?20261120"`). The pinned
+# copy has none: corpus/scripts/fetch_corpus.py strips them with this pattern (CACHE_BUSTER), and
+# a page fetched before it did still has them. tests/test_corpus.py holds the two to one result.
+_CACHE_BUSTER = re.compile(rb"\?\d{8}(?=[\"'])")
 
 
 @dataclass(frozen=True)
@@ -231,7 +236,7 @@ def parse_source(source: dict, corpus_dir: Path = CORPUS_DIR) -> list[Section]:
     not match the manifest.
     """
     path = corpus_dir / source["jurisdiction"].lower() / source["code"] / source["version"]
-    data = (path / source["file"]).read_bytes()
+    data = _pinned_bytes(path / source["file"])
     if hashlib.sha256(data).hexdigest() != source["sha256"]:
         raise ValueError(
             f"{source['file']} does not match the manifest's SHA-256. "
@@ -255,6 +260,12 @@ def parse_source(source: dict, corpus_dir: Path = CORPUS_DIR) -> list[Section]:
             )
         )
     return sections
+
+
+def _pinned_bytes(file: Path) -> bytes:
+    """The file as the manifest pins it: an HTML page without its cache-busting suffixes."""
+    data = file.read_bytes()
+    return _CACHE_BUSTER.sub(b"", data) if file.suffix == ".html" else data
 
 
 def parse_corpus(corpus_dir: Path = CORPUS_DIR) -> list[Section]:

@@ -13,7 +13,9 @@ matches the manifest is skipped, so running the script twice changes nothing.
 
 An HTML page is stored without its cache-busting `?YYYYMMDD` link suffixes: AnvisaLegis stamps
 the current date on every stylesheet, script and image link, so the raw page changes daily
-while the text does not.
+while the text does not. Local files are hashed the same way, so a page fetched before the
+suffixes were stripped still matches; it is rewritten without them (with --verify too).
+src/ai/normetry_ai/ingestion/corpus.py strips them with the same pattern before its own check.
 """
 
 import argparse
@@ -42,6 +44,20 @@ def without_cache_busters(path: Path, data: bytes) -> bytes:
     return CACHE_BUSTER.sub(b"", data) if path.suffix == ".html" else data
 
 
+def local_copy_is_pinned(path: Path, sha256: str) -> bool:
+    """Whether the local file, stripped of cache busters, has the manifest's hash. A copy that
+    still carries them is rewritten stripped, so every reader of the file sees the pinned bytes."""
+    if not path.exists():
+        return False
+    data = path.read_bytes()
+    pinned = without_cache_busters(path, data)
+    if hashlib.sha256(pinned).hexdigest() != sha256:
+        return False
+    if pinned != data:
+        path.write_bytes(pinned)
+    return True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     mode = parser.add_mutually_exclusive_group()
@@ -55,7 +71,7 @@ def main() -> int:
         for source in manifest["sources"]:
             path = local_path(source)
             rel = path.relative_to(CORPUS).as_posix()
-            if path.exists() and hashlib.sha256(path.read_bytes()).hexdigest() == source["sha256"]:
+            if local_copy_is_pinned(path, source["sha256"]):
                 print(f"unchanged   {rel}")
                 continue
             if args.verify:
