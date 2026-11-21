@@ -4,14 +4,18 @@ The FDA and Anvisa files are not in git: fetch them with `uv run corpus/scripts/
 from the repository root. Without them these tests are skipped locally; in CI (`CI` set) they fail.
 """
 
+import importlib.util
+import json
 import os
 import re
+import sys
 from functools import cache
+from pathlib import Path
 
 import pytest
 
 from normetry_ai.ingestion.chunking import CHUNK_LIMIT, chunk_sections
-from normetry_ai.ingestion.corpus import Section, load_manifest, parse_source
+from normetry_ai.ingestion.corpus import CORPUS_DIR, Section, load_manifest, parse_source
 from normetry_ai.ingestion.normalize import normalize_text
 
 FDA = "us-fda-food-code-2026"
@@ -234,3 +238,34 @@ def test_a_file_that_does_not_match_the_manifest_is_refused() -> None:
 
     with pytest.raises(ValueError, match="SHA-256"):
         parse_source({**source, "sha256": "0" * 64})
+
+
+def test_a_page_fetched_before_the_cache_busters_were_stripped_is_still_the_pinned_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sections = _parse(RDC)  # skipped when the corpus is not fetched
+    source = next(source for source in load_manifest() if source["id"] == RDC)
+    relative = Path(source["jurisdiction"].lower(), source["code"], source["version"])
+    pinned = (CORPUS_DIR / relative / source["file"]).read_bytes()
+    stamped = pinned.replace(b'.css"', b'.css?20261113"').replace(b'.js"', b'.js?20261113"')
+    old_copy = tmp_path / relative / source["file"]
+    old_copy.parent.mkdir(parents=True)
+    old_copy.write_bytes(stamped)
+    (tmp_path / "manifest.json").write_text(json.dumps({"sources": [source]}), encoding="utf-8")
+
+    assert stamped != pinned
+    assert tuple(parse_source(source, tmp_path)) == sections
+
+    # The fetch script, offline (--verify): the copy passes and is rewritten as pinned.
+    spec = importlib.util.spec_from_file_location(
+        "fetch_corpus", CORPUS_DIR / "scripts" / "fetch_corpus.py"
+    )
+    assert spec is not None and spec.loader is not None
+    fetch = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fetch)
+    monkeypatch.setattr(fetch, "CORPUS", tmp_path)
+    monkeypatch.setattr(fetch, "MANIFEST", tmp_path / "manifest.json")
+    monkeypatch.setattr(sys, "argv", ["fetch_corpus.py", "--verify"])
+
+    assert fetch.main() == 0
+    assert old_copy.read_bytes() == pinned
