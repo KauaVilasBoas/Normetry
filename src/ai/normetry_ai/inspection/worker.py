@@ -110,11 +110,11 @@ class InspectionWorker:
         )
         if not documents:
             self._log("has no documents", tenant_id, request)
-            return _no_documents(request)
+            return inspection_failed(request, InspectionFailureReason.NO_DOCUMENTS, NO_DOCUMENTS)
         missing = await anyio.to_thread.run_sync(self._missing_sections, tenant_id, request)
         if missing:
             self._log_missing_sections(tenant_id, request, missing)
-            return _corpus_incomplete(request)
+            return inspection_failed(request, InspectionFailureReason.ERROR, CORPUS_INCOMPLETE)
         began = time.perf_counter()
         saved = await self._run_graph(saver, tenant_id, request, saved, publish)
         result = self._result(request, saved)
@@ -198,15 +198,12 @@ class InspectionWorker:
     def _result(
         request: InspectionRequested, saved: graph.Saved
     ) -> InspectionCompleted | InspectionFailed:
-        ids = _inspection_ids(request)
         if saved.values.get("budget_exceeded"):
-            return InspectionFailed(
-                **ids,
-                reason_code=InspectionFailureReason.BUDGET_EXCEEDED,
-                reason_text=BUDGET_EXCEEDED,
+            return inspection_failed(
+                request, InspectionFailureReason.BUDGET_EXCEEDED, BUDGET_EXCEEDED
             )
         return InspectionCompleted(
-            **ids,
+            **_inspection_ids(request),
             input_tokens=sum(result["input_tokens"] for result in saved.results),
             output_tokens=sum(result["output_tokens"] for result in saved.results),
             cost_usd=sum(result["cost_usd"] for result in saved.results),
@@ -273,19 +270,13 @@ def _inspection_ids(request: InspectionRequested) -> dict[str, UUID]:
     return {"establishment_id": request.establishment_id, "inspection_id": request.inspection_id}
 
 
-def _no_documents(request: InspectionRequested) -> InspectionFailed:
+def inspection_failed(
+    request: InspectionRequested, reason_code: InspectionFailureReason, reason_text: str
+) -> InspectionFailed:
+    """The request's InspectionFailed: the worker's own failures and the consumer's last
+    delivery (`messaging/inspections.py`)."""
     return InspectionFailed(
-        **_inspection_ids(request),
-        reason_code=InspectionFailureReason.NO_DOCUMENTS,
-        reason_text=NO_DOCUMENTS,
-    )
-
-
-def _corpus_incomplete(request: InspectionRequested) -> InspectionFailed:
-    return InspectionFailed(
-        **_inspection_ids(request),
-        reason_code=InspectionFailureReason.ERROR,
-        reason_text=CORPUS_INCOMPLETE,
+        **_inspection_ids(request), reason_code=reason_code, reason_text=reason_text
     )
 
 

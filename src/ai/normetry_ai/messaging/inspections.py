@@ -17,7 +17,7 @@ from uuid import UUID, uuid5
 
 from aio_pika.abc import AbstractRobustConnection
 
-from normetry_ai.inspection.worker import InspectionMismatch
+from normetry_ai.inspection.worker import InspectionMismatch, inspection_failed
 from normetry_ai.messaging.contracts import (
     Envelope,
     InspectionCompleted,
@@ -148,13 +148,7 @@ async def _inspect(
 
 def _last_failure(message: Envelope[Any], _error: Exception) -> Envelope[Any]:
     """The InspectionFailed (`error`) of a request on its last delivery."""
-    request: InspectionRequested = message.payload
-    failed = InspectionFailed(
-        establishment_id=request.establishment_id,
-        inspection_id=request.inspection_id,
-        reason_code=InspectionFailureReason.ERROR,
-        reason_text=ERROR,
-    )
+    failed = inspection_failed(message.payload, InspectionFailureReason.ERROR, ERROR)
     return event(message.tenant_id, failed)
 
 
