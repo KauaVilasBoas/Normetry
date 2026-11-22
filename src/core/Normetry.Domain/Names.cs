@@ -42,4 +42,21 @@ internal static class Names
         value == Guid.Empty
             ? throw new ArgumentException("The id must not be empty.", paramName)
             : value;
+
+    /// <summary>The value when it is one of <paramref name="codes"/>. Throws otherwise.</summary>
+    public static string KnownCode(string value, IReadOnlySet<string> codes, string paramName) =>
+        codes.Contains(value)
+            ? value
+            : throw new ArgumentException($"'{value}' is not a known code.", paramName);
+
+    /// <summary>The value when its enum names it. Throws otherwise, also for a missing one (0).</summary>
+    public static TEnum Defined<TEnum>(TEnum value, string paramName)
+        where TEnum : struct, Enum =>
+        Enum.IsDefined(value)
+            ? value
+            : throw new ArgumentOutOfRangeException(
+                paramName,
+                value,
+                $"Unknown {typeof(TEnum).Name}."
+            );
 }

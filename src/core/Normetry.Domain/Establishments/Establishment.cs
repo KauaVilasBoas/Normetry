@@ -40,33 +40,14 @@ public sealed class Establishment
         string name,
         EstablishmentType type,
         Jurisdiction jurisdiction
-    )
-    {
-        if (!Enum.IsDefined(type))
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(type),
-                type,
-                "Unknown establishment type."
-            );
-        }
-        if (!Enum.IsDefined(jurisdiction))
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(jurisdiction),
-                jurisdiction,
-                "Unknown jurisdiction."
-            );
-        }
-
-        return new(
+    ) =>
+        new(
             Guid.CreateVersion7(),
             Names.RequiredId(tenantId, nameof(tenantId)),
             Names.Required(name, NameMaxLength, nameof(name)),
-            type,
-            jurisdiction
+            Names.Defined(type, nameof(type)),
+            Names.Defined(jurisdiction, nameof(jurisdiction))
         );
-    }
 }
 
 // Values start at 1, so a missing field (0) is not a valid value.

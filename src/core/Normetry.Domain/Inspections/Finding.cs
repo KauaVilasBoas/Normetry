@@ -113,11 +113,11 @@ public sealed class Finding
             inspection.TenantId,
             inspection.Id,
             Names.Required(result.ItemId, ItemIdMaxLength, nameof(result)),
-            Code(result.Theme, ThemeProgress.Themes, nameof(result)),
+            Names.KnownCode(result.Theme, ThemeProgress.Themes, nameof(result)),
             Names.Required(result.Title, TitleMaxLength, nameof(result)),
-            Code(result.Severity, Severities.All, nameof(result)),
-            Code(result.Verdict, Verdicts.All, nameof(result)),
-            Code(result.Confidence, Confidences.All, nameof(result)),
+            Names.KnownCode(result.Severity, Severities.All, nameof(result)),
+            Names.KnownCode(result.Verdict, Verdicts.All, nameof(result)),
+            Names.KnownCode(result.Confidence, Confidences.All, nameof(result)),
             Names.Required(result.Rationale, RationaleMaxLength, nameof(result))
         )
         {
@@ -191,10 +191,12 @@ public sealed class Finding
     private static FindingEdit NormalizedValues(FindingEdit edit) =>
         edit with
         {
-            Verdict = edit.Verdict is null ? null : Code(edit.Verdict, Verdicts.All, nameof(edit)),
+            Verdict = edit.Verdict is null
+                ? null
+                : Names.KnownCode(edit.Verdict, Verdicts.All, nameof(edit)),
             Severity = edit.Severity is null
                 ? null
-                : Code(edit.Severity, Severities.All, nameof(edit)),
+                : Names.KnownCode(edit.Severity, Severities.All, nameof(edit)),
             Rationale = edit.Rationale is null
                 ? null
                 : Names.Required(edit.Rationale, EditedRationaleMaxLength, nameof(edit)),
@@ -235,11 +237,6 @@ public sealed class Finding
         ReviewedAt = now;
         ReviewNote = note;
     }
-
-    private static string Code(string value, IReadOnlySet<string> codes, string paramName) =>
-        codes.Contains(value)
-            ? value
-            : throw new ArgumentException($"'{value}' is not a known code.", paramName);
 }
 
 /// <summary>A finding's verdict codes, as the inspection contract writes them.</summary>
