@@ -59,9 +59,7 @@ internal sealed class ReviewFindingHandler(FindingReviewService reviews, TimePro
         ReviewFindingCommand request,
         Finding finding
     ) =>
-        request.Decision == ReviewDecision.Edit
-        && finding.ActionItem is null
-        && (request.ActionText is null) != (request.DueOn is null)
+        request.Decision == ReviewDecision.Edit && finding.NeedsActionTextAndDueOn(request.ToEdit())
             ? InspectionErrors.ActionNeedsTextAndDueOn
             : null;
 
@@ -81,17 +79,7 @@ internal sealed class ReviewFindingHandler(FindingReviewService reviews, TimePro
                 finding.Reject(reviewer, request.Note!, now);
                 break;
             case ReviewDecision.Edit:
-                finding.Edit(
-                    reviewer,
-                    new FindingEdit(
-                        request.Verdict,
-                        request.Severity,
-                        request.Rationale,
-                        request.ActionText,
-                        request.DueOn
-                    ),
-                    now
-                );
+                finding.Edit(reviewer, request.ToEdit(), now);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(request), request.Decision, null);
