@@ -18,6 +18,26 @@ internal static class Names
         return name;
     }
 
+    /// <summary>
+    /// The first <paramref name="maxLength"/> characters of the value, counted like
+    /// <see cref="Required"/>, so a surrogate pair is never cut in half.
+    /// </summary>
+    public static string Truncate(string value, int maxLength)
+    {
+        var kept = 0;
+        var characters = 0;
+        foreach (var rune in value.EnumerateRunes())
+        {
+            if (characters == maxLength)
+            {
+                return value[..kept];
+            }
+            kept += rune.Utf16SequenceLength;
+            characters++;
+        }
+        return value;
+    }
+
     public static Guid RequiredId(Guid value, string paramName) =>
         value == Guid.Empty
             ? throw new ArgumentException("The id must not be empty.", paramName)

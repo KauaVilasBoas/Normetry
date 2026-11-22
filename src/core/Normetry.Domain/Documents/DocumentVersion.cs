@@ -146,8 +146,8 @@ public sealed class DocumentVersion
         {
             return false;
         }
-        FailureCode = Truncate(code, FailureCodeMaxLength);
-        FailureReason = Truncate(reason, FailureReasonMaxLength);
+        FailureCode = Names.Truncate(code, FailureCodeMaxLength);
+        FailureReason = Names.Truncate(reason, FailureReasonMaxLength);
         return Move(DocumentVersionStatus.Failed, now);
     }
 
@@ -171,9 +171,6 @@ public sealed class DocumentVersion
         StatusChangedAt = now;
         return true;
     }
-
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
 }
 
 /// <summary>The codes a version's ingestion fails with, as the document contract writes them.</summary>

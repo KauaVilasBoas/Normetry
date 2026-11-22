@@ -87,6 +87,18 @@ public sealed class DocumentTests
     }
 
     [Fact]
+    public void A_long_failure_reason_is_cut_to_the_limit_in_characters_without_splitting_one()
+    {
+        // The emoji is two UTF-16 units: cutting 500 units would end inside it.
+        var kept = new string('x', DocumentVersion.FailureReasonMaxLength - 1) + "\U0001F600";
+        var version = NewDocument().Newest;
+
+        version.MarkFailed(DocumentIngestionFailureReasons.Internal, kept + " and more.", Now);
+
+        Assert.Equal(kept, version.FailureReason);
+    }
+
+    [Fact]
     public void A_new_version_waits_for_the_newest_and_a_failed_one_keeps_the_previous_current()
     {
         var document = NewDocument();
