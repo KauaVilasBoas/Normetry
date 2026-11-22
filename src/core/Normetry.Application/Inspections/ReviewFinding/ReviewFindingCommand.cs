@@ -1,4 +1,5 @@
 using Normetry.BuildingBlocks.Cqrs;
+using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections.ReviewFinding;
 
@@ -20,7 +21,11 @@ public sealed record ReviewFindingCommand(
     string? Rationale = null,
     string? ActionText = null,
     DateOnly? DueOn = null
-) : ICommand<FindingResponse>;
+) : ICommand<FindingResponse>
+{
+    /// <summary>The fields an <see cref="ReviewDecision.Edit"/> changes.</summary>
+    public FindingEdit ToEdit() => new(Verdict, Severity, Rationale, ActionText, DueOn);
+}
 
 public enum ReviewDecision
 {

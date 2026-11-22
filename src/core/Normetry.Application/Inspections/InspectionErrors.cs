@@ -1,4 +1,5 @@
 using Normetry.BuildingBlocks.Results;
+using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections;
 
@@ -58,9 +59,6 @@ public static class InspectionErrors
         ErrorType.Conflict
     );
 
-    private const string ActionNeedsBoth =
-        "A finding with no action needs both the action's text and its due date.";
-
     /// <summary>An edit gave only one of the two for a finding that has no action.</summary>
     public static readonly Error ActionNeedsTextAndDueOn = new(
         "validation",
@@ -70,8 +68,8 @@ public static class InspectionErrors
     {
         FieldErrors = new Dictionary<string, string[]>
         {
-            ["ActionText"] = [ActionNeedsBoth],
-            ["DueOn"] = [ActionNeedsBoth],
+            ["ActionText"] = [Finding.ActionNeedsTextAndDueOnMessage],
+            ["DueOn"] = [Finding.ActionNeedsTextAndDueOnMessage],
         },
     };
 }

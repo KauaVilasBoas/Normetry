@@ -17,6 +17,10 @@ public sealed class Finding
     public const int EditedRationaleMaxLength = 2000;
     public const int ReviewNoteMaxLength = 1000;
 
+    /// <summary>Why <see cref="NeedsActionTextAndDueOn"/> refuses an edit.</summary>
+    public const string ActionNeedsTextAndDueOnMessage =
+        "A finding with no action needs both the action's text and its due date.";
+
     private List<RegulationCitation> regulationCitations;
     private List<EvidenceCitation> evidenceCitations;
 
@@ -148,19 +152,13 @@ public sealed class Finding
     /// </summary>
     public void Edit(Guid reviewer, FindingEdit edit, DateTimeOffset now)
     {
-        if (
-            edit is
-            { Verdict: null, Severity: null, Rationale: null, ActionText: null, DueOn: null }
-        )
+        if (edit.IsEmpty)
         {
             throw new ArgumentException("An edit changes at least one field.", nameof(edit));
         }
-        if (ActionItem is null && (edit.ActionText is null) != (edit.DueOn is null))
+        if (NeedsActionTextAndDueOn(edit))
         {
-            throw new ArgumentException(
-                "A finding with no action needs both the action's text and its due date.",
-                nameof(edit)
-            );
+            throw new ArgumentException(ActionNeedsTextAndDueOnMessage, nameof(edit));
         }
         Names.RequiredId(reviewer, nameof(reviewer));
         var verdict = edit.Verdict is null
@@ -199,6 +197,13 @@ public sealed class Finding
         }
         Review(ReviewStatus.Edited, reviewer, note: null, now);
     }
+
+    /// <summary>
+    /// Whether <paramref name="edit"/> gives only one of the action's text and due date while this
+    /// finding has no action: creating one needs both.
+    /// </summary>
+    public bool NeedsActionTextAndDueOn(FindingEdit edit) =>
+        ActionItem is null && (edit.ActionText is null) != (edit.DueOn is null);
 
     private void Review(ReviewStatus status, Guid reviewer, string? note, DateTimeOffset now)
     {
@@ -317,7 +322,12 @@ public sealed record FindingEdit(
     string? Rationale = null,
     string? ActionText = null,
     DateOnly? DueOn = null
-);
+)
+{
+    /// <summary>It gives no field, so it would change nothing.</summary>
+    public bool IsEmpty =>
+        this is { Verdict: null, Severity: null, Rationale: null, ActionText: null, DueOn: null };
+}
 
 /// <summary>A finding's values before its first edit; the action is null when it had none.</summary>
 public sealed record FindingOriginal(

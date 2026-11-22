@@ -19,16 +19,7 @@ internal sealed class ReviewFindingValidator : AbstractValidator<ReviewFindingCo
             () =>
             {
                 RuleFor(command => command)
-                    .Must(command =>
-                        command
-                            is not {
-                                Verdict: null,
-                                Severity: null,
-                                Rationale: null,
-                                ActionText: null,
-                                DueOn: null
-                            }
-                    )
+                    .Must(command => !command.ToEdit().IsEmpty)
                     .WithMessage(
                         "Change at least one of verdict, severity, rationale, actionText or dueOn."
                     )
