@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Normetry.Domain.Documents;
 
 namespace Normetry.Domain.Inspections;
@@ -274,13 +275,19 @@ public static class Severities
     public const string Minor = "minor";
 
     /// <summary>The severities, most severe first.</summary>
-    public static readonly IReadOnlyList<string> InOrder = [Critical, Major, Minor];
+    public static readonly ReadOnlyCollection<string> InOrder = new([Critical, Major, Minor]);
 
     /// <summary>The same severities as a set; a set's order is not guaranteed.</summary>
     public static readonly IReadOnlySet<string> All = new HashSet<string>(
         InOrder,
         StringComparer.Ordinal
     );
+
+    /// <summary>
+    /// Where <paramref name="severity"/> stands in <see cref="InOrder"/>: 0 for the most severe,
+    /// -1 for an unknown code.
+    /// </summary>
+    public static int Rank(string severity) => InOrder.IndexOf(severity);
 
     /// <summary>What a finding of <paramref name="severity"/> weighs in its theme's risk: critical 3, major 2, minor 1.</summary>
     public static int RiskWeight(string severity) =>
