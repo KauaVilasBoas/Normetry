@@ -28,17 +28,10 @@ internal sealed class RecordInspectionEventHandler(
             return Unchanged;
         }
         var now = clock.GetUtcNow();
-        var refusal = await RefuseCompletionCitingForeignDocumentsAsync(
-            request,
-            inspection,
-            now,
-            cancellationToken
-        );
-        if (refusal is not null)
-        {
-            return refusal;
-        }
-        var changed = ApplyEventToInspection(request, inspection, now);
+        var foreignDocuments = await ForeignDocumentsCitedAsync(request.Event, cancellationToken);
+        var changed = foreignDocuments is [_, ..]
+            ? FailForForeignDocuments(request, inspection, foreignDocuments, now)
+            : ApplyEventToInspection(request, inspection, now);
         return changed ? InspectionChange.From(inspection) : Unchanged;
     }
 
@@ -72,49 +65,19 @@ internal sealed class RecordInspectionEventHandler(
     }
 
     /// <summary>
-    /// Fails the inspection instead of completing it when the completion cites a document that is
-    /// not one of the establishment's. Null when the event is no such completion.
+    /// The document ids a completion cites that are not the establishment's (deleted ones are);
+    /// none for any other event. RLS hides another tenant's documents, so those count as foreign
+    /// too. Only ids are read.
     /// </summary>
-    private async Task<Result<InspectionChange?>?> RefuseCompletionCitingForeignDocumentsAsync(
-        RecordInspectionEventCommand request,
-        Inspection inspection,
-        DateTimeOffset now,
+    private async Task<Guid[]> ForeignDocumentsCitedAsync(
+        IInspectionEvent @event,
         CancellationToken cancellationToken
     )
     {
-        var @event = request.Event;
-        if (
-            @event is not InspectionCompleted completion
-            || await ForeignDocumentsAsync(completion, cancellationToken) is not [_, ..] foreign
-        )
+        if (@event is not InspectionCompleted completion)
         {
-            return null;
+            return [];
         }
-        // The AI service searches one establishment's chunks, so this is a bug or an attack, and
-        // a redelivery would cite the same: fail the inspection now (the inbox keeps it from
-        // coming back) instead of dead-lettering it into a wait for the timeout.
-        logger.LogWarning(
-            "{MessageType} {MessageId} of inspection {InspectionId} cites documents {DocumentIds} that are not of establishment {EstablishmentId}; the completion is refused",
-            request.MessageType,
-            request.MessageId,
-            @event.InspectionId,
-            foreign,
-            @event.EstablishmentId
-        );
-        return inspection.Fail(InspectionFailureReasons.Error, ForeignDocumentsReasonText, now)
-            ? InspectionChange.From(inspection)
-            : Unchanged;
-    }
-
-    /// <summary>
-    /// The cited document ids that are not the establishment's (deleted ones are). RLS hides another
-    /// tenant's documents, so those count as foreign too. Only ids are read.
-    /// </summary>
-    private async Task<Guid[]> ForeignDocumentsAsync(
-        InspectionCompleted completion,
-        CancellationToken cancellationToken
-    )
-    {
         var cited = completion
             .Findings.SelectMany(finding => finding.EvidenceCitations)
             .Select(citation => citation.DocumentId)
@@ -131,6 +94,31 @@ internal sealed class RecordInspectionEventHandler(
             )
         );
         return [.. cited];
+    }
+
+    /// <summary>
+    /// Fails the inspection instead of completing it, since the completion cites documents that are
+    /// not the establishment's; true when that changed the inspection.
+    /// </summary>
+    private bool FailForForeignDocuments(
+        RecordInspectionEventCommand request,
+        Inspection inspection,
+        Guid[] foreignDocuments,
+        DateTimeOffset now
+    )
+    {
+        // The AI service searches one establishment's chunks, so this is a bug or an attack, and
+        // a redelivery would cite the same: fail the inspection now (the inbox keeps it from
+        // coming back) instead of dead-lettering it into a wait for the timeout.
+        logger.LogWarning(
+            "{MessageType} {MessageId} of inspection {InspectionId} cites documents {DocumentIds} that are not of establishment {EstablishmentId}; the completion is refused",
+            request.MessageType,
+            request.MessageId,
+            request.Event.InspectionId,
+            foreignDocuments,
+            request.Event.EstablishmentId
+        );
+        return inspection.Fail(InspectionFailureReasons.Error, ForeignDocumentsReasonText, now);
     }
 
     /// <summary>Runs the event's domain transition; true when it changed the inspection.</summary>
