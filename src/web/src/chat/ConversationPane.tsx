@@ -271,22 +271,23 @@ function DeleteConversation({
   title: string;
   /** An answer is in progress. */
   busy: boolean;
-  /** Resolves false when the conversation could not be deleted. */
-  onDelete: () => Promise<boolean>;
+  /** Resolves the refusal to show when the conversation could not be deleted. */
+  onDelete: () => Promise<string | undefined>;
   /** The dialog closed: a refusal it showed may now refetch /me. */
   onClosed: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [refusal, setRefusal] = useState<string>();
   const trigger = useRef<HTMLButtonElement>(null);
 
   const confirm = async () => {
     setDeleting(true);
-    setFailed(false);
-    if (await onDelete()) return;
+    setRefusal(undefined);
+    const refused = await onDelete();
+    if (refused === undefined) return;
     setDeleting(false);
-    setFailed(true);
+    setRefusal(refused);
   };
 
   return (
@@ -295,7 +296,7 @@ function DeleteConversation({
       onOpenChange={(next) => {
         if (deleting) return;
         setOpen(next);
-        setFailed(false);
+        setRefusal(undefined);
         if (!next) onClosed();
       }}
     >
@@ -326,9 +327,9 @@ function DeleteConversation({
           <AlertDialog.Description className="mt-2 text-body text-text-secondary">
             {format(copy.chat.deleteBody, { title })}
           </AlertDialog.Description>
-          {failed && (
+          {refusal && (
             <p role="alert" className="mt-3 text-body">
-              {copy.chat.deleteError}
+              {refusal}
             </p>
           )}
           <div className="mt-5 flex justify-end gap-2">
