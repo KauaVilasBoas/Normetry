@@ -15,14 +15,19 @@ internal sealed class TimeOutInspectionsHandler(
     )
     {
         var now = clock.GetUtcNow();
-        return (
-            await inspections.ListInFlightSinceForUpdateAsync(
+        var changes = new List<InspectionChange>();
+        foreach (
+            var inspection in await inspections.ListInFlightSinceForUpdateAsync(
                 now - options.RunningTimeout,
                 cancellationToken
             )
         )
-            .Where(inspection => inspection.TimeOut(options.RunningTimeout, now))
-            .Select(InspectionChange.From)
-            .ToArray();
+        {
+            if (inspection.TimeOut(options.RunningTimeout, now))
+            {
+                changes.Add(InspectionChange.From(inspection));
+            }
+        }
+        return changes;
     }
 }
