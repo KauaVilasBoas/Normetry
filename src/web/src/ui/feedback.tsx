@@ -146,8 +146,8 @@ export function Message({
 }
 
 /**
- * A load failure inside a card: the message, then Try again (`aria-disabled` with a spinner while
- * it retries, so focus stays on it).
+ * A load failure: the message, then Try again (`aria-disabled` with a spinner while it retries, so
+ * focus stays on it). `className` places it (16px below what is above, by default).
  */
 export function ErrorMessage({
   title,
@@ -155,16 +155,19 @@ export function ErrorMessage({
   retryLabel,
   retrying,
   onRetry,
+  className = "mt-4",
 }: {
   title: string;
   body: string;
   retryLabel: string;
   retrying: boolean;
   onRetry: () => void;
+  className?: string;
 }) {
   return (
-    <div role="alert">
+    <div role="alert" className={className}>
       <Message
+        className="items-start"
         icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
         title={title}
         body={body}
