@@ -31,7 +31,7 @@ from normetry_ai.messaging.contracts import (
 )
 from normetry_ai.messaging.delivery import (
     EVENT_IDS,
-    Action,
+    DeliveryAction,
     Publish,
     consume,
     handle_delivery,
@@ -89,7 +89,9 @@ def event(tenant_id: UUID, payload: InspectionPayload) -> Envelope[Any]:
     return envelope(tenant_id, payload, uuid5(EVENT_IDS, name))
 
 
-async def handle(body: bytes, delivery_count: int, worker: Worker, publish: Publish) -> Action:
+async def handle(
+    body: bytes, delivery_count: int, worker: Worker, publish: Publish
+) -> DeliveryAction:
     """Process one delivery of a message from the ai.inspections queue.
 
     A body that breaks the contract, or a message this queue does not take, is dead-lettered at
@@ -101,7 +103,7 @@ async def handle(body: bytes, delivery_count: int, worker: Worker, publish: Publ
     InspectionFailed (`error`) first, so the core does not wait for its timeout.
     """
 
-    async def process(message: Envelope[Any]) -> Action:
+    async def process(message: Envelope[Any]) -> DeliveryAction:
         return await _inspect(message.tenant_id, message.payload, worker, publish)
 
     return await handle_delivery(
@@ -119,7 +121,7 @@ async def handle(body: bytes, delivery_count: int, worker: Worker, publish: Publ
 
 async def _inspect(
     tenant_id: UUID, request: InspectionRequested, worker: Worker, publish: Publish
-) -> Action:
+) -> DeliveryAction:
     """Run the inspection with the envelope's tenant in TENANT_ID and publish its result."""
 
     async def emit(payload: InspectionPayload) -> None:
@@ -138,10 +140,10 @@ async def _inspect(
             tenant_id,
             extra={"tenant_id": str(tenant_id)},
         )
-        return "dead-letter"
+        return DeliveryAction.DEAD_LETTER
     finally:
         TENANT_ID.reset(token)
-    return "ack"
+    return DeliveryAction.ACK
 
 
 def _last_failure(message: Envelope[Any], _error: Exception) -> Envelope[Any]:
@@ -162,7 +164,7 @@ async def start(
     """Connect, declare the topology and start consuming ai.inspections. The caller closes the
     connection."""
 
-    async def handler(body: bytes, delivery_count: int, publish: Publish) -> Action:
+    async def handler(body: bytes, delivery_count: int, publish: Publish) -> DeliveryAction:
         return await handle(body, delivery_count, worker, publish)
 
     return await consume(url, QUEUE, CONSUMED, handler, delay)
