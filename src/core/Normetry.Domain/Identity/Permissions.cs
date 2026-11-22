@@ -10,6 +10,9 @@ public static class Permissions
 {
     public const int NameMaxLength = 100;
 
+    private const char AreaSeparator = '.';
+    private const string ReadAction = "read";
+
     public static class Establishments
     {
         public const string Read = "establishments.read";
@@ -62,6 +65,18 @@ public static class Permissions
         Profiles.Read,
         Profiles.Manage,
     ];
+
+    /// <summary>
+    /// The area of an <c>area.action</c> name: <c>documents</c> for <c>documents.upload</c>, empty
+    /// for a name without one.
+    /// </summary>
+    public static string AreaOf(string name) => name[..Math.Max(name.IndexOf(AreaSeparator), 0)];
+
+    /// <summary>
+    /// The read permission of the name's area: <c>documents.read</c> for <c>documents.upload</c>.
+    /// It may be outside the catalog.
+    /// </summary>
+    public static string ReadOf(string name) => $"{AreaOf(name)}{AreaSeparator}{ReadAction}";
 }
 
 /// <summary>A row of the catalog in <c>core.permissions</c>. The names are in <see cref="Permissions"/>.</summary>
