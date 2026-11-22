@@ -1,5 +1,4 @@
 using Normetry.Application.Identity;
-using Normetry.Domain.Establishments;
 using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections;
@@ -92,19 +91,6 @@ public sealed record InspectionResponse(
     /// <summary>The reviewers and action updaters, whose names the response shows.</summary>
     internal static IEnumerable<Guid> UserIds(Inspection inspection) =>
         inspection.Findings.SelectMany(FindingResponse.UserIds).Distinct();
-
-    /// <summary>
-    /// The regulation an establishment of <paramref name="jurisdiction"/> is inspected against,
-    /// named as the web app names it.
-    /// </summary>
-    internal static string RegulationOf(Jurisdiction jurisdiction) =>
-        jurisdiction switch
-        {
-            Jurisdiction.US => "FDA Food Code 2026",
-            Jurisdiction.EU => "Regulation (EC) 852/2004",
-            Jurisdiction.BR => "Anvisa RDC 216/2004",
-            _ => throw new ArgumentOutOfRangeException(nameof(jurisdiction), jurisdiction, null),
-        };
 }
 
 /// <summary>

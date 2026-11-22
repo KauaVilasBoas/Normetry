@@ -69,3 +69,20 @@ public enum Jurisdiction
     /// <summary>Brazil: Anvisa RDC 216/2004.</summary>
     BR,
 }
+
+/// <summary>The regulation each <see cref="Jurisdiction"/> is inspected against.</summary>
+public static class Regulations
+{
+    /// <summary>
+    /// The regulation an establishment of <paramref name="jurisdiction"/> is inspected against,
+    /// named as the web app names it.
+    /// </summary>
+    public static string Of(Jurisdiction jurisdiction) =>
+        jurisdiction switch
+        {
+            Jurisdiction.US => "FDA Food Code 2026",
+            Jurisdiction.EU => "Regulation (EC) 852/2004",
+            Jurisdiction.BR => "Anvisa RDC 216/2004",
+            _ => throw new ArgumentOutOfRangeException(nameof(jurisdiction), jurisdiction, null),
+        };
+}

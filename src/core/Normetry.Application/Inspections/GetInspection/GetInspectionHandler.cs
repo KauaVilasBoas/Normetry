@@ -2,6 +2,7 @@ using Normetry.Application.Establishments;
 using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.Domain.Establishments;
 
 namespace Normetry.Application.Inspections.GetInspection;
 
@@ -35,7 +36,7 @@ internal sealed class GetInspectionHandler(
         }
         return InspectionResponse.From(
             inspection,
-            InspectionResponse.RegulationOf(establishment.Jurisdiction),
+            Regulations.Of(establishment.Jurisdiction),
             await users.GetDisplayNamesAsync(
                 InspectionResponse.UserIds(inspection),
                 cancellationToken

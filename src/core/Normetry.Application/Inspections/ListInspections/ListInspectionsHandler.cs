@@ -1,6 +1,7 @@
 using Normetry.Application.Establishments;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.Domain.Establishments;
 
 namespace Normetry.Application.Inspections.ListInspections;
 
@@ -23,7 +24,7 @@ internal sealed class ListInspectionsHandler(
             return found.Error;
         }
         var establishment = found.Value;
-        var regulation = InspectionResponse.RegulationOf(establishment.Jurisdiction);
+        var regulation = Regulations.Of(establishment.Jurisdiction);
         return (await inspections.ListAsync(establishment.Id, cancellationToken))
             .Select(row => row with { Regulation = regulation })
             .ToArray();
