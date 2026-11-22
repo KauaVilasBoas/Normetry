@@ -49,13 +49,11 @@ internal sealed class ListDocumentsHandler(
     {
         if (request.Expired)
         {
-            list = list.Where(document => document.ExpiresOn < today);
+            list = list.Where(document => document.IsExpiredOn(today));
         }
         if (request.ExpiringWithinDays is { } days)
         {
-            list = list.Where(document =>
-                document.ExpiresOn >= today && document.ExpiresOn <= today.AddDays(days)
-            );
+            list = list.Where(document => document.ExpiresWithin(today, days));
         }
         return list.ToArray();
     }
