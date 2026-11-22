@@ -8,6 +8,8 @@ namespace Normetry.Domain.Documents;
 public sealed class DocumentVersion
 {
     public const int FileNameMaxLength = 255;
+    public const int ContentTypeMaxLength = 255;
+    public const int BlobPathMaxLength = 1024;
     public const int FailureCodeMaxLength = 50;
     public const int FailureReasonMaxLength = 500;
 

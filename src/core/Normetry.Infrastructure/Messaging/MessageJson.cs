@@ -215,13 +215,13 @@ internal static partial class MessageJson
         {
             // Nullable annotations do not reach list elements, so a null one is checked here.
             Require(finding is not null, "a finding must not be null");
-            RequireLength(finding.ItemId, 1, 100, "itemId");
+            RequireLength(finding.ItemId, 1, Finding.ItemIdMaxLength, "itemId");
             Require(ThemeProgress.Themes.Contains(finding.Theme), "unknown theme");
-            RequireLength(finding.Title, 1, 200, "title");
+            RequireLength(finding.Title, 1, Finding.TitleMaxLength, "title");
             Require(Severities.All.Contains(finding.Severity), "unknown severity");
             Require(Verdicts.All.Contains(finding.Verdict), "unknown verdict");
             Require(Confidences.All.Contains(finding.Confidence), "unknown confidence");
-            RequireLength(finding.Rationale, 1, 4000, "rationale");
+            RequireLength(finding.Rationale, 1, Finding.RationaleMaxLength, "rationale");
             Require(finding.RegulationCitations.Count >= 1, "a finding cites the regulation");
             foreach (var citation in finding.RegulationCitations)
             {
@@ -237,7 +237,12 @@ internal static partial class MessageJson
                 Require(citation is not null, "an evidence citation must not be null");
                 if (citation.DocumentTitle is not null)
                 {
-                    RequireLength(citation.DocumentTitle, 1, 200, "documentTitle");
+                    RequireLength(
+                        citation.DocumentTitle,
+                        1,
+                        Document.TitleMaxLength,
+                        "documentTitle"
+                    );
                 }
                 RequireDefined(citation.DocumentType, "documentType");
                 RequireVersionNumber(citation.VersionNumber);
@@ -247,7 +252,7 @@ internal static partial class MessageJson
             }
             if (finding.Action is { } action)
             {
-                RequireLength(action.Text, 1, 2000, "action.text");
+                RequireLength(action.Text, 1, ActionItem.TextMaxLength, "action.text");
                 Require(action.DueInDays >= 1, "action.dueInDays must be at least 1");
             }
         }
