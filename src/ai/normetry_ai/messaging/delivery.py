@@ -11,7 +11,8 @@ the last failure and the dead-letter. Each queue brings only its own work: the d
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Iterable, Mapping
-from typing import Any, Literal
+from enum import StrEnum
+from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 import aio_pika
@@ -35,10 +36,19 @@ EVENT_IDS = uuid5(NAMESPACE_URL, "https://contracts.normetry.example/messages/")
 OUTAGE_WAIT_SECONDS = 10.0
 RETRY_SECONDS = (2, 10, 30, 60)
 
-Action = Literal["ack", "retry", "dead-letter", "wait"]
+
+class DeliveryAction(StrEnum):
+    """What one delivery gets."""
+
+    ACK = "ack"
+    RETRY = "retry"
+    WAIT = "wait"
+    DEAD_LETTER = "dead-letter"
+
+
 Publish = Callable[[Envelope[Any]], Awaitable[None]]
 # A queue's `handle`: (body, delivery count, publish) -> what the delivery gets.
-Handler = Callable[[bytes, int, Publish], Awaitable[Action]]
+Handler = Callable[[bytes, int, Publish], Awaitable[DeliveryAction]]
 
 
 def queue_arguments(queue: str) -> dict[str, Any]:
@@ -57,13 +67,13 @@ async def handle_delivery(
     delivery_count: int,
     *,
     accepts: tuple[type[Payload], ...],
-    process: Callable[[Envelope[Any]], Awaitable[Action]],
+    process: Callable[[Envelope[Any]], Awaitable[DeliveryAction]],
     reachable: Callable[[], bool],
     unreachable: str,
     subject: Callable[[Envelope[Any]], str],
     last_failure: Callable[[Envelope[Any], Exception], Envelope[Any] | None],
     publish: Publish,
-) -> Action:
+) -> DeliveryAction:
     """What one delivery gets, for every consumed queue; each queue's `handle` brings its own work.
 
     A body that breaks the contract, or a payload that is not one of `accepts`, is dead-lettered
@@ -76,7 +86,7 @@ async def handle_delivery(
     """
     message = _parsed(body)
     if message is None:
-        return "dead-letter"
+        return DeliveryAction.DEAD_LETTER
     # So traces can be audited and filtered per tenant (ids only, never names or text).
     trace.get_current_span().set_attributes(
         {"normetry.tenant_id": str(message.tenant_id), "normetry.message.type": message.type}
@@ -88,21 +98,21 @@ async def handle_delivery(
             message.tenant_id,
             extra={"tenant_id": str(message.tenant_id)},
         )
-        return "dead-letter"
+        return DeliveryAction.DEAD_LETTER
     try:
         return await process(message)
     except Exception as error:
         if not await anyio.to_thread.run_sync(reachable):
             _log_held(message, unreachable, error)
-            return "wait"
+            return DeliveryAction.WAIT
         last = delivery_count >= DELIVERY_LIMIT
         _log_failed_delivery(message, subject(message), delivery_count, error, last)
         if not last:
-            return "retry"
+            return DeliveryAction.RETRY
         failure = last_failure(message, error)
         if failure is not None:
             await _publish_last_failure(failure, publish)
-        return "dead-letter"
+        return DeliveryAction.DEAD_LETTER
 
 
 def _parsed(body: bytes) -> Envelope[Any] | None:
@@ -228,12 +238,12 @@ async def consume(
                 },
             ):
                 action = await handler(incoming.body, count, publish)
-                while action == "wait":
+                while action == DeliveryAction.WAIT:
                     await asyncio.sleep(OUTAGE_WAIT_SECONDS)
                     action = await handler(incoming.body, count, publish)
-            if action == "ack":
+            if action == DeliveryAction.ACK:
                 await incoming.ack()
-            elif action == "retry":
+            elif action == DeliveryAction.RETRY:
                 await asyncio.sleep(delay(count))
                 await incoming.reject(requeue=True)
             else:

@@ -32,7 +32,7 @@ from normetry_ai.messaging.contracts import (
 )
 from normetry_ai.messaging.delivery import (
     EVENT_IDS,
-    Action,
+    DeliveryAction,
     Publish,
     consume,
     handle_delivery,
@@ -103,7 +103,7 @@ async def _uploaded(
 
 async def handle(
     body: bytes, delivery_count: int, worker: DocumentWorker, publish: Publish
-) -> Action:
+) -> DeliveryAction:
     """Process one delivery of a message from the ai.documents queue.
 
     A body that breaks the contract, or a message this queue does not take, is dead-lettered at
@@ -114,12 +114,12 @@ async def handle(
     for its timeout.
     """
 
-    async def process(message: Envelope[Any]) -> Action:
+    async def process(message: Envelope[Any]) -> DeliveryAction:
         if isinstance(message.payload, DocumentDeleted):
             await anyio.to_thread.run_sync(worker.delete, message.tenant_id, message.payload)
         else:
             await _uploaded(message.tenant_id, message.payload, worker, publish)
-        return "ack"
+        return DeliveryAction.ACK
 
     return await handle_delivery(
         body,
@@ -153,7 +153,7 @@ async def start(
     """Connect, declare the topology and start consuming ai.documents. The caller closes the
     connection."""
 
-    async def handler(body: bytes, delivery_count: int, publish: Publish) -> Action:
+    async def handler(body: bytes, delivery_count: int, publish: Publish) -> DeliveryAction:
         return await handle(body, delivery_count, worker, publish)
 
     return await consume(url, QUEUE, CONSUMED, handler, delay)
