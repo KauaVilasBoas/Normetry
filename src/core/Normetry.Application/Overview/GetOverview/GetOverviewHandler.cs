@@ -26,8 +26,6 @@ internal sealed class GetOverviewHandler(
     private const int ExpiringWithinDays = 30;
     private const int DocumentListLength = 10;
 
-    private static readonly string[] ThemeOrder = [.. ThemeProgress.InOrder];
-
     public async Task<Result<OverviewResponse>> HandleAsync(
         GetOverviewQuery request,
         CancellationToken cancellationToken
@@ -151,7 +149,7 @@ internal sealed class GetOverviewHandler(
     private static ThemeVerdicts[] CountVerdictsByTheme(IReadOnlyList<FindingTally> findings) =>
         findings
             .GroupBy(finding => finding.Theme)
-            .OrderBy(theme => Array.IndexOf(ThemeOrder, theme.Key))
+            .OrderBy(theme => ThemeProgress.ChecklistRank(theme.Key))
             .Select(theme =>
             {
                 var counts = VerdictCounts.Of(theme.Select(finding => finding.Verdict));
@@ -173,7 +171,7 @@ internal sealed class GetOverviewHandler(
             .Select(theme => new ThemeRisk(theme.Key, theme.Sum(Risk)))
             .Where(theme => theme.Score > 0)
             .OrderByDescending(theme => theme.Score)
-            .ThenBy(theme => Array.IndexOf(ThemeOrder, theme.Theme))
+            .ThenBy(theme => ThemeProgress.ChecklistRank(theme.Theme))
             .Take(TopRiskThemeCount)
             .ToArray();
 

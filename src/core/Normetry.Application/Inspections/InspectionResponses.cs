@@ -65,8 +65,6 @@ public sealed record InspectionResponse(
     IReadOnlyList<FindingResponse> Findings
 )
 {
-    private static readonly string[] SeverityOrder = [.. Severities.InOrder];
-
     internal static InspectionResponse From(
         Inspection inspection,
         string regulation,
@@ -85,7 +83,7 @@ public sealed record InspectionResponse(
             inspection.Themes,
             inspection.FailureReasonCode,
             inspection
-                .Findings.OrderBy(finding => Array.IndexOf(SeverityOrder, finding.Severity))
+                .Findings.OrderBy(finding => Severities.Rank(finding.Severity))
                 .ThenBy(finding => finding.ItemId, StringComparer.Ordinal)
                 .Select(finding => FindingResponse.From(finding, users))
                 .ToArray()
