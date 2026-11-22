@@ -13,7 +13,7 @@ import { meKey, useEstablishments, type Establishment } from "../api/queries";
 import { useSend } from "../api/send";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
-import { focusById } from "../ui/focus";
+import { focusById, focusIsLost } from "../ui/focus";
 import {
   quotaAfter,
   quotaNoticeText,
@@ -345,8 +345,7 @@ export function useNotFoundFocus(view: ConversationView) {
 
   useEffect(() => {
     if (view !== "not-found" || !composerFocused.current) return;
-    if (document.activeElement === null || document.activeElement === document.body)
-      startNew.current?.focus();
+    if (focusIsLost()) startNew.current?.focus();
   }, [view]);
 
   const onComposerFocus = () => {

@@ -13,7 +13,7 @@ import {
 import type { Live } from "../api/live";
 import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
-import { focusById } from "../ui/focus";
+import { focusById, useRefocusWhenGone } from "../ui/focus";
 import {
   Button,
   ChecklistRow,
@@ -78,16 +78,7 @@ export function InspectionDetailView({
       .getQueryData<InspectionSummary[]>(inspectionsKey(establishment.id))
       ?.find((row) => row.id === id)?.requestedAt;
 
-  const current = detail?.status;
-  const wasLive = useRef(false);
-  useEffect(() => {
-    const isLive = current !== undefined && inFlight(current);
-    if (wasLive.current && !isLive && current !== undefined) {
-      const active = document.activeElement;
-      if (active === null || active === document.body) focusById(DETAIL_TITLE_ID);
-    }
-    wasLive.current = isLive;
-  }, [current]);
+  useRefocusWhenGone(detail !== undefined && inFlight(detail.status), DETAIL_TITLE_ID);
 
   // An arrival focuses the title once it shows the inspection (or why it can't), or the Findings
   // heading when the link carried a filter (FindingsCard has read it by then).

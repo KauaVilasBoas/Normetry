@@ -11,6 +11,9 @@ import { useSession } from "../auth/session";
 /** `retrying`: Reconnect was chosen and the new connection is starting. */
 export type LiveState = "live" | "reconnecting" | "stopped" | "retrying";
 
+/** The connection notice offers Reconnect: the connection stopped, or a new one is starting. */
+export const offersReconnect = (state: LiveState) => state === "stopped" || state === "retrying";
+
 /** What a screen's live connection gives its connection notice. */
 export interface Live {
   state: LiveState;

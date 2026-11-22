@@ -1,13 +1,18 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { documentStatuses } from "../api/contract";
 import { documentKey, documentsKey } from "../api/documents";
-import { useLiveStatus } from "../api/live";
+import { offersReconnect, useLiveStatus } from "../api/live";
 import type { Establishment, Me } from "../api/queries";
 import { copy, format } from "../copy";
 import { useAnnouncer } from "../ui/announcer";
-import { focusById, useFocusAfterCommit, useShellFocusRequest } from "../ui/focus";
+import {
+  focusById,
+  useFocusAfterCommit,
+  useRefocusWhenGone,
+  useShellFocusRequest,
+} from "../ui/focus";
 import { PoliteRegion } from "../ui/primitives";
 import { DocumentDetailView } from "./DocumentDetail";
 import { DocumentList } from "./DocumentList";
@@ -91,12 +96,7 @@ export function DocumentsScreen({
   );
 
   // Reconnect goes away once it worked; focus moves to the heading instead of the page.
-  const wasRetrying = useRef(false);
-  useEffect(() => {
-    if (wasRetrying.current && live.state === "live" && document.activeElement === document.body)
-      focusById(documentId === undefined ? LIST_TITLE_ID : DETAIL_TITLE_ID);
-    wasRetrying.current = live.state === "retrying";
-  }, [live.state, documentId]);
+  useRefocusWhenGone(offersReconnect(live.state), LIST_TITLE_ID, DETAIL_TITLE_ID);
 
   return (
     <>
