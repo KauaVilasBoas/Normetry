@@ -1,6 +1,6 @@
-import { CircleAlert, Store } from "lucide-react";
+import { Store } from "lucide-react";
 import { copy } from "../copy";
-import { Button, Message, Spinner } from "../ui/primitives";
+import { ErrorMessage, Message } from "../ui/primitives";
 import type { ListState } from "./selection";
 
 interface PickerProps {
@@ -42,23 +42,13 @@ export function EstablishmentPicker({ state, onRetry, fetching }: PickerProps) {
         />
       )}
       {state === "error" && (
-        <div role="alert">
-          <Message
-            icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
-            title={copy.picker.errorTitle}
-            body={copy.picker.errorBody}
-          />
-          {/* aria-disabled, not disabled, while retrying: focus stays on the button. */}
-          <Button
-            variant="secondary"
-            className="mt-4"
-            aria-disabled={retrying}
-            onClick={retrying ? undefined : onRetry}
-          >
-            {retrying && <Spinner />}
-            {copy.picker.tryAgain}
-          </Button>
-        </div>
+        <ErrorMessage
+          title={copy.picker.errorTitle}
+          body={copy.picker.errorBody}
+          retryLabel={copy.picker.tryAgain}
+          retrying={retrying}
+          onRetry={onRetry}
+        />
       )}
     </section>
   );

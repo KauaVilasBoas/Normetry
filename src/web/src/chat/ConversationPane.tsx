@@ -9,6 +9,7 @@ import {
   Avatar,
   Button,
   dialogPanel,
+  ErrorMessage,
   iconButton,
   Message,
   Skeleton,
@@ -159,23 +160,14 @@ export function ConversationPane({
         {view === "loading" && <LoadingTurns label={title !== undefined} />}
 
         {view === "error" && (
-          <div role="alert" className="mx-auto w-full max-w-180">
-            <Message
-              className="items-start"
-              icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
-              title={copy.chat.loadErrorTitle}
-              body={copy.chat.loadErrorBody}
-            />
-            <Button
-              variant="secondary"
-              className="mt-4"
-              aria-disabled={retryingLoad}
-              onClick={retryingLoad ? undefined : reload}
-            >
-              {retryingLoad && <Spinner />}
-              {copy.chat.tryAgain}
-            </Button>
-          </div>
+          <ErrorMessage
+            className="mx-auto w-full max-w-180"
+            title={copy.chat.loadErrorTitle}
+            body={copy.chat.loadErrorBody}
+            retryLabel={copy.chat.tryAgain}
+            retrying={retryingLoad}
+            onRetry={reload}
+          />
         )}
 
         {view === "not-found" && (

@@ -1,11 +1,11 @@
-import { CircleAlert, MessagesSquare, Plus, X } from "lucide-react";
+import { MessagesSquare, Plus, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useRef } from "react";
 import { Link } from "react-router";
 import { useConversations } from "../api/chat";
 import { queryFailed, type Establishment } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
-import { Button, iconButton, Message, Skeleton, Spinner } from "../ui/primitives";
+import { Button, ErrorMessage, iconButton, Message, Skeleton } from "../ui/primitives";
 
 /** The selected establishment's conversations, latest first. A card, or a sheet's content. */
 export function ConversationList({
@@ -71,23 +71,14 @@ export function ConversationList({
         className="min-h-0 flex-1 overflow-y-auto p-2 pt-0"
       >
         {failed ? (
-          <div role="alert" className="px-2 pb-2">
-            <Message
-              icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
-              title={copy.conversations.errorTitle}
-              body={copy.conversations.errorBody}
-            />
-            {/* aria-disabled, not disabled, while retrying: focus stays on the button. */}
-            <Button
-              variant="secondary"
-              className="mt-4"
-              aria-disabled={retrying}
-              onClick={retrying ? undefined : () => void reload()}
-            >
-              {retrying && <Spinner />}
-              {copy.conversations.tryAgain}
-            </Button>
-          </div>
+          <ErrorMessage
+            className="mt-4 px-2 pb-2"
+            title={copy.conversations.errorTitle}
+            body={copy.conversations.errorBody}
+            retryLabel={copy.conversations.tryAgain}
+            retrying={retrying}
+            onRetry={() => void reload()}
+          />
         ) : conversations.isPending ? (
           <>
             <span className="sr-only">{copy.conversations.loading}</span>
