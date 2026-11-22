@@ -93,12 +93,7 @@ public sealed record InspectionResponse(
 
     /// <summary>The reviewers and action updaters, whose names the response shows.</summary>
     internal static IEnumerable<Guid> UserIds(Inspection inspection) =>
-        inspection
-            .Findings.SelectMany(finding =>
-                new[] { finding.ReviewedBy, finding.ActionItem?.UpdatedBy }
-            )
-            .OfType<Guid>()
-            .Distinct();
+        inspection.Findings.SelectMany(FindingResponse.UserIds).Distinct();
 
     /// <summary>
     /// The regulation an establishment of <paramref name="jurisdiction"/> is inspected against,
@@ -168,6 +163,10 @@ public sealed record FindingResponse(
                 )
                 : null
         );
+
+    /// <summary>The reviewer and the action's updater, whose names the response shows.</summary>
+    internal static IEnumerable<Guid> UserIds(Finding finding) =>
+        new[] { finding.ReviewedBy, finding.ActionItem?.UpdatedBy }.OfType<Guid>().Distinct();
 
     private static UserReference? User(Guid? id, IReadOnlyDictionary<Guid, string?> users) =>
         id is { } user ? new UserReference(user, users.GetValueOrDefault(user)) : null;
