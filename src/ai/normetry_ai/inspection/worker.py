@@ -19,7 +19,7 @@ from uuid import UUID
 import anyio
 from sqlalchemy import Engine, text
 
-from normetry_ai.db import tenant_transaction
+from normetry_ai.db import database_answers, tenant_transaction
 from normetry_ai.inspection import graph
 from normetry_ai.inspection.checklist import ChecklistItem, items_for
 from normetry_ai.inspection.checkpoints import TenantCheckpointSaver
@@ -84,12 +84,7 @@ class InspectionWorker:
     def reachable(self) -> bool:
         """Whether the database answers. A failure while it does not is an outage, not the
         message's fault."""
-        try:
-            with self.engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
-        except Exception:
-            return False
-        return True
+        return database_answers(self.engine)
 
     async def inspect(
         self,

@@ -23,7 +23,7 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import ContainerClient
 from sqlalchemy import Engine, text
 
-from normetry_ai.db import tenant_transaction
+from normetry_ai.db import database_answers, tenant_transaction
 from normetry_ai.ingestion.chunking import Chunk, chunk_sections
 from normetry_ai.ingestion.parsers import MAX_BYTES, Parsed, Rejected
 from normetry_ai.ingestion.sandbox import parse_in_subprocess
@@ -199,9 +199,9 @@ class DocumentWorker:
     def reachable(self) -> bool:
         """Whether the database and blob storage answer. A failure while one of them does not is
         an outage, not the message's fault."""
+        if not database_answers(self.engine):
+            return False
         try:
-            with self.engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
             self.blobs.reachable()
         except Exception:
             return False

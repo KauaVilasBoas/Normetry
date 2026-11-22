@@ -52,6 +52,17 @@ def tenant_transaction(engine: Engine, tenant_id: UUID) -> Iterator[Connection]:
         yield connection
 
 
+def database_answers(engine: Engine) -> bool:
+    """Whether the database answers a query. The consumers ask it after a failure: while it does
+    not answer, the failure is an outage, not the message's fault."""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception:
+        return False
+    return True
+
+
 def current_tenant(connection: Connection) -> str:
     """The tenant `tenant_transaction` set on this connection. Raises RuntimeError on a connection
     with none, so a search never runs where RLS would show it only the public corpus."""
