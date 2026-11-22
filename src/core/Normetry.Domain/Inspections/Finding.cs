@@ -98,6 +98,10 @@ public sealed class Finding
     /// <summary>What to do about it; none for most compliant findings.</summary>
     public ActionItem? ActionItem { get; private set; }
 
+    /// <summary>The values a reviewer edits, as they stand; the action is null when it has none.</summary>
+    public FindingOriginal CurrentValues =>
+        new(Verdict, Severity, Rationale, ActionItem?.Text, ActionItem?.DueOn);
+
     internal static Finding Create(
         Inspection inspection,
         FindingResult result,
@@ -174,13 +178,7 @@ public sealed class Finding
             ? null
             : Names.Required(edit.ActionText, ActionItem.EditedTextMaxLength, nameof(edit));
 
-        Original ??= new FindingOriginal(
-            Verdict,
-            Severity,
-            Rationale,
-            ActionItem?.Text,
-            ActionItem?.DueOn
-        );
+        Original ??= CurrentValues;
         Verdict = verdict;
         Severity = severity;
         Rationale = rationale;
