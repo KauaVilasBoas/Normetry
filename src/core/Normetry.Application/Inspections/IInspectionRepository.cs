@@ -114,35 +114,3 @@ public sealed record FindingTally(
     ActionItemStatus? ActionStatus,
     DateOnly? ActionDueOn
 );
-
-/// <summary>
-/// Tells the web clients watching an establishment that an inspection changed. Called only after
-/// the change is committed; a client that misses one refetches on reconnect.
-/// </summary>
-public interface IInspectionNotifier
-{
-    Task NotifyAsync(Guid tenantId, InspectionChange change, CancellationToken cancellationToken);
-}
-
-/// <summary>An inspection's new status or progress, pushed as <c>InspectionChanged</c>.</summary>
-public sealed record InspectionChange(
-    Guid InspectionId,
-    Guid EstablishmentId,
-    InspectionStatus Status,
-    int ItemsEvaluated,
-    int ItemsTotal,
-    IReadOnlyList<ThemeProgress> Themes,
-    string? FailureReasonCode
-)
-{
-    internal static InspectionChange From(Inspection inspection) =>
-        new(
-            inspection.Id,
-            inspection.EstablishmentId,
-            inspection.Status,
-            inspection.ItemsEvaluated,
-            inspection.ItemsTotal,
-            inspection.Themes,
-            inspection.FailureReasonCode
-        );
-}
