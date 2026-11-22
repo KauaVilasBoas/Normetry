@@ -20,12 +20,17 @@ internal sealed class RenameProfileHandler(IProfileRepository profiles)
             return IdentityErrors.SystemProfile;
         }
 
-        var name = request.Name.Trim();
-        if (name != profile.Name && await profiles.NameTakenAsync(name, cancellationToken))
+        var previousName = profile.Name;
+        profile.Rename(request.Name);
+        // The check reads the saved rows, where this profile still has its previous name, so
+        // keeping that name is no clash. A refusal rolls the rename back.
+        if (
+            profile.Name != previousName
+            && await profiles.NameTakenAsync(profile.Name, cancellationToken)
+        )
         {
             return IdentityErrors.NameTaken;
         }
-        profile.Rename(name);
         return Result.Success();
     }
 }
