@@ -89,7 +89,7 @@ export function ConversationPane({
     onEstablishment,
   });
   const { startNew, onComposerFocus, onComposerBlur } = useNotFoundFocus(view);
-  const deleteConversation = useDeleteConversation(asked.savedId, onDeleted);
+  const { deleteConversation, closed } = useDeleteConversation(asked.savedId, onDeleted);
 
   const userName = profile.name ?? profile.email ?? "";
   return (
@@ -138,6 +138,7 @@ export function ConversationPane({
             title={title ?? copy.conversations.untitled}
             busy={asked.busy}
             onDelete={deleteConversation}
+            onClosed={closed}
           />
         )}
       </header>
@@ -265,12 +266,15 @@ function DeleteConversation({
   title,
   busy,
   onDelete,
+  onClosed,
 }: {
   title: string;
   /** An answer is in progress. */
   busy: boolean;
   /** Resolves false when the conversation could not be deleted. */
   onDelete: () => Promise<boolean>;
+  /** The dialog closed: a refusal it showed may now refetch /me. */
+  onClosed: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -292,6 +296,7 @@ function DeleteConversation({
         if (deleting) return;
         setOpen(next);
         setFailed(false);
+        if (!next) onClosed();
       }}
     >
       <AlertDialog.Trigger

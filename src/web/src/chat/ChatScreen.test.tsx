@@ -618,6 +618,38 @@ describe("a saved conversation", () => {
     expect(window.location.pathname).toBe("/conversations/c-1");
     await expectNoAxeViolations();
   });
+
+  it("keeps a 403 in the dialog until it closes, then refetches /me", async () => {
+    const fetch = renderChat(
+      {
+        "/me": [
+          { body: me },
+          { body: { ...me, permissions: ["establishments.read", "documents.read"] } },
+        ],
+        "/ai/conversations": { body: [summary("c-1")] },
+        "/ai/conversations/c-1": { body: saved },
+        "DELETE /ai/conversations/c-1": { status: 403, body: { code: "permission.denied" } },
+      },
+      { path: "/conversations/c-1" },
+    );
+    const meCalls = () => fetch.mock.calls.filter(([input]) => input === "/api/me").length;
+    await screen.findByRole("list", { name: "Messages" });
+    await userEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Couldn't delete the conversation. Try again.",
+    );
+    expect(meCalls()).toBe(1);
+    await userEvent.keyboard("{Escape}");
+
+    expect(
+      await screen.findByRole("heading", { name: "You don't have access to Ask the Regulation" }),
+    ).toBeVisible();
+    expect(meCalls()).toBe(2);
+  });
 });
 
 describe("source panel", () => {
