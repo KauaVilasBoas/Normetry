@@ -10,11 +10,11 @@ import {
   type Profile,
   type ProfileListItem,
 } from "../api/profiles";
-import { can, queryFailed, type Me } from "../api/queries";
+import { can, queryFailed, useQueryRetry, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
 import { useAnnouncer } from "../ui/announcer";
-import { focusById, useFocusAfterCommit, useRefocusWhenGone } from "../ui/focus";
+import { useFocusAfterCommit, useRefocusWhenGone } from "../ui/focus";
 import { media, useMediaQuery } from "../ui/media";
 import { Button, ErrorMessage, PoliteRegion, Skeleton, TabStrip, Tag } from "../ui/primitives";
 import { NameDialog } from "./NameDialog";
@@ -45,7 +45,12 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
 
   // A failed background refetch keeps the cached /me: only a /me never loaded counts.
   const meFailed = queryFailed(me) && !me.data;
-  const listFailed = meFailed || queryFailed(profiles);
+  // Try again refetches the request that failed: /me, else the list.
+  const { failed: listFailed, retry: retryList } = useQueryRetry(
+    meFailed ? me : profiles,
+    PROFILES_TITLE_ID,
+  );
+  // A /me refetched after a 403 elsewhere holds Try again too.
   const listRetrying = listFailed && (me.isFetching || profiles.isFetching);
   const showList = wide || profileId === undefined;
   const showEditor =
@@ -89,12 +94,6 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
     void navigate(`/settings/profiles/${created.current}`);
     created.current = undefined;
     focus(EDITOR_TITLE_ID);
-  };
-
-  // Try again: once it loads the button goes away, so focus moves to the heading.
-  const retryList = async () => {
-    const result = meFailed ? await me.refetch() : await profiles.refetch();
-    if (result.isSuccess) focusById(PROFILES_TITLE_ID);
   };
 
   return (
@@ -151,7 +150,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
                     body={copy.profiles.errorBody}
                     retryLabel={copy.settings.tryAgain}
                     retrying={listRetrying}
-                    onRetry={() => void retryList()}
+                    onRetry={retryList}
                   />
                 </div>
               ) : profiles.isPending ? (

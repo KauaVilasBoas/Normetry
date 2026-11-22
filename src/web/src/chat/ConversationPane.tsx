@@ -170,7 +170,7 @@ export function ConversationPane({
               variant="secondary"
               className="mt-4"
               aria-disabled={retryingLoad}
-              onClick={retryingLoad ? undefined : () => void reload()}
+              onClick={retryingLoad ? undefined : reload}
             >
               {retryingLoad && <Spinner />}
               {copy.chat.tryAgain}

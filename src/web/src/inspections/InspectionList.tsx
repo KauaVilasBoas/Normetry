@@ -5,11 +5,11 @@ import { Link } from "react-router";
 import { permissions } from "../api/contract";
 import { inspectionsKey, useInspections, type InspectionSummary } from "../api/inspections";
 import type { Live } from "../api/live";
-import { can, queryFailed, type Establishment, type Me } from "../api/queries";
+import { can, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { untilReset } from "../chat/answers";
 import { copy, dateTime, format } from "../copy";
-import { focusById, useRefocusWhenGone } from "../ui/focus";
+import { useRefocusWhenGone } from "../ui/focus";
 import {
   Button,
   ConnectionNotice,
@@ -58,8 +58,7 @@ export function InspectionList({
   const queryClient = useQueryClient();
   const inspections = useInspections(establishment.id, true);
   const canRun = can(me, permissions.inspections.run);
-  const failed = queryFailed(inspections);
-  const retrying = failed && inspections.isFetching;
+  const { failed, retrying, retry } = useQueryRetry(inspections, LIST_TITLE_ID);
   const count = inspections.data?.length ?? 0;
   const running = inspections.data?.find((row) => inFlight(row.status));
   const regulation = regulationOf(establishment);
@@ -119,11 +118,6 @@ export function InspectionList({
     }
     setNow(at);
     setRefusal(next);
-  };
-
-  // Try again: once it loads the button goes away, so focus moves to the heading.
-  const reload = async () => {
-    if ((await inspections.refetch()).isSuccess) focusById(LIST_TITLE_ID);
   };
 
   // At most one notice: a running inspection first, then the last refusal. A refusal still shows
@@ -201,7 +195,7 @@ export function InspectionList({
             body={copy.inspections.errorBody}
             retryLabel={copy.inspections.tryAgain}
             retrying={retrying}
-            onRetry={() => void reload()}
+            onRetry={retry}
           />
         </div>
       ) : !inspections.data ? (

@@ -9,11 +9,11 @@ import {
 } from "../api/chat";
 import { ApiError, seconds } from "../api/client";
 import { answerEvents } from "../api/contract";
-import { meKey, useEstablishments, type Establishment } from "../api/queries";
+import { meKey, useEstablishments, useQueryRetry, type Establishment } from "../api/queries";
 import { useSend } from "../api/send";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
-import { focusById, focusIsLost } from "../ui/focus";
+import { focusIsLost } from "../ui/focus";
 import {
   quotaAfter,
   quotaNoticeText,
@@ -294,9 +294,8 @@ export function useConversationView({
   const establishments = useEstablishments();
   const load = conversationId !== undefined && conversationId !== createdId;
   const conversation = useConversation(load ? conversationId : undefined);
-  const loadFailed =
-    load && (conversation.isError || (conversation.isPending && conversation.errorUpdateCount > 0));
-  const retryingLoad = loadFailed && conversation.isFetching;
+  const loadRetry = useQueryRetry(conversation, TITLE_ID);
+  const loadFailed = load && loadRetry.failed;
   const loadStatus = conversation.error instanceof ApiError ? conversation.error.status : 0;
   const stored = conversation.data;
   const owner =
@@ -326,12 +325,14 @@ export function useConversationView({
         asked[0]?.question ??
         (view === "loading" ? undefined : copy.chat.newTitle));
 
-  // Try again after a failed load: once it works the button goes away, so focus moves to the heading.
-  async function reload() {
-    if ((await conversation.refetch()).isSuccess) focusById(TITLE_ID);
-  }
-
-  return { view, turns, lastTurn: turns.at(-1), title, retryingLoad, reload };
+  return {
+    view,
+    turns,
+    lastTurn: turns.at(-1),
+    title,
+    retryingLoad: load && loadRetry.retrying,
+    reload: loadRetry.retry,
+  };
 }
 
 /**

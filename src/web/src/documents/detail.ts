@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { ApiError } from "../api/client";
 import { problemCodes } from "../api/contract";
 import {
   documentKey,
@@ -9,10 +8,9 @@ import {
   type DocumentDetail,
   type DocumentSummary,
 } from "../api/documents";
-import { queryFailed } from "../api/queries";
+import { queryNotFound, useQueryRetry } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy } from "../copy";
-import { focusById } from "../ui/focus";
 import { cachedTitle, expiryProblem, inFlight } from "./documents";
 import { DETAIL_TITLE_ID } from "./parts";
 
@@ -33,24 +31,10 @@ export function useDocumentDetail({
 }) {
   const queryClient = useQueryClient();
   const query = useDocument(id, true);
-  const status = query.error instanceof ApiError ? query.error.status : 0;
-  const notFound = queryFailed(query) && (status === 404 || status === 400);
-  const failed = queryFailed(query) && !notFound;
+  const notFound = queryNotFound(query);
+  const load = useQueryRetry(query, DETAIL_TITLE_ID);
+  const failed = load.failed && !notFound;
   const detail = query.data;
-  const retried = useRef(false);
-
-  // Try again: the error card (and its button) goes once the document loads, so focus moves to
-  // the title, after the commit that shows it.
-  useEffect(() => {
-    if (!retried.current || !detail) return;
-    retried.current = false;
-    focusById(DETAIL_TITLE_ID);
-  }, [detail]);
-
-  const retry = () => {
-    retried.current = true;
-    void query.refetch();
-  };
 
   const deleted = (title: string) => {
     queryClient.removeQueries({ queryKey: documentKey(id) });
@@ -73,8 +57,8 @@ export function useDocumentDetail({
     title: detail?.title ?? cachedTitle(queryClient, establishmentId, id),
     notFound,
     failed,
-    retrying: failed && query.isFetching,
-    retry,
+    retrying: failed && load.retrying,
+    retry: load.retry,
     /** The newest version is Waiting or Processing: Upload new version waits for it. */
     newestInFlight: detail?.versions[0] !== undefined && inFlight(detail.versions[0]),
     deleted,

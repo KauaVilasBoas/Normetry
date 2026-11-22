@@ -4,7 +4,7 @@ import { DropdownMenu } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { permissions, problemCodes } from "../api/contract";
 import { usersKey, useUsers, type TenantUser } from "../api/profiles";
-import { can, meKey, queryFailed, type Me, type ProfileSummary } from "../api/queries";
+import { can, meKey, useQueryRetry, type Me, type ProfileSummary } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format, locale } from "../copy";
 import { Avatar, Button, ErrorMessage, Skeleton, Spinner, Tag } from "../ui/primitives";
@@ -27,8 +27,7 @@ export function UsersCard({
   const canManage = can(me, permissions.profiles.manage);
   const users = useUsers(can(me, permissions.profiles.read));
   const title = useRef<HTMLHeadingElement>(null);
-  const failed = queryFailed(users);
-  const retrying = failed && users.isFetching;
+  const { failed, retrying, retry } = useQueryRetry(users, USERS_TITLE_ID);
   const rows = [...(users.data ?? [])].sort((a, b) =>
     userName(a).localeCompare(userName(b), locale),
   );
@@ -40,10 +39,6 @@ export function UsersCard({
     menuOpen.current = false;
     title.current?.focus();
   }, [canManage]);
-
-  const reload = async () => {
-    if ((await users.refetch()).isSuccess) title.current?.focus();
-  };
 
   return (
     <section
@@ -64,7 +59,7 @@ export function UsersCard({
             body={copy.users.errorBody}
             retryLabel={copy.settings.tryAgain}
             retrying={retrying}
-            onRetry={() => void reload()}
+            onRetry={retry}
           />
         </div>
       ) : users.isPending ? (

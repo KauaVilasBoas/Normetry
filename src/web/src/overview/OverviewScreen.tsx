@@ -20,14 +20,14 @@ import {
   type LatestInspection,
   type Overview,
 } from "../api/overview";
-import { can, queryFailed, type Establishment, type Me } from "../api/queries";
+import { can, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { calendarDate, copy, format, percent, shortDay } from "../copy";
 import { typeLabel } from "../documents/documents";
 import { ExpiryBadge } from "../documents/parts";
 import { themeLabel, verdictLabel } from "../inspections/findings";
 import { findingCount, regulationOf } from "../inspections/inspections";
 import { AreaChart, DonutChart } from "../ui/charts";
-import { focusById, useShellFocusRequest } from "../ui/focus";
+import { useShellFocusRequest } from "../ui/focus";
 import {
   Disclosure,
   ErrorMessage,
@@ -102,18 +102,12 @@ export function OverviewScreen({
   const inspectionsRead = can(me, permissions.inspections.read);
   const documentsRead = can(me, permissions.documents.read);
   const overview = useOverview(establishment.id, inspectionsRead, documentsRead);
-  const failed = queryFailed(overview);
-  const retrying = failed && overview.isFetching;
+  const { failed, retrying, retry } = useQueryRetry(overview, TITLE_ID);
   const data = failed ? undefined : overview.data;
   const latest = data?.latestInspection ?? undefined;
   const regulation = regulationOf(establishment);
 
   useShellFocusRequest(focusKey, TITLE_ID);
-
-  // Try again: once it loads the button goes away, so focus moves to the heading.
-  const reload = async () => {
-    if ((await overview.refetch()).isSuccess) focusById(TITLE_ID);
-  };
 
   return (
     <div aria-busy={(!failed && !data) || retrying} className="flex flex-col">
@@ -154,7 +148,7 @@ export function OverviewScreen({
             body={copy.overview.errorBody}
             retryLabel={copy.overview.tryAgain}
             retrying={retrying}
-            onRetry={() => void reload()}
+            onRetry={retry}
           />
         </div>
       ) : data ? (

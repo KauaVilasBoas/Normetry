@@ -1,5 +1,6 @@
 import { QueryCache, QueryClient, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
+import { useFocusAfterCommit } from "../ui/focus";
 import { ApiError } from "./client";
 import { permissions } from "./contract";
 
@@ -81,3 +82,32 @@ export function useEstablishments(enabled = true) {
 /** A failed query, kept failed while Try again refetches it (it goes back to pending then). */
 export const queryFailed = (query: UseQueryResult) =>
   query.isError || (query.isPending && query.errorUpdateCount > 0);
+
+/** 404, or 400 for an id that is not one: what the query asked for is not there. */
+const notFoundStatuses = [404, 400];
+
+/** A failed query whose answer says what it asked for is not there. */
+export const queryNotFound = (query: UseQueryResult) =>
+  queryFailed(query) &&
+  query.error instanceof ApiError &&
+  notFoundStatuses.includes(query.error.status);
+
+/**
+ * A query's load failure and its Try again: `failed` as `queryFailed`, `retrying` while Try again
+ * refetches it. Once it loads the button goes away, so focus moves to the heading, after the
+ * commit that shows what loaded (a detail view's heading is a new element then).
+ */
+export function useQueryRetry(query: UseQueryResult, headingId: string) {
+  const focusAfterCommit = useFocusAfterCommit();
+  const failed = queryFailed(query);
+
+  const refetchThenFocusHeading = async () => {
+    if ((await query.refetch()).isSuccess) focusAfterCommit(headingId);
+  };
+
+  return {
+    failed,
+    retrying: failed && query.isFetching,
+    retry: () => void refetchThenFocusHeading(),
+  };
+}
