@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Normetry.BuildingBlocks.Time;
 using Normetry.Domain.Identity;
 
@@ -231,8 +232,7 @@ public enum InspectionStatus
 public sealed record ThemeProgress(string Theme, int ItemsTotal, int ItemsEvaluated)
 {
     /// <summary>The checklist themes, in checklist order.</summary>
-    public static readonly IReadOnlyList<string> InOrder =
-    [
+    public static readonly ReadOnlyCollection<string> InOrder = new([
         "personal_hygiene",
         "temperature_control",
         "cross_contamination_allergens",
@@ -241,11 +241,17 @@ public sealed record ThemeProgress(string Theme, int ItemsTotal, int ItemsEvalua
         "water_premises",
         "waste",
         "documentation_training",
-    ];
+    ]);
 
     /// <summary>The same themes as a set; a set's order is not guaranteed.</summary>
     public static readonly IReadOnlySet<string> Themes = new HashSet<string>(
         InOrder,
         StringComparer.Ordinal
     );
+
+    /// <summary>
+    /// Where <paramref name="theme"/> stands in <see cref="InOrder"/>: 0 for the first, -1 for an
+    /// unknown code.
+    /// </summary>
+    public static int ChecklistRank(string theme) => InOrder.IndexOf(theme);
 }
