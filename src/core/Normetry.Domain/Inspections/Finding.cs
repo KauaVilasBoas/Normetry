@@ -156,43 +156,14 @@ public sealed class Finding
     /// </summary>
     public void Edit(Guid reviewer, FindingEdit edit, DateTimeOffset now)
     {
-        if (edit.IsEmpty)
-        {
-            throw new ArgumentException("An edit changes at least one field.", nameof(edit));
-        }
-        if (NeedsActionTextAndDueOn(edit))
-        {
-            throw new ArgumentException(ActionNeedsTextAndDueOnMessage, nameof(edit));
-        }
+        RefuseEditOffTheRules(edit);
         Names.RequiredId(reviewer, nameof(reviewer));
-        var verdict = edit.Verdict is null
-            ? Verdict
-            : Code(edit.Verdict, Verdicts.All, nameof(edit));
-        var severity = edit.Severity is null
-            ? Severity
-            : Code(edit.Severity, Severities.All, nameof(edit));
-        var rationale = edit.Rationale is null
-            ? Rationale
-            : Names.Required(edit.Rationale, EditedRationaleMaxLength, nameof(edit));
-        var actionText = edit.ActionText is null
-            ? null
-            : Names.Required(edit.ActionText, ActionItem.EditedTextMaxLength, nameof(edit));
-
+        var values = NormalizedValues(edit);
         Original ??= CurrentValues;
-        Verdict = verdict;
-        Severity = severity;
-        Rationale = rationale;
-        if (ActionItem is null)
-        {
-            if (actionText is not null)
-            {
-                ActionItem = ActionItem.Create(this, actionText, edit.DueOn!.Value, reviewer, now);
-            }
-        }
-        else if (actionText is not null || edit.DueOn is not null)
-        {
-            ActionItem.Change(actionText, edit.DueOn, reviewer, now);
-        }
+        Verdict = values.Verdict ?? Verdict;
+        Severity = values.Severity ?? Severity;
+        Rationale = values.Rationale ?? Rationale;
+        ApplyActionEdit(values, reviewer, now);
         Review(ReviewStatus.Edited, reviewer, note: null, now);
     }
 
@@ -202,6 +173,60 @@ public sealed class Finding
     /// </summary>
     public bool NeedsActionTextAndDueOn(FindingEdit edit) =>
         ActionItem is null && (edit.ActionText is null) != (edit.DueOn is null);
+
+    /// <summary>The edit rules the API checks first, so here a break is a bug.</summary>
+    private void RefuseEditOffTheRules(FindingEdit edit)
+    {
+        if (edit.IsEmpty)
+        {
+            throw new ArgumentException("An edit changes at least one field.", nameof(edit));
+        }
+        if (NeedsActionTextAndDueOn(edit))
+        {
+            throw new ArgumentException(ActionNeedsTextAndDueOnMessage, nameof(edit));
+        }
+    }
+
+    /// <summary>The fields <paramref name="edit"/> gives, checked and trimmed; the others stay null.</summary>
+    private static FindingEdit NormalizedValues(FindingEdit edit) =>
+        edit with
+        {
+            Verdict = edit.Verdict is null ? null : Code(edit.Verdict, Verdicts.All, nameof(edit)),
+            Severity = edit.Severity is null
+                ? null
+                : Code(edit.Severity, Severities.All, nameof(edit)),
+            Rationale = edit.Rationale is null
+                ? null
+                : Names.Required(edit.Rationale, EditedRationaleMaxLength, nameof(edit)),
+            ActionText = edit.ActionText is null
+                ? null
+                : Names.Required(edit.ActionText, ActionItem.EditedTextMaxLength, nameof(edit)),
+        };
+
+    /// <summary>
+    /// Creates the action from the edit's text and due date when the finding has none, or changes
+    /// the ones the edit gives.
+    /// </summary>
+    private void ApplyActionEdit(FindingEdit values, Guid reviewer, DateTimeOffset now)
+    {
+        if (ActionItem is null)
+        {
+            if (values.ActionText is not null)
+            {
+                ActionItem = ActionItem.Create(
+                    this,
+                    values.ActionText,
+                    values.DueOn!.Value,
+                    reviewer,
+                    now
+                );
+            }
+        }
+        else if (values.ActionText is not null || values.DueOn is not null)
+        {
+            ActionItem.Change(values.ActionText, values.DueOn, reviewer, now);
+        }
+    }
 
     private void Review(ReviewStatus status, Guid reviewer, string? note, DateTimeOffset now)
     {
