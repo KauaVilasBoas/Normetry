@@ -13,8 +13,9 @@ import {
 import { can, queryFailed, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
+import { useAnnouncer } from "../ui/announcer";
 import { media, useMediaQuery } from "../ui/media";
-import { Button, ErrorMessage, Skeleton, TabStrip, Tag } from "../ui/primitives";
+import { Button, ErrorMessage, PoliteRegion, Skeleton, TabStrip, Tag } from "../ui/primitives";
 import { NameDialog } from "./NameDialog";
 import { EDITOR_TITLE_ID, ProfileEditor } from "./ProfileEditor";
 import { countLabel, sortProfiles } from "./profiles";
@@ -66,9 +67,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
     couldManage.current = canManage;
   }, [canManage]);
 
-  const [announcements, setAnnouncements] = useState<{ id: number; text: string }[]>([]);
-  const announce = (text: string) =>
-    setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text }]);
+  const { announcements, announce } = useAnnouncer();
 
   const created = useRef<string>(undefined);
   const create = async (name: string) => {
@@ -245,11 +244,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
 
       {showList && !meFailed && <UsersCard me={me.data} profiles={sorted} />}
 
-      <div aria-live="polite" className="sr-only">
-        {announcements.map((item) => (
-          <p key={item.id}>{item.text}</p>
-        ))}
-      </div>
+      <PoliteRegion announcements={announcements} />
     </div>
   );
 }

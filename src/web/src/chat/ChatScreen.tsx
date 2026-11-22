@@ -3,8 +3,9 @@ import { useLocation, useNavigate } from "react-router";
 import { useConversations, type Citation } from "../api/chat";
 import type { Establishment } from "../api/queries";
 import { copy } from "../copy";
+import { useAnnouncer } from "../ui/announcer";
 import { media, useMediaQuery } from "../ui/media";
-import { Sheet } from "../ui/primitives";
+import { PoliteRegion, Sheet } from "../ui/primitives";
 import { chipId } from "./answers";
 import { COMPOSER_ID } from "./Composer";
 import { ConversationList } from "./ConversationList";
@@ -64,11 +65,7 @@ export function ChatScreen({
     if (focusKey > 0) focusById(TITLE_ID);
   }, [focusKey]);
 
-  const [announcements, setAnnouncements] = useState<{ id: number; text: string; lang?: string }[]>(
-    [],
-  );
-  const announce = (text: string, lang?: string) =>
-    setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text, lang }]);
+  const { announcements, announce } = useAnnouncer();
 
   /** Focus after a navigation; from the conversations sheet, once it has closed. */
   const focusNext = (id: string) => {
@@ -172,13 +169,7 @@ export function ChatScreen({
         {openSource && <SourcePanel citation={openSource} onClose={closeSource} inSheet />}
       </Sheet>
 
-      <div aria-live="polite" className="sr-only">
-        {announcements.map((item) => (
-          <p key={item.id} lang={item.lang}>
-            {item.text}
-          </p>
-        ))}
-      </div>
+      <PoliteRegion announcements={announcements} />
     </div>
   );
 }
