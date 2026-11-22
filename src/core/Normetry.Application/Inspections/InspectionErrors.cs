@@ -1,3 +1,4 @@
+using Normetry.Application.Inspections.ReviewFinding;
 using Normetry.BuildingBlocks.Results;
 using Normetry.Domain.Inspections;
 
@@ -60,16 +61,11 @@ public static class InspectionErrors
     );
 
     /// <summary>An edit gave only one of the two for a finding that has no action.</summary>
-    public static readonly Error ActionNeedsTextAndDueOn = new(
-        "validation",
-        "One or more validation errors occurred.",
-        ErrorType.Validation
-    )
-    {
-        FieldErrors = new Dictionary<string, string[]>
+    public static readonly Error ActionNeedsTextAndDueOn = Error.Validation(
+        new Dictionary<string, string[]>
         {
-            ["ActionText"] = [Finding.ActionNeedsTextAndDueOnMessage],
-            ["DueOn"] = [Finding.ActionNeedsTextAndDueOnMessage],
-        },
-    };
+            [nameof(ReviewFindingCommand.ActionText)] = [Finding.ActionNeedsTextAndDueOnMessage],
+            [nameof(ReviewFindingCommand.DueOn)] = [Finding.ActionNeedsTextAndDueOnMessage],
+        }
+    );
 }

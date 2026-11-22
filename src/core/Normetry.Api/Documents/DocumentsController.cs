@@ -29,17 +29,12 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
     // over 10 MiB still reaches the check and gets document.too_large.
     private const long UploadRequestLimit = DocumentFiles.MaxSize + 1024 * 1024;
 
-    private static readonly Error InvalidExpiresOn = new(
-        "validation",
-        "One or more validation errors occurred.",
-        ErrorType.Validation
-    )
-    {
-        FieldErrors = new Dictionary<string, string[]>
+    private static readonly Error InvalidExpiresOn = Error.Validation(
+        new Dictionary<string, string[]>
         {
-            ["ExpiresOn"] = ["Give the expiry date as YYYY-MM-DD."],
-        },
-    };
+            [nameof(UploadDocumentForm.ExpiresOn)] = ["Give the expiry date as YYYY-MM-DD."],
+        }
+    );
 
     /// <summary>
     /// A new document with its first version (form fields <c>file</c>, <c>title</c>, <c>type</c>
