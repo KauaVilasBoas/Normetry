@@ -51,19 +51,10 @@ internal sealed class ExportFeedbackHandler(
         reviewed
             .Select(finding => new FeedbackExample(
                 finding.ItemId,
-                finding.Original ?? Current(finding),
-                Current(finding),
+                finding.Original ?? finding.CurrentValues,
+                finding.CurrentValues,
                 finding.ReviewNote,
                 subs.GetValueOrDefault(finding.ReviewedBy!.Value)
             ))
             .ToArray();
-
-    private static FindingOriginal Current(Finding finding) =>
-        new(
-            finding.Verdict,
-            finding.Severity,
-            finding.Rationale,
-            finding.ActionItem?.Text,
-            finding.ActionItem?.DueOn
-        );
 }
