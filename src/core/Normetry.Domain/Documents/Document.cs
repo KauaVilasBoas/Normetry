@@ -86,16 +86,12 @@ public sealed class Document
         DateTimeOffset now
     )
     {
-        if (!Enum.IsDefined(type))
-        {
-            throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown document type.");
-        }
         var document = new Document(
             Guid.CreateVersion7(),
             Names.RequiredId(tenantId, nameof(tenantId)),
             Names.RequiredId(establishmentId, nameof(establishmentId)),
             Names.Required(title, TitleMaxLength, nameof(title)),
-            type,
+            Names.Defined(type, nameof(type)),
             now
         );
         document.versions.Add(DocumentVersion.Create(document, 1, file, uploadedBy, now));
