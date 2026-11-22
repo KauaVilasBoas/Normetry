@@ -8,10 +8,6 @@ namespace Normetry.Application.Usage;
 /// </summary>
 public sealed record ChatQuotaResponse(int? Limit, int? Remaining, DateTimeOffset ResetsAt)
 {
-    /// <summary>The next UTC midnight, when every count starts again.</summary>
-    public static DateTimeOffset NextReset(DateTimeOffset now) =>
-        new(now.UtcDate().AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-
     internal static ChatQuotaResponse Create(int? limit, int used, DateTimeOffset now) =>
-        new(limit, limit is { } max ? Math.Max(0, max - used) : null, NextReset(now));
+        new(limit, limit is { } max ? Math.Max(0, max - used) : null, now.NextUtcMidnight());
 }

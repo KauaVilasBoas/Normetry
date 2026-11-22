@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -102,9 +101,7 @@ internal static class RateLimitingSetup
             {
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
                 {
-                    context.HttpContext.Response.Headers.RetryAfter = (
-                        (long)Math.Ceiling(retryAfter.TotalSeconds)
-                    ).ToString(CultureInfo.InvariantCulture);
+                    context.HttpContext.Response.SetRetryAfter(retryAfter);
                 }
                 return new ValueTask(
                     Result.Failure(RateLimited).ToProblemDetails().ExecuteAsync(context.HttpContext)
