@@ -13,6 +13,7 @@ import { meKey, useEstablishments, type Establishment } from "../api/queries";
 import { useSend } from "../api/send";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
+import { focusById } from "../ui/focus";
 import {
   quotaAfter,
   quotaNoticeText,
@@ -327,7 +328,7 @@ export function useConversationView({
 
   // Try again after a failed load: once it works the button goes away, so focus moves to the heading.
   async function reload() {
-    if ((await conversation.refetch()).isSuccess) document.getElementById(TITLE_ID)?.focus();
+    if ((await conversation.refetch()).isSuccess) focusById(TITLE_ID);
   }
 
   return { view, turns, lastTurn: turns.at(-1), title, retryingLoad, reload };

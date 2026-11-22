@@ -13,6 +13,7 @@ import {
 import type { Live } from "../api/live";
 import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
+import { focusById } from "../ui/focus";
 import {
   Button,
   ChecklistRow,
@@ -83,8 +84,7 @@ export function InspectionDetailView({
     const isLive = current !== undefined && inFlight(current);
     if (wasLive.current && !isLive && current !== undefined) {
       const active = document.activeElement;
-      if (active === null || active === document.body)
-        document.getElementById(DETAIL_TITLE_ID)?.focus();
+      if (active === null || active === document.body) focusById(DETAIL_TITLE_ID);
     }
     wasLive.current = isLive;
   }, [current]);
@@ -98,9 +98,8 @@ export function InspectionDetailView({
     if (!arrival || arrived.current === arrival || !settled) return;
     arrived.current = arrival;
     const params = new URLSearchParams(search);
-    const findings =
-      (params.has("verdict") || params.has("theme")) && document.getElementById(FINDINGS_TITLE_ID);
-    (findings || document.getElementById(DETAIL_TITLE_ID))?.focus();
+    if (params.has("verdict") || params.has("theme")) focusById(FINDINGS_TITLE_ID, DETAIL_TITLE_ID);
+    else focusById(DETAIL_TITLE_ID);
   }, [arrival, settled, search]);
 
   // Try again: the error card (and its button) goes once the inspection loads, so focus moves to
@@ -109,7 +108,7 @@ export function InspectionDetailView({
   useEffect(() => {
     if (!retried.current || !detail) return;
     retried.current = false;
-    document.getElementById(DETAIL_TITLE_ID)?.focus();
+    focusById(DETAIL_TITLE_ID);
   }, [detail]);
 
   const back = (

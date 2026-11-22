@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useConversations, type Citation } from "../api/chat";
 import type { Establishment } from "../api/queries";
 import { copy } from "../copy";
 import { useAnnouncer } from "../ui/announcer";
+import { focusById, useFocusAfterCommit, useShellFocusRequest } from "../ui/focus";
 import { media, useMediaQuery } from "../ui/media";
 import { PoliteRegion, Sheet } from "../ui/primitives";
 import { chipId } from "./answers";
@@ -12,8 +13,6 @@ import { ConversationList } from "./ConversationList";
 import { SHOW_CONVERSATIONS_ID, TITLE_ID } from "./conversation";
 import { ConversationPane } from "./ConversationPane";
 import { SourcePanel } from "./SourcePanel";
-
-const focusById = (id: string) => document.getElementById(id)?.focus();
 
 /**
  * Ask the Regulation: conversation list | conversation | source panel (DESIGN.md §4). `/` is a
@@ -57,13 +56,8 @@ export function ChatScreen({
   const listSheetOpen = listOpen && !listInline;
   const focusAfterListSheet = useRef<string>(undefined);
 
-  const [focusRequest, setFocusRequest] = useState<{ id: string }>();
-  useEffect(() => {
-    if (focusRequest) focusById(focusRequest.id);
-  }, [focusRequest]);
-  useEffect(() => {
-    if (focusKey > 0) focusById(TITLE_ID);
-  }, [focusKey]);
+  const focusAfterCommit = useFocusAfterCommit();
+  useShellFocusRequest(focusKey, TITLE_ID);
 
   const { announcements, announce } = useAnnouncer();
 
@@ -73,7 +67,7 @@ export function ChatScreen({
       focusAfterListSheet.current = id;
       setListOpen(false);
     } else {
-      setFocusRequest({ id });
+      focusAfterCommit(id);
     }
   };
 
@@ -144,8 +138,7 @@ export function ChatScreen({
         // conversations is gone once the window widens past 768px: then the conversation heading.
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          const target = focusAfterListSheet.current ?? SHOW_CONVERSATIONS_ID;
-          focusById(document.getElementById(target) ? target : TITLE_ID);
+          focusById(focusAfterListSheet.current ?? SHOW_CONVERSATIONS_ID, TITLE_ID);
           focusAfterListSheet.current = undefined;
         }}
       >

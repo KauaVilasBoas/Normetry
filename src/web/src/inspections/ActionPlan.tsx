@@ -4,6 +4,7 @@ import { actionStatuses } from "../api/contract";
 import type { ActionItem, InspectionDetail } from "../api/inspections";
 import { useSend } from "../api/send";
 import { calendarDate, copy, format } from "../copy";
+import { focusById } from "../ui/focus";
 import { Checkbox, Message, ReadOnlyCheckbox } from "../ui/primitives";
 import { DueBadge } from "./FindingSheet";
 import { actionPlan, useReview } from "./findings";
@@ -37,7 +38,7 @@ export function ActionPlan({
   const hadReview = useRef(canReview);
   useEffect(() => {
     if (hadReview.current && !canReview && document.activeElement === document.body)
-      document.getElementById(ACTIONS_TITLE_ID)?.focus();
+      focusById(ACTIONS_TITLE_ID);
     hadReview.current = canReview;
   }, [canReview]);
 

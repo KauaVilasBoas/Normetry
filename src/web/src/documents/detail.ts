@@ -12,6 +12,7 @@ import {
 import { queryFailed } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy } from "../copy";
+import { focusById } from "../ui/focus";
 import { cachedTitle, expiryProblem, inFlight } from "./documents";
 import { DETAIL_TITLE_ID } from "./parts";
 
@@ -43,7 +44,7 @@ export function useDocumentDetail({
   useEffect(() => {
     if (!retried.current || !detail) return;
     retried.current = false;
-    document.getElementById(DETAIL_TITLE_ID)?.focus();
+    focusById(DETAIL_TITLE_ID);
   }, [detail]);
 
   const retry = () => {

@@ -17,6 +17,7 @@ import {
 import { can, meKey, queryFailed, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
+import { focusById } from "../ui/focus";
 import {
   Button,
   Checkbox,
@@ -214,8 +215,7 @@ export function ProfileEditor({
             retrying={retrying}
             onRetry={() => {
               void Promise.all([profile.refetch(), catalog.refetch()]).then((results) => {
-                if (results.every((result) => result.isSuccess))
-                  document.getElementById(EDITOR_TITLE_ID)?.focus();
+                if (results.every((result) => result.isSuccess)) focusById(EDITOR_TITLE_ID);
               });
             }}
           />

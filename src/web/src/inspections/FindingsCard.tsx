@@ -6,6 +6,7 @@ import type { Finding, InspectionDetail } from "../api/inspections";
 import { useSend } from "../api/send";
 import { copy, dateTime, format } from "../copy";
 import { useAnnouncer } from "../ui/announcer";
+import { focusById } from "../ui/focus";
 import { Button, FilterSelect, Message, PoliteRegion, Sheet, th } from "../ui/primitives";
 import { FindingSheet, ReviewPill, VerdictPill } from "./FindingSheet";
 import {
@@ -22,7 +23,6 @@ import { FINDINGS_TITLE_ID, findingCount } from "./inspections";
 
 const noFilters: Filters = { verdict: "", theme: "" };
 const rowId = (findingId: string) => `finding-${findingId}`;
-const focusById = (id: string) => document.getElementById(id)?.focus();
 
 /**
  * The completed view's Findings card: caption, verdict and theme filters, the table sorted by
@@ -179,9 +179,7 @@ export function FindingsCard({
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          const row = document.getElementById(rowId(lastShown.current ?? ""));
-          if (row) row.focus();
-          else focusById(FINDINGS_TITLE_ID);
+          focusById(rowId(lastShown.current ?? ""), FINDINGS_TITLE_ID);
         }}
       >
         {sheet && shown && (

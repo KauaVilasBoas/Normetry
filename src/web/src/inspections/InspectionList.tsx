@@ -9,6 +9,7 @@ import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { untilReset } from "../chat/answers";
 import { copy, dateTime, format } from "../copy";
+import { focusById } from "../ui/focus";
 import {
   Button,
   ConnectionNotice,
@@ -87,7 +88,7 @@ export function InspectionList({
   const hadRun = useRef(canRun);
   useEffect(() => {
     if (hadRun.current && !canRun && document.activeElement === document.body)
-      document.getElementById(LIST_TITLE_ID)?.focus();
+      focusById(LIST_TITLE_ID);
     hadRun.current = canRun;
   }, [canRun]);
 
@@ -127,7 +128,7 @@ export function InspectionList({
 
   // Try again: once it loads the button goes away, so focus moves to the heading.
   const reload = async () => {
-    if ((await inspections.refetch()).isSuccess) document.getElementById(LIST_TITLE_ID)?.focus();
+    if ((await inspections.refetch()).isSuccess) focusById(LIST_TITLE_ID);
   };
 
   // At most one notice: a running inspection first, then the last refusal. A refusal still shows
