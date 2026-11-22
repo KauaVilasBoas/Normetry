@@ -312,6 +312,18 @@ public sealed class InspectionTests
     }
 
     [Fact]
+    public void A_long_failure_reason_is_cut_to_the_limit_in_characters_without_splitting_one()
+    {
+        // The emoji is two UTF-16 units: cutting 500 units would end inside it.
+        var kept = new string('x', Inspection.FailureReasonMaxLength - 1) + "🌡";
+        var running = Running();
+
+        running.Fail(InspectionFailureReasons.Error, kept + " and more.", Now);
+
+        Assert.Equal(kept, running.FailureReason);
+    }
+
+    [Fact]
     public void Only_a_run_or_a_request_older_than_the_timeout_times_out()
     {
         var timeout = TimeSpan.FromMinutes(30);

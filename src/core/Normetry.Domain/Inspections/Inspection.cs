@@ -165,8 +165,8 @@ public sealed class Inspection
         {
             return false;
         }
-        FailureReasonCode = Truncate(code, FailureCodeMaxLength);
-        FailureReason = Truncate(reason, FailureReasonMaxLength);
+        FailureReasonCode = Names.Truncate(code, FailureCodeMaxLength);
+        FailureReason = Names.Truncate(reason, FailureReasonMaxLength);
         Status = InspectionStatus.Failed;
         CompletedAt = now;
         return true;
@@ -190,9 +190,6 @@ public sealed class Inspection
             "The inspection took too long and was stopped.",
             now
         );
-
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
 }
 
 /// <summary>The codes an inspection fails with, as the inspection contract writes them.</summary>
