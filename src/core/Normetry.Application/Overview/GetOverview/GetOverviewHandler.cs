@@ -97,21 +97,25 @@ internal sealed class GetOverviewHandler(
         }
         // Filtered in memory: an establishment holds at most MaxDocumentsPerEstablishment.
         var dated = (await documents.ListAsync(establishmentId, cancellationToken))
-            .Where(document => document.ExpiresOn <= today.AddDays(ExpiringWithinDays))
-            .Select(document => new ExpiringDocument(
-                document.Id,
-                document.Title,
-                document.Type,
-                document.ExpiresOn!.Value
-            ))
+            .Where(document =>
+                document.IsExpiredOn(today) || document.ExpiresWithin(today, ExpiringWithinDays)
+            )
             .OrderBy(document => document.ExpiresOn)
             .ThenBy(document => document.Id)
             .ToArray();
-        var expired = dated.Count(document => document.ExpiresOn < today);
+        var expired = dated.Count(document => document.IsExpiredOn(today));
         return new DocumentsOverview(
             expired,
             dated.Length - expired,
-            dated.Take(DocumentListLength).ToArray()
+            dated
+                .Take(DocumentListLength)
+                .Select(document => new ExpiringDocument(
+                    document.Id,
+                    document.Title,
+                    document.Type,
+                    document.ExpiresOn!.Value
+                ))
+                .ToArray()
         );
     }
 

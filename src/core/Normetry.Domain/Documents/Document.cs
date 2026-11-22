@@ -65,6 +65,16 @@ public sealed class Document
     /// <summary>When the document last changed: its newest status change.</summary>
     public DateTimeOffset UpdatedAt => versions.Max(version => version.StatusChangedAt);
 
+    /// <summary>Its last valid day is before <paramref name="today"/>; never without a date.</summary>
+    public bool IsExpiredOn(DateOnly today) => ExpiresOn < today;
+
+    /// <summary>
+    /// It expires from <paramref name="today"/> to <paramref name="days"/> days later, both
+    /// included; never without a date.
+    /// </summary>
+    public bool ExpiresWithin(DateOnly today, int days) =>
+        ExpiresOn >= today && ExpiresOn <= today.AddDays(days);
+
     /// <summary>A new document with its first version, uploaded by <paramref name="uploadedBy"/>.</summary>
     public static Document Create(
         Guid tenantId,
