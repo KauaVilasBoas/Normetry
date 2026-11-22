@@ -163,7 +163,7 @@ internal sealed class GetOverviewHandler(
         new(
             latest.Id,
             latest.CompletedAt,
-            InspectionResponse.RegulationOf(establishment.Jurisdiction),
+            Regulations.Of(establishment.Jurisdiction),
             Compliance(latest.Compliant, latest.Evaluated),
             VerdictCounts.Of(findings.Select(finding => finding.Verdict)),
             CountVerdictsByTheme(findings),
