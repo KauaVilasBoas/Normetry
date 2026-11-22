@@ -92,6 +92,10 @@ public sealed class DocumentVersion
 
     public string? Language { get; private set; }
 
+    /// <summary>It waits for the AI service or is being ingested.</summary>
+    public bool IsInFlight =>
+        Status is DocumentVersionStatus.Uploaded or DocumentVersionStatus.Processing;
+
     internal static DocumentVersion Create(
         Document document,
         int number,
@@ -144,7 +148,7 @@ public sealed class DocumentVersion
     /// <summary>The AI service gave up: Failed, from Uploaded or Processing only.</summary>
     public bool MarkFailed(string code, string reason, DateTimeOffset now)
     {
-        if (Status is not (DocumentVersionStatus.Uploaded or DocumentVersionStatus.Processing))
+        if (!IsInFlight)
         {
             return false;
         }

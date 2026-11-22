@@ -59,8 +59,7 @@ public sealed class Document
             .MaxBy(version => version.Number);
 
     /// <summary>The newest version waits for the AI service or is being ingested.</summary>
-    public bool HasVersionInFlight =>
-        Newest.Status is DocumentVersionStatus.Uploaded or DocumentVersionStatus.Processing;
+    public bool HasVersionInFlight => Newest.IsInFlight;
 
     /// <summary>When the document last changed: its newest status change.</summary>
     public DateTimeOffset UpdatedAt => versions.Max(version => version.StatusChangedAt);

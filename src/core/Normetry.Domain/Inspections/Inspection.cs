@@ -78,6 +78,9 @@ public sealed class Inspection
 
     public IReadOnlyCollection<Finding> Findings => findings;
 
+    /// <summary>It waits for the AI service or is running.</summary>
+    public bool IsInFlight => Status is InspectionStatus.Requested or InspectionStatus.Running;
+
     /// <summary>A new inspection, Requested by the user <paramref name="requestedBy"/> (a <c>sub</c>).</summary>
     public static Inspection Request(
         Guid tenantId,
@@ -109,7 +112,7 @@ public sealed class Inspection
         DateTimeOffset now
     )
     {
-        if (Status is not (InspectionStatus.Requested or InspectionStatus.Running))
+        if (!IsInFlight)
         {
             return false;
         }
@@ -162,7 +165,7 @@ public sealed class Inspection
     /// <summary><c>InspectionFailed</c>: Failed, from Requested or Running only.</summary>
     public bool Fail(string code, string reason, DateTimeOffset now)
     {
-        if (Status is not (InspectionStatus.Requested or InspectionStatus.Running))
+        if (!IsInFlight)
         {
             return false;
         }
