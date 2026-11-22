@@ -3,7 +3,7 @@ import { Dialog } from "radix-ui";
 import { useRef } from "react";
 import { Link } from "react-router";
 import { useConversations } from "../api/chat";
-import type { Establishment } from "../api/queries";
+import { queryFailed, type Establishment } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
 import { Button, iconButton, Message, Skeleton, Spinner } from "../ui/primitives";
 
@@ -24,10 +24,7 @@ export function ConversationList({
 }) {
   const conversations = useConversations();
   const title = useRef<HTMLHeadingElement>(null);
-  // Try again sends a failed query back to pending: keep the error (and its focused button) until
-  // that request settles.
-  const failed =
-    conversations.isError || (conversations.isPending && conversations.errorUpdateCount > 0);
+  const failed = queryFailed(conversations);
   const retrying = failed && conversations.isFetching;
   const rows = (conversations.data ?? [])
     .filter((conversation) => conversation.establishmentId === establishment.id)

@@ -1,7 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client";
-import type { Establishment, Me } from "../api/queries";
+import { queryFailed, type Establishment, type Me } from "../api/queries";
 import { copy, format } from "../copy";
 
 export type ListState = "loading" | "list" | "empty" | "error" | "forbidden";
@@ -14,11 +14,8 @@ export function listState(
   // 403 from /me: the token has no valid tenant. From /establishments it is a missing permission,
   // which refetches /me (createQueryClient) and so hides the card.
   if (me.error instanceof ApiError && me.error.status === 403) return "forbidden";
-  // A failed query goes back to pending when Try again refetches it; keep the error (and its
-  // button, which holds focus) until that request settles.
-  const failed = (query: UseQueryResult) =>
-    query.isError || (query.isPending && query.errorUpdateCount > 0);
-  if (failed(me) || failed(list)) return "error";
+  // Kept failed while Try again refetches it, so its button (which holds focus) stays.
+  if (queryFailed(me) || queryFailed(list)) return "error";
   if (!me.data || !list.data) return "loading";
   return list.data.length > 0 ? "list" : "empty";
 }

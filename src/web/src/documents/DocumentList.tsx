@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { permissions } from "../api/contract";
 import { documentsKey, useDocuments, type DocumentSummary } from "../api/documents";
 import type { Live } from "../api/live";
-import { can, queryFailed, type Establishment, type Me } from "../api/queries";
+import { can, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
 import { focusById } from "../ui/focus";
 import {
@@ -63,8 +63,7 @@ export function DocumentList({
   const queryClient = useQueryClient();
   const documents = useDocuments(establishment.id, true);
   const canUpload = can(me, permissions.documents.upload);
-  const failed = queryFailed(documents);
-  const retrying = failed && documents.isFetching;
+  const { failed, retrying, retry } = useQueryRetry(documents, LIST_TITLE_ID);
   const [upload, setUpload] = useState<{ files: File[] }>();
   const [dragging, setDragging] = useState(false);
   const uploadButton = useRef<HTMLButtonElement>(null);
@@ -83,11 +82,6 @@ export function DocumentList({
     if (!canUpload || !draggingFiles(event)) return;
     event.preventDefault();
     setDragging(true);
-  };
-
-  // Try again: once it loads the button goes away, so focus moves to the heading.
-  const reload = async () => {
-    if ((await documents.refetch()).isSuccess) focusById(LIST_TITLE_ID);
   };
 
   return (
@@ -155,7 +149,7 @@ export function DocumentList({
             body={copy.documents.errorBody}
             retryLabel={copy.documents.tryAgain}
             retrying={retrying}
-            onRetry={() => void reload()}
+            onRetry={retry}
           />
         </div>
       ) : !rows ? (

@@ -2,7 +2,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CircleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
-import { ApiError } from "../api/client";
 import { inspectionStatuses, permissions } from "../api/contract";
 import {
   inspectionsKey,
@@ -11,7 +10,7 @@ import {
   type InspectionSummary,
 } from "../api/inspections";
 import type { Live } from "../api/live";
-import { can, queryFailed, type Establishment, type Me } from "../api/queries";
+import { can, queryNotFound, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
 import { focusById, useRefocusWhenGone } from "../ui/focus";
 import {
@@ -66,10 +65,10 @@ export function InspectionDetailView({
 }) {
   const queryClient = useQueryClient();
   const query = useInspection(establishment.id, id, true);
-  const status = query.error instanceof ApiError ? query.error.status : 0;
-  const notFound = queryFailed(query) && (status === 404 || status === 400);
-  const failed = queryFailed(query) && !notFound;
-  const retrying = failed && query.isFetching;
+  const notFound = queryNotFound(query);
+  const load = useQueryRetry(query, DETAIL_TITLE_ID);
+  const failed = load.failed && !notFound;
+  const retrying = failed && load.retrying;
   const detail = query.data;
   // The list's row gives the title while the inspection loads.
   const requestedAt =
@@ -92,15 +91,6 @@ export function InspectionDetailView({
     if (params.has("verdict") || params.has("theme")) focusById(FINDINGS_TITLE_ID, DETAIL_TITLE_ID);
     else focusById(DETAIL_TITLE_ID);
   }, [arrival, settled, search]);
-
-  // Try again: the error card (and its button) goes once the inspection loads, so focus moves to
-  // the title, after the commit that shows it.
-  const retried = useRef(false);
-  useEffect(() => {
-    if (!retried.current || !detail) return;
-    retried.current = false;
-    focusById(DETAIL_TITLE_ID);
-  }, [detail]);
 
   const back = (
     <Link
@@ -139,14 +129,7 @@ export function InspectionDetailView({
                 variant="secondary"
                 className="mt-2"
                 aria-disabled={retrying}
-                onClick={
-                  retrying
-                    ? undefined
-                    : () => {
-                        retried.current = true;
-                        void query.refetch();
-                      }
-                }
+                onClick={retrying ? undefined : load.retry}
               >
                 {retrying && <Spinner />}
                 {copy.inspections.tryAgain}

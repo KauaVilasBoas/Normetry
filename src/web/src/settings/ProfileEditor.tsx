@@ -3,7 +3,6 @@ import { CircleAlert, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
-import { ApiError } from "../api/client";
 import { permissions } from "../api/contract";
 import {
   profileKey,
@@ -14,7 +13,7 @@ import {
   type Profile,
   type ProfileListItem,
 } from "../api/profiles";
-import { can, meKey, queryFailed, type Me } from "../api/queries";
+import { can, meKey, queryFailed, queryNotFound, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
 import { focusById } from "../ui/focus";
@@ -74,8 +73,7 @@ export function ProfileEditor({
   const name = shown?.name;
   const system = shown?.systemKey != null;
   const grantsAll = shown?.grantsAll ?? false;
-  const status = profile.error instanceof ApiError ? profile.error.status : 0;
-  const notFound = queryFailed(profile) && (status === 404 || status === 400);
+  const notFound = queryNotFound(profile);
   const failed = !notFound && (queryFailed(profile) || queryFailed(catalog));
   const retrying = failed && (profile.isFetching || catalog.isFetching);
   const loading = !notFound && !failed && (!profile.data || !catalog.data);
