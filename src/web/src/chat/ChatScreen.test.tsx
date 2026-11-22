@@ -640,7 +640,7 @@ describe("a saved conversation", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-      "Couldn't delete the conversation. Try again.",
+      "You no longer have permission to do this.",
     );
     expect(meCalls()).toBe(1);
     await userEvent.keyboard("{Escape}");
