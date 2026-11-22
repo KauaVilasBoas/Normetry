@@ -53,7 +53,25 @@ internal sealed class GetOverviewHandler(
         {
             return new OverviewResponse(documentsOverview);
         }
+        return await BuildInspectionsOverviewAsync(
+            establishment,
+            today,
+            documentsOverview,
+            cancellationToken
+        );
+    }
 
+    /// <summary>
+    /// The overview with its inspection sections: the latest Completed inspection with its action
+    /// and review counts (none before the first one), and the compliance series.
+    /// </summary>
+    private async Task<InspectionsOverviewResponse> BuildInspectionsOverviewAsync(
+        Establishment establishment,
+        DateOnly today,
+        DocumentsOverview? documentsOverview,
+        CancellationToken cancellationToken
+    )
+    {
         // Only Completed ones: a newer failed or running inspection does not hide the latest result.
         var completed = await inspections.ListCompletedAsync(
             establishment.Id,
@@ -63,18 +81,25 @@ internal sealed class GetOverviewHandler(
         var series = BuildComplianceSeries(completed);
         if (completed is not [var latest, ..])
         {
-            return new InspectionsOverviewResponse(null, 0, 0, 0, series, documentsOverview);
+            return new InspectionsOverviewResponse(
+                LatestInspection: null,
+                OpenActionItems: 0,
+                OverdueActionItems: 0,
+                PendingReviews: 0,
+                Series: series,
+                Documents: documentsOverview
+            );
         }
 
         var findings = await inspections.ListFindingTalliesAsync(latest.Id, cancellationToken);
         var (openActions, overdueActions) = CountOpenAndOverdueActions(findings, today);
         return new InspectionsOverviewResponse(
-            BuildLatestInspectionSection(latest, establishment, findings),
-            openActions,
-            overdueActions,
-            CountPendingReviews(findings),
-            series,
-            documentsOverview
+            LatestInspection: BuildLatestInspectionSection(latest, establishment, findings),
+            OpenActionItems: openActions,
+            OverdueActionItems: overdueActions,
+            PendingReviews: CountPendingReviews(findings),
+            Series: series,
+            Documents: documentsOverview
         );
     }
 
