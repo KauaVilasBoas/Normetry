@@ -16,6 +16,16 @@ public enum ErrorType
 /// <summary>An expected failure. Exceptions stay for failures nobody planned for.</summary>
 public sealed record Error(string Code, string Message, ErrorType Type)
 {
-    /// <summary>Messages per input field, set by the validation behavior.</summary>
+    /// <summary>The code of every input failure; its field errors say what is wrong.</summary>
+    public const string ValidationCode = "validation";
+
+    /// <summary>Messages per input field, set by <see cref="Validation"/>.</summary>
     public IReadOnlyDictionary<string, string[]>? FieldErrors { get; init; }
+
+    /// <summary>An input failure with its messages per field.</summary>
+    public static Error Validation(IReadOnlyDictionary<string, string[]> fieldErrors) =>
+        new(ValidationCode, "One or more validation errors occurred.", ErrorType.Validation)
+        {
+            FieldErrors = fieldErrors,
+        };
 }

@@ -34,15 +34,14 @@ internal sealed class ValidationBehavior<TRequest, TResult>(
         }
 
         return TResult.Failure(
-            new Error("validation", "One or more validation errors occurred.", ErrorType.Validation)
-            {
-                FieldErrors = failures
+            Error.Validation(
+                failures
                     .GroupBy(failure => failure.PropertyName)
                     .ToDictionary(
                         group => group.Key,
                         group => group.Select(failure => failure.ErrorMessage).ToArray()
-                    ),
-            }
+                    )
+            )
         );
     }
 }
