@@ -10,4 +10,8 @@ public static class UtcDateExtensions
         DateOnly.FromDateTime(instant.UtcDateTime);
 
     public static DateOnly UtcToday(this TimeProvider clock) => clock.GetUtcNow().UtcDate();
+
+    /// <summary>The UTC midnight after the instant, when every daily count starts again.</summary>
+    public static DateTimeOffset NextUtcMidnight(this DateTimeOffset instant) =>
+        new(instant.UtcDate().AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 }
