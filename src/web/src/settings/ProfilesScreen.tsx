@@ -1,6 +1,6 @@
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { permissions } from "../api/contract";
 import {
@@ -14,7 +14,7 @@ import { can, queryFailed, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
 import { useAnnouncer } from "../ui/announcer";
-import { focusById, useFocusAfterCommit } from "../ui/focus";
+import { focusById, useFocusAfterCommit, useRefocusWhenGone } from "../ui/focus";
 import { media, useMediaQuery } from "../ui/media";
 import { Button, ErrorMessage, PoliteRegion, Skeleton, TabStrip, Tag } from "../ui/primitives";
 import { NameDialog } from "./NameDialog";
@@ -55,12 +55,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
 
   // Losing profiles.manage (a refetched /me) removes Save, the dialogs and the menus, maybe the
   // focused one. The users card moves focus first for its menus; anything else lands here.
-  const couldManage = useRef(canManage);
-  useEffect(() => {
-    if (couldManage.current && !canManage && document.activeElement === document.body)
-      focusById(EDITOR_TITLE_ID, PROFILES_TITLE_ID);
-    couldManage.current = canManage;
-  }, [canManage]);
+  useRefocusWhenGone(canManage, EDITOR_TITLE_ID, PROFILES_TITLE_ID);
 
   const { announcements, announce } = useAnnouncer();
 

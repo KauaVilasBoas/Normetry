@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, ClipboardCheck, Clock, FileText, Play } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { permissions } from "../api/contract";
 import { inspectionsKey, useInspections, type InspectionSummary } from "../api/inspections";
@@ -9,7 +9,7 @@ import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { untilReset } from "../chat/answers";
 import { copy, dateTime, format } from "../copy";
-import { focusById } from "../ui/focus";
+import { focusById, useRefocusWhenGone } from "../ui/focus";
 import {
   Button,
   ConnectionNotice,
@@ -85,12 +85,7 @@ export function InspectionList({
   const blocked = canRun && (running !== undefined || until !== undefined);
 
   // Run goes when /me stops granting it (a 403): focus, lost with the button, goes to the heading.
-  const hadRun = useRef(canRun);
-  useEffect(() => {
-    if (hadRun.current && !canRun && document.activeElement === document.body)
-      focusById(LIST_TITLE_ID);
-    hadRun.current = canRun;
-  }, [canRun]);
+  useRefocusWhenGone(canRun, LIST_TITLE_ID);
 
   const run = async () => {
     setRefusal(undefined);

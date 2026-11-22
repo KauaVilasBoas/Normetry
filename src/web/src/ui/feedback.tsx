@@ -1,6 +1,6 @@
 import { CircleAlert, WifiOff } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import type { Live } from "../api/live";
+import { offersReconnect, type Live } from "../api/live";
 import type { Announcement } from "./announcer";
 import { Button } from "./buttons";
 
@@ -81,7 +81,7 @@ export function ConnectionNotice({
           icon={reconnecting ? <Spinner /> : <WifiOff aria-hidden="true" className="size-4" />}
           title={reconnecting ? labels.reconnecting : labels.stopped}
           action={
-            !reconnecting && (
+            offersReconnect(live.state) && (
               // aria-disabled, not disabled, while it reconnects: focus stays on the button.
               <Button
                 variant="secondary"
