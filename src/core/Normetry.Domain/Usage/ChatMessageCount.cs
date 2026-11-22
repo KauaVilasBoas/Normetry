@@ -1,3 +1,5 @@
+using Normetry.Domain.Identity;
+
 namespace Normetry.Domain.Usage;
 
 /// <summary>
@@ -6,8 +8,8 @@ namespace Normetry.Domain.Usage;
 /// </summary>
 public sealed class ChatMessageCount
 {
-    /// <summary>The OpenID Connect limit for a <c>sub</c> claim.</summary>
-    public const int UserIdMaxLength = 255;
+    /// <summary>The user is a <c>sub</c>, so it has the same limit.</summary>
+    public const int UserIdMaxLength = User.SubMaxLength;
 
     private ChatMessageCount(Guid tenantId, string userId, DateOnly day, int count)
     {

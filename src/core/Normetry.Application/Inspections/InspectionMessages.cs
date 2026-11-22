@@ -1,5 +1,6 @@
 using Normetry.Application.Abstractions;
 using Normetry.Domain.Establishments;
+using Normetry.Domain.Identity;
 using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections;
@@ -30,7 +31,7 @@ public sealed record InspectionRequested(
     string RequestedBy
 ) : IIntegrationMessage
 {
-    public const int RequestedByMaxLength = 255;
+    public const int RequestedByMaxLength = User.SubMaxLength;
 
     public static string Type => "InspectionRequested";
 
@@ -101,7 +102,7 @@ public sealed record InspectionFailed(
     string ReasonText
 ) : IIntegrationMessage, IInspectionEvent
 {
-    public const int ReasonTextMaxLength = 500;
+    public const int ReasonTextMaxLength = Inspection.FailureReasonMaxLength;
 
     public static string Type => "InspectionFailed";
 

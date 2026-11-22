@@ -106,7 +106,7 @@ public sealed record DocumentIngestionFailed(
     string ReasonText
 ) : IIntegrationMessage, IDocumentVersionEvent
 {
-    public const int ReasonTextMaxLength = 500;
+    public const int ReasonTextMaxLength = DocumentVersion.FailureReasonMaxLength;
 
     public static string Type => "DocumentIngestionFailed";
 

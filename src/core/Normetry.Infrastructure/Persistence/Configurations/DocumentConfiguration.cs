@@ -56,9 +56,13 @@ internal sealed class DocumentVersionConfiguration : IEntityTypeConfiguration<Do
         builder
             .Property(version => version.FileName)
             .HasMaxLength(DocumentVersion.FileNameMaxLength);
-        builder.Property(version => version.ContentType).HasMaxLength(255);
+        builder
+            .Property(version => version.ContentType)
+            .HasMaxLength(DocumentVersion.ContentTypeMaxLength);
         builder.Property(version => version.Sha256).HasMaxLength(64);
-        builder.Property(version => version.BlobPath).HasMaxLength(1024);
+        builder
+            .Property(version => version.BlobPath)
+            .HasMaxLength(DocumentVersion.BlobPathMaxLength);
         builder.Property(version => version.Status).HasConversion<string>().HasMaxLength(20);
         builder
             .Property(version => version.FailureCode)
