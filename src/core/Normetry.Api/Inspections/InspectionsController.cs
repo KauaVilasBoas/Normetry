@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
@@ -12,9 +11,9 @@ using Normetry.Application.Inspections.ListInspections;
 using Normetry.Application.Inspections.ReviewFinding;
 using Normetry.Application.Inspections.SetActionItemStatus;
 using Normetry.Application.Inspections.StartInspection;
-using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.BuildingBlocks.Time;
 using Normetry.Domain.Identity;
 using Normetry.Domain.Inspections;
 
@@ -57,9 +56,7 @@ public sealed class InspectionsController(IDispatcher dispatcher, TimeProvider c
         if (result.Error.Type == ErrorType.RateLimited)
         {
             var now = clock.GetUtcNow();
-            Response.Headers.RetryAfter = (
-                (long)Math.Ceiling((ChatQuotaResponse.NextReset(now) - now).TotalSeconds)
-            ).ToString(CultureInfo.InvariantCulture);
+            Response.SetRetryAfter(now.NextUtcMidnight() - now);
         }
         return result.ToActionResult();
     }

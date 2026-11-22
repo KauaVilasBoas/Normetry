@@ -1,9 +1,9 @@
 using System.Globalization;
 using Normetry.Application.Establishments.GetEstablishment;
-using Normetry.Application.Usage;
 using Normetry.Application.Usage.CountChatMessage;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.BuildingBlocks.Time;
 using Normetry.Domain.Establishments;
 
 namespace Normetry.Api.Gateway;
@@ -121,9 +121,7 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
         {
             if (quota.Error.Type == ErrorType.RateLimited)
             {
-                context.Response.Headers.RetryAfter = Seconds(
-                    ChatQuotaResponse.NextReset(now) - now
-                );
+                context.Response.SetRetryAfter(now.NextUtcMidnight() - now);
             }
             await quota.ToProblemDetails().ExecuteAsync(context);
             return false;
@@ -132,7 +130,7 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
         // An unlimited plan has nothing to report.
         if (quota.Value is { Limit: { } limit, Remaining: { } remaining, ResetsAt: var resetsAt })
         {
-            var reset = Seconds(resetsAt - now);
+            var reset = HttpResponseExtensions.WholeSeconds(resetsAt - now);
             // Set as the response starts, after YARP copied the AI service's headers: the core's
             // values win, nothing is buffered (the answer streams as SSE), and an error response
             // from the proxy gets them too.
@@ -150,7 +148,4 @@ internal sealed record EstablishmentScope(Guid EstablishmentId, Jurisdiction Jur
 
     private static Task NotFoundAsync(HttpContext context) =>
         Results.Problem(statusCode: StatusCodes.Status404NotFound).ExecuteAsync(context);
-
-    private static string Seconds(TimeSpan span) =>
-        ((long)Math.Ceiling(span.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
 }
