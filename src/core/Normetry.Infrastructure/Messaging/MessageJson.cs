@@ -168,9 +168,11 @@ internal static partial class MessageJson
             DocumentIngestionFailureReasons.ContractCodes.Contains(message.ReasonCode),
             "unknown reasonCode"
         );
-        Require(
-            message.ReasonText.Length is >= 1 and <= DocumentIngestionFailed.ReasonTextMaxLength,
-            "reasonText must be 1 to 500 long"
+        RequireLength(
+            message.ReasonText,
+            1,
+            DocumentIngestionFailed.ReasonTextMaxLength,
+            "reasonText"
         );
         return message;
     }

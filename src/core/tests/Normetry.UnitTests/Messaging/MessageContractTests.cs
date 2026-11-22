@@ -155,6 +155,21 @@ public sealed class MessageContractTests
         );
     }
 
+    [Theory]
+    [InlineData("document-ingestion-failed.v1")]
+    [InlineData("inspection-failed.v1")]
+    public void A_reason_text_limit_counts_characters_not_UTF16_units(string message)
+    {
+        // The emoji is two UTF-16 units: 500 characters are 501 units here.
+        var atLimit = WithReasonText(message, new string('x', 499) + "\U0001F600");
+        var overLimit = WithReasonText(message, new string('x', 500) + "\U0001F600");
+
+        Assert.Equal(Pascal(message), MessageJson.Parse(Encoding.UTF8.GetBytes(atLimit)).Type);
+        Assert.Throws<MessageFormatException>(() =>
+            MessageJson.Parse(Encoding.UTF8.GetBytes(overLimit))
+        );
+    }
+
     [Fact]
     public void A_cost_in_exponent_form_is_read_as_a_decimal()
     {
@@ -249,6 +264,13 @@ public sealed class MessageContractTests
 
     private static string Fixture(string message, string kind) =>
         File.ReadAllText(Path.Combine(Folder, "fixtures", $"{message}.{kind}.json"));
+
+    private static string WithReasonText(string message, string reasonText)
+    {
+        var body = JsonNode.Parse(Fixture(message, "valid"))!;
+        body["payload"]!["reasonText"] = reasonText;
+        return body.ToJsonString();
+    }
 
     private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement;
 
