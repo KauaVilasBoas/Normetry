@@ -5,7 +5,8 @@ import { severities } from "../api/contract";
 import type { Finding, InspectionDetail } from "../api/inspections";
 import { useSend } from "../api/send";
 import { copy, dateTime, format } from "../copy";
-import { Button, FilterSelect, Message, Sheet, th } from "../ui/primitives";
+import { useAnnouncer } from "../ui/announcer";
+import { Button, FilterSelect, Message, PoliteRegion, Sheet, th } from "../ui/primitives";
 import { FindingSheet, ReviewPill, VerdictPill } from "./FindingSheet";
 import {
   findingsCaption,
@@ -64,18 +65,15 @@ export function FindingsCard({
   }, [filtered, setParams]);
   const [ascending, setAscending] = useState(false);
   const [sheet, setSheet] = useState<{ ids: string[]; index: number }>();
-  const [announcements, setAnnouncements] = useState<{ id: number; text: string }[]>([]);
+  const { announcements, announce, clear } = useAnnouncer();
   const lastShown = useRef<string>(undefined);
   const { send, closed } = useSend({ inside: true });
   const rows = sortFindings(findings.filter(matches(filters)), ascending);
   const shown = sheet && findings.find((f) => f.id === sheet.ids[sheet.index]);
 
-  const announce = (text: string) =>
-    setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text }]);
-
   const open = (index: number) => {
     lastShown.current = rows[index].id;
-    setAnnouncements([]);
+    clear();
     setSheet({ ids: rows.map((row) => row.id), index });
   };
 
@@ -202,11 +200,7 @@ export function FindingsCard({
             announce={announce}
           />
         )}
-        <div aria-live="polite" className="sr-only">
-          {announcements.map((item) => (
-            <p key={item.id}>{item.text}</p>
-          ))}
-        </div>
+        <PoliteRegion announcements={announcements} />
       </Sheet>
     </section>
   );

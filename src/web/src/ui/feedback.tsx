@@ -1,6 +1,7 @@
 import { CircleAlert, WifiOff } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import type { Live } from "../api/live";
+import type { Announcement } from "./announcer";
 import { Button } from "./buttons";
 
 // Track and arc per surface: an --bg-elevated track vanishes inside an elevated surface, and a
@@ -94,6 +95,19 @@ export function ConnectionNotice({
           }
         />
       )}
+    </div>
+  );
+}
+
+/** A screen's polite live region (`useAnnouncer`): screen readers hear each line as it arrives. */
+export function PoliteRegion({ announcements }: { announcements: Announcement[] }) {
+  return (
+    <div aria-live="polite" className="sr-only">
+      {announcements.map((item) => (
+        <p key={item.id} lang={item.lang}>
+          {item.text}
+        </p>
+      ))}
     </div>
   );
 }

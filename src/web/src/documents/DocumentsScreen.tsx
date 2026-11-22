@@ -6,6 +6,8 @@ import { documentKey, documentsKey } from "../api/documents";
 import { useLiveStatus } from "../api/live";
 import type { Establishment, Me } from "../api/queries";
 import { copy, format } from "../copy";
+import { useAnnouncer } from "../ui/announcer";
+import { PoliteRegion } from "../ui/primitives";
 import { DocumentDetailView } from "./DocumentDetail";
 import { DocumentList } from "./DocumentList";
 import {
@@ -40,10 +42,8 @@ export function DocumentsScreen({
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [announcements, setAnnouncements] = useState<{ id: number; text: string }[]>([]);
+  const { announcements, announce } = useAnnouncer();
   const [filter, setFilter] = useState<ExpiryFilter>("");
-  const announce = (text: string) =>
-    setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text }]);
 
   const [focusRequest, setFocusRequest] = useState<{ id: string }>();
   useEffect(() => {
@@ -136,11 +136,7 @@ export function DocumentsScreen({
           announce={announce}
         />
       )}
-      <div aria-live="polite" className="sr-only">
-        {announcements.map((item) => (
-          <p key={item.id}>{item.text}</p>
-        ))}
-      </div>
+      <PoliteRegion announcements={announcements} />
     </>
   );
 }

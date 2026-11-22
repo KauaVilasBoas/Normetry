@@ -13,6 +13,8 @@ import { useLiveStatus } from "../api/live";
 import type { Establishment, Me } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
+import { useAnnouncer } from "../ui/announcer";
+import { PoliteRegion } from "../ui/primitives";
 import { InspectionDetailView } from "./InspectionDetail";
 import {
   DETAIL_TITLE_ID,
@@ -51,9 +53,7 @@ export function InspectionsScreen({
   const { api } = useSession();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [announcements, setAnnouncements] = useState<{ id: number; text: string }[]>([]);
-  const announce = (text: string) =>
-    setAnnouncements((list) => [...list.slice(-9), { id: (list.at(-1)?.id ?? 0) + 1, text }]);
+  const { announcements, announce } = useAnnouncer();
 
   const [focusRequest, setFocusRequest] = useState<{ id: string }>();
   useEffect(() => {
@@ -180,11 +180,7 @@ export function InspectionsScreen({
           onBack={() => focus(LIST_TITLE_ID)}
         />
       )}
-      <div aria-live="polite" className="sr-only">
-        {announcements.map((item) => (
-          <p key={item.id}>{item.text}</p>
-        ))}
-      </div>
+      <PoliteRegion announcements={announcements} />
     </>
   );
 }
