@@ -52,11 +52,6 @@ public sealed class FindingReviewService(
     ) =>
         FindingResponse.From(
             finding,
-            await users.GetDisplayNamesAsync(
-                new[] { finding.ReviewedBy, finding.ActionItem?.UpdatedBy }
-                    .OfType<Guid>()
-                    .Distinct(),
-                cancellationToken
-            )
+            await users.GetDisplayNamesAsync(FindingResponse.UserIds(finding), cancellationToken)
         );
 }
