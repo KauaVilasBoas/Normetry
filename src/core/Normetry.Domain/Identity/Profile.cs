@@ -139,7 +139,7 @@ public sealed class Profile
         var result = names.ToHashSet(StringComparer.Ordinal);
         foreach (var name in result.ToArray())
         {
-            var read = $"{name[..Math.Max(name.IndexOf('.'), 0)]}.read";
+            var read = Permissions.ReadOf(name);
             if (Permissions.All.Contains(read))
             {
                 result.Add(read);
