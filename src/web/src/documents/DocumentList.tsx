@@ -7,6 +7,7 @@ import { documentsKey, useDocuments, type DocumentSummary } from "../api/documen
 import type { Live } from "../api/live";
 import { can, queryFailed, type Establishment, type Me } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
+import { focusById } from "../ui/focus";
 import {
   Button,
   ConnectionNotice,
@@ -86,7 +87,7 @@ export function DocumentList({
 
   // Try again: once it loads the button goes away, so focus moves to the heading.
   const reload = async () => {
-    if ((await documents.refetch()).isSuccess) document.getElementById(LIST_TITLE_ID)?.focus();
+    if ((await documents.refetch()).isSuccess) focusById(LIST_TITLE_ID);
   };
 
   return (
@@ -176,7 +177,7 @@ export function DocumentList({
             className="mt-4"
             onClick={() => {
               // The button goes with the filter: focus moves to the heading first.
-              document.getElementById(LIST_TITLE_ID)?.focus();
+              focusById(LIST_TITLE_ID);
               onFilter("");
             }}
           >

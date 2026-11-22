@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { inspectionStatuses } from "../api/contract";
 import {
@@ -14,6 +14,7 @@ import type { Establishment, Me } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { useAnnouncer } from "../ui/announcer";
+import { focusById, useFocusAfterCommit, useShellFocusRequest } from "../ui/focus";
 import { PoliteRegion } from "../ui/primitives";
 import { InspectionDetailView } from "./InspectionDetail";
 import {
@@ -29,8 +30,6 @@ import {
   type InspectionChange,
 } from "./inspections";
 import { InspectionList } from "./InspectionList";
-
-const focusById = (id: string) => document.getElementById(id)?.focus();
 
 /**
  * Simulated Inspection (spec inspection-screen.md): `/inspections` is the selected
@@ -55,16 +54,8 @@ export function InspectionsScreen({
   const navigate = useNavigate();
   const { announcements, announce } = useAnnouncer();
 
-  const [focusRequest, setFocusRequest] = useState<{ id: string }>();
-  useEffect(() => {
-    if (focusRequest) focusById(focusRequest.id);
-  }, [focusRequest]);
-  const focus = (id: string) => setFocusRequest({ id });
-
-  useEffect(() => {
-    if (focusKey > 0)
-      (document.getElementById(LIST_TITLE_ID) ?? document.getElementById(DETAIL_TITLE_ID))?.focus();
-  }, [focusKey]);
+  const focus = useFocusAfterCommit();
+  useShellFocusRequest(focusKey, LIST_TITLE_ID, DETAIL_TITLE_ID);
 
   // A link from another screen ("Go to Simulated Inspection", "View inspection", a link into the
   // findings) asks for the page's heading with its state. The history's is there at once; the

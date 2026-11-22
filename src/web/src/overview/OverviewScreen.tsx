@@ -11,7 +11,7 @@ import {
   SearchX,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect, useId, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Link } from "react-router";
 import { permissions, verdicts } from "../api/contract";
 import {
@@ -27,6 +27,7 @@ import { ExpiryBadge } from "../documents/parts";
 import { themeLabel, verdictLabel } from "../inspections/findings";
 import { findingCount, regulationOf } from "../inspections/inspections";
 import { AreaChart, DonutChart } from "../ui/charts";
+import { focusById, useShellFocusRequest } from "../ui/focus";
 import {
   Disclosure,
   ErrorMessage,
@@ -51,7 +52,6 @@ import {
   type RowThreeCard,
 } from "./overview";
 
-const focusTitle = () => document.getElementById(TITLE_ID)?.focus();
 /** Every link out asks the page it opens to focus its heading. */
 const arrive = { focusTitle: true };
 const card =
@@ -108,13 +108,11 @@ export function OverviewScreen({
   const latest = data?.latestInspection ?? undefined;
   const regulation = regulationOf(establishment);
 
-  useEffect(() => {
-    if (focusKey > 0) focusTitle();
-  }, [focusKey]);
+  useShellFocusRequest(focusKey, TITLE_ID);
 
   // Try again: once it loads the button goes away, so focus moves to the heading.
   const reload = async () => {
-    if ((await overview.refetch()).isSuccess) focusTitle();
+    if ((await overview.refetch()).isSuccess) focusById(TITLE_ID);
   };
 
   return (
