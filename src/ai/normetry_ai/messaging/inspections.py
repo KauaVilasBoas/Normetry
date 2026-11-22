@@ -1,5 +1,6 @@
 """The inspection consumer: ai.inspections, inside the AI service process, next to the document
-consumer (`consumer.py`, whose topology, publishing, retries and delivery template it shares).
+consumer (`consumer.py`); both share the topology, publishing, retries and delivery template
+(`delivery.py`).
 
 One inspection at a time, on a connection and channel of its own (prefetch 1). The message stays
 unacknowledged while the inspection runs, minutes rather than seconds, and is acknowledged once
@@ -17,15 +18,6 @@ from uuid import UUID, uuid5
 from aio_pika.abc import AbstractRobustConnection
 
 from normetry_ai.inspection.worker import InspectionMismatch
-from normetry_ai.messaging.consumer import (
-    EVENT_IDS,
-    Action,
-    Publish,
-    consume,
-    handle_delivery,
-    queue_arguments,
-    retry_delay,
-)
 from normetry_ai.messaging.contracts import (
     Envelope,
     InspectionCompleted,
@@ -36,6 +28,15 @@ from normetry_ai.messaging.contracts import (
     InspectionRequested,
     Payload,
     envelope,
+)
+from normetry_ai.messaging.delivery import (
+    EVENT_IDS,
+    Action,
+    Publish,
+    consume,
+    handle_delivery,
+    queue_arguments,
+    retry_delay,
 )
 
 logger = logging.getLogger(__name__)

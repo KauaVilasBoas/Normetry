@@ -8,6 +8,8 @@ itself: test_rabbitmq.py."""
 import hashlib
 import json
 import logging
+import subprocess
+import sys
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -28,7 +30,6 @@ from normetry_ai.inspection.checklist import Checklist
 from normetry_ai.inspection.worker import CORPUS_INCOMPLETE, NO_DOCUMENTS, InspectionWorker
 from normetry_ai.llm.claude import ModelUnavailable
 from normetry_ai.messaging import inspections
-from normetry_ai.messaging.consumer import DELIVERY_LIMIT
 from normetry_ai.messaging.contracts import (
     DocumentUploaded,
     InspectionCompleted,
@@ -39,6 +40,7 @@ from normetry_ai.messaging.contracts import (
     ThemeProgress,
     envelope,
 )
+from normetry_ai.messaging.delivery import DELIVERY_LIMIT
 from normetry_ai.settings import InspectionSettings, RetrievalSettings
 
 FIXTURES = Path(__file__).resolve().parents[2] / "shared" / "contracts" / "messages" / "fixtures"
@@ -180,6 +182,21 @@ def test_the_queue_dead_letters_after_the_limit_the_consumer_counts_to() -> None
         "x-dead-letter-routing-key": "ai.inspections",
         "x-delivery-limit": DELIVERY_LIMIT,
     }
+
+
+def test_the_consumer_imports_no_document_ingestion() -> None:
+    code = (
+        "import sys, normetry_ai.messaging.inspections; "
+        "print(' '.join(name for name in sys.modules if name.split('.')[0] in "
+        "{'azure', 'pypdfium2', 'docx'} or name in {'normetry_ai.messaging.consumer', "
+        "'normetry_ai.ingestion.documents', 'normetry_ai.ingestion.parsers', "
+        "'normetry_ai.ingestion.sandbox'}))"
+    )
+    loaded = subprocess.run(  # noqa: S603
+        [sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True
+    )
+
+    assert loaded.stdout.split() == []
 
 
 # --- The real worker on PostgreSQL --------------------------------------------------------------

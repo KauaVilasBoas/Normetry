@@ -18,7 +18,7 @@ from test_contracts import errors, schema_name
 
 from normetry_ai.ingestion.parsers import Rejected
 from normetry_ai.messaging import consumer
-from normetry_ai.messaging.consumer import DELIVERY_LIMIT, handle, retry_delay
+from normetry_ai.messaging.consumer import handle
 from normetry_ai.messaging.contracts import (
     DocumentDeleted,
     DocumentIndexed,
@@ -26,6 +26,7 @@ from normetry_ai.messaging.contracts import (
     Envelope,
     envelope,
 )
+from normetry_ai.messaging.delivery import DELIVERY_LIMIT, retry_delay
 from normetry_ai.settings import Settings
 
 FIXTURES = Path(__file__).resolve().parents[2] / "shared" / "contracts" / "messages" / "fixtures"

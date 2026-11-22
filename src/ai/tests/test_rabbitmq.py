@@ -24,7 +24,7 @@ from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from normetry_ai.api import create_app
 from normetry_ai.ingestion.documents import BlobStore, DocumentWorker
-from normetry_ai.messaging import consumer, inspections
+from normetry_ai.messaging import consumer, delivery, inspections
 from normetry_ai.messaging.contracts import (
     DocumentIndexed,
     DocumentIngestionFailed,
@@ -112,7 +112,7 @@ async def exchange(
     async with connection:
         channel = await connection.channel()
         events = await channel.declare_exchange(
-            consumer.EXCHANGE, aio_pika.ExchangeType.TOPIC, durable=True
+            delivery.EXCHANGE, aio_pika.ExchangeType.TOPIC, durable=True
         )
         # Stands in for the core's queue: it must exist before results are published.
         inbox = await channel.declare_queue(exclusive=True)
@@ -216,7 +216,7 @@ def test_a_failing_upload_gets_five_deliveries_then_fails_and_is_dead_lettered(
     assert kinds == ["DocumentIngestionStarted"] * 5 + ["DocumentIngestionFailed"]
     assert len({m.message_id for m in received[:5]}) == 1
     assert parse(received[-1].body).payload.reason_code == "internal"
-    assert len(embedder.embedded) == 1 + consumer.DELIVERY_LIMIT
+    assert len(embedder.embedded) == 1 + delivery.DELIVERY_LIMIT
     assert dead == [body]
 
 
