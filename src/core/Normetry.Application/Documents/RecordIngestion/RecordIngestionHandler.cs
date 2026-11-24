@@ -41,14 +41,13 @@ internal sealed class RecordIngestionHandler(
     {
         var @event = request.Event;
         // RLS shows only the message's tenant, so another tenant's ids find nothing here.
-        var document = await documents.GetForUpdateAsync(@event.DocumentId, cancellationToken);
+        var document = await documents.GetForUpdateAsync(
+            @event.EstablishmentId,
+            @event.DocumentId,
+            cancellationToken
+        );
         var version = document?.Versions.FirstOrDefault(version => version.Id == @event.VersionId);
-        if (
-            document is null
-            || version is null
-            || document.EstablishmentId != @event.EstablishmentId
-            || version.Number != @event.VersionNumber
-        )
+        if (document is null || version is null || version.Number != @event.VersionNumber)
         {
             logger.LogWarning(
                 "{MessageType} {MessageId} names no version of this tenant; dropped",

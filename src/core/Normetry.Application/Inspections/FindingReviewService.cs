@@ -22,9 +22,8 @@ public sealed class FindingReviewService(IInspectionRepository inspections, IUse
     )
     {
         if (
-            await inspections.GetForReviewAsync(inspectionId, cancellationToken)
-                is not { } inspection
-            || inspection.EstablishmentId != establishmentId
+            await inspections.GetForReviewAsync(establishmentId, inspectionId, cancellationToken)
+            is not { } inspection
         )
         {
             return notFound;

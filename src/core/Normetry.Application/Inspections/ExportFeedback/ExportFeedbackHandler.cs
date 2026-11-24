@@ -17,9 +17,12 @@ internal sealed class ExportFeedbackHandler(
     {
         // RLS hides another tenant's inspection; another establishment's is not found either.
         if (
-            await inspections.GetAsync(request.InspectionId, cancellationToken)
-                is not { } inspection
-            || inspection.EstablishmentId != request.EstablishmentId
+            await inspections.GetAsync(
+                request.EstablishmentId,
+                request.InspectionId,
+                cancellationToken
+            )
+            is not { } inspection
         )
         {
             return InspectionErrors.NotFound;

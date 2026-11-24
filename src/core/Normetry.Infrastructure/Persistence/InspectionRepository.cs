@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Normetry.Application.Inspections;
 using Normetry.Domain.Inspections;
@@ -9,38 +10,61 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
 {
     public void Add(Inspection inspection) => db.Inspections.Add(inspection);
 
-    public async Task<Inspection?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<Inspection?> GetForUpdateAsync(
+        Guid establishmentId,
+        Guid id,
+        CancellationToken cancellationToken
+    )
     {
-        await db.Database.ExecuteSqlAsync(
-            $"SELECT FROM core.inspections WHERE id = {id} FOR UPDATE",
-            cancellationToken
-        );
+        await LockOfEstablishmentAsync(establishmentId, id, cancellationToken);
         return await db.Inspections.FirstOrDefaultAsync(
-            inspection => inspection.Id == id,
+            OfEstablishment(establishmentId, id),
             cancellationToken
         );
     }
 
-    public async Task<Inspection?> GetForReviewAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<Inspection?> GetForReviewAsync(
+        Guid establishmentId,
+        Guid id,
+        CancellationToken cancellationToken
+    )
     {
-        await db.Database.ExecuteSqlAsync(
-            $"SELECT FROM core.inspections WHERE id = {id} FOR UPDATE",
-            cancellationToken
-        );
+        await LockOfEstablishmentAsync(establishmentId, id, cancellationToken);
         return await db
             .Inspections.Include(inspection => inspection.Findings)
                 .ThenInclude(finding => finding.ActionItem)
             .AsSplitQuery()
-            .FirstOrDefaultAsync(inspection => inspection.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(OfEstablishment(establishmentId, id), cancellationToken);
     }
 
-    public Task<Inspection?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+    public Task<Inspection?> GetAsync(
+        Guid establishmentId,
+        Guid id,
+        CancellationToken cancellationToken
+    ) =>
         db
             .Inspections.AsNoTracking()
             .Include(inspection => inspection.Findings)
                 .ThenInclude(finding => finding.ActionItem)
             .AsSplitQuery()
-            .FirstOrDefaultAsync(inspection => inspection.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(OfEstablishment(establishmentId, id), cancellationToken);
+
+    /// <summary>The inspection, when it is the establishment's: a condition next to RLS, not instead of it.</summary>
+    private static Expression<Func<Inspection, bool>> OfEstablishment(
+        Guid establishmentId,
+        Guid id
+    ) => inspection => inspection.Id == id && inspection.EstablishmentId == establishmentId;
+
+    /// <summary>Locks the inspection's row until the transaction ends, when it is the establishment's.</summary>
+    private Task LockOfEstablishmentAsync(
+        Guid establishmentId,
+        Guid id,
+        CancellationToken cancellationToken
+    ) =>
+        db.Database.ExecuteSqlAsync(
+            $"SELECT FROM core.inspections WHERE id = {id} AND establishment_id = {establishmentId} FOR UPDATE",
+            cancellationToken
+        );
 
     public async Task<IReadOnlyList<InspectionSummary>> ListAsync(
         Guid establishmentId,

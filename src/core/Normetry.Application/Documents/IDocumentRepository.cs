@@ -16,6 +16,16 @@ public interface IDocumentRepository
     /// </summary>
     Task<Document?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// <see cref="GetForUpdateAsync(Guid, CancellationToken)"/> for a document of the
+    /// establishment: another establishment's is neither locked nor returned.
+    /// </summary>
+    Task<Document?> GetForUpdateAsync(
+        Guid establishmentId,
+        Guid id,
+        CancellationToken cancellationToken
+    );
+
     /// <summary>Not deleted, with its versions.</summary>
     Task<Document?> GetAsync(Guid id, CancellationToken cancellationToken);
 

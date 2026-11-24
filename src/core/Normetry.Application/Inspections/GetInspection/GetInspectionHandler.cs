@@ -28,8 +28,8 @@ internal sealed class GetInspectionHandler(
         var establishment = found.Value;
         // Another establishment's inspection is not found here either.
         if (
-            await inspections.GetAsync(request.Id, cancellationToken) is not { } inspection
-            || inspection.EstablishmentId != establishment.Id
+            await inspections.GetAsync(establishment.Id, request.Id, cancellationToken)
+            is not { } inspection
         )
         {
             return InspectionErrors.NotFound;
