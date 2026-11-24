@@ -86,3 +86,5 @@ export function screenAccess(me: Me | undefined) {
     establishments: can(me, permissions.establishments.read),
   };
 }
+
+export type ScreenAccess = ReturnType<typeof screenAccess>;
