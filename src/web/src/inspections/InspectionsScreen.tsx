@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { inspectionStatuses } from "../api/contract";
 import {
   inspectionKey,
@@ -13,7 +13,7 @@ import { offersReconnect, useLiveStatus } from "../api/live";
 import type { Establishment, Me } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
-import { paths } from "../routes";
+import { paths, useArrivalKey } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
 import {
   focusById,
@@ -66,11 +66,7 @@ export function InspectionsScreen({
   // A link from another screen ("Go to Simulated Inspection", "View inspection", a link into the
   // findings) asks for the page's heading with its state. The history's is there at once; the
   // detail focuses its own once the inspection has loaded.
-  const location = useLocation();
-  const arrival =
-    (location.state as { focusTitle?: unknown } | null)?.focusTitle === true
-      ? location.key
-      : undefined;
+  const arrival = useArrivalKey();
   useEffect(() => {
     if (arrival && inspectionId === undefined) focusById(LIST_TITLE_ID);
   }, [arrival, inspectionId]);

@@ -26,7 +26,7 @@ import { typeLabel } from "../documents/documents";
 import { ExpiryBadge } from "../documents/parts";
 import { themeLabel, verdictLabel } from "../inspections/findings";
 import { findingCount, regulationOf } from "../inspections/inspections";
-import { paths } from "../routes";
+import { arrivalState, paths } from "../routes";
 import { AreaChart, DonutChart } from "../ui/charts";
 import { useShellFocusRequest } from "../ui/focus";
 import {
@@ -53,8 +53,6 @@ import {
   type RowThreeCard,
 } from "./overview";
 
-/** Every link out asks the page it opens to focus its heading. */
-const arrive = { focusTitle: true };
 const card =
   "overflow-hidden rounded-card border border-border bg-card motion-safe:animate-fade-in";
 const cardHeader = "px-5 pt-5";
@@ -81,8 +79,6 @@ const verdictRows = [
   },
   { code: verdicts.nonCompliant, key: "nonCompliant", dot: "bg-danger", stroke: "stroke-danger" },
 ] as const;
-
-const inspectionLink = (id: string, filter = "") => `${paths.inspection(id)}${filter}`;
 
 /**
  * Overview (spec overview-screen.md): the selected establishment's latest inspection results and
@@ -131,8 +127,8 @@ export function OverviewScreen({
         </div>
         {latest && (
           <Link
-            to={inspectionLink(latest.id)}
-            state={arrive}
+            to={paths.inspection(latest.id)}
+            state={arrivalState}
             className={`${secondaryButton} w-full sm:w-auto`}
           >
             <ClipboardCheck aria-hidden="true" className="size-4" />
@@ -267,7 +263,7 @@ function Sections({
               regulation: regulationOf(establishment),
             })}
           />
-          <Link to={paths.inspections} state={arrive} className={`${secondaryButton} mt-4`}>
+          <Link to={paths.inspections} state={arrivalState} className={`${secondaryButton} mt-4`}>
             {copy.overview.goToInspections}
           </Link>
         </div>
@@ -395,8 +391,8 @@ function VerdictsCard({ latest }: { latest: LatestInspection }) {
               <li key={row.code}>
                 {count > 0 ? (
                   <Link
-                    to={inspectionLink(latest.id, `?verdict=${row.code}`)}
-                    state={arrive}
+                    to={paths.inspection(latest.id, { verdict: row.code })}
+                    state={arrivalState}
                     className={`${legendRow} hover:bg-elevated`}
                   >
                     {content}
@@ -452,8 +448,8 @@ function ThemesCard({ latest }: { latest: LatestInspection }) {
               >
                 <td className="w-full max-w-0 py-2.5 pr-3 pl-5">
                   <Link
-                    to={inspectionLink(latest.id, `?theme=${encodeURIComponent(row.theme)}`)}
-                    state={arrive}
+                    to={paths.inspection(latest.id, { theme: row.theme })}
+                    state={arrivalState}
                     aria-describedby={complianceId}
                     className={rowLink}
                   >
@@ -529,8 +525,8 @@ function TrendCard({ series, className }: { series: CompliancePoint[]; className
                   <tr key={point.inspectionId} className="border-t border-border">
                     <td className="px-3 py-2.5">
                       <Link
-                        to={inspectionLink(point.inspectionId)}
-                        state={arrive}
+                        to={paths.inspection(point.inspectionId)}
+                        state={arrivalState}
                         className="rounded-sm text-body font-medium tabular-nums hover:underline"
                       >
                         {shortDay(point.completedAt)}
@@ -579,7 +575,7 @@ function DocumentsCard({
         action={
           // The API lists the soonest ten.
           documents.expired + documents.expiringSoon > list.length && (
-            <Link to={paths.documents} state={arrive} className={secondaryButton}>
+            <Link to={paths.documents} state={arrivalState} className={secondaryButton}>
               {copy.overview.viewAllDocuments}
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
@@ -602,7 +598,7 @@ function DocumentsCard({
               <li key={document.id} className="relative min-h-14 px-5 py-2.5 hover:bg-elevated">
                 <Link
                   to={paths.document(document.id)}
-                  state={arrive}
+                  state={arrivalState}
                   aria-describedby={badgeId}
                   className={rowLink}
                 >
@@ -663,8 +659,8 @@ function RiskCard({ latest, className }: { latest: LatestInspection; className: 
                 </span>
                 <span className="min-w-0 flex-1">
                   <Link
-                    to={inspectionLink(latest.id, `?theme=${encodeURIComponent(risk.theme)}`)}
-                    state={arrive}
+                    to={paths.inspection(latest.id, { theme: risk.theme })}
+                    state={arrivalState}
                     aria-describedby={countsId}
                     className={rowLink}
                   >

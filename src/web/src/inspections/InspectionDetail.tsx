@@ -12,7 +12,7 @@ import {
 import type { Live } from "../api/live";
 import { can, queryNotFound, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
-import { paths } from "../routes";
+import { hasFindingFilter, paths } from "../routes";
 import { focusById, useRefocusWhenGone } from "../ui/focus";
 import {
   Button,
@@ -88,8 +88,8 @@ export function InspectionDetailView({
   useEffect(() => {
     if (!arrival || arrived.current === arrival || !settled) return;
     arrived.current = arrival;
-    const params = new URLSearchParams(search);
-    if (params.has("verdict") || params.has("theme")) focusById(FINDINGS_TITLE_ID, DETAIL_TITLE_ID);
+    if (hasFindingFilter(new URLSearchParams(search)))
+      focusById(FINDINGS_TITLE_ID, DETAIL_TITLE_ID);
     else focusById(DETAIL_TITLE_ID);
   }, [arrival, settled, search]);
 
