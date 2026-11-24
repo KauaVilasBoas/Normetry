@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { FileText, ListFilter, Upload } from "lucide-react";
-import { useId, useRef, useState, type DragEvent } from "react";
+import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { permissions } from "../api/contract";
 import { documentsKey, useDocuments, type DocumentSummary } from "../api/documents";
@@ -8,6 +8,7 @@ import type { Live } from "../api/live";
 import { can, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
 import { paths } from "../routes";
+import { useFileDrop } from "../ui/drop";
 import { focusById } from "../ui/focus";
 import {
   Button,
@@ -16,6 +17,7 @@ import {
   FilterSelect,
   IngestionPill,
   Message,
+  rowLink,
   Skeleton,
   th,
 } from "../ui/primitives";
@@ -29,8 +31,6 @@ import {
 } from "./documents";
 import { ExpiryBadge, LIST_TITLE_ID, VersionText } from "./parts";
 import { UploadDialog } from "./UploadDialog";
-
-const draggingFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
 
 const filterOptions = Object.entries(copy.documents.expiryFilters).map(([value, label]) => ({
   value,
@@ -66,7 +66,7 @@ export function DocumentList({
   const canUpload = can(me, permissions.documents.upload);
   const { failed, retrying, retry } = useQueryRetry(documents, LIST_TITLE_ID);
   const [upload, setUpload] = useState<{ files: File[] }>();
-  const [dragging, setDragging] = useState(false);
+  const { dragging, dropHandlers } = useFileDrop((files) => setUpload({ files }), canUpload);
   const uploadButton = useRef<HTMLButtonElement>(null);
   // The caption counts every document; the filter only picks the rows.
   const count = documents.data?.length ?? 0;
@@ -79,27 +79,11 @@ export function DocumentList({
     ? documents.data?.filter((row) => row.expiresOn && expiry(row.expiresOn, now).state === wanted)
     : documents.data;
 
-  const over = (event: DragEvent) => {
-    if (!canUpload || !draggingFiles(event)) return;
-    event.preventDefault();
-    setDragging(true);
-  };
-
   return (
     <section
       aria-labelledby={LIST_TITLE_ID}
       aria-busy={(!failed && documents.isPending) || retrying}
-      onDragEnter={over}
-      onDragOver={over}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-      }}
-      onDrop={(event) => {
-        if (!canUpload || !draggingFiles(event)) return;
-        event.preventDefault();
-        setDragging(false);
-        setUpload({ files: [...event.dataTransfer.files] });
-      }}
+      {...dropHandlers}
       className={`overflow-hidden rounded-card border bg-card motion-safe:animate-fade-in ${dragging ? "border-mint" : "border-border"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3 p-5">
@@ -276,7 +260,7 @@ function DocumentTable({
                   aria-describedby={
                     expires && expires.state !== "later" ? `${statusId} ${expiryId}` : statusId
                   }
-                  className="block truncate text-body font-medium after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-mint"
+                  className={`${rowLink} truncate`}
                 >
                   {row.title}
                 </Link>

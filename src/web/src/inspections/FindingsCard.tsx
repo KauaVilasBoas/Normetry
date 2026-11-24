@@ -3,7 +3,7 @@ import { useState } from "react";
 import { severities } from "../api/contract";
 import { findingPaths, type Finding, type InspectionDetail } from "../api/inspections";
 import { copy, dateTime, format } from "../copy";
-import { Button, FilterSelect, Message, PoliteRegion, Sheet, th } from "../ui/primitives";
+import { Button, FilterSelect, Message, PoliteRegion, rowLink, Sheet, th } from "../ui/primitives";
 import { FindingSheet, ReviewPill, VerdictPill } from "./FindingSheet";
 import {
   findingsCaption,
@@ -201,7 +201,7 @@ function FindingsTable({
                   aria-haspopup="dialog"
                   aria-describedby={`${id}-verdict ${id}-review`}
                   onClick={() => onOpen(index)}
-                  className="block w-full text-left text-body font-medium after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-mint"
+                  className={`${rowLink} w-full text-left`}
                 >
                   <span className="line-clamp-2">{finding.title}</span>
                 </button>
