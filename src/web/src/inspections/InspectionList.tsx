@@ -9,6 +9,7 @@ import { can, useQueryRetry, type Establishment, type Me } from "../api/queries"
 import { useSend } from "../api/send";
 import { untilReset } from "../chat/answers";
 import { copy, dateTime, format } from "../copy";
+import { paths } from "../routes";
 import { useRefocusWhenGone } from "../ui/focus";
 import {
   Button,
@@ -130,7 +131,7 @@ export function InspectionList({
         icon={<Spinner />}
         title={copy.inspections.runningTitle}
         action={
-          <Link to={`/inspections/${running.id}`} onClick={onOpen} className={secondaryButton}>
+          <Link to={paths.inspection(running.id)} onClick={onOpen} className={secondaryButton}>
             {copy.inspections.viewProgress}
           </Link>
         }
@@ -266,7 +267,7 @@ function RefusalNotice({
           title={format(copy.inspections.noDocumentsTitle, { establishment: establishment.name })}
           action={
             canReadDocuments && (
-              <Link to="/documents" state={{ focusTitle: true }} className={secondaryButton}>
+              <Link to={paths.documents} state={{ focusTitle: true }} className={secondaryButton}>
                 {copy.inspections.goToDocuments}
               </Link>
             )
@@ -332,7 +333,7 @@ function InspectionTable({
               <td className="w-full max-w-0 py-2.5 pr-3 pl-5 md:w-auto md:max-w-none md:whitespace-nowrap">
                 {/* Stretched over the row: the whole row opens it, with one tab stop. */}
                 <Link
-                  to={`/inspections/${row.id}`}
+                  to={paths.inspection(row.id)}
                   onClick={onOpen}
                   aria-describedby={statusId}
                   className="block truncate text-body font-medium tabular-nums after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-mint"

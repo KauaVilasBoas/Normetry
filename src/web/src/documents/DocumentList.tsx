@@ -7,6 +7,7 @@ import { documentsKey, useDocuments, type DocumentSummary } from "../api/documen
 import type { Live } from "../api/live";
 import { can, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
+import { paths } from "../routes";
 import { focusById } from "../ui/focus";
 import {
   Button,
@@ -269,7 +270,7 @@ function DocumentTable({
               <td className="w-full max-w-0 py-2.5 pr-3 pl-5">
                 {/* Stretched over the row: the whole row opens it, with one tab stop. */}
                 <Link
-                  to={`/documents/${row.id}`}
+                  to={paths.document(row.id)}
                   onClick={onOpen}
                   // Only an urgent date joins the row's name: a bare later date reads as noise.
                   aria-describedby={

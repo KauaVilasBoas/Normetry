@@ -13,6 +13,7 @@ import { offersReconnect, useLiveStatus } from "../api/live";
 import type { Establishment, Me } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
+import { paths } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
 import {
   focusById,
@@ -155,7 +156,7 @@ export function InspectionsScreen({
           live={live}
           onOpen={() => focus(DETAIL_TITLE_ID)}
           onStarted={(id) => {
-            void navigate(`/inspections/${id}`);
+            void navigate(paths.inspection(id));
             focus(DETAIL_TITLE_ID);
             announce(copy.inspections.started);
           }}

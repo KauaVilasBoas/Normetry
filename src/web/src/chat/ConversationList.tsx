@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { useConversations } from "../api/chat";
 import { queryFailed, type Establishment } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
+import { paths } from "../routes";
 import { Button, ErrorMessage, iconButton, Message, Skeleton } from "../ui/primitives";
 
 /** The selected establishment's conversations, latest first. A card, or a sheet's content. */
@@ -106,7 +107,7 @@ export function ConversationList({
               return (
                 <li key={conversation.id}>
                   <Link
-                    to={`/conversations/${conversation.id}`}
+                    to={paths.conversation(conversation.id)}
                     onClick={onOpen}
                     aria-current={active ? "page" : undefined}
                     className={`flex min-h-12 flex-col justify-center rounded-control px-3 py-1.5 focus-visible:-outline-offset-2 ${
