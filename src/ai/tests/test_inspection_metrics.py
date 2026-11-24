@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from conftest import AI_DIR
-from fakes import EchoJudge
+from fakes import EchoJudge, document_chunk, regulation_chunk
 from langgraph.checkpoint.memory import InMemorySaver
 
 from normetry_ai.evals.inspection import (
@@ -418,36 +418,20 @@ def test_guard_drops_downgrades_and_items_not_run_are_counted_apart() -> None:
 
 
 def excerpts(item: ChecklistItem) -> tuple[list[RetrievedChunk], list[RetrievedChunk]]:
-    regulation = RetrievedChunk(
-        chunk_id=uuid4(),
-        content=f"Under {item.section_paths[0]} the food shall be kept safe at every step.",
-        section_path=item.section_paths[0],
-        language="en",
-        jurisdiction="US",
-        source_id=uuid4(),
-        source_title="FDA Food Code",
-        source_version="2026",
-        official_url="https://example.org/food-code",
+    section = item.section_paths[0]
+    regulation = regulation_chunk(
+        f"Under {section} the food shall be kept safe at every step.",
+        section_path=section,
         score=1.0,
     )
     if VERDICT[item.id] == "insufficient_evidence":
         return [regulation], []
-    evidence = RetrievedChunk(
-        chunk_id=uuid4(),
-        content=f"Our record for {item.id} shows the check was done and signed every day.",
-        section_path="Page 1",
-        language="en",
-        jurisdiction="",
-        source_id=UUID(LOG),
-        source_title="Temperature Log",
-        source_version="1",
-        official_url="",
-        score=0.9,
-        source_type="tenant_document",
+    evidence = document_chunk(
+        f"Our record for {item.id} shows the check was done and signed every day.",
         document_id=UUID(LOG),
-        document_title="Temperature Log",
+        title="Temperature Log",
         document_type="Log",
-        document_version=1,
+        version=1,
     )
     return [regulation], [evidence]
 

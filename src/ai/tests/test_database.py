@@ -4,11 +4,10 @@ The container and the role engines are the session fixtures of conftest.py. Asse
 behavior connect as the real roles, never as the superuser.
 """
 
-import hashlib
 import json
 import logging
 import os
-from collections.abc import AsyncGenerator, Iterator, Sequence
+from collections.abc import AsyncGenerator, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, replace
 from decimal import Decimal
@@ -18,6 +17,7 @@ from uuid import UUID, uuid4
 import anyio
 import pytest
 from conftest import ROLES, TOKEN, engine_for, migrate
+from fakes import FakeEmbedder, regulation_chunk
 from fastapi.sse import ServerSentEvent
 from fastapi.testclient import TestClient
 from sqlalchemy import Connection, Engine, create_engine, text
@@ -678,19 +678,6 @@ def test_only_app_ai_sees_usage(owner: Engine, corpus: Engine, app_ai: Engine) -
 # --- Corpus sources and ingestion ------------------------------------------------------------
 
 
-class FakeEmbedder:
-    """Deterministic vectors from each text's hash; records every text it embeds."""
-
-    def __init__(self, name: str = "fake") -> None:
-        self.name = name
-        self.embedded: list[str] = []
-
-    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        self.embedded += texts
-        # 32 bytes, each in (0, 1], repeated to 1024 dimensions: never the zero vector.
-        return [[(b + 1) / 256 for b in hashlib.sha256(t.encode()).digest()] * 32 for t in texts]
-
-
 def manifest_source(**fields: str) -> dict:
     """A manifest entry with a fresh id."""
     return {
@@ -783,7 +770,7 @@ def test_a_new_source_version_replaces_its_chunks(corpus: Engine, app_ai: Engine
                                        section_path, content, content_hash, embedding, metadata)
                 VALUES (:tenant_id, 'tenant_document', :source_id, 1, 'en', 'Article 1',
                         'New wording.', :content_hash, CAST(:embedding AS public.vector),
-                        '{"embedding_model": "fake"}')
+                        '{"embedding_model": "fake-embedder"}')
                 """
             ),
             {
@@ -1213,26 +1200,11 @@ COLD_QUOTE = "shall be maintained at 5°C (41°F) or less"
 HOT_QUOTE = "maintained at 57°C (135°F) or above"
 
 
-def retrieved(content: str, score: float = 0.9) -> RetrievedChunk:
-    return RetrievedChunk(
-        chunk_id=uuid4(),
-        content=content,
-        section_path="3-501.16",
-        language="en",
-        jurisdiction="US",
-        source_id=uuid4(),
-        source_title="FDA Food Code",
-        source_version="2026",
-        official_url="https://example.org/food-code",
-        score=score,
-    )
-
-
-COLD, HOT = retrieved(COLD_TEXT), retrieved(HOT_TEXT)
+COLD, HOT = regulation_chunk(COLD_TEXT), regulation_chunk(HOT_TEXT)
 RDC_TEXT = "Os alimentos preparados e conservados sob refrigeração devem estar a 5ºC ou menos."
 RDC_QUOTE = "devem estar a 5ºC ou menos"
 RDC = replace(
-    retrieved(RDC_TEXT),
+    regulation_chunk(RDC_TEXT),
     language="pt",
     jurisdiction="BR",
     section_path="4.8.15",
@@ -1588,7 +1560,7 @@ def test_guarded_claims_stream_in_order_then_done_and_are_stored(
 @pytest.mark.parametrize(
     ("model", "chunks", "reason"),
     [
-        (FakeClaims(COLD_CLAIM), [retrieved(COLD_TEXT, score=0.1)], "low_score"),
+        (FakeClaims(COLD_CLAIM), [regulation_chunk(COLD_TEXT, score=0.1)], "low_score"),
         (FakeClaims(INVENTED), [COLD, HOT], "no_supported_claims"),
     ],
     ids=["low-score", "no-supported-claims"],
