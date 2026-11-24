@@ -18,7 +18,7 @@ namespace Normetry.Api.Documents;
 [HasPermission(Permissions.Documents.Read)]
 public sealed class DocumentsHub(IDispatcher dispatcher, ITenantContext tenant) : Hub
 {
-    public const string Path = "/hubs/documents";
+    public const string Path = $"{HubPaths.Prefix}/documents";
 
     /// <summary>The client method that receives a <see cref="DocumentStatusChange"/>.</summary>
     public const string StatusChanged = "DocumentStatusChanged";
