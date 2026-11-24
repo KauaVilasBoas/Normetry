@@ -125,6 +125,18 @@ internal static class Topology
     }
 }
 
+/// <summary>The AMQP headers the core writes or reads.</summary>
+internal static class MessageHeaders
+{
+    /// <summary>The W3C trace context of the span that published the message.</summary>
+    public const string TraceParent = "traceparent";
+
+    public const string TraceState = "tracestate";
+
+    /// <summary>The broker's count of the message's earlier deliveries; absent on the first.</summary>
+    public const string DeliveryCount = "x-delivery-count";
+}
+
 /// <summary>
 /// The one broker connection of the process (<c>ConnectionStrings:rabbitmq</c>, an AMQP URI),
 /// opened on first use and recovered by the client after a network failure.
@@ -195,24 +207,23 @@ internal sealed class RabbitMqPublisher(RabbitMqConnection broker) : IAsyncDispo
     )
     {
         var channel = await ChannelAsync(cancellationToken);
-        ActivityContext.TryParse(message.TraceParent, message.TraceState, out var parent);
-        using var activity = MessagingTelemetry.Source.StartActivity(
+        using var activity = MessagingTelemetry.StartActivity(
             $"{message.RoutingKey} publish",
             ActivityKind.Producer,
-            parent
+            message.TraceParent,
+            message.TraceState,
+            message.Id.ToString()
         );
-        activity?.SetTag("messaging.system", "rabbitmq");
-        activity?.SetTag("messaging.message.id", message.Id.ToString());
-        activity?.SetTag("normetry.tenant_id", message.TenantId.ToString());
+        activity?.SetTag(MessagingTelemetry.TenantIdTag, message.TenantId.ToString());
 
         var headers = new Dictionary<string, object?>();
         // This span when telemetry listens; the writing request's otherwise.
         if ((activity?.Id ?? message.TraceParent) is { } traceParent)
         {
-            headers["traceparent"] = traceParent;
+            headers[MessageHeaders.TraceParent] = traceParent;
             if ((activity is null ? message.TraceState : activity.TraceStateString) is { } state)
             {
-                headers["tracestate"] = state;
+                headers[MessageHeaders.TraceState] = state;
             }
         }
         var properties = new BasicProperties
@@ -269,8 +280,35 @@ internal sealed class RabbitMqPublisher(RabbitMqConnection broker) : IAsyncDispo
     }
 }
 
+/// <summary>Spans for publishing and consuming; ServiceDefaults listens to it.</summary>
 internal static class MessagingTelemetry
 {
-    /// <summary>Spans for publishing and consuming; ServiceDefaults listens to it.</summary>
-    public static readonly ActivitySource Source = new("Normetry.Messaging");
+    /// <summary>The span tag that holds the message's tenant.</summary>
+    public const string TenantIdTag = "normetry.tenant_id";
+
+    private const string SystemTag = "messaging.system";
+    private const string MessageIdTag = "messaging.message.id";
+    private const string RabbitMqSystem = "rabbitmq";
+
+    private static readonly ActivitySource Source = new("Normetry.Messaging");
+
+    /// <summary>
+    /// Starts the span of one message as a child of the W3C trace context it carries (of the
+    /// current span, if any, when that is absent or malformed), tagged with the messaging system
+    /// and the message id. Null when nothing listens.
+    /// </summary>
+    public static Activity? StartActivity(
+        string name,
+        ActivityKind kind,
+        string? traceParent,
+        string? traceState,
+        string? messageId
+    )
+    {
+        ActivityContext.TryParse(traceParent, traceState, out var parent);
+        var activity = Source.StartActivity(name, kind, parent);
+        activity?.SetTag(SystemTag, RabbitMqSystem);
+        activity?.SetTag(MessageIdTag, messageId);
+        return activity;
+    }
 }
