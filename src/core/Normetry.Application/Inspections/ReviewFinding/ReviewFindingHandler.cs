@@ -1,11 +1,17 @@
+using Normetry.Application.Abstractions;
+using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections.ReviewFinding;
 
-internal sealed class ReviewFindingHandler(FindingReviewService reviews, TimeProvider clock)
-    : ICommandHandler<ReviewFindingCommand, FindingResponse>
+internal sealed class ReviewFindingHandler(
+    FindingReviewService reviews,
+    IUserRepository users,
+    ICurrentUser currentUser,
+    TimeProvider clock
+) : ICommandHandler<ReviewFindingCommand, FindingResponse>
 {
     public async Task<Result<FindingResponse>> HandleAsync(
         ReviewFindingCommand request,
@@ -23,7 +29,7 @@ internal sealed class ReviewFindingHandler(FindingReviewService reviews, TimePro
         {
             return refusal;
         }
-        var reviewer = await reviews.ReviewerIdAsync(cancellationToken);
+        var reviewer = await users.CallerIdAsync(currentUser, cancellationToken);
         ApplyReviewDecision(request, finding, reviewer, clock.GetUtcNow());
         return await reviews.ResponseAsync(finding, cancellationToken);
     }

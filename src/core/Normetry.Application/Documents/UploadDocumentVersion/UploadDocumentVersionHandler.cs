@@ -44,7 +44,7 @@ internal sealed class UploadDocumentVersionHandler(
 
         var version = document.AddVersion(
             file.Value,
-            await DocumentUploads.UploaderAsync(users, currentUser, cancellationToken),
+            await users.CallerIdAsync(currentUser, cancellationToken),
             clock.GetUtcNow()
         );
         await DocumentUploads.StoreAsync(
