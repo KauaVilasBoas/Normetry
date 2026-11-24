@@ -29,6 +29,8 @@ import {
 
 export const TITLE_ID = "conversation-title";
 export const SHOW_CONVERSATIONS_ID = "show-conversations";
+/** The conversation list's heading, which names its sheet below 768px. */
+export const CONVERSATIONS_TITLE_ID = "conversations-title";
 
 /** Follow new content only while the reader is this close to the bottom. */
 const STICK_PX = 80;
