@@ -11,14 +11,13 @@ import {
   rowId,
   severityLabel,
   sortFindings,
-  themeLabel,
   themeOptions,
   useFindingSheet,
   usePresetFilters,
   useReview,
   verdictOptions,
 } from "./findings";
-import { FINDINGS_TITLE_ID, findingCount } from "./inspections";
+import { FINDINGS_TITLE_ID, findingCount, themeLabel } from "./inspections";
 
 /**
  * The completed view's Findings card: caption, verdict and theme filters (`usePresetFilters`), the

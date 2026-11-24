@@ -42,10 +42,10 @@ import {
   reviewSentence,
   severityLabel,
   severityOrder,
-  themeLabel,
   verdictLabel,
   verdictOrder,
 } from "./findings";
+import { themeLabel } from "./inspections";
 import { useAccept, useEditForm, useRejectForm, type Review } from "./review";
 
 /** Rejected note and edited texts, as the core limits them. */

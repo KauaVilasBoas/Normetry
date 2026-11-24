@@ -22,7 +22,7 @@ import {
 } from "../api/queries";
 import { refusalText, useSend } from "../api/send";
 import { useSession } from "../auth/session";
-import { copy, format } from "../copy";
+import { copy, format, untilReset } from "../copy";
 import { focusIsLost } from "../ui/focus";
 import {
   answering,
@@ -31,7 +31,6 @@ import {
   rateLimited,
   streamAnswer,
   toTurns,
-  untilReset,
   type Turn,
 } from "./answers";
 

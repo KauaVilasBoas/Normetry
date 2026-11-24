@@ -34,13 +34,6 @@ export function delta(series: CompliancePoint[]): number | null | undefined {
 /** A theme row's compliant share in whole points, and its counts line. */
 export const themeShare = (row: ThemeVerdicts) => share(row.compliant, verdictTotal(row));
 
-export const themeCounts = (row: VerdictCounts) =>
-  format(copy.inspections.resultCounts, {
-    nonCompliant: String(row.nonCompliant),
-    insufficient: String(row.insufficientEvidence),
-    compliant: String(row.compliant),
-  });
-
 /** The chart's points: the inspections with a result, oldest first. */
 export function plotted(series: CompliancePoint[], now = new Date()) {
   return series.flatMap(({ inspectionId, completedAt, compliance }) => {

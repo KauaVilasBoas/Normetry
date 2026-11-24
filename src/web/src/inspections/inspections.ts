@@ -11,10 +11,12 @@ import {
   type ThemeProgress,
 } from "../api/inspections";
 import { useLiveStatus } from "../api/live";
+import type { VerdictCounts } from "../api/overview";
 import type { Establishment } from "../api/queries";
 import { useSend, type Sent } from "../api/send";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
+import { verdictTotal } from "../overview/overview";
 
 /** The core's inspections hub and its event (spec §5). */
 export const HUB_URL = "/hubs/inspections";
@@ -41,6 +43,8 @@ export const inFlight = (status: string) =>
 
 export const statusLabel = (status: string) => copy.inspections.statuses[status] ?? status;
 
+export const themeLabel = (code: string) => copy.themes[code] ?? code;
+
 export const failureText = (code: string | null) =>
   copy.inspections.failures[code ?? ""] ?? copy.inspections.failureUnknown;
 
@@ -63,15 +67,17 @@ export function statusCaption(row: InspectionSummary): string | undefined {
   return undefined;
 }
 
-/** The Results cell: the verdict counts once completed. */
-export function resultText({ status, verdictCounts: v }: InspectionSummary): string | undefined {
-  if (status !== inspectionStatuses.completed) return undefined;
-  return format(copy.inspections.resultCounts, {
-    nonCompliant: String(v.nonCompliant),
-    insufficient: String(v.insufficientEvidence),
-    compliant: String(v.compliant),
+/** "3 non-compliant · 1 insufficient evidence · 8 compliant". */
+export const verdictCountsText = (counts: VerdictCounts) =>
+  format(copy.inspections.resultCounts, {
+    nonCompliant: String(counts.nonCompliant),
+    insufficient: String(counts.insufficientEvidence),
+    compliant: String(counts.compliant),
   });
-}
+
+/** The Results cell: the verdict counts once completed. */
+export const resultText = ({ status, verdictCounts }: InspectionSummary) =>
+  status === inspectionStatuses.completed ? verdictCountsText(verdictCounts) : undefined;
 
 /** The list row a started inspection shows as until the refetch brings the server's. */
 export const requestedRow = (id: string, regulation: string): InspectionSummary => ({
@@ -228,7 +234,7 @@ export function checklist(themes: ThemeProgress[]) {
         theme,
         progress,
         state: themeStates[progress],
-        label: copy.themes[theme] ?? theme,
+        label: themeLabel(theme),
         count: format(copy.inspections.themeCount, counts(itemsEvaluated, itemsTotal)),
       } as const;
     });
@@ -300,8 +306,9 @@ export function useInspectionLiveUpdates({
       (rows) => {
         const counts = rows.find((r) => r.id === id)?.verdictCounts;
         if (!counts) return;
-        const findings = counts.compliant + counts.nonCompliant + counts.insufficientEvidence;
-        announce(format(copy.inspections.completed, { findings: findingCount(findings) }));
+        announce(
+          format(copy.inspections.completed, { findings: findingCount(verdictTotal(counts)) }),
+        );
       },
       () => {},
     );
