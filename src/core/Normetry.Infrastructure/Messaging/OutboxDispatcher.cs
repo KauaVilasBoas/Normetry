@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -23,7 +22,7 @@ internal sealed class OutboxDispatcher(
     IServiceScopeFactory scopes,
     RabbitMqPublisher publisher,
     OutboxSignal signal,
-    IConfiguration configuration,
+    OutboxTenantList tenants,
     InspectionsOptions inspections,
     TimeProvider clock,
     ILogger<OutboxDispatcher> logger
@@ -32,10 +31,6 @@ internal sealed class OutboxDispatcher(
     private const int BatchSize = 50;
     private static readonly TimeSpan FullPassInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
-
-    private readonly string tenantListConnectionString = CoreDatabase.GetDispatcherConnectionString(
-        configuration
-    );
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -101,8 +96,7 @@ internal sealed class OutboxDispatcher(
 
     public async Task DispatchAllAsync(CancellationToken cancellationToken)
     {
-        await OutboxTenantList.ForEachAsync(
-            tenantListConnectionString,
+        await tenants.ForEachAsync(
             logger,
             "Outbox dispatch",
             tenantId => DrainAsync(tenantId, cancellationToken),
