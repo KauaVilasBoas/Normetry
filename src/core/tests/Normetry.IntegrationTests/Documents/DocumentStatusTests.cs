@@ -201,13 +201,13 @@ public sealed class DocumentStatusTests
         await SetStatusAsync(stuck, "Processing", TimeSpan.FromMinutes(16));
         // Uploaded never times out: the version waits for the AI service.
         await SetStatusAsync(waiting, "Uploaded", TimeSpan.FromHours(2));
-        var sweeper = ActivatorUtilities.CreateInstance<ProcessingTimeoutSweeper>(db.Api.Services);
+        var sweeper = ActivatorUtilities.CreateInstance<TimeoutSweeper>(db.Api.Services);
 
         // Other tenants' sweeps never reach the stuck version.
-        Assert.Empty(await sweeper.SweepAsync(waiting.Tenant, Ct));
-        Assert.Empty(await sweeper.SweepAsync(recent.Tenant, Ct));
+        Assert.Empty(await sweeper.SweepDocumentVersionsAsync(waiting.Tenant, Ct));
+        Assert.Empty(await sweeper.SweepDocumentVersionsAsync(recent.Tenant, Ct));
         Assert.Equal(("Processing", (string?)null), await StatusAsync(stuck));
-        var changes = await sweeper.SweepAsync(stuck.Tenant, Ct);
+        var changes = await sweeper.SweepDocumentVersionsAsync(stuck.Tenant, Ct);
 
         var change = Assert.Single(changes);
         Assert.Equal((stuck.Version, "timed_out"), (change.VersionId, change.FailureCode));
