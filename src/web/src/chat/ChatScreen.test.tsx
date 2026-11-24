@@ -609,7 +609,7 @@ describe("a saved conversation", () => {
     await expectNoAxeViolations();
   });
 
-  it("keeps a 403 in the dialog until it closes, then refetches /me", async () => {
+  it("keeps a 403 in the dialog until it closes, then refetches /me and focuses the refusal", async () => {
     const fetch = renderChat(
       {
         "/me": [
@@ -635,9 +635,11 @@ describe("a saved conversation", () => {
     expect(meCalls()).toBe(1);
     await userEvent.keyboard("{Escape}");
 
-    expect(
-      await screen.findByRole("heading", { name: "You don't have access to Ask the Regulation" }),
-    ).toBeVisible();
+    const refusal = await screen.findByRole("heading", {
+      name: "You don't have access to Ask the Regulation",
+    });
+    expect(refusal).toBeVisible();
+    await waitFor(() => expect(refusal).toHaveFocus());
     expect(meCalls()).toBe(2);
   });
 });

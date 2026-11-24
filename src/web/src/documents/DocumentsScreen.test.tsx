@@ -503,6 +503,34 @@ describe("document detail", () => {
     expect(calls(fetch, "/documents/d-cold", "DELETE")).toHaveLength(1);
   });
 
+  it("focuses the refusal when a 403 on delete turns out to take Documents away", async () => {
+    renderDocuments(
+      {
+        "/me": [
+          { body: me },
+          { body: { ...me, permissions: ["establishments.read", "chat.ask"] } },
+        ],
+        "DELETE /documents/d-cold": { status: 403, body: { code: "permission.denied" } },
+      },
+      { path: "/documents/d-cold" },
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Delete document" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "You no longer have permission to do this.",
+    );
+
+    await user.keyboard("{Escape}");
+
+    const refusal = await screen.findByRole("heading", {
+      level: 2,
+      name: "You don't have access to Documents",
+    });
+    await waitFor(() => expect(refusal).toHaveFocus());
+  });
+
   it("shows skeletons while it loads, with the list's title when known", async () => {
     renderDocuments({ "/documents/d-cold": never }, { path: "/documents/d-cold" });
 
