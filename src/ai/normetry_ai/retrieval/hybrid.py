@@ -14,6 +14,7 @@ the scores compare, and the top k keeps at most `retrieval_document_top_k` of th
 
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -145,6 +146,18 @@ class Trace:
     seconds: dict[str, float]
 
 
+@dataclass(frozen=True)
+class _CorpusHits:
+    """What the corpus searches returned: chunk ids, best first, the text of every hit by chunk
+    id, and the fused hits the re-ranker scores (`retrieval_rerank_candidates` of them)."""
+
+    vector: list[UUID]
+    text: list[UUID]
+    fused: list[UUID]
+    content: dict[UUID, str]
+    candidates: list[RetrievedChunk]
+
+
 class Retriever:
     """Hybrid retrieval with one embedder and one re-ranker, loaded once and reused."""
 
@@ -179,16 +192,38 @@ class Retriever:
         settings = self.settings
         seconds: dict[str, float] = {}
         tenant = current_tenant(connection)
-        connection.execute(_PREPARE, {"ef_search": str(settings.retrieval_hnsw_ef_search)})
         language = detect_language(question)
         versions = corpus_versions(scope, language)
+
+        with timed(seconds, "embed"):
+            embedding = self.embedder.embed_query(question)
+        hits = self._corpus_hits(connection, question, embedding, versions, seconds)
+        documents = self._document_candidates(
+            connection, establishment_id, question, embedding, seconds
+        )
+        # One call over both sources: their scores compare, for the top k and the refusal.
+        with timed(seconds, "rerank"):
+            ranked = rerank(self.reranker, question, hits.candidates + documents)
+        chunks = best(ranked, settings.retrieval_top_k, settings.retrieval_document_top_k)
+        trace = _trace(language, hits, documents, chunks, seconds)
+        _log_retrieval(tenant, establishment_id, versions, trace, len(ranked))
+        return trace
+
+    def _corpus_hits(
+        self,
+        connection: Connection,
+        question: str,
+        embedding: Sequence[float],
+        versions: Sequence[tuple[str, str]],
+        seconds: dict[str, float],
+    ) -> _CorpusHits:
+        """The vector and full-text searches over the corpus versions, and their fusion."""
+        settings = self.settings
+        connection.execute(_PREPARE, {"ef_search": str(settings.retrieval_hnsw_ef_search)})
         params = {
             "jurisdictions": [jurisdiction for jurisdiction, _ in versions],
             "languages": [version for _, version in versions],
         }
-
-        with timed(seconds, "embed"):
-            embedding = self.embedder.embed_query(question)
         with timed(seconds, "vector"):
             vector_rows = connection.execute(
                 _VECTOR_SEARCH,
@@ -209,60 +244,86 @@ class Retriever:
                     "k": settings.retrieval_text_k,
                 },
             ).all()
-
         rows = {row.id: row for row in (*vector_rows, *text_rows)}
         vector = [row.id for row in vector_rows]
         lexical = [row.id for row in text_rows]
         fused = reciprocal_rank_fusion((vector, lexical), settings.retrieval_rrf_k)
-
-        documents: list[RetrievedChunk] = []
-        if establishment_id is not None:
-            with timed(seconds, "documents"):
-                documents = document_candidates(
-                    connection,
-                    establishment_id,
-                    question,
-                    embedding,
-                    vector_k=settings.retrieval_document_k,
-                    text_k=settings.retrieval_document_k,
-                    rrf_k=settings.retrieval_rrf_k,
-                )[: settings.retrieval_document_k]
-
-        candidates = [
-            _regulation_candidate(rows[chunk_id])
-            for chunk_id in fused[: settings.retrieval_rerank_candidates]
-        ]
-        # One call over both sources: their scores compare, for the top k and the refusal.
-        with timed(seconds, "rerank"):
-            ranked = rerank(self.reranker, question, candidates + documents)
-        chunks = best(ranked, settings.retrieval_top_k, settings.retrieval_document_top_k)
-        # Ids, counts and times only: never the question or chunk text.
-        logger.info(
-            "retrieval tenant=%s establishment=%s language=%s versions=%s vector=%d text=%d "
-            "fused=%d documents=%d reranked=%d top_score=%.3f seconds=%s",
-            tenant,
-            establishment_id,
-            language,
-            ",".join(f"{j}/{v}" for j, v in versions),
-            len(vector),
-            len(lexical),
-            len(fused),
-            len(documents),
-            len(candidates) + len(documents),
-            chunks[0].score if chunks else 0.0,
-            {step: round(value, 3) for step, value in seconds.items()},
-            extra={"tenant_id": tenant},
-        )
-        return Trace(
-            language=language,
+        return _CorpusHits(
             vector=vector,
             text=lexical,
             fused=fused,
-            documents=[chunk.chunk_id for chunk in documents],
-            chunks=chunks,
-            content={
-                **{chunk_id: row.content for chunk_id, row in rows.items()},
-                **{chunk.chunk_id: chunk.content for chunk in documents},
-            },
-            seconds=seconds,
+            content={chunk_id: row.content for chunk_id, row in rows.items()},
+            candidates=[
+                _regulation_candidate(rows[chunk_id])
+                for chunk_id in fused[: settings.retrieval_rerank_candidates]
+            ],
         )
+
+    def _document_candidates(
+        self,
+        connection: Connection,
+        establishment_id: UUID | None,
+        question: str,
+        embedding: Sequence[float],
+        seconds: dict[str, float],
+    ) -> list[RetrievedChunk]:
+        """The establishment's document candidates, the first `retrieval_document_k` of them;
+        none without an establishment (corpus only)."""
+        if establishment_id is None:
+            return []
+        settings = self.settings
+        with timed(seconds, "documents"):
+            return document_candidates(
+                connection,
+                establishment_id,
+                question,
+                embedding,
+                vector_k=settings.retrieval_document_k,
+                text_k=settings.retrieval_document_k,
+                rrf_k=settings.retrieval_rrf_k,
+            )[: settings.retrieval_document_k]
+
+
+def _trace(
+    language: str,
+    hits: _CorpusHits,
+    documents: list[RetrievedChunk],
+    chunks: list[RetrievedChunk],
+    seconds: dict[str, float],
+) -> Trace:
+    return Trace(
+        language=language,
+        vector=hits.vector,
+        text=hits.text,
+        fused=hits.fused,
+        documents=[chunk.chunk_id for chunk in documents],
+        chunks=chunks,
+        content={**hits.content, **{chunk.chunk_id: chunk.content for chunk in documents}},
+        seconds=seconds,
+    )
+
+
+def _log_retrieval(
+    tenant: str,
+    establishment_id: UUID | None,
+    versions: Sequence[tuple[str, str]],
+    trace: Trace,
+    reranked: int,
+) -> None:
+    # Ids, counts and times only: never the question or chunk text.
+    logger.info(
+        "retrieval tenant=%s establishment=%s language=%s versions=%s vector=%d text=%d "
+        "fused=%d documents=%d reranked=%d top_score=%.3f seconds=%s",
+        tenant,
+        establishment_id,
+        trace.language,
+        ",".join(f"{j}/{v}" for j, v in versions),
+        len(trace.vector),
+        len(trace.text),
+        len(trace.fused),
+        len(trace.documents),
+        reranked,
+        trace.chunks[0].score if trace.chunks else 0.0,
+        {step: round(value, 3) for step, value in trace.seconds.items()},
+        extra={"tenant_id": tenant},
+    )
