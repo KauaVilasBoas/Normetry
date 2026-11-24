@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
 import type { ApiClient } from "./client";
+import type { StoredPassage } from "./passages";
 import { establishmentPath } from "./queries";
 
 /** An inspection's progress in one checklist theme (a contract code, "temperature_control"). */
@@ -29,29 +30,17 @@ export interface InspectionSummary {
 }
 
 /** A copy of the regulation passage a finding cites, kept with it; quoted in its own language. */
-export interface RegulationCitation {
+export interface RegulationCitation extends StoredPassage {
   sourceTitle: string;
   sourceVersion: string;
-  sectionPath: string;
-  language: string;
-  text: string;
-  quote: string;
-  quoteStart: number | null;
-  quoteEnd: number | null;
 }
 
 /** A copy of a passage of the establishment's own document. The title is null on old uploads. */
-export interface EvidenceCitation {
+export interface EvidenceCitation extends StoredPassage {
   documentId: string;
   documentTitle: string | null;
   documentType: string | null;
   versionNumber: number;
-  sectionPath: string;
-  language: string;
-  text: string;
-  quote: string;
-  quoteStart: number | null;
-  quoteEnd: number | null;
 }
 
 export interface UserReference {
