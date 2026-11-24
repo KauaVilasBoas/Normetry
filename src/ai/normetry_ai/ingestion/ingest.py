@@ -16,12 +16,14 @@ import json
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.pool import NullPool
 
-from normetry_ai.ingestion.chunking import chunk_sections
+from normetry_ai.ingestion.chunking import Chunk, chunk_sections
 from normetry_ai.ingestion.corpus import CORPUS_DIR, Section, load_manifest, parse_source
 from normetry_ai.llm.embeddings import Embedder, SentenceTransformerEmbedder
 from normetry_ai.retrieval.models import vector_literal
@@ -82,10 +84,18 @@ _INSERT_CHUNK = text(
 )
 
 
+class SourceStatus(StrEnum):
+    """What an ingestion did to one source, as the command prints it."""
+
+    NEW = "new"  # registered, with its chunks
+    UPDATED = "updated"  # its registry row or chunks rewritten
+    UNCHANGED = "unchanged"  # left untouched
+
+
 @dataclass(frozen=True)
 class SourceResult:
     manifest_id: str
-    status: str  # "new", "updated" or "unchanged"
+    status: SourceStatus
     chunks: int
     embedded: int
     seconds: float
@@ -102,53 +112,85 @@ def ingest_source(
         raise ValueError(f"{source['id']}: no sections parsed")
     registry = {column: source[field] for column, field in _REGISTRY.items()}
 
+    row, stored_chunks = _stored_source(engine, source["id"], embedder.name)
+    if _is_unchanged(row, stored_chunks, registry, chunks):
+        status, embedded = SourceStatus.UNCHANGED, 0
+    else:
+        embeddings, embedded = _embeddings_for(chunks, stored_chunks, embedder)
+        status = _write_source(engine, registry, row, chunks, embeddings, embedder.name)
+    return SourceResult(source["id"], status, len(chunks), embedded, time.perf_counter() - started)
+
+
+def _stored_source(
+    engine: Engine, manifest_id: str, embedding_model: str
+) -> tuple[Any, Sequence[Any]]:
+    """The source's ai.sources row (None before its first ingestion) and its chunks stored with
+    `embedding_model`."""
     with engine.begin() as connection:
-        row = connection.execute(_SELECT_SOURCE, {"manifest_id": source["id"]}).one_or_none()
-        stored_chunks = []
-        if row is not None:
-            params = {"source_id": row.id, "embedding_model": embedder.name}
-            stored_chunks = connection.execute(_SELECT_STORED_CHUNKS, params).all()
-    stored = {chunk.content_hash: chunk.embedding for chunk in stored_chunks}
+        row = connection.execute(_SELECT_SOURCE, {"manifest_id": manifest_id}).one_or_none()
+        if row is None:
+            return None, []
+        params = {"source_id": row.id, "embedding_model": embedding_model}
+        return row, connection.execute(_SELECT_STORED_CHUNKS, params).all()
 
-    def result(status: str, embedded: int = 0) -> SourceResult:
-        elapsed = time.perf_counter() - started
-        return SourceResult(source["id"], status, len(chunks), embedded, elapsed)
 
-    if (
+def _is_unchanged(
+    row: Any, stored_chunks: Sequence[Any], registry: dict[str, Any], chunks: Sequence[Chunk]
+) -> bool:
+    """Whether the stored registry row, chunk hashes and positions match the parsed source."""
+    return (
         row is not None
         and {column: getattr(row, column) for column in _REGISTRY} == registry
         and {(chunk.content_hash, chunk.position_in_section) for chunk in stored_chunks}
         == {(chunk.content_hash, chunk.position_in_section) for chunk in chunks}
-    ):
-        return result("unchanged")
+    )
 
-    # Embedding takes minutes on CPU, so it runs outside any transaction.
+
+def _embeddings_for(
+    chunks: Sequence[Chunk], stored_chunks: Sequence[Any], embedder: Embedder
+) -> tuple[dict[str, str], int]:
+    """Every chunk's embedding by content hash, in pgvector's text form, reusing the stored ones,
+    and how many chunks had to be embedded. Embedding takes minutes on CPU, so it runs outside any
+    transaction."""
+    stored = {chunk.content_hash: chunk.embedding for chunk in stored_chunks}
     missing = [chunk for chunk in chunks if chunk.content_hash not in stored]
     vectors = embedder.embed_documents([chunk.content for chunk in missing]) if missing else []
     embeddings = stored | {
         chunk.content_hash: vector_literal(vector)
         for chunk, vector in zip(missing, vectors, strict=True)
     }
+    return embeddings, len(missing)
 
-    # ponytail: two runs at once can interleave between the read above and this write; both write
-    # the same rows, or the second fails on sources_manifest_id_key. Run one ingestion at a time.
+
+def _write_source(
+    engine: Engine,
+    registry: dict[str, Any],
+    row: Any,
+    chunks: Sequence[Chunk],
+    embeddings: dict[str, str],
+    embedding_model: str,
+) -> SourceStatus:
+    """Register the source, or update its row and delete its chunks, then insert `chunks`, in one
+    transaction. A new manifest version bumps the revision (the chunks' source_version)."""
+    # ponytail: two runs at once can interleave between the read and this write; both write the
+    # same rows, or the second fails on sources_manifest_id_key. Run one ingestion at a time.
     with engine.begin() as connection:
         if row is None:
             source_id, revision = connection.execute(_INSERT_SOURCE, registry).scalar_one(), 1
         else:
             source_id = row.id
-            revision = row.revision + 1 if row.version != source["version"] else row.revision
+            revision = row.revision + 1 if row.version != registry["version"] else row.revision
             connection.execute(_DELETE_CHUNKS, {"source_id": source_id})
             connection.execute(_UPDATE_SOURCE, {**registry, "id": source_id, "revision": revision})
-        metadata = json.dumps({"embedding_model": embedder.name})
+        metadata = json.dumps({"embedding_model": embedding_model})
         connection.execute(
             _INSERT_CHUNK,
             [
                 {
                     "source_id": source_id,
                     "source_version": revision,
-                    "jurisdiction": source["jurisdiction"],
-                    "language": source["language"],
+                    "jurisdiction": registry["jurisdiction"],
+                    "language": registry["language"],
                     "section_path": chunk.section_path,
                     "position_in_section": chunk.position_in_section,
                     "content": chunk.content,
@@ -159,7 +201,7 @@ def ingest_source(
                 for chunk in chunks
             ],
         )
-    return result("new" if row is None else "updated", len(missing))
+    return SourceStatus.NEW if row is None else SourceStatus.UPDATED
 
 
 def main(argv: list[str] | None = None) -> None:
