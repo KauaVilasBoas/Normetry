@@ -15,12 +15,9 @@ internal static class DocumentsSetup
     /// </summary>
     public static WebApplicationBuilder AddDocuments(this WebApplicationBuilder builder)
     {
-        var options = builder
-            .Configuration.GetSection(DocumentsOptions.Section)
-            .Get<DocumentsOptions>()
-            ?? new DocumentsOptions();
-        options.Validate();
-        builder.Services.AddSingleton(options);
+        builder.BindValidated<DocumentsOptions>(DocumentsOptions.Section, options =>
+            options.Validate()
+        );
         builder.Services.AddScoped<DocumentUploadService>();
         builder
             .Services.AddSignalR()

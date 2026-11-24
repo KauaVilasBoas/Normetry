@@ -76,11 +76,10 @@ internal static class RateLimitingSetup
     /// </summary>
     public static WebApplicationBuilder AddRateLimiting(this WebApplicationBuilder builder)
     {
-        var options = builder
-            .Configuration.GetSection(RateLimitingOptions.Section)
-            .Get<RateLimitingOptions>()
-            ?? new RateLimitingOptions();
-        options.Validate();
+        var options = builder.BindValidated<RateLimitingOptions>(
+            RateLimitingOptions.Section,
+            limits => limits.Validate()
+        );
 
         builder.Services.AddRateLimiter(limiter =>
         {

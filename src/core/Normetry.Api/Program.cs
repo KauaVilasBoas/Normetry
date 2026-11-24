@@ -13,9 +13,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddAuth();
 builder.AddAiGateway();
-builder.AddChat();
+var chatPlans = builder.AddChat();
 builder.AddDocuments();
-builder.AddInspections();
+builder.AddInspections(chatPlans);
 builder.AddRateLimiting();
 builder.Services.AddProblemDetails();
 builder
