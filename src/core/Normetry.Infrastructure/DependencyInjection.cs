@@ -83,7 +83,7 @@ public static class DependencyInjection
         services.AddHostedService<DocumentStatusConsumer>();
         services.AddSingleton<InspectionStatusMessages>();
         services.AddHostedService<InspectionStatusConsumer>();
-        services.AddHostedService<ProcessingTimeoutSweeper>();
+        services.AddHostedService<TimeoutSweeper>();
         return services;
     }
 
