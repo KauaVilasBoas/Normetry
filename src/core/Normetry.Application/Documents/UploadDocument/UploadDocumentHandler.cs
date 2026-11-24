@@ -11,8 +11,7 @@ internal sealed class UploadDocumentHandler(
     IEstablishmentRepository establishments,
     IDocumentRepository documents,
     IUserRepository users,
-    IDocumentBlobStore blobs,
-    IOutbox outbox,
+    DocumentUploadService uploads,
     ICurrentUser currentUser,
     DocumentsOptions options,
     ITenantContext tenant,
@@ -58,15 +57,13 @@ internal sealed class UploadDocumentHandler(
             clock.GetUtcNow()
         );
         document.SetExpiry(request.ExpiresOn);
-        await DocumentUploads.StoreAsync(
-            blobs,
-            outbox,
+        await uploads.StoreAsync(
             document,
             document.Newest,
             request.File!.Content,
             cancellationToken
         );
         documents.Add(document);
-        return await DocumentUploads.ResponseAsync(users, document, cancellationToken);
+        return await DocumentResponse.LoadAsync(users, document, cancellationToken);
     }
 }
