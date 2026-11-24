@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { problemCodes } from "../api/contract";
-import type { Sent } from "../api/send";
+import { refusalText, type Sent } from "../api/send";
 import { copy, format } from "../copy";
 import { FormDialog, TextField } from "../ui/primitives";
 
@@ -62,7 +62,7 @@ export function NameDialog({
     } else if (result.code === problemCodes.nameTaken) {
       setFieldError({ text: format(copy.profiles.nameTaken, { name: trimmed }) });
     } else {
-      setError(result.status === 403 ? copy.settings.denied : copy.profiles.nameError);
+      setError(refusalText(result, copy.profiles.nameError));
     }
   };
 
