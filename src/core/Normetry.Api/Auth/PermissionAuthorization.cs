@@ -32,7 +32,8 @@ internal sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> op
             return await base.GetPolicyAsync(policyName);
         }
 
-        var anyOf = policyName[HasPermissionAttribute.PolicyPrefix.Length..].Split('|');
+        var anyOf = policyName[HasPermissionAttribute.PolicyPrefix.Length..]
+            .Split(HasPermissionAttribute.AnyOfSeparator);
         if (anyOf.FirstOrDefault(name => !Permissions.All.Contains(name)) is { } unknown)
         {
             throw new InvalidOperationException($"'{unknown}' is not in the permission catalog.");
