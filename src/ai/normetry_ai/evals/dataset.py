@@ -15,6 +15,7 @@ import re
 from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 
 from normetry_ai.evals.report import folded
@@ -42,22 +43,37 @@ FIELDS = {
     "provisions",
 }
 PROVISION_FIELDS = {"source_id", "section_path", "quote"}
+
+
+class Behavior(StrEnum):
+    """An item's `expected_behavior`."""
+
+    ANSWER = "answer"
+    REFUSE = "refuse"
+
+
 # The behavior each item type expects; a follow-up's last turn can go either way.
 BEHAVIORS = {
-    "direct": {"answer"},
-    "two_provisions": {"answer"},
-    "misleading_premise": {"answer"},
-    "not_covered": {"refuse"},
-    "wrong_jurisdiction": {"refuse"},
-    "follow_up": {"answer", "refuse"},
+    "direct": {Behavior.ANSWER},
+    "two_provisions": {Behavior.ANSWER},
+    "misleading_premise": {Behavior.ANSWER},
+    "not_covered": {Behavior.REFUSE},
+    "wrong_jurisdiction": {Behavior.REFUSE},
+    "follow_up": {Behavior.ANSWER, Behavior.REFUSE},
 }
+# The item types that can expect a refusal, which the generation report counts one by one.
+REFUSAL_TYPES = tuple(kind for kind, behaviors in BEHAVIORS.items() if Behavior.REFUSE in behaviors)
 QUOTE_WORDS = range(8, 61)
 # document-qa: regulation-qa's fields plus these; security items add ATTACK_FIELDS.
 DOCUMENT_FIELDS = FIELDS | {"establishment", "document_quotes"}
 ATTACK_FIELDS = {"attack", "must_not_contain"}
 DOCUMENT_QUOTE_FIELDS = {"file", "quote"}
 # The behavior each attack expects: a refusal for the cross items, the right answer otherwise.
-ATTACKS = {"cross_tenant": "refuse", "cross_establishment": "refuse", "injection": "answer"}
+ATTACKS = {
+    "cross_tenant": Behavior.REFUSE,
+    "cross_establishment": Behavior.REFUSE,
+    "injection": Behavior.ANSWER,
+}
 
 # (source_id, section_path) -> normalized section text, as parse_corpus() returns it.
 Sections = Mapping[tuple[str, str], str]
@@ -101,7 +117,7 @@ def check_item(item: dict, sections: Sections, sources: Mapping[str, dict]) -> l
     provisions = item["provisions"]
     if not isinstance(provisions, list):
         return [*problems, f"{item_id}: provisions must be a list"]
-    if behavior == "refuse":
+    if behavior == Behavior.REFUSE:
         need(not provisions, "a refusal cites no provision")
     else:
         need(len(provisions) >= (2 if kind == "two_provisions" else 1), "too few provisions")
@@ -243,7 +259,7 @@ def check_document_item(
             "id must be the jurisdiction in lowercase and three digits, like br-001",
         )
         need(
-            kind in ("document", "document_and_regulation") and behavior == "answer",
+            kind in ("document", "document_and_regulation") and behavior == Behavior.ANSWER,
             f"type {kind!r} cannot expect {behavior!r}",
         )
     establishment = establishments.get(item["establishment"])
@@ -265,7 +281,7 @@ def check_document_item(
     quotes, provisions = item["document_quotes"], item["provisions"]
     if not isinstance(quotes, list) or not isinstance(provisions, list):
         return [*problems, f"{item_id}: document_quotes and provisions must be lists"]
-    if behavior == "refuse":
+    if behavior == Behavior.REFUSE:
         need(not quotes and not provisions, "a refusal quotes nothing")
     else:
         need(quotes, "an answer needs a document quote")
