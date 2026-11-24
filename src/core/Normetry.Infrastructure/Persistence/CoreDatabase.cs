@@ -10,7 +10,7 @@ public static class CoreDatabase
     public const string Schema = "core";
 
     /// <summary>Runtime connection string name: the <c>app_core</c> role.</summary>
-    public const string ConnectionStringName = "core";
+    public const string ConnectionStringName = HostingKeys.CoreConnectionString;
 
     public static string GetConnectionString(IConfiguration configuration) =>
         configuration.GetConnectionString(ConnectionStringName)
@@ -22,7 +22,7 @@ public static class CoreDatabase
     /// The <c>core_dispatcher</c> role, which reads only <c>core.outbox_tenants</c>: the tenant list
     /// of the outbox dispatcher and the timeout sweeper, and nothing else.
     /// </summary>
-    public const string DispatcherConnectionStringName = "core-dispatcher";
+    public const string DispatcherConnectionStringName = HostingKeys.DispatcherConnectionString;
 
     public static string GetDispatcherConnectionString(IConfiguration configuration) =>
         configuration.GetConnectionString(DispatcherConnectionStringName)
