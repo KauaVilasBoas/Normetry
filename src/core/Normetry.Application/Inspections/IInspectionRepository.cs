@@ -3,9 +3,9 @@ using Normetry.Domain.Inspections;
 namespace Normetry.Application.Inspections;
 
 /// <summary>
-/// Inspections of the current tenant, with their findings and action items, and its daily start
-/// count. Row-level security scopes every call to the tenant of the request's transaction.
-/// Changes are saved when the transaction commits.
+/// Inspections of the current tenant, with their findings and action items. Row-level security
+/// scopes every call to the tenant of the request's transaction. Changes are saved when the
+/// transaction commits.
 /// </summary>
 public interface IInspectionRepository
 {
@@ -92,14 +92,6 @@ public interface IInspectionRepository
         DateTimeOffset before,
         CancellationToken cancellationToken
     );
-
-    /// <summary>
-    /// Counts one start on <paramref name="day"/> unless the count already reached
-    /// <paramref name="limit"/> (<c>null</c>: no limit). Atomic, so concurrent starts never pass
-    /// the limit; part of the transaction, so a start refused later uncounts itself. Returns the
-    /// new count, or <c>null</c> when nothing was counted.
-    /// </summary>
-    Task<int?> TryCountStartAsync(DateOnly day, int? limit, CancellationToken cancellationToken);
 }
 
 /// <summary>
