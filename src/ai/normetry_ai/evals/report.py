@@ -7,9 +7,11 @@ from normetry_ai.ingestion.normalize import normalize_text
 
 # A measure with nothing to measure: an empty fraction, no cost, no time.
 NOT_AVAILABLE = "n/a"
+# (count, total) of a measure, such as answerable items answered.
+type Fraction = tuple[int, int]
 
 
-def fraction(value: tuple[int, int]) -> str:
+def fraction(value: Fraction) -> str:
     """`(n, total)` as "n/total (percent)", or NOT_AVAILABLE when the total is 0."""
     n, total = value
     return f"{n}/{total} ({n / total:.0%})" if total else NOT_AVAILABLE
