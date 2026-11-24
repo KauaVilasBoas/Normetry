@@ -92,7 +92,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             Path.Combine(Path.GetTempPath(), $"normetry-no-demo-documents-{Guid.NewGuid():N}")
         );
         // The feedback export never writes into the repository from a test.
-        builder.UseSetting(InspectionsController.FeedbackDirectorySetting, FeedbackDirectory);
+        builder.UseSetting(FeedbackExportFile.DirectorySetting, FeedbackDirectory);
         builder.UseSetting("Ai:InternalToken", InternalToken);
         // Nothing listens there; the gateway tests point it at a stub AI service.
         builder.UseSetting("Services:ai:http:0", "http://127.0.0.1:9");
