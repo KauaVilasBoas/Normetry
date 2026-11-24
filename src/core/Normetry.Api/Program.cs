@@ -14,6 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddAuth();
 builder.AddAiGateway();
+builder.AddRealtime();
 
 // The chat plans also set each tenant's inspection quota, so AddInspections validates against them.
 var chatPlans = builder.BindValidated<ChatOptions>(ChatOptions.Section, chat => chat.Validate());
@@ -54,7 +55,7 @@ app.UseAuthorization();
 app.MapDefaultEndpoints();
 app.MapControllers();
 app.MapAiGateway();
-app.MapDocumentsHub();
-app.MapInspectionsHub();
+app.MapEstablishmentHub<DocumentsHub>(DocumentsHub.Path);
+app.MapEstablishmentHub<InspectionsHub>(InspectionsHub.Path);
 
 app.Run();
