@@ -15,11 +15,11 @@ internal sealed class EstablishmentConfiguration : IEntityTypeConfiguration<Esta
         {
             table.HasCheckConstraint(
                 "ck_establishments_type",
-                $"type IN ({Names<EstablishmentType>()})"
+                $"type IN ({SqlLiterals.List<EstablishmentType>()})"
             );
             table.HasCheckConstraint(
                 "ck_establishments_jurisdiction",
-                $"jurisdiction IN ({Names<Jurisdiction>()})"
+                $"jurisdiction IN ({SqlLiterals.List<Jurisdiction>()})"
             );
         });
         builder.Property(establishment => establishment.Id).ValueGeneratedNever();
@@ -38,8 +38,4 @@ internal sealed class EstablishmentConfiguration : IEntityTypeConfiguration<Esta
         // serves the list ordered by name and indexes the foreign key.
         builder.HasIndex(establishment => new { establishment.TenantId, establishment.Name });
     }
-
-    private static string Names<TEnum>()
-        where TEnum : struct, Enum =>
-        string.Join(", ", Enum.GetNames<TEnum>().Select(name => $"'{name}'"));
 }
