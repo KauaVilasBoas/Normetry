@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
 import { inspectionsKey, useInspection, type InspectionSummary } from "../api/inspections";
-import { queryNotFound, useQueryRetry } from "../api/queries";
+import { queryFailed, queryNotFound, useQueryRetry } from "../api/queries";
 import { hasFindingFilter } from "../routes";
 import { focusById, useRefocusWhenGone } from "../ui/focus";
 import { DETAIL_TITLE_ID, FINDINGS_TITLE_ID, inFlight } from "./inspections";
@@ -25,8 +25,8 @@ export function useInspectionDetail({
   const queryClient = useQueryClient();
   const query = useInspection(establishmentId, id, true);
   const notFound = queryNotFound(query);
-  const load = useQueryRetry(query, DETAIL_TITLE_ID);
-  const failed = load.failed && !notFound;
+  const failed = queryFailed(query) && !notFound;
+  const load = useQueryRetry(query, DETAIL_TITLE_ID, failed);
   const detail = query.data;
 
   useRefocusWhenGone(detail !== undefined && inFlight(detail.status), DETAIL_TITLE_ID);

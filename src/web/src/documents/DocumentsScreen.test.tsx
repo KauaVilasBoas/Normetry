@@ -526,6 +526,21 @@ describe("document detail", () => {
     );
   });
 
+  it("moves focus to the title when a refetch after a reconnect clears the load error", async () => {
+    renderDocuments(
+      { "/documents/d-cold": [{ status: 500 }, { status: 500 }, { body: processing }] },
+      { path: "/documents/d-cold" },
+    );
+    const retry = await screen.findByRole("button", { name: "Try again" }, { timeout: 3000 });
+    retry.focus();
+
+    act(() => latestHub().reconnected());
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Cold storage SOP" })).toHaveFocus(),
+    );
+  });
+
   it("shows a document that is gone as not found, with the way back", async () => {
     renderDocuments(
       { "/documents/d-gone": { status: 404, body: { code: "document.not_found" } } },
