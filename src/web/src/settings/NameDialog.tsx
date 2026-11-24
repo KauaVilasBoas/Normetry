@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { problemCodes } from "../api/contract";
-import { refusalText, type Sent } from "../api/send";
-import { copy, format } from "../copy";
+import type { ReactNode } from "react";
+import type { Sent } from "../api/send";
+import { copy } from "../copy";
 import { FormDialog, TextField } from "../ui/primitives";
+import { useNameForm } from "./editor";
 
 /** Profile.NameMaxLength in the core. */
 const NAME_MAX_LENGTH = 100;
@@ -32,80 +32,41 @@ export function NameDialog({
   onClosed?: () => void;
   onClosedAfterSave?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(initialName);
-  // A new object per refusal, so the same error twice still moves focus to the field.
-  const [fieldError, setFieldError] = useState<{ text: string }>();
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-  const saved = useRef(false);
-  const input = useRef<HTMLInputElement>(null);
-
-  // The field takes focus with its error, so the error is read as its description.
-  useEffect(() => {
-    if (fieldError) input.current?.focus();
-  }, [fieldError]);
-
-  const submit = async () => {
-    const trimmed = name.trim();
-    setError(undefined);
-    if (!trimmed) {
-      setFieldError({ text: copy.profiles.nameRequired });
-      return;
-    }
-    setSubmitting(true);
-    const result = await onSubmit(trimmed);
-    setSubmitting(false);
-    if (result.ok) {
-      saved.current = true;
-      setOpen(false);
-    } else if (result.code === problemCodes.nameTaken) {
-      setFieldError({ text: format(copy.profiles.nameTaken, { name: trimmed }) });
-    } else {
-      setError(refusalText(result, copy.profiles.nameError));
-    }
-  };
+  const {
+    open,
+    openChange,
+    name,
+    changeName,
+    input,
+    fieldError,
+    error,
+    submitting,
+    submit,
+    afterClose,
+  } = useNameForm({ initialName, onSubmit, onClosed, onClosedAfterSave });
 
   return (
     <FormDialog
       trigger={trigger}
       open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) {
-          onClosed?.();
-          return;
-        }
-        setName(initialName);
-        setFieldError(undefined);
-        setError(undefined);
-      }}
+      onOpenChange={openChange}
       title={title}
       submitLabel={submitting ? submittingLabel : submitLabel}
       cancelLabel={copy.settings.cancel}
       submitting={submitting}
       error={error}
       onSubmit={() => void submit()}
-      onCloseAutoFocus={(event) => {
-        if (saved.current && onClosedAfterSave) {
-          event.preventDefault();
-          onClosedAfterSave();
-        }
-        saved.current = false;
-      }}
+      onCloseAutoFocus={afterClose}
     >
       <TextField
         ref={input}
         label={copy.profiles.nameLabel}
         hint={copy.profiles.nameHint}
-        error={fieldError?.text}
+        error={fieldError}
         value={name}
         maxLength={NAME_MAX_LENGTH}
         autoComplete="off"
-        onChange={(event) => {
-          setName(event.target.value);
-          setFieldError(undefined);
-        }}
+        onChange={changeName}
       />
     </FormDialog>
   );

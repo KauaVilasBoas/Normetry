@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
 
 /** Focuses the first of `ids` that is on the page. */
 export const focusById = (...ids: string[]) =>
@@ -51,4 +51,21 @@ export function useShellFocusRequest(focusKey: number, ...headingIds: string[]) 
   useEffect(() => {
     if (focusKey > 0) focusHeading();
   }, [focusKey]);
+}
+
+/**
+ * A form field's error (`setFieldError(text)`; no text clears it). Each one shown moves focus to
+ * the `field`, so the error is read as its description; the same text twice moves it again.
+ */
+export function useFieldErrorFocus(field: RefObject<HTMLElement | null>) {
+  // A new object per error, so the same error twice still moves focus to the field.
+  const [error, setError] = useState<{ text: string }>();
+
+  useEffect(() => {
+    if (error) field.current?.focus();
+  }, [error, field]);
+
+  const setFieldError = (text?: string) => setError(text === undefined ? undefined : { text });
+
+  return { fieldError: error?.text, setFieldError };
 }
