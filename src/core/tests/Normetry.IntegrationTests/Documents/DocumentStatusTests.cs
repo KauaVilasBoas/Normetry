@@ -153,6 +153,15 @@ public sealed class DocumentStatusTests
             a,
             new DocumentIndexed(b.Establishment, a.Document, a.Version, 1, 3, null, "en")
         );
+        // The payload names another establishment of the same tenant.
+        var otherEstablishment = await TestTenants.CreateEstablishmentAsync(db, a.Tenant);
+        Assert.Equal(
+            ConsumeOutcome.Ack,
+            await HandleAsync(
+                a,
+                new DocumentIndexed(otherEstablishment, a.Document, a.Version, 1, 3, null, "en")
+            )
+        );
         await HandleAsync(
             a,
             new DocumentIndexed(a.Establishment, a.Document, a.Version, 2, 3, null, "en")
