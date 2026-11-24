@@ -1,7 +1,7 @@
 import type { ChatQuota, Citation, Claim, ConversationMessage } from "../api/chat";
 import { problemCode, seconds } from "../api/client";
 import { answerEvents, problemCodes, sourceTypes } from "../api/contract";
-import { copy, format, locale } from "../copy";
+import { copy, format, untilReset } from "../copy";
 
 /** How a turn's answer stands. `undefined` on a turn: no answer was stored. */
 export type AnswerStatus =
@@ -264,18 +264,6 @@ export function quotaAfter(
  */
 export const rateLimited = async (response: Response) =>
   response.status === 429 && (await problemCode(response)) === problemCodes.rateLimited;
-
-/**
- * "in 6 hours" from one hour on, "in 12 minutes" from one minute on, else "in 3 seconds" (a rate
- * limit's `Retry-After`); rounded up so it is never too early.
- */
-export function untilReset(resetsAt: number, now: number): string {
-  const ms = Math.max(0, resetsAt - now);
-  const relative = new Intl.RelativeTimeFormat(locale);
-  if (ms >= 3_600_000) return relative.format(Math.ceil(ms / 3_600_000), "hour");
-  if (ms >= 60_000) return relative.format(Math.ceil(ms / 60_000), "minute");
-  return relative.format(Math.max(1, Math.ceil(ms / 1000)), "second");
-}
 
 export function quotaNoticeText(quota: ChatQuota, now = Date.now()) {
   const when = untilReset(Date.parse(quota.resetsAt), now);
