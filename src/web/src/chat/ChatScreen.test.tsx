@@ -486,7 +486,9 @@ describe("a saved conversation", () => {
     await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByRole("list", { name: "Messages" })).toBeVisible();
-    expect(screen.getByRole("heading", { level: 2, name: question })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: question })).toHaveFocus(),
+    );
   });
 
   it("shows not found, and starts a new conversation from there", async () => {
