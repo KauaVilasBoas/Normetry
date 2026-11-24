@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Normetry.Api.Gateway;
+using Normetry.Domain.Establishments;
 using Normetry.IntegrationTests.Database;
 using Xunit;
 
@@ -98,7 +99,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     public async Task An_establishment_route_forwards_the_establishment_and_jurisdiction_loaded_by_the_core()
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant, "EU");
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant, Jurisdiction.EU);
         using var client = Client(tenant);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -144,7 +145,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     )
     {
         var (owner, caller) = (await NewTenantAsync(), await NewTenantAsync());
-        var establishment = await NewEstablishmentAsync(owner);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, owner);
         using var client = Client(caller);
 
         using var response = await client.PostAsync(
@@ -171,7 +172,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     )
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant);
         using var client = Client(tenant);
         path = path.Replace("{id}", establishment.ToString())
             .Replace("{ID}", establishment.ToString().ToUpperInvariant())
@@ -198,7 +199,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     )
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant);
         using var client = Client(tenant);
 
         using var response = await client.PostAsync(
@@ -216,7 +217,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     public async Task A_message_with_one_trailing_slash_is_counted_and_forwarded()
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant);
         using var client = Client(tenant);
 
         using var response = await client.PostAsync(
@@ -263,7 +264,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     public async Task The_21st_message_of_a_demo_user_gets_429_without_reaching_the_AI_service()
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant);
         using var client = Client(tenant);
 
         for (var sent = 1; sent <= DemoLimit; sent++)
@@ -292,7 +293,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     public async Task Concurrent_messages_never_pass_the_limit_or_lose_a_count()
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant);
         using var client = Client(tenant);
 
         var responses = await Task.WhenAll(
@@ -313,7 +314,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     public async Task An_unlimited_tenant_is_never_limited()
     {
         await NewTenantAsync(unlimitedTenant);
-        var establishment = await NewEstablishmentAsync(unlimitedTenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, unlimitedTenant);
         using var client = Client(unlimitedTenant);
 
         for (var sent = 1; sent <= DemoLimit + 5; sent++)
@@ -331,8 +332,8 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     {
         var (tenantA, tenantB) = (await NewTenantAsync(), await NewTenantAsync());
         var (establishmentA, establishmentB) = (
-            await NewEstablishmentAsync(tenantA),
-            await NewEstablishmentAsync(tenantB)
+            await TestTenants.CreateEstablishmentAsync(db, tenantA),
+            await TestTenants.CreateEstablishmentAsync(db, tenantB)
         );
         using var user = Client(tenantA, "user-1");
         await ExhaustAsync(user, establishmentA);
@@ -352,7 +353,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     public async Task Counts_reset_on_the_next_UTC_day()
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant);
         using var client = Client(tenant);
         await ExhaustAsync(client, establishment);
 
@@ -368,7 +369,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     public async Task A_message_the_AI_service_fails_on_still_counts()
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant);
         using var client = Client(tenant);
 
         using var response = await client.PostAsync(
@@ -386,7 +387,7 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     public async Task The_quota_endpoint_shows_what_is_left_today()
     {
         var tenant = await NewTenantAsync();
-        var establishment = await NewEstablishmentAsync(tenant);
+        var establishment = await TestTenants.CreateEstablishmentAsync(db, tenant);
         using var client = Client(tenant);
         var resetsAt = new DateTimeOffset(2031, 3, 15, 0, 0, 0, TimeSpan.Zero);
 
@@ -401,23 +402,6 @@ public sealed class ChatGatewayTests : IAsyncLifetime
     // Every user these tests sign in as is an Owner, so chat.ask is never what is tested here.
     private Task<Guid> NewTenantAsync(Guid? id = null) =>
         TestTenants.CreateAsync(db, id, ApiFactory.UserId, "user-1", "user-2");
-
-    private async Task<Guid> NewEstablishmentAsync(Guid tenant, string jurisdiction = "BR")
-    {
-        var establishment = Guid.CreateVersion7();
-        await using var session = await Session.BeginAsync(db.ConnectionString("app_core"), tenant);
-        await session.ExecuteAsync(
-            """
-            INSERT INTO core.establishments (id, tenant_id, name, type, jurisdiction)
-            VALUES ($1, $2, 'Kitchen', 'Restaurant', $3)
-            """,
-            establishment,
-            tenant,
-            jurisdiction
-        );
-        await session.CommitAsync();
-        return establishment;
-    }
 
     private HttpClient Client(Guid tenant, string user = ApiFactory.UserId) =>
         Api.CreateClient(

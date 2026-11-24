@@ -178,7 +178,7 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
     [Fact]
     public async Task Inspection_events_published_by_the_AI_service_are_applied_and_bad_ones_dead_lettered()
     {
-        var target = await InspectionEndpointTests.NewTargetAsync(db);
+        var target = await TestTenants.NewTargetAsync(db);
         using var client = InspectionEndpointTests.Client(db.Api, target);
         var inspection = await InspectionEndpointTests.StartAsync(client, target);
         await using var api = new ApiFactory

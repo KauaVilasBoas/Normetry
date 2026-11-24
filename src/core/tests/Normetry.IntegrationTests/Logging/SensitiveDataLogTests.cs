@@ -144,8 +144,8 @@ public sealed class SensitiveDataLogTests
         // The inspection consumer: one inspection completes with the marker in every text, one
         // cites a document of another establishment (refused, logged), and a body off the
         // contract is dead-lettered (logged).
-        var completed = await InspectionEndpointTests.NewTargetAsync(db);
-        var refused = await InspectionEndpointTests.NewTargetAsync(db);
+        var completed = await TestTenants.NewTargetAsync(db);
+        var refused = await TestTenants.NewTargetAsync(db);
         var completedId = await StartAsync(api, completed);
         var refusedId = await StartAsync(api, refused);
         Assert.Equal(
@@ -228,7 +228,7 @@ public sealed class SensitiveDataLogTests
 
     private static async Task<Guid> StartAsync(
         WebApplicationFactory<Program> api,
-        InspectionEndpointTests.Target target
+        TestTenants.Target target
     )
     {
         using var client = InspectionEndpointTests.Client(api, target);

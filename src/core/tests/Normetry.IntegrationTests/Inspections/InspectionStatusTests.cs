@@ -7,6 +7,7 @@ using Normetry.Domain.Establishments;
 using Normetry.Infrastructure.Messaging;
 using Normetry.IntegrationTests.Database;
 using Xunit;
+using static Normetry.IntegrationTests.Database.TestTenants;
 using static Normetry.IntegrationTests.Inspections.InspectionEndpointTests;
 
 namespace Normetry.IntegrationTests.Inspections;
