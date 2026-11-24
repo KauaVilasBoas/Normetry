@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleAlert, Clock, Trash2, Upload } from "lucide-react";
+import { CircleAlert, Clock, Trash2, Upload } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -10,12 +10,15 @@ import { useSend } from "../api/send";
 import { calendarDate, copy, fileSize, format, shortDate } from "../copy";
 import { paths } from "../routes";
 import {
+  BackLink,
   Button,
   ConnectionNotice,
+  DetailUnavailable,
   dialogPanel,
   FormDialog,
   IngestionPill,
   Notice,
+  RetryButton,
   secondaryButton,
   Skeleton,
   Spinner,
@@ -69,50 +72,31 @@ export function DocumentDetailView({
   const afterId = useId();
 
   const back = (
-    <Link
-      to={paths.documents}
-      onClick={onBack}
-      className="-mx-1 inline-flex items-center gap-1.5 self-start rounded-sm px-1 text-body text-text-secondary hover:text-text-primary"
-    >
-      <ArrowLeft aria-hidden="true" className="size-4" />
+    <BackLink to={paths.documents} onClick={onBack}>
       {copy.documents.back}
-    </Link>
+    </BackLink>
   );
 
   if (notFound || failed)
     return (
       <div className="flex flex-col gap-3">
         {back}
-        <section
-          aria-labelledby={DETAIL_TITLE_ID}
-          aria-busy={retrying}
-          className="w-full max-w-160 rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in"
-        >
-          <div role={failed ? "alert" : undefined} className="flex flex-col items-start gap-2">
-            <CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />
-            <h2 id={DETAIL_TITLE_ID} tabIndex={-1} className="text-title font-semibold">
-              {notFound ? copy.documents.notFoundTitle : copy.documents.loadErrorTitle}
-            </h2>
-            <p className="text-body text-text-secondary">
-              {notFound ? copy.documents.notFoundBody : copy.documents.errorBody}
-            </p>
-            {notFound ? (
-              <Link to={paths.documents} onClick={onBack} className={`${secondaryButton} mt-2`}>
+        <DetailUnavailable
+          titleId={DETAIL_TITLE_ID}
+          title={notFound ? copy.documents.notFoundTitle : copy.documents.loadErrorTitle}
+          body={notFound ? copy.documents.notFoundBody : copy.documents.errorBody}
+          failed={failed}
+          retrying={retrying}
+          action={
+            notFound ? (
+              <Link to={paths.documents} onClick={onBack} className={secondaryButton}>
                 {copy.documents.backToDocuments}
               </Link>
             ) : (
-              <Button
-                variant="secondary"
-                className="mt-2"
-                aria-disabled={retrying}
-                onClick={retrying ? undefined : retry}
-              >
-                {retrying && <Spinner />}
-                {copy.documents.tryAgain}
-              </Button>
-            )}
-          </div>
-        </section>
+              <RetryButton label={copy.documents.tryAgain} retrying={retrying} onRetry={retry} />
+            )
+          }
+        />
       </div>
     );
 
