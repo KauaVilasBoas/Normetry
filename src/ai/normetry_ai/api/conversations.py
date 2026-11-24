@@ -40,7 +40,7 @@ from normetry_ai.api.context import (
 from normetry_ai.conversations import store
 from normetry_ai.conversations.rewrite import TextModel, Turn, standalone_question
 from normetry_ai.db import tenant_transaction
-from normetry_ai.llm.usage import Usage, UsageFeature, record_usage
+from normetry_ai.llm.usage import Usage, UsageFeature, usage_recorder
 from normetry_ai.retrieval import hybrid
 from normetry_ai.retrieval.language import detect_language
 from normetry_ai.retrieval.models import RetrievedChunk
@@ -289,8 +289,7 @@ def _usage_recorder(
 ) -> Callable[[Usage], None]:
     """`record_usage` for one kind of model call of the turn, for the tenant and user of the
     internal headers only."""
-    return partial(
-        record_usage,
+    return usage_recorder(
         engine,
         tenant_id=ctx.tenant_id,
         user_id=ctx.user_id,

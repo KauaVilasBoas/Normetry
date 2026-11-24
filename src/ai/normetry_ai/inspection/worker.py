@@ -26,7 +26,7 @@ from normetry_ai.inspection.checkpoints import TenantCheckpointSaver
 from normetry_ai.inspection.judge import JudgeModel, evidence_query, regulation_chunks
 from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
-from normetry_ai.llm.usage import UsageFeature, record_usage
+from normetry_ai.llm.usage import UsageFeature, usage_recorder
 from normetry_ai.messaging.contracts import (
     Finding,
     InspectionCompleted,
@@ -141,8 +141,7 @@ class InspectionWorker:
             concurrency=self.inspection.inspection_concurrency,
             excerpts=functools.partial(self._excerpts, tenant_id, request),
             # The requesting user from the message: usage is recorded per tenant and user.
-            record_usage=functools.partial(
-                record_usage,
+            record_usage=usage_recorder(
                 self.engine,
                 tenant_id=tenant_id,
                 user_id=request.requested_by,

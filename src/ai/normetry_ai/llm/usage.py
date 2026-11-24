@@ -1,11 +1,13 @@
 """Token and cost accounting: one ai.model_usage row per model call, per tenant and user."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
+from functools import partial
 from uuid import UUID
 
+import anyio
 from sqlalchemy import Engine, text
 
 from normetry_ai.db import tenant_transaction
@@ -80,3 +82,25 @@ def record_usage(
                 "feature": feature,
             },
         )
+
+
+def usage_recorder(
+    engine: Engine,
+    *,
+    tenant_id: UUID,
+    user_id: str,
+    prices: Mapping[str, ModelPrice],
+    feature: UsageFeature,
+) -> Callable[[Usage], None]:
+    """`record_usage` for one tenant, user and feature: what a model call site is given to record
+    each call with. Its arguments are checked here, when it is built, not at the first paid call."""
+    return partial(
+        record_usage, engine, tenant_id=tenant_id, user_id=user_id, prices=prices, feature=feature
+    )
+
+
+async def record_usage_shielded(record: Callable[[Usage], None], usage: Usage) -> None:
+    """Run `record(usage)` in a worker thread, shielded from cancellation: the call was paid for,
+    so its row is written even when the caller is cancelled (the client went away)."""
+    with anyio.CancelScope(shield=True):
+        await anyio.to_thread.run_sync(record, usage)

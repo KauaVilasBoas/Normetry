@@ -19,12 +19,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
-import anyio
-
 from normetry_ai.answers.guard import Claim, check_claim
 from normetry_ai.answers.prompt import excerpt_ids, system_prompt, user_message
 from normetry_ai.llm.claude import ModelUnavailable
-from normetry_ai.llm.usage import Usage
+from normetry_ai.llm.usage import Usage, record_usage_shielded
 from normetry_ai.retrieval.models import RetrievedChunk
 from normetry_ai.settings import AnswerSettings
 
@@ -77,8 +75,8 @@ async def answer(
     """Yield guarded claims, then Answered, Refused or Unavailable.
 
     `record_usage` stores the model call's tokens and cost once, before the final event, typically
-    `functools.partial(llm.usage.record_usage, engine, tenant_id=..., user_id=...,
-    prices=settings.model_prices)` with the tenant and user from the internal headers. It runs
+    `llm.usage.usage_recorder(engine, tenant_id=..., user_id=..., prices=settings.model_prices,
+    feature=UsageFeature.CHAT)` with the tenant and user from the internal headers. It runs
     in a worker thread, also when the caller stops early or the model fails mid-stream: then it
     gets the usage so far.
     """
@@ -114,9 +112,7 @@ async def answer(
         # short records its input tokens and none of its output; count streamed text if budgets
         # need the rest.
         if usage is not None:
-            # Shielded: a cancelled request (the client went away) still writes the row.
-            with anyio.CancelScope(shield=True):
-                await anyio.to_thread.run_sync(record_usage, usage)
+            await record_usage_shielded(record_usage, usage)
     if failed:
         yield Unavailable()
         return
