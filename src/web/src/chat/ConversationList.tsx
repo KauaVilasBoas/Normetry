@@ -1,14 +1,17 @@
 import { MessagesSquare, Plus, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useRef } from "react";
 import { Link } from "react-router";
 import { useConversations } from "../api/chat";
-import { queryFailed, type Establishment } from "../api/queries";
+import { useQueryRetry, type Establishment } from "../api/queries";
 import { copy, format, shortDate } from "../copy";
 import { paths } from "../routes";
 import { Button, ErrorMessage, iconButton, Message, Skeleton } from "../ui/primitives";
+import { CONVERSATIONS_TITLE_ID } from "./conversation";
 
-/** The selected establishment's conversations, latest first. A card, or a sheet's content. */
+/**
+ * The selected establishment's conversations, latest first. A card, or a sheet's content (the
+ * sheet is named by the heading). Try again focuses the heading once the list loads.
+ */
 export function ConversationList({
   establishment,
   activeId,
@@ -24,24 +27,17 @@ export function ConversationList({
   inSheet: boolean;
 }) {
   const conversations = useConversations();
-  const title = useRef<HTMLHeadingElement>(null);
-  const failed = queryFailed(conversations);
-  const retrying = failed && conversations.isFetching;
+  const { failed, retrying, retry } = useQueryRetry(conversations, CONVERSATIONS_TITLE_ID);
   const rows = (conversations.data ?? [])
     .filter((conversation) => conversation.establishmentId === establishment.id)
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
   const now = new Date();
 
   const heading = (
-    <h2 ref={title} tabIndex={-1} className="text-title font-semibold">
+    <h2 id={CONVERSATIONS_TITLE_ID} tabIndex={-1} className="text-title font-semibold">
       {copy.conversations.title}
     </h2>
   );
-
-  // Try again: once the list loads the button goes away, so focus moves to the heading.
-  const reload = async () => {
-    if ((await conversations.refetch()).isSuccess) title.current?.focus();
-  };
 
   return (
     <div
@@ -50,7 +46,7 @@ export function ConversationList({
       <div className="p-4">
         {inSheet ? (
           <div className="flex items-center justify-between gap-2">
-            <Dialog.Title asChild>{heading}</Dialog.Title>
+            {heading}
             <Dialog.Close
               aria-label={copy.conversations.close}
               className={`${iconButton} -my-2 -mr-2`}
@@ -78,7 +74,7 @@ export function ConversationList({
             body={copy.conversations.errorBody}
             retryLabel={copy.conversations.tryAgain}
             retrying={retrying}
-            onRetry={() => void reload()}
+            onRetry={retry}
           />
         ) : conversations.isPending ? (
           <>

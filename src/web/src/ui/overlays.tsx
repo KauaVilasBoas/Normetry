@@ -5,7 +5,8 @@ import { Spinner } from "./feedback";
 
 /**
  * Modal sheet from the left or right edge over the scrim. Its content names it with a
- * `Dialog.Title` (usually its visible heading, through `asChild`).
+ * `Dialog.Title` (usually its visible heading, through `asChild`), or `aria-labelledby` names a
+ * heading that keeps its own id.
  */
 export function Sheet({
   side,
@@ -20,7 +21,10 @@ export function Sheet({
   onOpenChange: (open: boolean) => void;
   className?: string;
   children: ReactNode;
-} & Pick<ComponentProps<typeof Dialog.Content>, "onOpenAutoFocus" | "onCloseAutoFocus">) {
+} & Pick<
+  ComponentProps<typeof Dialog.Content>,
+  "onOpenAutoFocus" | "onCloseAutoFocus" | "aria-labelledby"
+>) {
   const edge =
     side === "left"
       ? "left-0 border-r motion-safe:animate-drawer-in"
