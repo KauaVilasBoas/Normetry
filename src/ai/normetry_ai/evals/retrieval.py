@@ -159,6 +159,84 @@ def _table(rows: list[tuple[str, dict[str, float]]]) -> list[str]:
     return lines
 
 
+def _per_regulation_table(results: Sequence[ItemResult]) -> list[str]:
+    """recall@10 / MRR@10 of each step, per corpus source that has answerable items."""
+    lines = ["| | " + " | ".join(STEPS) + " |", "|---" * (len(STEPS) + 1) + "|"]
+    for version, label in GROUPS.items():
+        group = [r for r in results if (r.item["jurisdiction"], r.item["language"]) == version]
+        count = sum(result.answerable for result in group)
+        if count:
+            cells = []
+            for step in STEPS:
+                scores = metrics(group, step)
+                cells.append(f"{scores['recall@10']:.3f} / {scores['MRR@10']:.3f}")
+            lines.append(f"| {label}, {count} items | " + " | ".join(cells) + " |")
+    return lines
+
+
+def _misses_table(rows: Sequence[tuple[str, str, str, str]], columns: tuple[str, str]) -> list[str]:
+    """The table of quotes missing from a result, or "None.". A row is (item id, where the quote
+    is, its rank before, the quote); `columns` names the middle two."""
+    if not rows:
+        return ["None."]
+    place, rank = columns
+    return [
+        f"| item | {place} | {rank} | quote |",
+        "|---|---|---|---|",
+        *(
+            f"| {item_id} | {where} | {before} | {' '.join(quote.split()[:12])} ... |"
+            for item_id, where, before, quote in rows
+        ),
+    ]
+
+
+def _regulation_misses(answerable: Sequence[ItemResult]) -> list[str]:
+    """The regulation quotes missing from the re-ranked top 10, with their rank after fusion."""
+    return _misses_table(
+        [
+            (
+                result.item["id"],
+                provision["section_path"],
+                str(fused) if fused is not None else "not retrieved",
+                provision["quote"],
+            )
+            for result in answerable
+            for provision, rank, fused in zip(
+                result.item["provisions"],
+                result.ranks["reranked"],
+                result.ranks["fused"],
+                strict=True,
+            )
+            if rank is None or rank > 10
+        ],
+        ("section", "rank after fusion"),
+    )
+
+
+def _document_misses(answerable: Sequence[ItemResult]) -> list[str]:
+    """The document quotes missing from the re-ranked result, with their rank among the
+    establishment's candidates."""
+    return _misses_table(
+        [
+            (
+                result.item["id"],
+                quote["file"],
+                str(candidate) if candidate is not None else "not a candidate",
+                quote["quote"],
+            )
+            for result in answerable
+            for quote, rank, candidate in zip(
+                result.item["document_quotes"],
+                result.ranks["documents"],
+                result.ranks["candidates"],
+                strict=True,
+            )
+            if rank is None
+        ],
+        ("file", "rank among candidates"),
+    )
+
+
 def _spread(values: Sequence[float]) -> str:
     if not values:
         return "none"
@@ -193,44 +271,13 @@ def render(results: Sequence[ItemResult], header: Sequence[str], candidates: int
         "",
         "## Each step, per regulation (recall@10 / MRR@10)",
         "",
-        "| | " + " | ".join(STEPS) + " |",
-        "|---" * (len(STEPS) + 1) + "|",
+        *_per_regulation_table(results),
+        "",
+        "## Quotes missing from the re-ranked top 10",
+        "",
+        *_regulation_misses(answerable),
+        "",
     ]
-    for (jurisdiction, language), label in GROUPS.items():
-        group = [
-            r
-            for r in results
-            if (r.item["jurisdiction"], r.item["language"]) == (jurisdiction, language)
-        ]
-        count = sum(result.answerable for result in group)
-        if count:
-            cells = []
-            for step in STEPS:
-                scores = metrics(group, step)
-                cells.append(f"{scores['recall@10']:.3f} / {scores['MRR@10']:.3f}")
-            lines.append(f"| {label}, {count} items | " + " | ".join(cells) + " |")
-    lines.append("")
-
-    lines += ["## Quotes missing from the re-ranked top 10", ""]
-    misses = [
-        (result, provision, fused)
-        for result in answerable
-        for provision, rank, fused in zip(
-            result.item["provisions"], result.ranks["reranked"], result.ranks["fused"], strict=True
-        )
-        if rank is None or rank > 10
-    ]
-    if misses:
-        lines += ["| item | section | rank after fusion | quote |", "|---|---|---|---|"]
-        for result, provision, fused in misses:
-            quote = " ".join(provision["quote"].split()[:12]) + " ..."
-            where = str(fused) if fused is not None else "not retrieved"
-            lines.append(
-                f"| {result.item['id']} | {provision['section_path']} | {where} | {quote} |"
-            )
-    else:
-        lines.append("None.")
-    lines.append("")
 
     leaks = [(result.item["id"], out_of_scope(result)) for result in results]
     leaks = [(item_id, chunks) for item_id, chunks in leaks if chunks]
@@ -309,25 +356,7 @@ def render_documents(
             f" | {_document_chunks(group)} |"
         )
     lines += ["", "### Document quotes missing from the re-ranked result", ""]
-    misses = [
-        (result, quote, candidate)
-        for result in answerable
-        for quote, rank, candidate in zip(
-            result.item["document_quotes"],
-            result.ranks["documents"],
-            result.ranks["candidates"],
-            strict=True,
-        )
-        if rank is None
-    ]
-    if misses:
-        lines += ["| item | file | rank among candidates | quote |", "|---|---|---|---|"]
-        for result, quote, candidate in misses:
-            text = " ".join(quote["quote"].split()[:12]) + " ..."
-            where = str(candidate) if candidate is not None else "not a candidate"
-            lines.append(f"| {result.item['id']} | {quote['file']} | {where} | {text} |")
-    else:
-        lines.append("None.")
+    lines += _document_misses(answerable)
 
     lines += [
         "",
