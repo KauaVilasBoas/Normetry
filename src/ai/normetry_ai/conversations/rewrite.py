@@ -14,11 +14,9 @@ from enum import StrEnum
 from typing import Protocol
 from xml.sax.saxutils import escape
 
-import anyio
-
 from normetry_ai.answers.prompt import attribute
 from normetry_ai.llm.claude import ModelUnavailable
-from normetry_ai.llm.usage import Usage
+from normetry_ai.llm.usage import Usage, record_usage_shielded
 from normetry_ai.settings import ConversationSettings, FollowupRewrite
 
 SYSTEM_PROMPT = """\
@@ -115,6 +113,5 @@ async def standalone_question(
         text, usage = await model.complete(SYSTEM_PROMPT, user_message(history, question))
     except ModelUnavailable:
         return baseline
-    with anyio.CancelScope(shield=True):  # the call was paid for, even if the client left
-        await anyio.to_thread.run_sync(record_usage, usage)
+    await record_usage_shielded(record_usage, usage)
     return text or baseline

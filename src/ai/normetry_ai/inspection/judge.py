@@ -15,7 +15,6 @@ from collections.abc import Callable, Sequence
 from typing import Any, Protocol
 from uuid import UUID
 
-import anyio
 from sqlalchemy import Connection, text
 
 from normetry_ai.answers.prompt import excerpt_ids
@@ -23,7 +22,7 @@ from normetry_ai.db import current_tenant
 from normetry_ai.inspection.checklist import ChecklistItem
 from normetry_ai.inspection.guard import JudgedFinding, check_finding
 from normetry_ai.inspection.prompt import system_prompt, user_message
-from normetry_ai.llm.usage import Usage
+from normetry_ai.llm.usage import Usage, record_usage_shielded
 from normetry_ai.retrieval.models import RetrievedChunk
 from normetry_ai.retrieval.policy import corpus_versions, jurisdictions_for
 from normetry_ai.settings import AnswerSettings
@@ -55,9 +54,8 @@ async def judge_item(
     quote, a malformed reply) or there is no regulation text to judge it by (no call then).
 
     `record_usage` stores the call's tokens and cost once, in a worker thread, also when the
-    finding is dropped, typically `functools.partial(llm.usage.record_usage, engine,
-    tenant_id=..., user_id=<requestedBy>, prices=settings.model_prices,
-    feature=UsageFeature.INSPECTION)`
+    finding is dropped, typically `llm.usage.usage_recorder(engine, tenant_id=...,
+    user_id=<requestedBy>, prices=settings.model_prices, feature=UsageFeature.INSPECTION)`
     with the tenant and user from the queue message; a budget can wrap it to count tokens.
     Raises ModelUnavailable when the model fails (nothing recorded: no usage came back).
     """
@@ -70,8 +68,7 @@ async def judge_item(
     # ponytail: a call cancelled before its response records no usage (non-streaming: tokens
     # come only with the response).
     raw, usage = await model.judge(system_prompt(words), user_message(item, regulation, documents))
-    with anyio.CancelScope(shield=True):  # the call was paid for
-        await anyio.to_thread.run_sync(record_usage, usage)
+    await record_usage_shielded(record_usage, usage)
     finding = check_finding(raw, item, regulation, documents, words)
     # The item id and outcome only: never the reply or the excerpts.
     logger.info(
