@@ -1,35 +1,28 @@
 import { ArrowDown, ArrowUp, ListFilter, SearchX } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useState } from "react";
 import { severities } from "../api/contract";
-import type { Finding, InspectionDetail } from "../api/inspections";
-import { useSend } from "../api/send";
+import { findingPaths, type Finding, type InspectionDetail } from "../api/inspections";
 import { copy, dateTime, format } from "../copy";
-import { findingFilterParams, hasFindingFilter } from "../routes";
-import { useAnnouncer } from "../ui/announcer";
-import { focusById } from "../ui/focus";
 import { Button, FilterSelect, Message, PoliteRegion, Sheet, th } from "../ui/primitives";
 import { FindingSheet, ReviewPill, VerdictPill } from "./FindingSheet";
 import {
   findingsCaption,
   matches,
+  rowId,
   severityLabel,
   sortFindings,
   themeLabel,
   themeOptions,
+  useFindingSheet,
+  usePresetFilters,
+  useReview,
   verdictOptions,
-  type Filters,
 } from "./findings";
 import { FINDINGS_TITLE_ID, findingCount } from "./inspections";
 
-const noFilters: Filters = { verdict: "", theme: "" };
-const rowId = (findingId: string) => `finding-${findingId}`;
-
 /**
- * The completed view's Findings card: caption, verdict and theme filters, the table sorted by
- * severity, and the finding sheet. Previous and Next walk the table's order as it was when the
- * sheet opened; closing returns focus to the row shown last, or to the heading when that row is
- * filtered out by then. A 403 inside the sheet refetches /me once it closes.
+ * The completed view's Findings card: caption, verdict and theme filters (`usePresetFilters`), the
+ * table sorted by severity, and the finding sheet (`useFindingSheet`), whose reviews it sends.
  */
 export function FindingsCard({
   inspection,
@@ -41,62 +34,11 @@ export function FindingsCard({
   canReadDocuments: boolean;
 }) {
   const { findings } = inspection;
-  // `?verdict=` and `?theme=` (the Overview's links) preset the filters once, when a code is
-  // among the options; then they leave the URL, where filters never stay.
-  const [params, setParams] = useSearchParams();
-  const [filters, setFilters] = useState<Filters>(() => {
-    const known = (options: { value: string }[], value: string | null) =>
-      options.some((option) => option.value === value) ? (value ?? "") : "";
-    return {
-      verdict: known(verdictOptions(findings), params.get(findingFilterParams.verdict)),
-      theme: known(themeOptions(findings), params.get(findingFilterParams.theme)),
-    };
-  });
-  const filtered = hasFindingFilter(params);
-  useEffect(() => {
-    if (filtered)
-      setParams(
-        (next) => {
-          next.delete(findingFilterParams.verdict);
-          next.delete(findingFilterParams.theme);
-          return next;
-        },
-        { replace: true },
-      );
-  }, [filtered, setParams]);
+  const { filters, filterBy, clearFilters } = usePresetFilters(findings);
   const [ascending, setAscending] = useState(false);
-  const [sheet, setSheet] = useState<{ ids: string[]; index: number }>();
-  const { announcements, announce, clear } = useAnnouncer();
-  const lastShown = useRef<string>(undefined);
-  const { send, closed } = useSend({ inside: true });
   const rows = sortFindings(findings.filter(matches(filters)), ascending);
-  const shown = sheet && findings.find((f) => f.id === sheet.ids[sheet.index]);
-
-  const open = (index: number) => {
-    lastShown.current = rows[index].id;
-    clear();
-    setSheet({ ids: rows.map((row) => row.id), index });
-  };
-
-  const move = (index: number) => {
-    if (!sheet) return;
-    const next = findings.find((f) => f.id === sheet.ids[index]);
-    if (!next) return;
-    lastShown.current = next.id;
-    setSheet({ ...sheet, index });
-    announce(
-      format(copy.findings.moved, {
-        title: next.title,
-        n: String(index + 1),
-        total: String(sheet.ids.length),
-      }),
-    );
-  };
-
-  const close = () => {
-    setSheet(undefined);
-    closed();
-  };
+  const sheet = useFindingSheet(findings, rows);
+  const review = useReview(inspection.establishmentId, inspection.id, sheet.send);
 
   return (
     <section
@@ -118,13 +60,13 @@ export function FindingsCard({
               label={copy.findings.verdictFilter}
               options={verdictOptions(findings)}
               value={filters.verdict}
-              onChange={(event) => setFilters({ ...filters, verdict: event.target.value })}
+              onChange={(event) => filterBy("verdict", event.target.value)}
             />
             <FilterSelect
               label={copy.findings.themeFilter}
               options={themeOptions(findings)}
               value={filters.theme}
-              onChange={(event) => setFilters({ ...filters, theme: event.target.value })}
+              onChange={(event) => filterBy("theme", event.target.value)}
             />
           </div>
         )}
@@ -147,15 +89,7 @@ export function FindingsCard({
             title={copy.findings.noMatchTitle}
             body={copy.findings.noMatchBody}
           />
-          <Button
-            variant="secondary"
-            className="mt-4"
-            onClick={() => {
-              // The button goes with the filters: focus moves to the heading first.
-              focusById(FINDINGS_TITLE_ID);
-              setFilters(noFilters);
-            }}
-          >
+          <Button variant="secondary" className="mt-4" onClick={clearFilters}>
             {copy.findings.clearFilters}
           </Button>
         </div>
@@ -165,41 +99,35 @@ export function FindingsCard({
           caption={format(copy.findings.tableCaption, { date: dateTime(inspection.requestedAt) })}
           ascending={ascending}
           onSort={() => setAscending(!ascending)}
-          onOpen={open}
+          onOpen={sheet.open}
         />
       )}
 
       <Sheet
         side="right"
-        open={shown !== undefined}
-        onOpenChange={(next) => {
-          if (!next) close();
-        }}
+        open={sheet.shown !== undefined}
+        onOpenChange={sheet.openChange}
         className="w-full sm:w-120"
         // The sheet focuses its title itself; on close, the row shown last or the heading.
         onOpenAutoFocus={(event) => event.preventDefault()}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          focusById(rowId(lastShown.current ?? ""), FINDINGS_TITLE_ID);
-        }}
+        onCloseAutoFocus={sheet.afterClose}
       >
-        {sheet && shown && (
+        {sheet.shown && (
           <FindingSheet
-            finding={shown}
-            n={sheet.index + 1}
-            total={sheet.ids.length}
-            onPrevious={sheet.index > 0 ? () => move(sheet.index - 1) : undefined}
-            onNext={sheet.index < sheet.ids.length - 1 ? () => move(sheet.index + 1) : undefined}
-            onClose={close}
-            establishmentId={inspection.establishmentId}
-            inspectionId={inspection.id}
+            finding={sheet.shown}
+            n={sheet.n}
+            total={sheet.total}
+            onPrevious={sheet.previous}
+            onNext={sheet.next}
+            onClose={sheet.close}
             canReview={canReview}
             canReadDocuments={canReadDocuments}
-            send={send}
-            announce={announce}
+            review={review}
+            reviewPaths={findingPaths(inspection.establishmentId, inspection.id, sheet.shown.id)}
+            announce={sheet.announce}
           />
         )}
-        <PoliteRegion announcements={announcements} />
+        <PoliteRegion announcements={sheet.announcements} />
       </Sheet>
     </section>
   );

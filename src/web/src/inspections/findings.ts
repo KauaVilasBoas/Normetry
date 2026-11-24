@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import type { RequestOptions } from "../api/client";
 import { actionStatuses, reviewStatuses, severities, verdicts } from "../api/contract";
 import {
@@ -12,7 +13,10 @@ import {
 } from "../api/inspections";
 import { useSend, type Sent } from "../api/send";
 import { calendarDate, copy, dateTime, format, localDate, locale, relativeDays } from "../copy";
-import { findingCount, rankIn, themeRank } from "./inspections";
+import { findingFilterParams, hasFindingFilter } from "../routes";
+import { useAnnouncer } from "../ui/announcer";
+import { focusById } from "../ui/focus";
+import { FINDINGS_TITLE_ID, findingCount, rankIn, themeRank } from "./inspections";
 
 // The completed view (spec inspection-screen.md §4, §5): order, filters, due dates, edit rules.
 
@@ -81,6 +85,117 @@ export function themeOptions(findings: Finding[]) {
       option(theme, themeLabel(theme), findings.filter((f) => f.theme === theme).length),
     ),
   ];
+}
+
+const noFilters: Filters = { verdict: "", theme: "" };
+
+/**
+ * The Findings card's filters. `?verdict=` and `?theme=` (the Overview's links) preset them once,
+ * when a code is among the options; then they leave the URL, where filters never stay. Clearing
+ * moves focus to the heading first, since Clear filters goes with them.
+ */
+export function usePresetFilters(findings: Finding[]) {
+  const [params, setParams] = useSearchParams();
+  const [filters, setFilters] = useState<Filters>(() => {
+    const known = (options: { value: string }[], value: string | null) =>
+      options.some((option) => option.value === value) ? (value ?? "") : "";
+    return {
+      verdict: known(verdictOptions(findings), params.get(findingFilterParams.verdict)),
+      theme: known(themeOptions(findings), params.get(findingFilterParams.theme)),
+    };
+  });
+  const filtered = hasFindingFilter(params);
+
+  useEffect(() => {
+    if (filtered)
+      setParams(
+        (next) => {
+          next.delete(findingFilterParams.verdict);
+          next.delete(findingFilterParams.theme);
+          return next;
+        },
+        { replace: true },
+      );
+  }, [filtered, setParams]);
+
+  const filterBy = (filter: keyof Filters, value: string) =>
+    setFilters({ ...filters, [filter]: value });
+
+  const clearFilters = () => {
+    focusById(FINDINGS_TITLE_ID);
+    setFilters(noFilters);
+  };
+
+  return { filters, filterBy, clearFilters };
+}
+
+/** A findings table row's button, where focus goes back when the sheet closes. */
+export const rowId = (findingId: string) => `finding-${findingId}`;
+
+/**
+ * The finding sheet's open state. Previous and Next walk `rows` as they were when it opened, each
+ * move said in the sheet's own polite region (the page's is hidden while it is open); closing
+ * returns focus to the row shown last, or to the heading when that row is filtered out by then
+ * (`afterClose`). Its changes are sent `inside` it: a 403 refetches /me once it closes.
+ */
+export function useFindingSheet(findings: Finding[], rows: Finding[]) {
+  const [sheet, setSheet] = useState<{ ids: string[]; index: number }>();
+  const { announcements, announce, clear } = useAnnouncer();
+  const lastShown = useRef<string>(undefined);
+  const { send, closed } = useSend({ inside: true });
+  const shown = sheet && findings.find((f) => f.id === sheet.ids[sheet.index]);
+
+  const open = (index: number) => {
+    lastShown.current = rows[index].id;
+    clear();
+    setSheet({ ids: rows.map((row) => row.id), index });
+  };
+
+  const move = (index: number) => {
+    if (!sheet) return;
+    const next = findings.find((f) => f.id === sheet.ids[index]);
+    if (!next) return;
+    lastShown.current = next.id;
+    setSheet({ ...sheet, index });
+    announce(
+      format(copy.findings.moved, {
+        title: next.title,
+        n: String(index + 1),
+        total: String(sheet.ids.length),
+      }),
+    );
+  };
+
+  const close = () => {
+    setSheet(undefined);
+    closed();
+  };
+
+  const openChange = (next: boolean) => {
+    if (!next) close();
+  };
+
+  const afterClose = (event: Event) => {
+    event.preventDefault();
+    focusById(rowId(lastShown.current ?? ""), FINDINGS_TITLE_ID);
+  };
+
+  return {
+    shown,
+    n: (sheet?.index ?? 0) + 1,
+    total: sheet?.ids.length ?? 0,
+    /** Undefined at the first finding. */
+    previous: sheet && sheet.index > 0 ? () => move(sheet.index - 1) : undefined,
+    /** Undefined at the last finding. */
+    next: sheet && sheet.index < sheet.ids.length - 1 ? () => move(sheet.index + 1) : undefined,
+    open,
+    close,
+    openChange,
+    afterClose,
+    announcements,
+    announce,
+    send,
+  };
 }
 
 /** "43 findings · 12 pending review", or "· All reviewed". */
