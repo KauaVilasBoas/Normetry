@@ -1,19 +1,19 @@
 using Normetry.Application.Abstractions;
-using Normetry.Application.Identity;
 using Normetry.Domain.Documents;
 
 namespace Normetry.Application.Documents;
 
-/// <summary>What the upload of a first or a new version shares.</summary>
-internal static class DocumentUploads
+/// <summary>
+/// What the upload of a first or a new version shares. Public only so the composition root can
+/// register it; the upload handlers are its only callers.
+/// </summary>
+public sealed class DocumentUploadService(IDocumentBlobStore blobs, IOutbox outbox)
 {
     /// <summary>
     /// Stores the file, then announces the version: the blob exists before the message can, and
     /// the message is saved only if the transaction that saves the version commits.
     /// </summary>
-    public static async Task StoreAsync(
-        IDocumentBlobStore blobs,
-        IOutbox outbox,
+    internal async Task StoreAsync(
         Document document,
         DocumentVersion version,
         byte[] content,
@@ -37,18 +37,4 @@ internal static class DocumentUploads
             cancellationToken
         );
     }
-
-    /// <summary>The document with every uploader's display name.</summary>
-    public static async Task<DocumentResponse> ResponseAsync(
-        IUserRepository users,
-        Document document,
-        CancellationToken cancellationToken
-    ) =>
-        DocumentResponse.From(
-            document,
-            await users.GetDisplayNamesAsync(
-                document.Versions.Select(version => version.UploadedBy).Distinct(),
-                cancellationToken
-            )
-        );
 }

@@ -9,7 +9,8 @@ internal static class DocumentsSetup
     /// <summary>
     /// The <c>Documents</c> settings (the per-establishment limit and the processing timeout),
     /// validated now: the API refuses to start on a limit below 1 or a timeout that is not positive.
-    /// Also SignalR for <see cref="DocumentsHub"/>, with enums by name as in the HTTP API.
+    /// Also the upload handlers' <see cref="DocumentUploadService"/>, and SignalR for
+    /// <see cref="DocumentsHub"/>, with enums by name as in the HTTP API.
     /// </summary>
     public static WebApplicationBuilder AddDocuments(this WebApplicationBuilder builder)
     {
@@ -19,6 +20,7 @@ internal static class DocumentsSetup
             ?? new DocumentsOptions();
         options.Validate();
         builder.Services.AddSingleton(options);
+        builder.Services.AddScoped<DocumentUploadService>();
         builder
             .Services.AddSignalR()
             .AddJsonProtocol(protocol =>
