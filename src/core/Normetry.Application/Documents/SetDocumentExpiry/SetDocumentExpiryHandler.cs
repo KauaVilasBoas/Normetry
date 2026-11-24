@@ -11,18 +11,16 @@ internal sealed class SetDocumentExpiryHandler(IDocumentRepository documents)
         CancellationToken cancellationToken
     )
     {
-        if (
-            await documents.GetForUpdateAsync(
-                request.EstablishmentId,
-                request.DocumentId,
-                cancellationToken
-            )
-            is not { IsDeleted: false } document
-        )
+        var locked = await documents.LockLiveOrNotFoundAsync(
+            request.EstablishmentId,
+            request.DocumentId,
+            cancellationToken
+        );
+        if (!locked.IsSuccess)
         {
-            return DocumentErrors.NotFound;
+            return locked.Error;
         }
-        document.SetExpiry(request.ExpiresOn);
+        locked.Value.SetExpiry(request.ExpiresOn);
         return Result.Success();
     }
 }
