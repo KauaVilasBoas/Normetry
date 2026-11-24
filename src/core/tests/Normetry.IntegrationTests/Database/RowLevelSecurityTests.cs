@@ -841,7 +841,9 @@ public sealed class RowLevelSecurityTests
         Assert.Superset(
             new HashSet<Guid> { tenantA, tenantB },
             (
-                await OutboxTenantList.ListAsync(dispatcher, TestContext.Current.CancellationToken)
+                await new OutboxTenantList(dispatcher).ListAsync(
+                    TestContext.Current.CancellationToken
+                )
             ).ToHashSet()
         );
         foreach (
