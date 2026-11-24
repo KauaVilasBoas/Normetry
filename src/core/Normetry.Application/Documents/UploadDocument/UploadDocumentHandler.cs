@@ -28,35 +28,18 @@ internal sealed class UploadDocumentHandler(
         {
             return file.Error;
         }
-        // Held until the transaction ends, so two uploads cannot both take the last free place.
-        var locked = await establishments.LockOrNotFoundAsync(
+        var refusal = await LockEstablishmentAndRefuseWhenFullAsync(
             request.EstablishmentId,
             cancellationToken
         );
-        if (!locked.IsSuccess)
+        if (refusal is not null)
         {
-            return locked.Error;
-        }
-        if (
-            await documents.CountAsync(request.EstablishmentId, cancellationToken)
-            >= options.MaxDocumentsPerEstablishment
-        )
-        {
-            return DocumentErrors.LimitReached(options.MaxDocumentsPerEstablishment);
+            return refusal;
         }
 
+        var document = await CreateCallersDocumentAsync(request, file.Value, cancellationToken);
         // ponytail: the blob upload runs inside the transaction, holding the establishment lock;
         // move it out (store first, then lock and count) if uploads per establishment queue up.
-        var document = Document.Create(
-            tenant.TenantId,
-            request.EstablishmentId,
-            request.Title,
-            request.Type,
-            file.Value,
-            await users.CallerIdAsync(currentUser, cancellationToken),
-            clock.GetUtcNow()
-        );
-        document.SetExpiry(request.ExpiresOn);
         await uploads.StoreAsync(
             document,
             document.Newest,
@@ -65,5 +48,46 @@ internal sealed class UploadDocumentHandler(
         );
         documents.Add(document);
         return await DocumentResponse.LoadAsync(users, document, cancellationToken);
+    }
+
+    /// <summary>
+    /// Locks the establishment until the transaction ends, so two uploads cannot both take its
+    /// last free place, then refuses when it is not found or already holds the most documents
+    /// allowed.
+    /// </summary>
+    private async Task<Error?> LockEstablishmentAndRefuseWhenFullAsync(
+        Guid establishmentId,
+        CancellationToken cancellationToken
+    )
+    {
+        var locked = await establishments.LockOrNotFoundAsync(establishmentId, cancellationToken);
+        if (!locked.IsSuccess)
+        {
+            return locked.Error;
+        }
+        var count = await documents.CountAsync(establishmentId, cancellationToken);
+        return count >= options.MaxDocumentsPerEstablishment
+            ? DocumentErrors.LimitReached(options.MaxDocumentsPerEstablishment)
+            : null;
+    }
+
+    /// <summary>The requested document, its first version uploaded by the caller now.</summary>
+    private async Task<Document> CreateCallersDocumentAsync(
+        UploadDocumentCommand request,
+        DocumentFile file,
+        CancellationToken cancellationToken
+    )
+    {
+        var document = Document.Create(
+            tenant.TenantId,
+            request.EstablishmentId,
+            request.Title,
+            request.Type,
+            file,
+            await users.CallerIdAsync(currentUser, cancellationToken),
+            clock.GetUtcNow()
+        );
+        document.SetExpiry(request.ExpiresOn);
+        return document;
     }
 }
