@@ -127,12 +127,7 @@ public sealed class DemoDocumentSeed(
         CancellationToken cancellationToken
     )
     {
-        await using var stream = File.OpenRead(path);
-        var manifest = await JsonSerializer.DeserializeAsync<Manifest>(
-            stream,
-            ManifestJson,
-            cancellationToken
-        ) ?? throw new InvalidDataException("The manifest is empty.");
+        var manifest = await ReadManifestAsync(path, cancellationToken);
         var target = establishments.SingleOrDefault(establishment =>
             establishment.Name == manifest.Establishment
         )
@@ -152,10 +147,7 @@ public sealed class DemoDocumentSeed(
             {
                 await SetExpiryAsync(target, establishmentId, document, entry, cancellationToken);
             }
-            if (
-                document is not null
-                && (document.Current?.Sha256 == sha256 || document.Newest.Sha256 == sha256)
-            )
+            if (document is not null && IsUnchanged(document, sha256))
             {
                 continue;
             }
@@ -165,41 +157,88 @@ public sealed class DemoDocumentSeed(
                 DocumentFiles.ContentTypeOf(file),
                 content
             );
-            await using var scope = NewScope(target);
-            var dispatcher = scope.ServiceProvider.GetRequiredService<IDispatcher>();
-            var result = document is null
-                ? await dispatcher.SendAsync(
-                    new UploadDocumentCommand(
-                        establishmentId,
-                        entry.Title,
-                        entry.Type,
-                        upload,
-                        entry.ExpiresOn
-                    ),
+            if (
+                await UploadOrAddVersionAsync(
+                    path,
+                    target,
+                    establishmentId,
+                    document,
+                    entry,
+                    upload,
                     cancellationToken
                 )
-                : await dispatcher.SendAsync(
-                    new UploadDocumentVersionCommand(document.Id, upload),
-                    cancellationToken
-                );
-            // Ids and codes only: a title is document data, like the file name.
-            if (!result.IsSuccess)
+            )
             {
-                logger.LogWarning(
-                    "Could not upload a demo document of {Manifest}: {Code}",
-                    path,
-                    result.Error.Code
-                );
-                continue;
+                uploads++;
             }
-            logger.LogInformation(
-                "Uploaded the demo document {DocumentId} to establishment {EstablishmentId}",
-                result.Value.Id,
-                establishmentId
-            );
-            uploads++;
         }
         return uploads;
+    }
+
+    private static async Task<Manifest> ReadManifestAsync(
+        string path,
+        CancellationToken cancellationToken
+    )
+    {
+        await using var stream = File.OpenRead(path);
+        return await JsonSerializer.DeserializeAsync<Manifest>(
+            stream,
+            ManifestJson,
+            cancellationToken
+        ) ?? throw new InvalidDataException("The manifest is empty.");
+    }
+
+    /// <summary>The file is already the document's current or newest version.</summary>
+    private static bool IsUnchanged(Document document, string sha256) =>
+        document.Current?.Sha256 == sha256 || document.Newest.Sha256 == sha256;
+
+    /// <summary>
+    /// Uploads <paramref name="upload"/> as a new document, or as a new version of
+    /// <paramref name="document"/> when the title exists, and says whether it was uploaded.
+    /// </summary>
+    private async Task<bool> UploadOrAddVersionAsync(
+        string manifestPath,
+        DemoEstablishment target,
+        Guid establishmentId,
+        Document? document,
+        ManifestDocument entry,
+        UploadedFile upload,
+        CancellationToken cancellationToken
+    )
+    {
+        await using var scope = TenantScope.Open(scopes, logger, target.TenantId, target.OwnerSub);
+        var dispatcher = scope.Services.GetRequiredService<IDispatcher>();
+        var result = document is null
+            ? await dispatcher.SendAsync(
+                new UploadDocumentCommand(
+                    establishmentId,
+                    entry.Title,
+                    entry.Type,
+                    upload,
+                    entry.ExpiresOn
+                ),
+                cancellationToken
+            )
+            : await dispatcher.SendAsync(
+                new UploadDocumentVersionCommand(document.Id, upload),
+                cancellationToken
+            );
+        // Ids and codes only: a title is document data, like the file name.
+        if (!result.IsSuccess)
+        {
+            logger.LogWarning(
+                "Could not upload a demo document of {Manifest}: {Code}",
+                manifestPath,
+                result.Error.Code
+            );
+            return false;
+        }
+        logger.LogInformation(
+            "Uploaded the demo document {DocumentId} to establishment {EstablishmentId}",
+            result.Value.Id,
+            establishmentId
+        );
+        return true;
     }
 
     private async Task SetExpiryAsync(
@@ -210,9 +249,9 @@ public sealed class DemoDocumentSeed(
         CancellationToken cancellationToken
     )
     {
-        await using var scope = NewScope(target);
+        await using var scope = TenantScope.Open(scopes, logger, target.TenantId, target.OwnerSub);
         var result = await scope
-            .ServiceProvider.GetRequiredService<IDispatcher>()
+            .Services.GetRequiredService<IDispatcher>()
             .SendAsync(
                 new SetDocumentExpiryCommand(establishmentId, document.Id, entry.ExpiresOn),
                 cancellationToken
@@ -233,8 +272,8 @@ public sealed class DemoDocumentSeed(
         CancellationToken cancellationToken
     )
     {
-        await using var scope = NewScope(target);
-        var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+        await using var scope = TenantScope.Open(scopes, logger, target.TenantId, target.OwnerSub);
+        var db = scope.Services.GetRequiredService<CoreDbContext>();
         // Read only: disposed without a commit.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var establishmentId = await db
@@ -245,17 +284,9 @@ public sealed class DemoDocumentSeed(
                 $"The demo establishment '{target.Name}' does not exist yet."
             );
         var documents = await scope
-            .ServiceProvider.GetRequiredService<IDocumentRepository>()
+            .Services.GetRequiredService<IDocumentRepository>()
             .ListAsync(establishmentId, cancellationToken);
         return (establishmentId, documents);
-    }
-
-    private AsyncServiceScope NewScope(DemoEstablishment target)
-    {
-        var scope = scopes.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<BackgroundTenant>().Set(target.TenantId);
-        scope.ServiceProvider.GetRequiredService<BackgroundUser>().Set(target.OwnerSub);
-        return scope;
     }
 
     /// <summary>A demo establishment by name, in <paramref name="TenantId"/>, whose documents <paramref name="OwnerSub"/> uploads.</summary>
