@@ -1,10 +1,11 @@
 using System.Text.Json.Serialization;
+using Normetry.Api;
 using Normetry.Api.Auth;
-using Normetry.Api.Chat;
 using Normetry.Api.Documents;
 using Normetry.Api.Gateway;
 using Normetry.Api.Inspections;
 using Normetry.Api.RateLimiting;
+using Normetry.Application.Usage;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.Infrastructure;
 
@@ -13,7 +14,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddAuth();
 builder.AddAiGateway();
-var chatPlans = builder.AddChat();
+
+// The chat plans also set each tenant's inspection quota, so AddInspections validates against them.
+var chatPlans = builder.BindValidated<ChatOptions>(ChatOptions.Section, chat => chat.Validate());
 builder.AddDocuments();
 builder.AddInspections(chatPlans);
 builder.AddRateLimiting();
