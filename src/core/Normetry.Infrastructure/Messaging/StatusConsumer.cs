@@ -20,10 +20,10 @@ internal sealed class DocumentStatusConsumer(
     ILogger<DocumentStatusConsumer> logger
 ) : StatusConsumer(broker, configuration, logger)
 {
-    protected override string Queue => Topology.StatusQueue;
+    protected override string Queue => Topology.DocumentStatusQueue;
 
     protected override Task DeclareAsync(IChannel channel, CancellationToken cancellationToken) =>
-        Topology.DeclareStatusQueueAsync(channel, cancellationToken);
+        Topology.DeclareDocumentStatusQueueAsync(channel, cancellationToken);
 
     protected override Task<ConsumeOutcome> HandleAsync(
         ReadOnlyMemory<byte> body,
