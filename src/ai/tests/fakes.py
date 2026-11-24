@@ -1,17 +1,20 @@
-"""Offline stand-ins for the blob container, the embedding model, the re-ranker and the
-inspection judge."""
+"""Offline stand-ins for the blob container, the embedding model, the re-ranker, the broker and
+the inspection judge, and builders of the chunks retrieval returns."""
 
 import hashlib
 import re
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
+from uuid import UUID, uuid4
 from xml.sax.saxutils import unescape
 
 from azure.core.exceptions import ResourceNotFoundError
 
 from normetry_ai.llm.usage import Usage
+from normetry_ai.messaging.contracts import Envelope
+from normetry_ai.retrieval.models import RetrievedChunk, SourceType
 
 
 class FakeContainer:
@@ -54,12 +57,12 @@ class FakeBlob:
 
 
 class FakeEmbedder:
-    """Deterministic unit-free vectors from each text's hash; records what it embeds and can run
-    a callback while "embedding", to put another message in flight at that moment."""
+    """Deterministic unit-free vectors from each text's hash, so a query matches its own text
+    exactly; records what it embeds and can run a callback while "embedding", to put another
+    message in flight at that moment. `name` is the embedding model it claims to be."""
 
-    name = "fake-embedder"
-
-    def __init__(self) -> None:
+    def __init__(self, name: str = "fake-embedder") -> None:
+        self.name = name
         self.embedded: list[str] = []
         self.during: Callable[[], None] | None = None
 
@@ -78,8 +81,82 @@ class FakeEmbedder:
 class FakeReranker:
     """Scores a text equal to the query 1.0 and anything else 0.5."""
 
+    name = "fake-reranker"
+
     def score(self, query: str, texts: Sequence[str]) -> list[float]:
         return [1.0 if text == query else 0.5 for text in texts]
+
+
+@dataclass
+class FakeBroker:
+    """Records what the consumers publish; `failing` refuses every message, `refuses` one type."""
+
+    published: list[Envelope[Any]] = field(default_factory=list)
+    failing: bool = False
+    refuses: str | None = None
+
+    async def publish(self, message: Envelope[Any]) -> None:
+        if self.failing or message.type == self.refuses:
+            raise ConnectionError("broker gone")
+        self.published.append(message)
+
+    @property
+    def sent(self) -> list[tuple[str, Any]]:
+        return [(message.type, message.payload) for message in self.published]
+
+
+def regulation_chunk(content: str, **fields: Any) -> RetrievedChunk:
+    """A corpus chunk of FDA Food Code 3-501.16 (US, en), scored 0.9; `fields` replace any of
+    its fields."""
+    return RetrievedChunk(
+        **{
+            "chunk_id": uuid4(),
+            "content": content,
+            "section_path": "3-501.16",
+            "language": "en",
+            "jurisdiction": "US",
+            "source_id": uuid4(),
+            "source_title": "FDA Food Code",
+            "source_version": "2026",
+            "official_url": "https://example.org/food-code",
+            "score": 0.9,
+        }
+        | fields
+    )
+
+
+def document_chunk(
+    content: str,
+    *,
+    document_id: UUID | None = None,
+    title: str | None = "Cold holding SOP",
+    document_type: str = "Sop",
+    version: int = 3,
+    **fields: Any,
+) -> RetrievedChunk:
+    """A chunk of a tenant document's page 1 (en), scored 0.9. Its source fields repeat the
+    document's, as `establishment.py` fills them; `fields` replace any other field."""
+    document_id = document_id or uuid4()
+    return RetrievedChunk(
+        **{
+            "chunk_id": uuid4(),
+            "content": content,
+            "section_path": "Page 1",
+            "language": "en",
+            "jurisdiction": "",
+            "source_id": document_id,
+            "source_title": title or "",
+            "source_version": str(version),
+            "official_url": "",
+            "score": 0.9,
+            "source_type": SourceType.TENANT_DOCUMENT,
+            "document_id": document_id,
+            "document_title": title,
+            "document_type": document_type,
+            "document_version": version,
+        }
+        | fields
+    )
 
 
 _TITLE = re.compile(r"<title>(.*?)</title>")

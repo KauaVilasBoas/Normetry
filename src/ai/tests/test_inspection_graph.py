@@ -20,7 +20,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from conftest import AI_DIR
-from fakes import EchoJudge, FakeContainer
+from fakes import EchoJudge, FakeContainer, document_chunk, regulation_chunk
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from sqlalchemy import Engine, text
@@ -69,44 +69,23 @@ def request(token_ceiling: int = 300_000) -> InspectionRequested:
     )
 
 
-def regulation(item: ChecklistItem) -> RetrievedChunk:
-    return RetrievedChunk(
-        chunk_id=uuid4(),
-        content=f"Under {item.section_paths[0]} the food shall be kept safe at every step.",
-        section_path=item.section_paths[0],
-        language="en",
-        jurisdiction="US",
-        source_id=uuid4(),
-        source_title="FDA Food Code",
-        source_version="2026",
-        official_url="https://example.org/food-code",
+def excerpts(item: ChecklistItem) -> tuple[list[RetrievedChunk], list[RetrievedChunk]]:
+    """Regulation text of the item's first section, and a daily log quoting the item's id."""
+    section = item.section_paths[0]
+    regulation = regulation_chunk(
+        f"Under {section} the food shall be kept safe at every step.",
+        section_path=section,
         score=1.0,
     )
-
-
-def evidence(item: ChecklistItem) -> RetrievedChunk:
-    document = uuid4()
-    return RetrievedChunk(
-        chunk_id=uuid4(),
-        content=f"Our record for {item.id} shows the check was done and signed every day.",
-        section_path="Page 1",
-        language="en",
-        jurisdiction="",
-        source_id=document,
-        source_title="Daily log",
-        source_version="1",
-        official_url="",
-        score=0.9,
-        source_type="tenant_document",
-        document_id=document,
-        document_title="Daily log",
+    if item.id in NO_EVIDENCE:
+        return [regulation], []
+    evidence = document_chunk(
+        f"Our record for {item.id} shows the check was done and signed every day.",
+        title="Daily log",
         document_type="Log",
-        document_version=1,
+        version=1,
     )
-
-
-def excerpts(item: ChecklistItem) -> tuple[list[RetrievedChunk], list[RetrievedChunk]]:
-    return [regulation(item)], [] if item.id in NO_EVIDENCE else [evidence(item)]
+    return [regulation], [evidence]
 
 
 class Run:
