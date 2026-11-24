@@ -86,6 +86,7 @@ public sealed class DocumentsHubTests
         var b = await DocumentStatusTests.UploadAsync(db);
         // Past Documents:ProcessingTimeout (15 minutes).
         await DocumentStatusTests.SetStatusAsync(db, a, "Processing", TimeSpan.FromMinutes(16));
+        await DocumentStatusTests.SetStatusAsync(db, b, "Processing", TimeSpan.FromMinutes(16));
         await using var clientA = await ConnectAsync(a.Tenant, a.Owner);
         await using var clientB = await ConnectAsync(b.Tenant, b.Owner);
         var receivedA = Listen(clientA);
@@ -108,6 +109,17 @@ public sealed class DocumentsHubTests
         );
         await Task.Delay(300, Ct);
         Assert.False(receivedB.TryRead(out _));
+
+        // Tenant B's own sweep reaches B, and A hears nothing of it.
+        Assert.Single(await sweeper.SweepDocumentVersionsAsync(b.Tenant, Ct));
+
+        var changeB = await receivedB.ReadAsync(Ct).AsTask().WaitAsync(Wait, Ct);
+        Assert.Equal(
+            (b.Establishment, b.Version, DocumentVersionStatus.Failed),
+            (changeB.EstablishmentId, changeB.VersionId, changeB.Status)
+        );
+        await Task.Delay(300, Ct);
+        Assert.False(receivedA.TryRead(out _));
     }
 
     [Fact]
