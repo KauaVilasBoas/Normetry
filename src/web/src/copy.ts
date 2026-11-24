@@ -6,6 +6,10 @@ export const locale = "en";
 
 export const copy = {
   tagline: "Understand Regulations. Stay Ahead.",
+  common: {
+    /** A change refused with 403: a permission was taken away mid-session. */
+    denied: "You no longer have permission to do this.",
+  },
   titles: {
     signingIn: "Signing in · Normetry",
     signedOut: "Signed out · Normetry",
@@ -122,7 +126,6 @@ export const copy = {
   settings: {
     sections: "Settings sections",
     profilesTab: "Profiles",
-    denied: "You no longer have permission to do this.",
     tryAgain: "Try again",
     cancel: "Cancel",
   },
@@ -544,7 +547,6 @@ export const copy = {
     rateLimitedBody: "Try again {when}.",
     startErrorTitle: "Couldn't start the inspection.",
     startErrorBody: "Check your connection and try again.",
-    denied: "You no longer have permission to do this.",
     back: "Simulated Inspection",
     title: "Inspection of {date}",
     meta: "{regulation} · {establishment}",

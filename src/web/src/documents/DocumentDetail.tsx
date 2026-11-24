@@ -6,7 +6,7 @@ import { documentStatuses, permissions } from "../api/contract";
 import { documentPath, type DocumentDetail } from "../api/documents";
 import type { Live } from "../api/live";
 import { can, type Establishment, type Me } from "../api/queries";
-import { useSend } from "../api/send";
+import { refusalText, useSend } from "../api/send";
 import { calendarDate, copy, fileSize, format, shortDate } from "../copy";
 import { paths } from "../routes";
 import {
@@ -443,7 +443,7 @@ function DeleteDocument({
       return;
     }
     setDeleting(false);
-    setError(result.status === 403 ? copy.settings.denied : copy.documents.deleteError);
+    setError(refusalText(result, copy.documents.deleteError));
   };
 
   return (

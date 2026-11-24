@@ -11,7 +11,7 @@ import {
   type Finding,
   type InspectionDetail,
 } from "../api/inspections";
-import { useSend, type Sent } from "../api/send";
+import { refusalText, useSend, type Sent } from "../api/send";
 import { calendarDate, copy, dateTime, format, localDate, locale, relativeDays } from "../copy";
 import { findingFilterParams, hasFindingFilter } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
@@ -337,11 +337,8 @@ export function editErrors(finding: Finding, draft: EditDraft): EditErrors {
 export type Refusal = Sent & { ok: false };
 
 /** A review's refusal, as the sheet says it. */
-export function reviewError({ status }: Refusal): string {
-  if (status === 403) return copy.inspections.denied;
-  if (status === 404) return copy.findings.gone;
-  return copy.findings.reviewError;
-}
+export const reviewError = (refusal: Refusal) =>
+  refusalText(refusal, refusal.status === 404 ? copy.findings.gone : copy.findings.reviewError);
 
 /**
  * Sends a review or an action toggle to `path` (from `findingPaths` or `actionItemPaths`) and
@@ -415,7 +412,7 @@ export function useActionToggles(inspection: InspectionDetail) {
     if (refusal)
       setErrors((map) => ({
         ...map,
-        [action.id]: refusal.status === 403 ? copy.inspections.denied : copy.actions.error,
+        [action.id]: refusalText(refusal, copy.actions.error),
       }));
   };
 
