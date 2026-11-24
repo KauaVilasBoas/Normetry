@@ -5,12 +5,11 @@ exactly the question, so a chunk the filter let through would rank first.
 """
 
 import ast
-import hashlib
-from collections.abc import Sequence
 from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from fakes import FakeEmbedder, FakeReranker, document_chunk, regulation_chunk
 from pydantic import ValidationError
 from sqlalchemy import Engine, TextClause, text
 
@@ -21,7 +20,7 @@ from normetry_ai.ingestion.ingest import ingest_source
 from normetry_ai.retrieval import hybrid
 from normetry_ai.retrieval.hybrid import Retriever, best
 from normetry_ai.retrieval.language import detect_language
-from normetry_ai.retrieval.models import RetrievedChunk, reciprocal_rank_fusion
+from normetry_ai.retrieval.models import reciprocal_rank_fusion
 from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions, jurisdictions_for
 from normetry_ai.settings import RetrievalSettings
 
@@ -105,36 +104,20 @@ def test_reciprocal_rank_fusion_rewards_agreement() -> None:
     assert reciprocal_rank_fusion([["x", "y"], []], k=60) == ["x", "y"]
 
 
-def ranked(name: str, score: float, document: bool = False) -> RetrievedChunk:
-    return RetrievedChunk(
-        chunk_id=uuid4(),
-        content=name,
-        section_path=None,
-        language="en",
-        jurisdiction="" if document else "US",
-        source_id=uuid4(),
-        source_title="",
-        source_version="1",
-        official_url="",
-        score=score,
-        source_type="tenant_document" if document else "regulation",
-    )
-
-
 def test_the_top_k_keeps_at_most_document_top_k_document_chunks() -> None:
     chunks = [
-        ranked("d1", 0.99, True),
-        ranked("r1", 0.5),
-        ranked("d2", 0.98, True),
-        ranked("d3", 0.97, True),
-        ranked("r2", 0.4),
-        ranked("r3", 0.6),
+        document_chunk("d1", score=0.99),
+        regulation_chunk("r1", score=0.5),
+        document_chunk("d2", score=0.98),
+        document_chunk("d3", score=0.97),
+        regulation_chunk("r2", score=0.4),
+        regulation_chunk("r3", score=0.6),
     ]
 
     assert [c.content for c in best(chunks, 4, 2)] == ["d1", "d2", "r3", "r1"]
     assert [c.content for c in best(chunks, 10, 3)] == ["d1", "d2", "d3", "r3", "r1", "r2"]
     # Ties keep the given order.
-    tied = [ranked("r", 0.5), ranked("d", 0.5, True)]
+    tied = [regulation_chunk("r", score=0.5), document_chunk("d", score=0.5)]
     assert [c.content for c in best(tied, 2, 1)] == ["r", "d"]
 
 
@@ -166,25 +149,6 @@ def test_document_retrieval_settings_are_validated(knobs: dict[str, int], messag
 
 
 # --- The corpus filter, on a real database --------------------------------------------------------
-
-
-class FakeEmbedder:
-    """Deterministic vectors from each text's hash: a query matches its own text exactly."""
-
-    name = "fake-retrieval"
-
-    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        return [[(b + 1) / 256 for b in hashlib.sha256(t.encode()).digest()] * 32 for t in texts]
-
-    def embed_query(self, text: str) -> list[float]:
-        return self.embed_documents([text])[0]
-
-
-class FakeReranker:
-    name = "fake"
-
-    def score(self, query: str, texts: Sequence[str]) -> list[float]:
-        return [1.0 if text == query else 0.5 for text in texts]
 
 
 SOURCES = {
