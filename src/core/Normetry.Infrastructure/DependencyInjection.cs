@@ -19,7 +19,7 @@ public static class DependencyInjection
 {
     /// <summary>
     /// The core database as <c>app_core</c> (<c>ConnectionStrings:core</c>, required), scoped to
-    /// the request's <see cref="ITenantContext"/>, plus the repositories, the transaction
+    /// the request's <see cref="ITenantContext"/>, plus the clock, the repositories, the transaction
     /// behavior, a startup check that the role cannot get around RLS, the outbox and its
     /// dispatcher to RabbitMQ (<c>ConnectionStrings:rabbitmq</c>, required) and the document blob
     /// store (<c>ConnectionStrings:blobs</c>, required). Call it after
@@ -39,6 +39,9 @@ public static class DependencyInjection
                     provider.GetRequiredService<ITenantContext>()
                 )
         );
+        // The one clock of the handlers, the outbox and its dispatcher, and the inbox (daily
+        // counts, due dates, timeouts). Tests replace it.
+        services.AddSingleton(TimeProvider.System);
         // Registered before the demo seed, so the seed never runs on a privileged role.
         services.AddHostedService<RuntimeRoleCheck>();
         services.AddScoped<ITenantRepository, TenantRepository>();
