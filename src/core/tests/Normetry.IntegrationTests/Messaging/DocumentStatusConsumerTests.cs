@@ -47,7 +47,7 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
         await using var connection = await broker.ConnectAsync();
         await using var channel = await connection.CreateChannelAsync(cancellationToken: Ct);
         // Declared by the consumer too; the arguments must match, or the broker refuses one of them.
-        await Topology.DeclareStatusQueueAsync(channel, Ct);
+        await Topology.DeclareDocumentStatusQueueAsync(channel, Ct);
         await consumer.StartAsync(Ct);
         try
         {
@@ -74,7 +74,7 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
             );
             Assert.True(
                 await EventuallyAsync(async () =>
-                    await channel.BasicGetAsync(Topology.StatusDeadLetterQueue, true, Ct)
+                    await channel.BasicGetAsync(Topology.DocumentStatusDeadLetterQueue, true, Ct)
                         is { } dead
                     && Encoding.UTF8.GetString(dead.Body.Span) == "not json"
                 )
@@ -99,13 +99,13 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
         var consumer = ActivatorUtilities.CreateInstance<DocumentStatusConsumer>(api.Services);
         await using var connection = await broker.ConnectAsync();
         await using var channel = await connection.CreateChannelAsync(cancellationToken: Ct);
-        await Topology.DeclareStatusQueueAsync(channel, Ct);
+        await Topology.DeclareDocumentStatusQueueAsync(channel, Ct);
         await consumer.StartAsync(Ct);
         try
         {
             Assert.True(await EventuallyAsync(() => ConsumedAsync(channel)));
             // Deleting the queue makes the broker cancel the consumer (basic.cancel).
-            await channel.QueueDeleteAsync(Topology.StatusQueue, cancellationToken: Ct);
+            await channel.QueueDeleteAsync(Topology.DocumentStatusQueue, cancellationToken: Ct);
 
             Assert.True(await EventuallyAsync(() => ConsumedAsync(channel), attempts: 300));
             await PublishAsync(
@@ -233,8 +233,8 @@ public sealed class DocumentStatusConsumerTests : IClassFixture<RabbitMqFixture>
     /// <summary>Whether a consumer is on the status queue (declared again if it was deleted).</summary>
     private static async Task<bool> ConsumedAsync(IChannel channel)
     {
-        await Topology.DeclareStatusQueueAsync(channel, Ct);
-        var queue = await channel.QueueDeclarePassiveAsync(Topology.StatusQueue, Ct);
+        await Topology.DeclareDocumentStatusQueueAsync(channel, Ct);
+        var queue = await channel.QueueDeclarePassiveAsync(Topology.DocumentStatusQueue, Ct);
         return queue.ConsumerCount == 1;
     }
 
