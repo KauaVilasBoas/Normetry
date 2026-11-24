@@ -17,6 +17,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from normetry_ai.evals.report import folded
 from normetry_ai.ingestion.chunking import chunk_sections
 from normetry_ai.ingestion.corpus import load_manifest, parse_corpus
 from normetry_ai.ingestion.normalize import normalize_text
@@ -190,10 +191,6 @@ def load_establishments(root: Path = ESTABLISHMENTS) -> dict[str, Establishment]
     return found
 
 
-def _folded(value: str) -> str:
-    return normalize_text(value).casefold()
-
-
 def check_document_item(
     item: dict,
     sections: Sections,
@@ -327,20 +324,20 @@ def check_document_item(
             ),
             *(p["quote"] for p in provisions if isinstance(p, dict) and set(p) == PROVISION_FIELDS),
         ]
-        allowed = [_folded(text) for text in allowed if isinstance(text, str)]
-        planted = [_folded(c) for c in establishment.chunks.get(establishment.injection or "", [])]
+        allowed = [folded(text) for text in allowed if isinstance(text, str)]
+        planted = [folded(c) for c in establishment.chunks.get(establishment.injection or "", [])]
         for string in banned:
             if not isinstance(string, str) or not string.strip():
                 continue
-            folded = _folded(string)
+            banned_text = folded(string)
             need(
-                not any(folded in text for text in allowed),
+                not any(banned_text in text for text in allowed),
                 f"{string!r} is in the establishment's own documents or regulation, the question,"
                 " the expected answer or a quote",
             )
             if item["attack"] == "injection":
                 need(
-                    any(folded in chunk for chunk in planted),
+                    any(banned_text in chunk for chunk in planted),
                     f"{string!r} is not in the injection document {establishment.injection}",
                 )
     return problems

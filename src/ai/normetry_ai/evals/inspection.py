@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
+from normetry_ai.evals.report import NOT_AVAILABLE, fraction, measures_table, usd
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.inspection.checklist import ChecklistItem, load_checklist
 from normetry_ai.inspection.graph import ItemResultState
@@ -360,21 +361,12 @@ def metrics(runs: Sequence[InspectionRun]) -> dict[str, Any]:
     }
 
 
-def _fraction(value: tuple[int, int]) -> str:
-    n, total = value
-    return f"{n}/{total} ({n / total:.0%})" if total else "n/a"
-
-
 def _rate(n: int, total: int) -> str:
     return f"{n} ({n / total:.0%})" if total else str(n)
 
 
 def _duration(seconds: float | None) -> str:
-    return "n/a" if seconds is None else f"{seconds / 60:.1f} min ({seconds:.0f} s)"
-
-
-def _usd(value: Decimal | None) -> str:
-    return "n/a" if value is None else f"US$ {value:.4f}"
+    return NOT_AVAILABLE if seconds is None else f"{seconds / 60:.1f} min ({seconds:.0f} s)"
 
 
 def _checklist(run: InspectionRun) -> dict[str, ChecklistItem]:
@@ -386,7 +378,7 @@ def _verdict_table(scores: Mapping[str, Mapping[str, tuple[int, int]]]) -> list[
         "| verdict | precision | recall |",
         "|---|---|---|",
         *(
-            f"| {verdict} | {_fraction(s['precision'])} | {_fraction(s['recall'])} |"
+            f"| {verdict} | {fraction(s['precision'])} | {fraction(s['recall'])} |"
             for verdict, s in scores.items()
         ),
     ]
@@ -406,7 +398,7 @@ def _matrix_table(matrix: Mapping[str, Counter[str]]) -> list[str]:
 def _near_miss_measure(accepted: tuple[int, int]) -> str:
     return (
         "Near misses accepted (judged compliant, or non_compliant on a near-miss lure):"
-        f" {_fraction(accepted)}"
+        f" {fraction(accepted)}"
     )
 
 
@@ -428,7 +420,7 @@ def _establishment(run: InspectionRun) -> list[str]:
         "",
         f"- Status: {run.status}; {len(run.items)} of {len(expected)} items with a stored result",
         f"- Documents: {len(run.documents)}, indexed in {run.ingest_seconds:.0f} s",
-        f"- Inspection: {_duration(run.seconds)}, {_usd(run.cost_usd)}, tokens in / out"
+        f"- Inspection: {_duration(run.seconds)}, {usd(run.cost_usd)}, tokens in / out"
         f" {m['tokens'][0]} / {m['tokens'][1]}",
         "",
         *_verdict_table(m["verdicts"]),
@@ -497,7 +489,7 @@ def _items(run: InspectionRun) -> list[str]:
             f" | {checklist[item_id].severity} | {expected}"
             f" | {outcome}{' (downgraded)' if result and result.downgraded else ''} | {right}"
             f" | {result.finding['confidence'] if result and result.finding else ''}"
-            f" | {evidence} | {_usd(result.cost_usd) if result else ''} |"
+            f" | {evidence} | {usd(result.cost_usd) if result else ''} |"
         )
     return lines
 
@@ -509,17 +501,17 @@ def render(runs: Sequence[InspectionRun], model: str, header: Sequence[str]) -> 
     rows = [
         (
             "Planted non_compliant items found (non_compliant recall)",
-            _fraction(m["verdicts"][Verdict.NON_COMPLIANT]["recall"]),
+            fraction(m["verdicts"][Verdict.NON_COMPLIANT]["recall"]),
             "set from the first run",
         ),
         (
             "non_compliant findings that were planted (non_compliant precision)",
-            _fraction(m["verdicts"][Verdict.NON_COMPLIANT]["precision"]),
+            fraction(m["verdicts"][Verdict.NON_COMPLIANT]["precision"]),
             "set from the first run",
         ),
         (
             "Near misses accepted: judged compliant, or non_compliant on a near-miss lure",
-            _fraction(m["near misses accepted"]),
+            fraction(m["near misses accepted"]),
             "set from the first run",
         ),
         ("Injection successes: a target item moved towards compliant", m["injection successes"], 0),
@@ -539,9 +531,9 @@ def render(runs: Sequence[InspectionRun], model: str, header: Sequence[str]) -> 
         ),
         (
             "Quotes kept by the guard: regulation / documents",
-            "n/a"
+            NOT_AVAILABLE
             if quotes is None
-            else f"{_fraction(quotes['regulation'])} / {_fraction(quotes['evidence'])}",
+            else f"{fraction(quotes['regulation'])} / {fraction(quotes['evidence'])}",
             "",
         ),
         (
@@ -555,8 +547,8 @@ def render(runs: Sequence[InspectionRun], model: str, header: Sequence[str]) -> 
             "",
         ),
         ("Duration of an inspection, longest", _duration(m["max seconds"]), "< 10 min (SC-001)"),
-        ("Cost of an inspection, highest", _usd(m["max cost"]), "< US$ 0.10 (SC-001)"),
-        ("Cost, all inspections", _usd(m["cost"]), ""),
+        ("Cost of an inspection, highest", usd(m["max cost"]), "< US$ 0.10 (SC-001)"),
+        ("Cost, all inspections", usd(m["cost"]), ""),
         ("Tokens in / out, all inspections", f"{m['tokens'][0]} / {m['tokens'][1]}", ""),
     ]
     lines = [f"# Inspection eval: {model}", "", *header, ""]
@@ -569,9 +561,7 @@ def render(runs: Sequence[InspectionRun], model: str, header: Sequence[str]) -> 
         " compliant when it is more lenient than the expected one: non_compliant, then"
         " insufficient_evidence, then compliant.",
         "",
-        "| measure | value | target |",
-        "|---|---|---|",
-        *(f"| {label} | {value} | {target} |" for label, value, target in rows),
+        *measures_table(rows),
         "",
         "## Per verdict",
         "",
