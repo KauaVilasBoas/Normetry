@@ -1,20 +1,18 @@
 import { CircleAlert, Clock, Trash2, Upload } from "lucide-react";
-import { AlertDialog } from "radix-ui";
 import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { documentStatuses, permissions } from "../api/contract";
-import { documentPath, type DocumentDetail } from "../api/documents";
+import type { DocumentDetail } from "../api/documents";
 import type { Live } from "../api/live";
 import { can, type Establishment, type Me } from "../api/queries";
-import { refusalText, useSend } from "../api/send";
 import { calendarDate, copy, fileSize, format, shortDate } from "../copy";
 import { paths } from "../routes";
 import {
   BackLink,
   Button,
+  ConfirmDialog,
   ConnectionNotice,
   DetailUnavailable,
-  dialogPanel,
   FormDialog,
   IngestionPill,
   Notice,
@@ -62,7 +60,8 @@ export function DocumentDetailView({
     retrying,
     retry,
     newestInFlight: busy,
-    deleted,
+    remove,
+    closed,
     uploaded,
   } = useDocumentDetail({ id, establishmentId: establishment.id, onDeleted, announce });
   const canUpload = can(me, permissions.documents.upload);
@@ -155,10 +154,20 @@ export function DocumentDetailView({
           {detail && (canDelete || canUpload) && (
             <div className="flex gap-2">
               {canDelete && (
-                <DeleteDocument
-                  detail={detail}
-                  establishment={establishment}
-                  onDeleted={() => deleted(detail.title)}
+                // No red button (DESIGN.md).
+                <ConfirmDialog
+                  trigger={
+                    <Button variant="secondary" aria-label={copy.documents.deleteLabel}>
+                      <Trash2 aria-hidden="true" className="size-4" />
+                      {copy.documents.delete}
+                    </Button>
+                  }
+                  title={format(copy.documents.deleteTitle, { title: detail.title })}
+                  body={format(copy.documents.deleteBody, { establishment: establishment.name })}
+                  cancelLabel={copy.documents.cancel}
+                  confirmLabel={copy.documents.deleteConfirm}
+                  onConfirm={remove}
+                  onClosed={closed}
                 />
               )}
               {canUpload && (
@@ -413,93 +422,5 @@ function ExpiryDialog({
         )}
       </div>
     </FormDialog>
-  );
-}
-
-/** The header's Delete and its confirmation; no red button (DESIGN.md). */
-function DeleteDocument({
-  detail,
-  establishment,
-  onDeleted,
-}: {
-  detail: DocumentDetail;
-  establishment: Establishment;
-  onDeleted: () => void;
-}) {
-  // A 403 refetches /me once the dialog closes, so its message stays readable until then.
-  const { send, closed } = useSend({ inside: true });
-  const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string>();
-  const trigger = useRef<HTMLButtonElement>(null);
-
-  const confirm = async () => {
-    setDeleting(true);
-    setError(undefined);
-    const result = await send(documentPath(detail.id), { method: "DELETE" });
-    // 404: it is already gone, which is what the user asked for.
-    if (result.ok || result.status === 404) {
-      onDeleted();
-      return;
-    }
-    setDeleting(false);
-    setError(refusalText(result, copy.documents.deleteError));
-  };
-
-  return (
-    <AlertDialog.Root
-      open={open}
-      onOpenChange={(next) => {
-        if (deleting) return;
-        setOpen(next);
-        setError(undefined);
-        if (!next) closed();
-      }}
-    >
-      <AlertDialog.Trigger asChild>
-        <Button ref={trigger} variant="secondary" aria-label={copy.documents.deleteLabel}>
-          <Trash2 aria-hidden="true" className="size-4" />
-          {copy.documents.delete}
-        </Button>
-      </AlertDialog.Trigger>
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-40 bg-scrim" />
-        <AlertDialog.Content
-          // Back to the trigger after Cancel; after a delete the list heading takes focus.
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            if (trigger.current?.isConnected) trigger.current.focus();
-          }}
-          className={dialogPanel}
-        >
-          <AlertDialog.Title className="text-title font-semibold">
-            {format(copy.documents.deleteTitle, { title: detail.title })}
-          </AlertDialog.Title>
-          <AlertDialog.Description className="mt-2 text-body text-text-secondary">
-            {format(copy.documents.deleteBody, { establishment: establishment.name })}
-          </AlertDialog.Description>
-          {error && (
-            <p role="alert" className="mt-3 text-body">
-              {error}
-            </p>
-          )}
-          <div className="mt-5 flex justify-end gap-2">
-            <AlertDialog.Cancel asChild>
-              <Button variant="secondary" onElevated>
-                {copy.documents.cancel}
-              </Button>
-            </AlertDialog.Cancel>
-            <Button
-              variant="primary"
-              aria-disabled={deleting}
-              onClick={deleting ? undefined : () => void confirm()}
-            >
-              {deleting && <Spinner surface="mint" />}
-              {copy.documents.deleteConfirm}
-            </Button>
-          </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
   );
 }
