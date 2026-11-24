@@ -15,13 +15,12 @@ internal sealed class DeleteDocumentHandler(
         CancellationToken cancellationToken
     )
     {
-        if (
-            await documents.GetForUpdateAsync(request.Id, cancellationToken)
-            is not { IsDeleted: false } document
-        )
+        var locked = await documents.LockLiveOrNotFoundAsync(request.Id, cancellationToken);
+        if (!locked.IsSuccess)
         {
-            return DocumentErrors.NotFound;
+            return locked.Error;
         }
+        var document = locked.Value;
         document.Delete(clock.GetUtcNow());
         await outbox.EnqueueAsync(
             new DocumentDeleted(document.EstablishmentId, document.Id),
