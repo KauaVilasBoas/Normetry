@@ -58,6 +58,33 @@ def local_copy_is_pinned(path: Path, sha256: str) -> bool:
     return True
 
 
+def _fetch_source(client: httpx.Client, source: dict, path: Path, update: bool) -> str | None:
+    """Download one source to `path`, or return why it failed. With `update`, the download's
+    sha256, size and date go into the manifest entry instead of being checked against it."""
+    rel = path.relative_to(CORPUS).as_posix()
+    try:
+        response = client.get(source["download_url"])
+        response.raise_for_status()
+    except httpx.HTTPError as error:
+        return f"{rel}: download failed: {error}"
+    data = without_cache_busters(path, response.content)
+    if path.suffix == ".pdf" and not data.startswith(b"%PDF"):
+        return f"{rel}: expected a PDF, got {response.headers.get('content-type')}"
+
+    digest = hashlib.sha256(data).hexdigest()
+    if update:
+        source.update(sha256=digest, size_bytes=len(data), retrieved_at=date.today().isoformat())
+    elif digest != source["sha256"]:
+        return (
+            f"{rel}: SHA-256 mismatch: manifest {source['sha256']}, downloaded {digest}. "
+            "The source changed upstream (or no hash is recorded yet): review it, then rerun with --update-manifest."
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    print(f"downloaded  {rel} ({len(data):,} bytes)")
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     mode = parser.add_mutually_exclusive_group()
@@ -77,30 +104,8 @@ def main() -> int:
             if args.verify:
                 failures.append(f"{rel}: {'hash mismatch' if path.exists() else 'missing'}")
                 continue
-
-            try:
-                response = client.get(source["download_url"])
-                response.raise_for_status()
-            except httpx.HTTPError as error:
-                failures.append(f"{rel}: download failed: {error}")
-                continue
-            data = without_cache_busters(path, response.content)
-            if path.suffix == ".pdf" and not data.startswith(b"%PDF"):
-                failures.append(f"{rel}: expected a PDF, got {response.headers.get('content-type')}")
-                continue
-
-            digest = hashlib.sha256(data).hexdigest()
-            if args.update_manifest:
-                source.update(sha256=digest, size_bytes=len(data), retrieved_at=date.today().isoformat())
-            elif digest != source["sha256"]:
-                failures.append(
-                    f"{rel}: SHA-256 mismatch: manifest {source['sha256']}, downloaded {digest}. "
-                    "The source changed upstream (or no hash is recorded yet): review it, then rerun with --update-manifest."
-                )
-                continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-            print(f"downloaded  {rel} ({len(data):,} bytes)")
+            if failure := _fetch_source(client, source, path, args.update_manifest):
+                failures.append(failure)
 
     if args.update_manifest:
         MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
