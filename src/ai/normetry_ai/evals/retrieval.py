@@ -15,6 +15,7 @@ from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
+from normetry_ai.evals.report import NOT_AVAILABLE
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.retrieval.hybrid import Trace
 from normetry_ai.retrieval.models import SourceType
@@ -257,7 +258,7 @@ def render(results: Sequence[ItemResult], header: Sequence[str], candidates: int
 
 def _document_chunks(results: Sequence[ItemResult]) -> str:
     counts = [sum(c.is_document for c in r.trace.chunks) for r in results]
-    return f"{statistics.fmean(counts):.2f}" if counts else "n/a"
+    return f"{statistics.fmean(counts):.2f}" if counts else NOT_AVAILABLE
 
 
 def render_documents(
