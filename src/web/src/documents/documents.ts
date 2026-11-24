@@ -1,11 +1,13 @@
-import type { QueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { documentStatuses, problemCodes } from "../api/contract";
 import {
+  documentKey,
   documentsKey,
   type DocumentDetail,
   type DocumentSummary,
   type DocumentVersion,
 } from "../api/documents";
+import { useLiveStatus } from "../api/live";
 import type { Sent } from "../api/send";
 import { calendarDate, copy, format, localDate, relativeDays } from "../copy";
 
@@ -201,3 +203,54 @@ export const toSummary = ({ versions, ...document }: DocumentDetail): DocumentSu
   ...document,
   latestVersion: versions[0],
 });
+
+/**
+ * The screen's live status (`useLiveStatus`): each change refetches the list and that document,
+ * and the end of processing (Indexed or Failed) is announced: by version for the open document
+ * (`documentId`), else by the title the list has. A resync refetches what is shown; a request
+ * already in flight is new enough, so it is not restarted.
+ */
+export function useDocumentLiveUpdates({
+  establishmentId,
+  documentId,
+  announce,
+}: {
+  establishmentId: string;
+  documentId: string | undefined;
+  announce: (text: string) => void;
+}) {
+  const queryClient = useQueryClient();
+
+  const refetch = (id: string | undefined, options = {}) => {
+    void queryClient.invalidateQueries({ queryKey: documentsKey(establishmentId) }, options);
+    if (id) void queryClient.invalidateQueries({ queryKey: documentKey(id) }, options);
+  };
+
+  const announceEnd = (change: DocumentStatusChange) => {
+    const indexed = change.status === documentStatuses.indexed;
+    const reason = failureText(change.failureCode).short;
+    if (change.documentId === documentId) {
+      const n = String(change.versionNumber);
+      announce(
+        format(indexed ? copy.documents.versionIndexed : copy.documents.versionFailed, {
+          n,
+          reason,
+        }),
+      );
+      return;
+    }
+    const title = cachedTitle(queryClient, establishmentId, change.documentId);
+    if (title)
+      announce(format(indexed ? copy.documents.indexed : copy.documents.failed, { title, reason }));
+  };
+
+  const changed = (change: DocumentStatusChange) => {
+    refetch(change.documentId);
+    if (change.status === documentStatuses.indexed || change.status === documentStatuses.failed)
+      announceEnd(change);
+  };
+
+  return useLiveStatus(HUB_URL, HUB_EVENT, establishmentId, changed, () =>
+    refetch(documentId, { cancelRefetch: false }),
+  );
+}
