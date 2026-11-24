@@ -15,7 +15,7 @@ import { actionStatuses, reviewStatuses } from "../api/contract";
 import type { EvidenceCitation, Finding, RegulationCitation } from "../api/inspections";
 import type { Sent } from "../api/send";
 import { calendarDate, copy, format, languageName } from "../copy";
-import { paths } from "../routes";
+import { arrivalState, paths } from "../routes";
 import {
   Button,
   Disclosure,
@@ -352,7 +352,7 @@ function EvidenceQuote({
           <Link
             id={`${id}-link`}
             to={paths.document(citation.documentId)}
-            state={{ focusTitle: true }}
+            state={arrivalState}
             aria-labelledby={`${id}-link ${id}`}
             className={`${textAction} shrink-0`}
           >

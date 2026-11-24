@@ -9,7 +9,7 @@ import { can, useQueryRetry, type Establishment, type Me } from "../api/queries"
 import { useSend } from "../api/send";
 import { untilReset } from "../chat/answers";
 import { copy, dateTime, format } from "../copy";
-import { paths } from "../routes";
+import { arrivalState, paths } from "../routes";
 import { useRefocusWhenGone } from "../ui/focus";
 import {
   Button,
@@ -267,7 +267,7 @@ function RefusalNotice({
           title={format(copy.inspections.noDocumentsTitle, { establishment: establishment.name })}
           action={
             canReadDocuments && (
-              <Link to={paths.documents} state={{ focusTitle: true }} className={secondaryButton}>
+              <Link to={paths.documents} state={arrivalState} className={secondaryButton}>
                 {copy.inspections.goToDocuments}
               </Link>
             )
