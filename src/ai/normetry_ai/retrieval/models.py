@@ -2,10 +2,18 @@ import time
 from collections.abc import Hashable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import Literal
+from enum import StrEnum
 from uuid import UUID
 
 from normetry_ai.llm.reranker import Reranker
+
+
+class SourceType(StrEnum):
+    """Where a chunk comes from: ai.chunks.source_type, which a CHECK holds to these values (the
+    SQL spells them out too)."""
+
+    REGULATION = "regulation"  # the public corpus
+    TENANT_DOCUMENT = "tenant_document"  # one of a tenant's documents
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,12 +37,17 @@ class RetrievedChunk:
     official_url: str
     # Re-ranker score: higher is more relevant. The refusal threshold compares against it.
     score: float
-    source_type: Literal["regulation", "tenant_document"] = "regulation"
+    source_type: SourceType = SourceType.REGULATION
     document_id: UUID | None = None
     # From DocumentUploaded; None when the publisher sent none.
     document_title: str | None = None
     document_type: str | None = None
     document_version: int | None = None
+
+    @property
+    def is_document(self) -> bool:
+        """A chunk of one of the tenant's documents, not of the regulation."""
+        return self.source_type == SourceType.TENANT_DOCUMENT
 
 
 def rerank(

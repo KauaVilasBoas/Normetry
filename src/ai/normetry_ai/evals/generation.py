@@ -16,6 +16,7 @@ from decimal import Decimal
 
 from normetry_ai.evals.retrieval import quote_ranks, recall_at
 from normetry_ai.ingestion.normalize import normalize_text
+from normetry_ai.retrieval.models import SourceType
 from normetry_ai.retrieval.policy import jurisdictions_for
 
 REVIEW_PENDING = "Faithfulness and citation review: pending (judged in a Claude Code session)"
@@ -88,7 +89,7 @@ def out_of_scope(item: dict, answer: ModelAnswer) -> list[dict]:
         citation
         for claim in answer.claims
         for citation in claim["citations"]
-        if citation.get("source_type", "regulation") == "regulation"
+        if citation.get("source_type", SourceType.REGULATION) == SourceType.REGULATION
         and (
             citation["jurisdiction"] not in allowed
             or (item["jurisdiction"] == "EU" and citation["language"] != item["language"])
@@ -127,7 +128,7 @@ def foreign_citations(item: dict, answer: ModelAnswer) -> list[str]:
         f"{citation.get('establishment')}: {citation.get('document')}"
         for claim in answer.claims
         for citation in claim["citations"]
-        if citation.get("source_type") == "tenant_document"
+        if citation.get("source_type") == SourceType.TENANT_DOCUMENT
         and citation.get("establishment") != item.get("establishment")
     ]
 
@@ -153,7 +154,7 @@ def cites_document(item: dict, answer: ModelAnswer) -> bool:
     """Whether a claim cites one of the documents the item's quotes come from."""
     files = {quote["file"] for quote in item.get("document_quotes", ())}
     return any(
-        citation.get("source_type") == "tenant_document"
+        citation.get("source_type") == SourceType.TENANT_DOCUMENT
         and citation.get("establishment") == item.get("establishment")
         and citation.get("document") in files
         for claim in answer.claims

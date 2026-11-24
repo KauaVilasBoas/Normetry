@@ -17,6 +17,7 @@ from uuid import UUID
 
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.retrieval.hybrid import Trace
+from normetry_ai.retrieval.models import SourceType
 
 K_VALUES = (1, 3, 5, 10)
 STEPS = ("vector", "text", "fused", "reranked")
@@ -66,7 +67,7 @@ class ItemResult:
         return self.item["expected_behavior"] == "answer"
 
 
-def _only(trace: Trace, source_type: str) -> list[str]:
+def _only(trace: Trace, source_type: SourceType) -> list[str]:
     """The re-ranked result's text, with every chunk of the other source type blanked: its rank
     still counts, but it can hold no quote."""
     return [chunk.content if chunk.source_type == source_type else "" for chunk in trace.chunks]
@@ -83,7 +84,7 @@ def evaluate(items: Sequence[dict], run: Callable[[dict], Trace]) -> list[ItemRe
             "vector": [trace.content[chunk_id] for chunk_id in trace.vector],
             "text": [trace.content[chunk_id] for chunk_id in trace.text],
             "fused": [trace.content[chunk_id] for chunk_id in trace.fused],
-            "reranked": _only(trace, "regulation"),
+            "reranked": _only(trace, SourceType.REGULATION),
         }
         ranks = {step: quote_ranks(contents, quotes) for step, contents in steps.items()}
         results.append(ItemResult(item, trace, ranks))
@@ -105,8 +106,8 @@ def evaluate_documents(items: Sequence[dict], run: Callable[[dict], Trace]) -> l
         provisions = [provision["quote"] for provision in item["provisions"]]
         ranks = {
             "candidates": quote_ranks([trace.content[i] for i in trace.documents], documents),
-            "documents": quote_ranks(_only(trace, "tenant_document"), documents),
-            "corpus": quote_ranks(_only(trace, "regulation"), provisions),
+            "documents": quote_ranks(_only(trace, SourceType.TENANT_DOCUMENT), documents),
+            "corpus": quote_ranks(_only(trace, SourceType.REGULATION), provisions),
         }
         results.append(ItemResult(item, trace, ranks))
     return results
@@ -117,7 +118,7 @@ def foreign_documents(trace: Trace, own: Collection[UUID]) -> list[str]:
     return [
         f"{chunk.document_title} ({chunk.document_id})"
         for chunk in trace.chunks
-        if chunk.source_type == "tenant_document" and chunk.document_id not in own
+        if chunk.is_document and chunk.document_id not in own
     ]
 
 
@@ -141,7 +142,7 @@ def out_of_scope(result: ItemResult) -> list[str]:
     return [
         f"{chunk.jurisdiction}/{chunk.language} {chunk.section_path}"
         for chunk in result.trace.chunks
-        if chunk.source_type == "regulation"
+        if not chunk.is_document
         and (chunk.jurisdiction, chunk.language) != (item["jurisdiction"], item["language"])
     ]
 
@@ -253,7 +254,7 @@ def render(results: Sequence[ItemResult], header: Sequence[str], candidates: int
 
 
 def _document_chunks(results: Sequence[ItemResult]) -> str:
-    counts = [sum(c.source_type == "tenant_document" for c in r.trace.chunks) for r in results]
+    counts = [sum(c.is_document for c in r.trace.chunks) for r in results]
     return f"{statistics.fmean(counts):.2f}" if counts else "n/a"
 
 

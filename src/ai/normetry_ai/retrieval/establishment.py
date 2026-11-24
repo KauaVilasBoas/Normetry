@@ -24,6 +24,7 @@ from normetry_ai.llm.embeddings import Embedder
 from normetry_ai.llm.reranker import Reranker
 from normetry_ai.retrieval.models import (
     RetrievedChunk,
+    SourceType,
     reciprocal_rank_fusion,
     rerank,
     timed,
@@ -118,7 +119,7 @@ def _document_candidate(row: Any) -> RetrievedChunk:
         source_version=str(row.version),
         official_url="",
         score=0.0,
-        source_type="tenant_document",
+        source_type=SourceType.TENANT_DOCUMENT,
         document_id=row.document_id,
         document_title=row.title,
         document_type=row.document_type,
