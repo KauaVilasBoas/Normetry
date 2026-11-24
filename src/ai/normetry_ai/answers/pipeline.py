@@ -20,8 +20,9 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from normetry_ai.answers.guard import Claim, check_claim
-from normetry_ai.answers.prompt import excerpt_ids, system_prompt, user_message
+from normetry_ai.answers.prompt import system_prompt, user_message
 from normetry_ai.llm.claude import ModelUnavailable
+from normetry_ai.llm.prompt_xml import excerpt_ids
 from normetry_ai.llm.usage import Usage, record_usage_shielded
 from normetry_ai.retrieval.models import RetrievedChunk
 from normetry_ai.settings import AnswerSettings

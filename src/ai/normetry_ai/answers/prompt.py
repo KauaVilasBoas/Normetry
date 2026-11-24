@@ -7,9 +7,10 @@ XML-escaped, so nothing inside a chunk, a document title or the question can clo
 open a new one: injected text stays inside the excerpt it came from.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from xml.sax.saxutils import escape
 
+from normetry_ai.llm.prompt_xml import attribute
 from normetry_ai.retrieval.models import RetrievedChunk
 
 _SYSTEM_PROMPT = """\
@@ -57,22 +58,6 @@ claim about what they leave out, and do not answer a nearby question instead.
 
 def system_prompt(min_quote_words: int) -> str:
     return _SYSTEM_PROMPT.format(min_quote_words=min_quote_words)
-
-
-# Escaped in an attribute value besides &, < and >: the double quote that closes it, and line
-# breaks and tabs, so a value (a document's title is the uploader's) stays on its element's line.
-_ATTRIBUTE_ENTITIES = {'"': "&quot;", "\n": "&#10;", "\r": "&#13;", "\t": "&#9;"}
-
-
-def attribute(value: str) -> str:
-    """An XML attribute value, always in double quotes, whatever it holds. (`quoteattr` switches
-    to single quotes when the value holds a double quote, so the delimiter would depend on it.)"""
-    return f'"{escape(value, _ATTRIBUTE_ENTITIES)}"'
-
-
-def excerpt_ids(chunks: Sequence[RetrievedChunk], prefix: str = "E") -> dict[str, RetrievedChunk]:
-    """The id each chunk gets in the prompt. Claims cite these ids, never chunk UUIDs."""
-    return {f"{prefix}{number}": chunk for number, chunk in enumerate(chunks, start=1)}
 
 
 def _attributes(chunk: RetrievedChunk) -> str:
