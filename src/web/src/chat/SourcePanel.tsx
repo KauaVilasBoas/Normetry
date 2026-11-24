@@ -6,6 +6,7 @@ import { quoteFound, type Citation } from "../api/chat";
 import { permissions, sourceTypes } from "../api/contract";
 import { can, useMe } from "../api/queries";
 import { copy, format, languageName } from "../copy";
+import { typeLabel } from "../documents/documents";
 import { arrivalState, paths } from "../routes";
 import { iconButton, QuotedPassage } from "../ui/primitives";
 import { SOURCE_PANEL_ID } from "./Answer";
@@ -192,7 +193,7 @@ function DocumentSource({
       <p className="text-small text-text-secondary">
         {citation.documentType
           ? format(copy.source.documentKindType, {
-              type: copy.documents.types[citation.documentType] ?? citation.documentType,
+              type: typeLabel(citation.documentType),
             })
           : copy.source.documentKind}
       </p>

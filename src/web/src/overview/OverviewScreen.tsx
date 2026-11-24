@@ -24,8 +24,13 @@ import { can, useQueryRetry, type Establishment, type Me } from "../api/queries"
 import { calendarDate, copy, format, percent, shortDay } from "../copy";
 import { typeLabel } from "../documents/documents";
 import { ExpiryBadge } from "../documents/parts";
-import { themeLabel, verdictLabel } from "../inspections/findings";
-import { findingCount, regulationOf } from "../inspections/inspections";
+import { verdictLabel } from "../inspections/findings";
+import {
+  findingCount,
+  regulationOf,
+  themeLabel,
+  verdictCountsText,
+} from "../inspections/inspections";
 import { arrivalState, paths } from "../routes";
 import { AreaChart, DonutChart } from "../ui/charts";
 import { useShellFocusRequest } from "../ui/focus";
@@ -47,7 +52,6 @@ import {
   pointsText,
   rowThreeSpans,
   share,
-  themeCounts,
   themeShare,
   TITLE_ID,
   verdictTotal,
@@ -455,7 +459,7 @@ function ThemesCard({ latest }: { latest: LatestInspection }) {
                   </Link>
                   {/* Below 768px the count columns are hidden; the counts show here. */}
                   <span className="block text-small text-text-secondary tabular-nums md:hidden">
-                    {themeCounts(row)}
+                    {verdictCountsText(row)}
                   </span>
                 </td>
                 {verdictRows.map((verdict) => (
