@@ -16,6 +16,7 @@ from decimal import Decimal
 
 from normetry_ai.evals.retrieval import quote_ranks, recall_at
 from normetry_ai.ingestion.normalize import normalize_text
+from normetry_ai.llm.claude import REFUSAL
 from normetry_ai.retrieval.models import SourceType
 from normetry_ai.retrieval.policy import jurisdictions_for
 from normetry_ai.settings import FollowupRewrite
@@ -205,7 +206,7 @@ def metrics(passes: Sequence[PassResult], model: str) -> dict:
         "out of scope": sum(len(out_of_scope(item, answer)) for item, answer, _ in runs),
         "shown": sum(len(answer.claims) for _, answer, _ in runs),
         "dropped": sum(answer.dropped for _, answer, _ in runs),
-        "model refusals": count(lambda _, answer: answer.stop_reason == "refusal"),
+        "model refusals": count(lambda _, answer: answer.stop_reason == REFUSAL),
         "unavailable": count(lambda _, answer: answer.outcome == "unavailable"),
         "gold coverage": statistics.fmean(statistics.fmean(f) for f in found) if found else None,
         "citing gold": (sum(any(f) for f in found), len(found)),

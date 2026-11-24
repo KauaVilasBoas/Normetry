@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 # The stop reason of a call whose reply is complete.
 END_TURN = "end_turn"
+# The stop reason of a call the model declined to answer: the reply ends early. The generation
+# eval counts these.
+REFUSAL = "refusal"
 # Logged, with the model and the stop reason, by a call that ended other than with END_TURN
 # (max_tokens cut the reply, or the model refused). The paid evals count these records by this
 # exact text, which they import.
