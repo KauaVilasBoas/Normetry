@@ -33,12 +33,16 @@ export const paths = {
   profile: (id: string) => `${profiles}/${encodeURIComponent(id)}`,
 };
 
-/** The patterns `<Route>` and `useMatch` match: the routes that take an id, and the rest. */
+/**
+ * The patterns `<Route>` and the sidebar's `matchPath` match: the routes that take an id,
+ * Settings' whole section (whichever tab is open), and the rest.
+ */
 export const routePatterns = {
   conversation: `${conversations}/:conversationId`,
   documents: `${documents}/:documentId?`,
   inspections: `${inspections}/:inspectionId?`,
   profiles: `${profiles}/:profileId?`,
+  settingsSection: `${settings}/*`,
   fallback: "*",
 };
 

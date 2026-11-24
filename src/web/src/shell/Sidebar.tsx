@@ -1,27 +1,17 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import {
-  Building2,
-  ChevronDown,
-  ClipboardCheck,
-  FileText,
-  House,
-  LogOut,
-  MessagesSquare,
-  Settings,
-} from "lucide-react";
+import { Building2, ChevronDown, LogOut } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
-import { Link, useMatch } from "react-router";
-import { permissions } from "../api/contract";
-import { can, type Establishment, type Me, type ProfileSummary } from "../api/queries";
+import { Link, matchPath, useLocation } from "react-router";
+import type { Establishment, Me, ProfileSummary } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { forgetEstablishments, type ListState } from "../establishments/selection";
-import { paths, routePatterns } from "../routes";
 import { sortProfiles } from "../settings/profiles";
 import { Logo } from "../ui/Logo";
 import { Avatar, Skeleton } from "../ui/primitives";
 import { EstablishmentSwitcher } from "./EstablishmentSwitcher";
+import { screenAccess } from "./screens";
 
 interface SidebarProps {
   me: UseQueryResult<Me>;
@@ -44,51 +34,8 @@ export function Sidebar({
   onNavigate,
   closeButton,
 }: SidebarProps) {
-  const atOverview = useMatch(paths.overview) !== null;
-  // A new conversation and a saved one are both Ask the Regulation.
-  const atNew = useMatch(paths.ask) !== null;
-  const atConversation = useMatch(routePatterns.conversation) !== null;
-  // Each section's route, list and detail alike (Settings has Profiles only).
-  const atDocuments = useMatch(routePatterns.documents) !== null;
-  const atInspections = useMatch(routePatterns.inspections) !== null;
-  const atSettings = useMatch(routePatterns.profiles) !== null;
-  const items = [
-    {
-      to: paths.overview,
-      label: copy.shell.overview,
-      Icon: House,
-      shown: can(me.data, permissions.inspections.read) || can(me.data, permissions.documents.read),
-      active: atOverview,
-    },
-    {
-      to: paths.ask,
-      label: copy.shell.askTheRegulation,
-      Icon: MessagesSquare,
-      shown: can(me.data, permissions.chat.ask),
-      active: atNew || atConversation,
-    },
-    {
-      to: paths.documents,
-      label: copy.shell.documents,
-      Icon: FileText,
-      shown: can(me.data, permissions.documents.read),
-      active: atDocuments,
-    },
-    {
-      to: paths.inspections,
-      label: copy.shell.inspections,
-      Icon: ClipboardCheck,
-      shown: can(me.data, permissions.inspections.read),
-      active: atInspections,
-    },
-    {
-      to: paths.profiles,
-      label: copy.shell.settings,
-      Icon: Settings,
-      shown: can(me.data, permissions.profiles.read),
-      active: atSettings,
-    },
-  ].filter((item) => item.shown);
+  const { pathname } = useLocation();
+  const access = screenAccess(me.data);
   return (
     <>
       <div className="flex items-center justify-between">
@@ -97,7 +44,7 @@ export function Sidebar({
       </div>
       <div className="mt-5 flex flex-col gap-2">
         <TenantLabel me={me} />
-        {(me.isPending || can(me.data, permissions.establishments.read)) && (
+        {(me.isPending || access.establishments) && (
           <EstablishmentSwitcher
             state={state}
             establishments={establishments}
@@ -113,24 +60,29 @@ export function Sidebar({
           <Skeleton className="h-9 w-full" />
         </div>
       ) : (
-        items.length > 0 && (
+        access.nav.length > 0 && (
           <nav aria-label={copy.shell.navLabel} className="mt-5">
             <ul className="flex flex-col gap-1">
-              {items.map(({ to, label, Icon, active }) => (
-                <li key={to}>
-                  <Link
-                    to={to}
-                    onClick={onNavigate}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex h-9 items-center gap-3 rounded-control px-3 text-body font-medium ${
-                      active ? "bg-teal text-text-primary" : "text-text-secondary hover:bg-elevated"
-                    }`}
-                  >
-                    <Icon aria-hidden="true" className="size-4.5 shrink-0" />
-                    {label}
-                  </Link>
-                </li>
-              ))}
+              {access.nav.map(({ path, match, label, Icon }) => {
+                const active = match.some((pattern) => matchPath(pattern, pathname) !== null);
+                return (
+                  <li key={path}>
+                    <Link
+                      to={path}
+                      onClick={onNavigate}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex h-9 items-center gap-3 rounded-control px-3 text-body font-medium ${
+                        active
+                          ? "bg-teal text-text-primary"
+                          : "text-text-secondary hover:bg-elevated"
+                      }`}
+                    >
+                      <Icon aria-hidden="true" className="size-4.5 shrink-0" />
+                      {label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
         )
