@@ -2,7 +2,9 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from aio_pika.abc import AbstractRobustConnection
 from fastapi import FastAPI
+from sqlalchemy import Engine
 
 from normetry_ai import telemetry
 from normetry_ai.api import conversations, health
@@ -83,62 +85,12 @@ def create_app(
         refuse_tracing()
         # Before any parsing child starts (ingestion/sandbox.py); a no-op off Linux.
         protect_service_process()
-        # Without a database URL (health-only runs, offline tests) the chat routes answer 503.
-        engine = None
-        if settings.database_url is not None:
-            engine = create_db_engine(settings)
-            try:
-                with engine.connect() as connection:
-                    check_runtime_role(connection)
-            except BaseException:
-                engine.dispose()
-                raise
+        engine = _open_engine(settings)
         app.state.engine = engine
-        # One retriever per process. Its models load on the first question (#49), so the app starts
-        # without their weights; a turn that cannot load them answers unavailable.
-        embedding, retrieval = EmbeddingSettings(), RetrievalSettings()
-        embedder = SentenceTransformerEmbedder(
-            embedding.embedding_model, embedding.embedding_model_revision
-        )
-        reranker = CrossEncoderReranker(
-            retrieval.reranker_model,
-            retrieval.reranker_model_revision,
-            retrieval.reranker_max_length,
-        )
-        app.state.retriever = hybrid.Retriever(embedder, reranker, retrieval)
-        consumers = []
+        app.state.retriever = _retrieval_models()
+        consumers: list[AbstractRobustConnection] = []
         try:
-            # Without a RabbitMQ URL (offline tests, health-only runs) nothing is consumed. The
-            # settings guarantee the database and blob storage when it is set.
-            if settings.rabbitmq_url is not None:
-                # The chat's embedder: the model loads once per process, for both.
-                app.state.documents = DocumentWorker(
-                    engine,
-                    embedder,
-                    BlobStore.connect(
-                        settings.blob_connection_string.get_secret_value(),
-                        settings.blob_container,
-                    ),
-                )
-                url = settings.rabbitmq_url.get_secret_value()
-                consumers.append(await start_consumer(url, app.state.documents))
-                # The same embedder and re-ranker: each model loads once per process. A judge
-                # model without a price raises ValueError here.
-                inspection = InspectionSettings()
-                app.state.inspections = InspectionWorker(
-                    engine,
-                    embedder,
-                    reranker,
-                    ClaudeJudgeModel(
-                        answer_settings,
-                        inspection.inspection_model,
-                        inspection.inspection_max_tokens,
-                    ),
-                    answers=answer_settings,
-                    retrieval=retrieval,
-                    inspection=inspection,
-                )
-                consumers.append(await inspections.start(url, app.state.inspections))
+            await _start_consumers(app, settings, answer_settings, consumers)
             yield
         finally:
             for consumer in consumers:
@@ -157,3 +109,73 @@ def create_app(
     app.include_router(conversations.establishment_router)
     telemetry.instrument(app)
     return app
+
+
+def _open_engine(settings: Settings) -> Engine | None:
+    """The app_ai engine, once its role passes `check_runtime_role`. None without a database URL
+    (health-only runs, offline tests): the chat routes then answer 503."""
+    if settings.database_url is None:
+        return None
+    engine = create_db_engine(settings)
+    try:
+        with engine.connect() as connection:
+            check_runtime_role(connection)
+    except BaseException:
+        engine.dispose()
+        raise
+    return engine
+
+
+def _retrieval_models() -> hybrid.Retriever:
+    """One retriever per process, holding the embedder and re-ranker the consumers share. Its
+    models load on the first question (#49), so the app starts without their weights; a turn that
+    cannot load them answers unavailable."""
+    embedding, retrieval = EmbeddingSettings(), RetrievalSettings()
+    embedder = SentenceTransformerEmbedder(
+        embedding.embedding_model, embedding.embedding_model_revision
+    )
+    reranker = CrossEncoderReranker(
+        retrieval.reranker_model,
+        retrieval.reranker_model_revision,
+        retrieval.reranker_max_length,
+    )
+    return hybrid.Retriever(embedder, reranker, retrieval)
+
+
+async def _start_consumers(
+    app: FastAPI,
+    settings: Settings,
+    answer_settings: AnswerSettings,
+    consumers: list[AbstractRobustConnection],
+) -> None:
+    """Start the document consumer, then the inspection consumer, their workers on the app's
+    engine and the retriever's models, so each model loads once per process. Each connection goes
+    into `consumers` once open, so the caller closes it also when a later step raises (a judge
+    model without a price raises ValueError). Without a RabbitMQ URL (offline tests, health-only
+    runs) nothing is consumed; the settings guarantee the database and blob storage when it is
+    set."""
+    if settings.rabbitmq_url is None:
+        return
+    engine, retriever = app.state.engine, app.state.retriever
+    app.state.documents = DocumentWorker(
+        engine,
+        retriever.embedder,
+        BlobStore.connect(
+            settings.blob_connection_string.get_secret_value(), settings.blob_container
+        ),
+    )
+    url = settings.rabbitmq_url.get_secret_value()
+    consumers.append(await start_consumer(url, app.state.documents))
+    inspection = InspectionSettings()
+    app.state.inspections = InspectionWorker(
+        engine,
+        retriever.embedder,
+        retriever.reranker,
+        ClaudeJudgeModel(
+            answer_settings, inspection.inspection_model, inspection.inspection_max_tokens
+        ),
+        answers=answer_settings,
+        retrieval=retriever.settings,
+        inspection=inspection,
+    )
+    consumers.append(await inspections.start(url, app.state.inspections))

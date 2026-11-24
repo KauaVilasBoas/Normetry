@@ -15,13 +15,16 @@ const RULES = [
 
 const DELETE_COMMANDS = new Set(["rm", "remove-item", "ri", "del", "rd", "rmdir"]);
 const BROAD_TARGET = /^(?:\/\*?|~[\\/]?|\$home[\\/]?|\$env:userprofile[\\/]?|\.{1,2}[\\/]?|\*|[a-z]:[\\/]?)$/i;
+// An rm-style short-flag cluster holding r/R (-r, -rf, -fR), --recursive, any PowerShell prefix of -Recurse, or /s.
+// Words like -Force are not flag clusters, so they do not count.
+const RECURSIVE_FLAG = /^(?:-[dfirv]*r[dfirv]*|--recursive|-r(?:e(?:c(?:u(?:r(?:se?)?)?)?)?)?|\/s)$/i;
 
 // True when a recursive delete targets root, home, the drive, the current/parent dir or a bare wildcard.
 function isBroadRecursiveDelete(command) {
   return command.split(/&&|\|\||[;|\n]/).some((segment) => {
     const tokens = segment.trim().split(/\s+/).map((t) => t.replace(/^["']|["']$/g, ""));
     if (!DELETE_COMMANDS.has(tokens[0]?.toLowerCase())) return false;
-    const recursive = tokens.some((t) => /^-[a-z]*r/i.test(t) || /^\/s$/i.test(t));
+    const recursive = tokens.some((t) => RECURSIVE_FLAG.test(t));
     return recursive && tokens.slice(1).some((t) => !t.startsWith("-") && BROAD_TARGET.test(t));
   });
 }

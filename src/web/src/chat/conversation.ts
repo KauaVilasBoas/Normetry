@@ -10,6 +10,7 @@ import {
 import { ApiError, seconds } from "../api/client";
 import { answerEvents } from "../api/contract";
 import { meKey, useEstablishments, type Establishment } from "../api/queries";
+import { useSend } from "../api/send";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import {
@@ -360,30 +361,27 @@ export function useNotFoundFocus(view: ConversationView) {
 }
 
 /**
- * Deletes the saved conversation and drops it from the list; resolves false when it could not be
- * deleted. A 404 means it is already gone, which is what the user asked for.
+ * Deletes the saved conversation and drops it from the list; resolves the refusal to show when it
+ * could not be deleted, undefined once it is gone. A 404 means it is already gone, which is what
+ * the user asked for. Sent from the confirmation dialog, which calls `closed()` when it closes: a
+ * 403 refetches /me only then.
  */
 export function useDeleteConversation(savedId: string | undefined, onDeleted: () => void) {
-  const { api } = useSession();
+  const { send, closed } = useSend({ inside: true });
   const queryClient = useQueryClient();
 
-  return async function deleteConversation(): Promise<boolean> {
-    if (savedId === undefined) return false;
-    try {
-      const response = await api.request(`/ai/conversations/${path(savedId)}`, {
-        method: "DELETE",
-      });
-      if (!response.ok && response.status !== 404) {
-        if (response.status === 403) void queryClient.invalidateQueries({ queryKey: meKey });
-        return false;
-      }
-    } catch {
-      return false;
+  async function deleteConversation(): Promise<string | undefined> {
+    if (savedId === undefined) return copy.chat.deleteError;
+    const result = await send(`/ai/conversations/${path(savedId)}`, { method: "DELETE" });
+    if (!result.ok && result.status !== 404) {
+      return result.status === 403 ? copy.settings.denied : copy.chat.deleteError;
     }
     queryClient.setQueryData<ConversationSummary[]>(conversationsKey, (list) =>
       list?.filter((item) => item.id !== savedId),
     );
     onDeleted();
-    return true;
-  };
+    return undefined;
+  }
+
+  return { deleteConversation, closed };
 }
