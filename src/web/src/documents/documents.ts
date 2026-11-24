@@ -9,7 +9,7 @@ import {
 } from "../api/documents";
 import { useLiveStatus } from "../api/live";
 import { refusalText, type Sent } from "../api/send";
-import { calendarDate, copy, format, localDate, relativeDays } from "../copy";
+import { calendarDate, copy, daysFromToday, format, relativeDays } from "../copy";
 
 /** The list's expiry filter: every document, the expired ones, or those expiring soon. */
 export type ExpiryFilter = "" | "expired" | "expiring";
@@ -171,9 +171,7 @@ export function versionNotice({ versions, currentVersionNumber }: DocumentDetail
  * from today to `EXPIRING_DAYS` ahead ("Expires today", "Expires in 10 days"), the date after.
  */
 export function expiry(expiresOn: string, now = new Date()) {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  // Rounded: a day across a daylight saving change is 23 or 25 hours.
-  const days = Math.round((localDate(expiresOn).getTime() - today.getTime()) / 86_400_000);
+  const days = daysFromToday(expiresOn, now);
   if (days < 0) return { state: "expired", label: copy.documents.expired } as const;
   if (days <= EXPIRING_DAYS)
     return {

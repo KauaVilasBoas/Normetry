@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ConversationMessage } from "../api/chat";
-import {
-  quotaAfter,
-  rateLimited,
-  readEvents,
-  streamAnswer,
-  toClaim,
-  toTurns,
-  untilReset,
-} from "./answers";
+import { untilReset } from "../copy";
+import { quotaAfter, rateLimited, readEvents, streamAnswer, toClaim, toTurns } from "./answers";
 
 const citation = {
   id: "cit-1",
