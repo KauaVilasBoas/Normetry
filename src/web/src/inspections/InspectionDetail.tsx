@@ -1,19 +1,11 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert } from "lucide-react";
-import { useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router";
+import { Link } from "react-router";
 import { inspectionStatuses, permissions } from "../api/contract";
-import {
-  inspectionsKey,
-  useInspection,
-  type InspectionDetail,
-  type InspectionSummary,
-} from "../api/inspections";
+import type { InspectionDetail } from "../api/inspections";
 import type { Live } from "../api/live";
-import { can, queryNotFound, useQueryRetry, type Establishment, type Me } from "../api/queries";
+import { can, type Establishment, type Me } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
-import { hasFindingFilter, paths } from "../routes";
-import { focusById, useRefocusWhenGone } from "../ui/focus";
+import { paths } from "../routes";
 import {
   BackLink,
   ChecklistRow,
@@ -29,12 +21,12 @@ import {
 } from "../ui/primitives";
 import { pillVariant } from "../ui/statuses";
 import { ActionPlan } from "./ActionPlan";
+import { useInspectionDetail } from "./detail";
 import { FindingsCard } from "./FindingsCard";
 import {
   checklist,
   DETAIL_TITLE_ID,
   failureText,
-  FINDINGS_TITLE_ID,
   inFlight,
   progressText,
   runningView,
@@ -44,9 +36,8 @@ import {
 const card = "mt-5 rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in";
 
 /**
- * One inspection: the header, then the running card (Waiting or Running, with the connection
- * notice inside it), the failed card, or the completed view. When it stops being live and focus
- * was lost with the running card, focus moves to the title.
+ * One inspection (`useInspectionDetail`): the header, then the running card (Waiting or Running,
+ * with the connection notice inside it), the failed card, or the completed view.
  */
 export function InspectionDetailView({
   id,
@@ -65,34 +56,11 @@ export function InspectionDetailView({
   /** The back link was chosen (it navigates). */
   onBack: () => void;
 }) {
-  const queryClient = useQueryClient();
-  const query = useInspection(establishment.id, id, true);
-  const notFound = queryNotFound(query);
-  const load = useQueryRetry(query, DETAIL_TITLE_ID);
-  const failed = load.failed && !notFound;
-  const retrying = failed && load.retrying;
-  const detail = query.data;
-  // The list's row gives the title while the inspection loads.
-  const requestedAt =
-    detail?.requestedAt ??
-    queryClient
-      .getQueryData<InspectionSummary[]>(inspectionsKey(establishment.id))
-      ?.find((row) => row.id === id)?.requestedAt;
-
-  useRefocusWhenGone(detail !== undefined && inFlight(detail.status), DETAIL_TITLE_ID);
-
-  // An arrival focuses the title once it shows the inspection (or why it can't), or the Findings
-  // heading when the link carried a filter (FindingsCard has read it by then).
-  const { search } = useLocation();
-  const arrived = useRef<string>(undefined);
-  const settled = detail !== undefined || notFound || failed;
-  useEffect(() => {
-    if (!arrival || arrived.current === arrival || !settled) return;
-    arrived.current = arrival;
-    if (hasFindingFilter(new URLSearchParams(search)))
-      focusById(FINDINGS_TITLE_ID, DETAIL_TITLE_ID);
-    else focusById(DETAIL_TITLE_ID);
-  }, [arrival, settled, search]);
+  const { detail, requestedAt, notFound, failed, retrying, retry } = useInspectionDetail({
+    id,
+    establishmentId: establishment.id,
+    arrival,
+  });
 
   const back = (
     <BackLink to={paths.inspections} onClick={onBack}>
@@ -116,11 +84,7 @@ export function InspectionDetailView({
                 {copy.inspections.backToInspections}
               </Link>
             ) : (
-              <RetryButton
-                label={copy.inspections.tryAgain}
-                retrying={retrying}
-                onRetry={load.retry}
-              />
+              <RetryButton label={copy.inspections.tryAgain} retrying={retrying} onRetry={retry} />
             )
           }
         />
