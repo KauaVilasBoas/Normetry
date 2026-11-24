@@ -8,22 +8,18 @@ namespace Normetry.Api.Inspections;
 internal static class InspectionsSetup
 {
     /// <summary>
-    /// The <c>Inspections</c> settings, validated now against the chat plans (call it after
-    /// <c>AddChat</c>), the review handlers' <see cref="FindingReviewService"/> and the notifier
-    /// of <see cref="InspectionsHub"/>. SignalR and its JSON options (enums by name) come from
-    /// <c>AddDocuments</c>.
+    /// The <c>Inspections</c> settings, validated now against the chat plans, the review handlers'
+    /// <see cref="FindingReviewService"/> and the notifier of <see cref="InspectionsHub"/>. SignalR
+    /// and its JSON options (enums by name) come from <c>AddDocuments</c>.
     /// </summary>
-    public static WebApplicationBuilder AddInspections(this WebApplicationBuilder builder)
+    public static WebApplicationBuilder AddInspections(
+        this WebApplicationBuilder builder,
+        ChatOptions chatPlans
+    )
     {
-        var options = builder
-            .Configuration.GetSection(InspectionsOptions.Section)
-            .Get<InspectionsOptions>()
-            ?? new InspectionsOptions();
-        options.Validate(
-            builder.Configuration.GetSection(ChatOptions.Section).Get<ChatOptions>()
-                ?? new ChatOptions()
+        builder.BindValidated<InspectionsOptions>(InspectionsOptions.Section, options =>
+            options.Validate(chatPlans)
         );
-        builder.Services.AddSingleton(options);
         builder.Services.AddScoped<FindingReviewService>();
         builder.Services.AddSingleton<
             IChangeNotifier<InspectionChange>,
