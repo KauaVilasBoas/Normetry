@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
 import { sourceTypes } from "./contract";
+import type { StoredPassage } from "./passages";
 
 /** GET /chat/quota (core). `limit` and `remaining` are null on unlimited plans. */
 export interface ChatQuota {
@@ -17,15 +18,9 @@ export interface ConversationSummary {
   updatedAt: string;
 }
 
-interface CitedPassage {
+/** A passage an answer cites, by its id in the answer. */
+interface CitedPassage extends StoredPassage {
   id: string;
-  language: string;
-  sectionPath: string;
-  text: string;
-  quote: string;
-  /** `text.slice(quoteStart, quoteEnd)` is the quote; both null when it could not be mapped. */
-  quoteStart: number | null;
-  quoteEnd: number | null;
 }
 
 /**
@@ -48,14 +43,6 @@ export type Citation =
       documentType: string | null;
       documentVersion: number;
     });
-
-/** The quote's offsets map onto `text`, so it can be highlighted there. */
-export const quoteFound = ({
-  text,
-  quoteStart: start,
-  quoteEnd: end,
-}: Pick<Citation, "text" | "quoteStart" | "quoteEnd">) =>
-  start !== null && end !== null && start >= 0 && start < end && end <= text.length;
 
 export interface Claim {
   text: string;
