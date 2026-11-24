@@ -38,6 +38,7 @@ import re
 import sys
 import unicodedata
 import zipfile
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -52,8 +53,29 @@ SEPARATOR_CELL = re.compile(r":?-+:?")
 HEADING_SIZES = {1: 16, 2: 13, 3: 11}
 BODY_SIZE, LINE = 10, 5
 
-# ("heading", (level, text)), ("paragraph", text), ("bullet", text) or ("table", rows)
-type Block = tuple[str, object]
+
+@dataclass(frozen=True)
+class Heading:
+    level: int  # 1 to 3
+    text: str
+
+
+@dataclass(frozen=True)
+class Paragraph:
+    text: str
+
+
+@dataclass(frozen=True)
+class Bullet:
+    text: str
+
+
+@dataclass(frozen=True)
+class Table:
+    rows: tuple[tuple[str, ...], ...]  # the first one the header
+
+
+type Block = Heading | Paragraph | Bullet | Table
 
 
 class SourceError(ValueError):
@@ -63,6 +85,17 @@ class SourceError(ValueError):
 def read_source(path: Path) -> tuple[str, str, list[Block]]:
     """(format, title, blocks) of one source, or SourceError naming the file and line."""
     lines = unicodedata.normalize("NFC", path.read_text(encoding="utf-8-sig")).splitlines()
+    meta, end = _front_matter(path, lines)
+    if meta["format"] == "pdf":
+        _check_cp1252(path, lines)
+    blocks = parse_body(path, lines[end + 1 :], end + 2)
+    if not blocks:
+        raise SourceError(f"{path}: the body is empty")
+    return meta["format"], meta["title"], blocks
+
+
+def _front_matter(path: Path, lines: list[str]) -> tuple[dict[str, str], int]:
+    """The front matter's `format` and `title`, and the index of its closing '---' line."""
     if not lines or lines[0].strip() != "---":
         raise SourceError(f"{path}: must start with a '---' front matter line")
     end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
@@ -79,20 +112,20 @@ def read_source(path: Path) -> tuple[str, str, list[Block]]:
         raise SourceError(f"{path}: format must be pdf or docx, got {meta.get('format')!r}")
     if not meta.get("title"):
         raise SourceError(f"{path}: the front matter needs a title")
-    if meta["format"] == "pdf":
-        for number, line in enumerate(lines, 1):
-            try:
-                line.encode("cp1252")
-            except UnicodeEncodeError as error:
-                char = line[error.start]
-                raise SourceError(
-                    f"{path}:{number}: {char!r} (U+{ord(char):04X}) is not in Windows-1252, "
-                    "which the PDF core fonts use"
-                ) from None
-    blocks = parse_body(path, lines[end + 1 :], end + 2)
-    if not blocks:
-        raise SourceError(f"{path}: the body is empty")
-    return meta["format"], meta["title"], blocks
+    return meta, end
+
+
+def _check_cp1252(path: Path, lines: list[str]) -> None:
+    """Raise SourceError at the first character the PDF core fonts cannot encode."""
+    for number, line in enumerate(lines, 1):
+        try:
+            line.encode("cp1252")
+        except UnicodeEncodeError as error:
+            char = line[error.start]
+            raise SourceError(
+                f"{path}:{number}: {char!r} (U+{ord(char):04X}) is not in Windows-1252, "
+                "which the PDF core fonts use"
+            ) from None
 
 
 def parse_body(path: Path, lines: list[str], first_number: int) -> list[Block]:
@@ -102,10 +135,10 @@ def parse_body(path: Path, lines: list[str], first_number: int) -> list[Block]:
 
     def close() -> None:  # at most one of the two is open
         if paragraph:
-            blocks.append(("paragraph", " ".join(paragraph)))
+            blocks.append(Paragraph(" ".join(paragraph)))
             paragraph.clear()
         if rows:
-            blocks.append(("table", rows.copy()))
+            blocks.append(Table(tuple(map(tuple, rows))))
             rows.clear()
 
     for number, raw in enumerate(lines, first_number):
@@ -130,10 +163,10 @@ def parse_body(path: Path, lines: list[str], first_number: int) -> list[Block]:
             level = len(heading[1])
             if level > 3:
                 raise SourceError(f"{path}:{number}: only #, ## and ### headings are supported")
-            blocks.append(("heading", (level, heading[2].strip())))
+            blocks.append(Heading(level, heading[2].strip()))
         elif line.startswith("- "):
             close()
-            blocks.append(("bullet", line[2:].strip()))
+            blocks.append(Bullet(line[2:].strip()))
         else:
             if rows:
                 close()
@@ -153,35 +186,35 @@ def render_pdf(title: str, blocks: list[Block]) -> bytes:
     pdf.set_margins(20, 20, 20)
     pdf.set_auto_page_break(True, margin=20)
     pdf.add_page()
-    for kind, value in blocks:
-        if kind == "heading":
-            level, text = value
-            size = HEADING_SIZES[level]
-            if pdf.will_page_break(size * 0.5 + 3 * LINE):  # keep a heading with what follows
-                pdf.add_page()
-            elif pdf.get_y() > pdf.t_margin:
+    for block in blocks:
+        match block:
+            case Heading(level, text):
+                size = HEADING_SIZES[level]
+                if pdf.will_page_break(size * 0.5 + 3 * LINE):  # keep a heading with what follows
+                    pdf.add_page()
+                elif pdf.get_y() > pdf.t_margin:
+                    pdf.ln(3)
+                pdf.set_font("Helvetica", "B", size)
+                pdf.multi_cell(0, size * 0.5, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.ln(2)
+            case Paragraph(text):
+                pdf.set_font("Helvetica", "", BODY_SIZE)
+                pdf.multi_cell(0, LINE, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.ln(2)
+            case Bullet(text):
+                pdf.set_font("Helvetica", "", BODY_SIZE)
+                pdf.set_x(pdf.l_margin + 3)
+                pdf.cell(5, LINE, "•")
+                pdf.multi_cell(0, LINE, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.ln(1)
+            case Table(rows):
+                pdf.set_font("Helvetica", "", BODY_SIZE - 1)
+                with pdf.table(line_height=LINE, text_align="LEFT") as table:
+                    for row in rows:
+                        cells = table.row()
+                        for text in row:
+                            cells.cell(text)
                 pdf.ln(3)
-            pdf.set_font("Helvetica", "B", size)
-            pdf.multi_cell(0, size * 0.5, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.ln(2)
-        elif kind == "paragraph":
-            pdf.set_font("Helvetica", "", BODY_SIZE)
-            pdf.multi_cell(0, LINE, value, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.ln(2)
-        elif kind == "bullet":
-            pdf.set_font("Helvetica", "", BODY_SIZE)
-            pdf.set_x(pdf.l_margin + 3)
-            pdf.cell(5, LINE, "•")
-            pdf.multi_cell(0, LINE, value, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.ln(1)
-        else:
-            pdf.set_font("Helvetica", "", BODY_SIZE - 1)
-            with pdf.table(line_height=LINE, text_align="LEFT") as table:
-                for row in value:
-                    cells = table.row()
-                    for text in row:
-                        cells.cell(text)
-            pdf.ln(3)
     return bytes(pdf.output())
 
 
@@ -193,20 +226,20 @@ def render_docx(title: str, blocks: list[Block]) -> bytes:
     properties.comments = ""
     properties.created = properties.modified = FIXED_DATE
     properties.revision = 1
-    for kind, value in blocks:
-        if kind == "heading":
-            level, text = value
-            document.add_heading(text, level=level)
-        elif kind == "paragraph":
-            document.add_paragraph(value)
-        elif kind == "bullet":
-            document.add_paragraph(value, style="List Bullet")
-        else:
-            table = document.add_table(rows=len(value), cols=len(value[0]))
-            table.style = "Table Grid"
-            for index, (row, cells) in enumerate(zip(table.rows, value, strict=True)):
-                for cell, text in zip(row.cells, cells, strict=True):
-                    cell.paragraphs[0].add_run(text).bold = index == 0
+    for block in blocks:
+        match block:
+            case Heading(level, text):
+                document.add_heading(text, level=level)
+            case Paragraph(text):
+                document.add_paragraph(text)
+            case Bullet(text):
+                document.add_paragraph(text, style="List Bullet")
+            case Table(rows):
+                table = document.add_table(rows=len(rows), cols=len(rows[0]))
+                table.style = "Table Grid"
+                for index, (row, cells) in enumerate(zip(table.rows, rows, strict=True)):
+                    for cell, text in zip(row.cells, cells, strict=True):
+                        cell.paragraphs[0].add_run(text).bold = index == 0
     buffer = io.BytesIO()
     document.save(buffer)
     return stable_zip(buffer.getvalue())
