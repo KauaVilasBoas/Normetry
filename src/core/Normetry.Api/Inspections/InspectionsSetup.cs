@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.Connections;
+using Normetry.Application.Abstractions;
 using Normetry.Application.Inspections;
 using Normetry.Application.Usage;
 
@@ -24,7 +25,10 @@ internal static class InspectionsSetup
         );
         builder.Services.AddSingleton(options);
         builder.Services.AddScoped<FindingReviewService>();
-        builder.Services.AddSingleton<IInspectionNotifier, SignalRInspectionNotifier>();
+        builder.Services.AddSingleton<
+            IChangeNotifier<InspectionChange>,
+            SignalRInspectionNotifier
+        >();
         return builder;
     }
 

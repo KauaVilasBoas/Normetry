@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 using Normetry.Application.Documents.TimeOutProcessing;
 using Normetry.Application.Inspections;
@@ -69,10 +70,10 @@ internal sealed class ProcessingTimeoutSweeper(
         if (result.Value.Count > 0)
         {
             logger.LogInformation("Timed out {Count} processing version(s)", result.Value.Count);
-            var notifier = scope.Services.GetRequiredService<IDocumentStatusNotifier>();
             await Notify.SafelyAsync(
+                scope.Services.GetRequiredService<IChangeNotifier<DocumentStatusChange>>(),
+                tenantId,
                 result.Value,
-                (change, token) => notifier.NotifyAsync(tenantId, change, token),
                 change => change.VersionId,
                 logger,
                 cancellationToken
@@ -93,10 +94,10 @@ internal sealed class ProcessingTimeoutSweeper(
         if (result.Value.Count > 0)
         {
             logger.LogInformation("Timed out {Count} running inspection(s)", result.Value.Count);
-            var notifier = scope.Services.GetRequiredService<IInspectionNotifier>();
             await Notify.SafelyAsync(
+                scope.Services.GetRequiredService<IChangeNotifier<InspectionChange>>(),
+                tenantId,
                 result.Value,
-                (change, token) => notifier.NotifyAsync(tenantId, change, token),
                 change => change.InspectionId,
                 logger,
                 cancellationToken
