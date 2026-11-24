@@ -1,9 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { inspectionStatuses, problemCodes } from "../api/contract";
 import {
   inspectionKey,
   inspectionsKey,
+  inspectionsPath,
   inspectionsQuery,
   type InspectionDetail,
   type InspectionSummary,
@@ -11,7 +12,7 @@ import {
 } from "../api/inspections";
 import { useLiveStatus } from "../api/live";
 import type { Establishment } from "../api/queries";
-import type { Sent } from "../api/send";
+import { useSend, type Sent } from "../api/send";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 
@@ -107,6 +108,67 @@ export function runRefusal(result: Sent & { ok: false }, now: number): Refusal |
     return { kind: "capacity" };
   if (result.status === 403) return { kind: "denied" };
   return { kind: "error" };
+}
+
+/**
+ * Run inspection (spec §4): posts a start. An accepted one shows its row at once, as Waiting, and
+ * `onStarted` opens it; a refusal stays (`refusal`) until the next run, and a quota or a rate
+ * limit holds Run (`held`) until its time, while `now` counts its "in 6 hours" down every minute.
+ * A stale list (another run already going) refetches instead, which shows the running row.
+ */
+export function useRunInspection(establishment: Establishment, onStarted: (id: string) => void) {
+  const queryClient = useQueryClient();
+  const { send } = useSend();
+  const [posting, setPosting] = useState(false);
+  const [refusal, setRefusal] = useState<Refusal>();
+  const [now, setNow] = useState(Date.now);
+  const key = inspectionsKey(establishment.id);
+  const until = refusal && "until" in refusal ? refusal.until : undefined;
+
+  useEffect(() => {
+    if (until === undefined) return;
+    const tick = setInterval(() => setNow(Date.now()), 60_000);
+    const reset = setTimeout(() => setRefusal(undefined), Math.max(0, until - Date.now()));
+    return () => {
+      clearInterval(tick);
+      clearTimeout(reset);
+    };
+  }, [until]);
+
+  const started = (id: string) => {
+    queryClient.setQueryData<InspectionSummary[]>(key, (list = []) => [
+      requestedRow(id, regulationOf(establishment)),
+      ...list.filter((row) => row.id !== id),
+    ]);
+    void queryClient.invalidateQueries({ queryKey: key });
+    onStarted(id);
+  };
+
+  const refused = (result: Sent) => {
+    const at = Date.now();
+    // An accepted start without its id counts as a failed one.
+    const next = runRefusal(result.ok ? { ok: false, status: 0, code: undefined } : result, at);
+    if (next === "running") {
+      void queryClient.invalidateQueries({ queryKey: key });
+      return;
+    }
+    setNow(at);
+    setRefusal(next);
+  };
+
+  const run = async () => {
+    setRefusal(undefined);
+    setPosting(true);
+    const result = await send(inspectionsPath(establishment.id), { method: "POST" });
+    const { id } = result.ok
+      ? ((await result.response.json().catch(() => ({}))) as { id?: unknown })
+      : {};
+    setPosting(false);
+    if (typeof id === "string") started(id);
+    else refused(result);
+  };
+
+  return { posting, refusal, now, held: until !== undefined, run };
 }
 
 /**
