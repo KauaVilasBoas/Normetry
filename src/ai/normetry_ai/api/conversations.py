@@ -335,23 +335,23 @@ def _final_event(ending: Answered | Refused | Unavailable | None) -> ServerSentE
 
 def _stored_as(
     ending: Answered | Refused | Unavailable | None, claims: list[dict[str, Any]]
-) -> tuple[str, str | None]:
+) -> tuple[store.MessageKind, str | None]:
     match ending:
         case Answered():
-            return "answer", None
+            return store.MessageKind.ANSWER, None
         case Refused(reason=reason):
-            return "refusal", reason.value
+            return store.MessageKind.REFUSAL, reason.value
         case Unavailable():
-            return "unavailable", None
+            return store.MessageKind.UNAVAILABLE, None
     # Stopped early: what was sent is the answer, or nothing came at all.
-    return ("answer" if claims else "unavailable"), None
+    return (store.MessageKind.ANSWER if claims else store.MessageKind.UNAVAILABLE), None
 
 
 def _store_answer(
     engine: Engine,
     ctx: EstablishmentContext,
     conversation_id: UUID,
-    kind: str,
+    kind: store.MessageKind,
     reason: str | None,
     language: str | None,
     claims: list[dict[str, Any]],

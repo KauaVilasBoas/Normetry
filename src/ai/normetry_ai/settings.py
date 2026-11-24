@@ -1,6 +1,7 @@
 """Service configuration, read from `NORMETRY_*` environment variables (or `src/ai/.env`)."""
 
 from decimal import Decimal
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Self
 
@@ -172,6 +173,13 @@ class AnswerSettings(BaseSettings):
         return self
 
 
+class FollowupRewrite(StrEnum):
+    """How a follow-up becomes the standalone question that retrieval and the answer see."""
+
+    MODEL = "model"  # rewritten by rewrite_model
+    BASELINE = "baseline"  # the last user turns and the follow-up joined, no model call
+
+
 class ConversationSettings(BaseSettings):
     """Conversations: how many earlier turns a follow-up sees and how it becomes standalone."""
 
@@ -182,7 +190,7 @@ class ConversationSettings(BaseSettings):
     # How a follow-up becomes the standalone question that retrieval and the answer see:
     # "model" rewrites it with rewrite_model; "baseline" joins the last user turns and the
     # follow-up into one query, with no model call. The evals compare the two (#55).
-    followup_rewrite: Literal["model", "baseline"] = "model"
+    followup_rewrite: FollowupRewrite = FollowupRewrite.MODEL
     # Needs a price in NORMETRY_MODEL_PRICES (AnswerSettings), checked at startup.
     rewrite_model: str = "claude-haiku-5-5"
     # Thinking counts toward it.

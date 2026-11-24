@@ -18,6 +18,7 @@ from normetry_ai.evals.retrieval import quote_ranks, recall_at
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.retrieval.models import SourceType
 from normetry_ai.retrieval.policy import jurisdictions_for
+from normetry_ai.settings import FollowupRewrite
 
 REVIEW_PENDING = "Faithfulness and citation review: pending (judged in a Claude Code session)"
 REFUSAL_TYPES = ("not_covered", "wrong_jurisdiction", "follow_up")
@@ -180,7 +181,7 @@ def metrics(passes: Sequence[PassResult], model: str) -> dict:
     runs = [
         (p.item, p.answers[model], p)
         for p in passes
-        if p.rewrite != "baseline" and not is_document(p.item)
+        if p.rewrite != FollowupRewrite.BASELINE and not is_document(p.item)
     ]
     answerable = [run for run in runs if run[0]["expected_behavior"] == "answer"]
     refusals = [run for run in runs if run[0]["expected_behavior"] == "refuse"]
@@ -260,10 +261,9 @@ def rewrite_comparison(passes: Sequence[PassResult], model: str) -> dict[str, di
     """Per rewrite mode, over the follow-ups run with both: retrieval recall@10 of the gold
     quotes, this model's correct outcomes and the rewrite cost."""
     by_mode = {
-        mode: {p.item["id"]: p for p in passes if p.rewrite == mode}
-        for mode in ("model", "baseline")
+        mode: {p.item["id"]: p for p in passes if p.rewrite == mode} for mode in FollowupRewrite
     }
-    ids = sorted(by_mode["model"].keys() & by_mode["baseline"].keys())
+    ids = sorted(by_mode[FollowupRewrite.MODEL].keys() & by_mode[FollowupRewrite.BASELINE].keys())
     comparison = {}
     for mode, runs in by_mode.items():
         paired = [runs[item_id] for item_id in ids]

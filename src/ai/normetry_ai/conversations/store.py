@@ -7,14 +7,23 @@ JSON shapes (src/shared/contracts/chat-api.md); stored claims are kept in that s
 
 import json
 from collections.abc import Sequence
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Connection, RowMapping, text
 
-from normetry_ai.conversations.rewrite import Turn
+from normetry_ai.conversations.rewrite import Role, Turn
 
 _SUMMARY = "id, establishment_id, title, updated_at"
+
+
+class MessageKind(StrEnum):
+    """How an answer ended: ai.messages.kind, which a CHECK holds to these values."""
+
+    ANSWER = "answer"  # claims, all or some of them sent
+    REFUSAL = "refusal"  # refused, with its reason
+    UNAVAILABLE = "unavailable"  # the model failed before any claim, or it could not be stored
 
 
 def _summary(row: RowMapping) -> dict[str, Any]:
@@ -38,16 +47,16 @@ def without_documents(claims: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _message(row: RowMapping, documents: bool) -> dict[str, Any]:
-    if row["role"] == "user":
+    if row["role"] == Role.USER:
         return {
             "id": row["id"],
-            "role": "user",
+            "role": Role.USER,
             "text": row["text"],
             "createdAt": row["created_at"],
         }
     return {
         "id": row["id"],
-        "role": "assistant",
+        "role": Role.ASSISTANT,
         "kind": row["kind"],
         "reason": row["reason"],
         "language": row["language"],
@@ -158,7 +167,7 @@ def start_turn(
                 RETURNING tenant_id, id
             )
             INSERT INTO ai.messages (tenant_id, conversation_id, role, text)
-            SELECT tenant_id, id, 'user', :question FROM turn
+            SELECT tenant_id, id, :role, :question FROM turn
             RETURNING id
             """
         ),
@@ -167,6 +176,7 @@ def start_turn(
             "user_id": user_id,
             "establishment_id": establishment_id,
             "jurisdiction": jurisdiction,
+            "role": Role.USER,
             "question": question,
         },
     ).scalar_one_or_none()
@@ -184,10 +194,10 @@ def start_turn(
         {"id": conversation_id, "message_id": message_id, "limit": history_messages},
     ).all()
     return [
-        Turn("user", row.text)
-        if row.role == "user"
+        Turn(Role.USER, row.text)
+        if row.role == Role.USER
         else Turn(
-            "assistant",
+            Role.ASSISTANT,
             " ".join(
                 claim["text"]
                 for claim in (row.claims if documents else without_documents(row.claims))
@@ -202,7 +212,7 @@ def store_answer(
     conversation_id: UUID,
     *,
     user_id: str,
-    kind: str,
+    kind: MessageKind,
     reason: str | None,
     language: str | None,
     claims: Sequence[dict[str, Any]],
@@ -218,13 +228,14 @@ def store_answer(
             )
             INSERT INTO ai.messages (tenant_id, conversation_id, role, kind, reason, language,
                                      claims)
-            SELECT tenant_id, id, 'assistant', :kind, :reason, :language, CAST(:claims AS jsonb)
+            SELECT tenant_id, id, :role, :kind, :reason, :language, CAST(:claims AS jsonb)
             FROM turn
             """
         ),
         {
             "id": conversation_id,
             "user_id": user_id,
+            "role": Role.ASSISTANT,
             "kind": kind,
             "reason": reason,
             "language": language,

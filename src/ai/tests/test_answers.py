@@ -19,7 +19,7 @@ from pydantic import ValidationError
 
 from normetry_ai.answers import (
     Answered,
-    AnswerEvent,
+    AnswerStreamItem,
     Citation,
     Claim,
     RefusalReason,
@@ -105,10 +105,10 @@ class FakeModel:
 
 def run(
     model: Any, chunks: list[RetrievedChunk] = CHUNKS, question: str = QUESTION
-) -> tuple[list[AnswerEvent], list[Usage]]:
+) -> tuple[list[AnswerStreamItem], list[Usage]]:
     recorded: list[Usage] = []
 
-    async def collect() -> list[AnswerEvent]:
+    async def collect() -> list[AnswerStreamItem]:
         events = answer(
             question, chunks, model=model, settings=SETTINGS, record_usage=recorded.append
         )
@@ -388,7 +388,7 @@ def test_citation_offsets_are_none_when_they_cannot_be_mapped_back() -> None:
 def test_a_caller_that_stops_early_closes_the_model_stream() -> None:
     model = FakeModel(COLD_CLAIM, COLD_CLAIM)
 
-    async def first_event() -> tuple[AnswerEvent, bool]:
+    async def first_event() -> tuple[AnswerStreamItem, bool]:
         events = answer(QUESTION, CHUNKS, model=model, settings=SETTINGS, record_usage=print)
         first = await anext(events)
         await events.aclose()  # what the SSE route does when the client goes away

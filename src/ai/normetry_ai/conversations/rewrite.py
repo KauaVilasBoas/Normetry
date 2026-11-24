@@ -10,7 +10,8 @@ open a new one: what a turn says stays data.
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from enum import StrEnum
+from typing import Protocol
 from xml.sax.saxutils import escape
 
 import anyio
@@ -18,7 +19,7 @@ import anyio
 from normetry_ai.answers.prompt import attribute
 from normetry_ai.llm.claude import ModelUnavailable
 from normetry_ai.llm.usage import Usage
-from normetry_ai.settings import ConversationSettings
+from normetry_ai.settings import ConversationSettings, FollowupRewrite
 
 SYSTEM_PROMPT = """\
 You turn the latest question of a conversation about food-safety regulation into one standalone \
@@ -40,11 +41,18 @@ do not answer it.
 quotation marks, draft or note."""
 
 
+class Role(StrEnum):
+    """Who a stored message is from: ai.messages.role, which a CHECK holds to these values."""
+
+    USER = "user"  # the question
+    ASSISTANT = "assistant"  # the answer
+
+
 @dataclass(frozen=True, slots=True)
 class Turn:
     """One stored message: a user's question, or the text of an answer's claims."""
 
-    role: Literal["user", "assistant"]
+    role: Role
     text: str
 
 
@@ -59,7 +67,7 @@ class TextModel(Protocol):
 
 def recent_turns(history: Sequence[Turn], turns: int) -> list[Turn]:
     """The last `turns` questions of the history, each with what came after it."""
-    starts = [index for index, turn in enumerate(history) if turn.role == "user"]
+    starts = [index for index, turn in enumerate(history) if turn.role == Role.USER]
     if turns == 0 or not starts:
         return []
     return list(history[starts[-min(turns, len(starts))] :])
@@ -67,7 +75,7 @@ def recent_turns(history: Sequence[Turn], turns: int) -> list[Turn]:
 
 def baseline_query(history: Sequence[Turn], question: str) -> str:
     """The free baseline: the earlier questions and the follow-up, one per line."""
-    return "\n".join([turn.text for turn in history if turn.role == "user"] + [question])
+    return "\n".join([turn.text for turn in history if turn.role == Role.USER] + [question])
 
 
 def user_message(history: Sequence[Turn], question: str) -> str:
@@ -99,7 +107,7 @@ async def standalone_question(
     if not history:
         return question
     baseline = baseline_query(history, question)
-    if settings.followup_rewrite == "baseline":
+    if settings.followup_rewrite == FollowupRewrite.BASELINE:
         return baseline
     try:
         # ponytail: a call cancelled before its response (the client went away) records no
