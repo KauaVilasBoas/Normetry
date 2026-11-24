@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -88,26 +89,13 @@ internal static partial class MessageJson
 
         Require(envelope.TenantId != Guid.Empty, "tenantId must not be the nil UUID");
         Require(envelope.Payload.ValueKind == JsonValueKind.Object, "payload must be an object");
-        object payload = (envelope.Type, envelope.Version) switch
+        if (!Readers.TryGetValue((envelope.Type, envelope.Version), out var read))
         {
-            ("DocumentUploaded", 1) => Check(Read<DocumentUploaded>(envelope.Payload)),
-            ("DocumentDeleted", 1) => Read<DocumentDeleted>(envelope.Payload),
-            ("DocumentIngestionStarted", 1) => Check(
-                Read<DocumentIngestionStarted>(envelope.Payload)
-            ),
-            ("DocumentIndexed", 1) => Check(Read<DocumentIndexed>(envelope.Payload)),
-            ("DocumentIngestionFailed", 1) => Check(
-                Read<DocumentIngestionFailed>(envelope.Payload)
-            ),
-            ("InspectionRequested", 1) => Check(Read<InspectionRequested>(envelope.Payload)),
-            ("InspectionStarted", 1) => Check(Read<InspectionStarted>(envelope.Payload)),
-            ("InspectionProgressed", 1) => Check(Read<InspectionProgressed>(envelope.Payload)),
-            ("InspectionCompleted", 1) => Check(Read<InspectionCompleted>(envelope.Payload)),
-            ("InspectionFailed", 1) => Check(Read<InspectionFailed>(envelope.Payload)),
-            _ => throw new MessageFormatException(
+            throw new MessageFormatException(
                 $"Unknown message {envelope.Type} v{envelope.Version}."
-            ),
-        };
+            );
+        }
+        var payload = read(envelope.Payload);
         return new InboundMessage(
             envelope.MessageId,
             envelope.Type,
@@ -117,6 +105,34 @@ internal static partial class MessageJson
             payload
         );
     }
+
+    /// <summary>
+    /// The reader of each message of the contract, keyed by the type and version the message
+    /// declares: it binds the payload, then checks the rules the schema adds to the binding.
+    /// </summary>
+    private static readonly FrozenDictionary<
+        (string Type, int Version),
+        Func<JsonElement, object>
+    > Readers = new[]
+    {
+        Reader<DocumentUploaded>(Check),
+        Reader<DocumentDeleted>(message => message),
+        Reader<DocumentIngestionStarted>(Check),
+        Reader<DocumentIndexed>(Check),
+        Reader<DocumentIngestionFailed>(Check),
+        Reader<InspectionRequested>(Check),
+        Reader<InspectionStarted>(Check),
+        Reader<InspectionProgressed>(Check),
+        Reader<InspectionCompleted>(Check),
+        Reader<InspectionFailed>(Check),
+    }.ToFrozenDictionary();
+
+    private static KeyValuePair<
+        (string Type, int Version),
+        Func<JsonElement, object>
+    > Reader<TMessage>(Func<TMessage, TMessage> check)
+        where TMessage : class, IIntegrationMessage =>
+        new((TMessage.Type, TMessage.Version), payload => check(Read<TMessage>(payload)));
 
     private static T Read<T>(JsonElement payload)
     {
