@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import type { RequestOptions } from "../api/client";
 import { reviewStatuses } from "../api/contract";
 import type { Finding } from "../api/inspections";
 import { copy } from "../copy";
+import { useFormDialog, type Submitted } from "../ui/dialogs";
+import { useFieldErrorFocus } from "../ui/focus";
 import {
   draftOf,
   editChanges,
@@ -33,6 +36,17 @@ export function useAccept(path: string, review: Review, announce: (text: string)
   return { accepting, error, accept };
 }
 
+/** A review sent from its dialog: a refusal shows there; saved, `message` is said once it closes. */
+async function sendReview(
+  review: Review,
+  path: string,
+  options: RequestOptions,
+  message: string,
+): Promise<Submitted<string>> {
+  const refusal = await review(path, options);
+  return refusal ? { error: reviewError(refusal) } : { saved: message };
+}
+
 /**
  * The Reject dialog's form: a reason, required, prefilled on opening with the current one when
  * the finding is already rejected. A missing reason moves focus to the field; a refusal shows in
@@ -44,67 +58,37 @@ export function useRejectForm(
   review: Review,
   announce: (text: string) => void,
 ) {
-  const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
-  // A new object per refusal, so the same error twice still moves focus to the field.
-  const [fieldError, setFieldError] = useState<{ text: string }>();
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-  const saved = useRef(false);
   const field = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (fieldError) field.current?.focus();
-  }, [fieldError]);
-
-  const openChange = (next: boolean) => {
-    setOpen(next);
-    if (!next) return;
-    setNote(finding.reviewStatus === reviewStatuses.rejected ? (finding.reviewNote ?? "") : "");
-    setFieldError(undefined);
-    setError(undefined);
-  };
+  const { fieldError, setFieldError } = useFieldErrorFocus(field);
+  const { submit: submitDialog, ...dialog } = useFormDialog<string>({
+    reset: () => {
+      setNote(finding.reviewStatus === reviewStatuses.rejected ? (finding.reviewNote ?? "") : "");
+      setFieldError();
+    },
+    onSaved: (message) => announce(message),
+  });
 
   const changeNote = (event: ChangeEvent<HTMLTextAreaElement>) => {
     setNote(event.target.value);
-    setFieldError(undefined);
+    setFieldError();
   };
 
-  const submit = async () => {
-    const trimmed = note.trim();
-    setError(undefined);
-    if (!trimmed) {
-      setFieldError({ text: copy.findings.reasonRequired });
-      return;
-    }
-    setSubmitting(true);
-    const refusal = await review(path, { method: "POST", json: { note: trimmed } });
-    setSubmitting(false);
-    if (refusal) {
-      setError(reviewError(refusal));
-      return;
-    }
-    saved.current = true;
-    setOpen(false);
-  };
+  const submit = () =>
+    submitDialog(() => {
+      const trimmed = note.trim();
+      if (trimmed)
+        return sendReview(
+          review,
+          path,
+          { method: "POST", json: { note: trimmed } },
+          copy.findings.rejected,
+        );
+      setFieldError(copy.findings.reasonRequired);
+      return undefined;
+    });
 
-  const afterClose = () => {
-    if (saved.current) announce(copy.findings.rejected);
-    saved.current = false;
-  };
-
-  return {
-    open,
-    openChange,
-    note,
-    changeNote,
-    field,
-    fieldError: fieldError?.text,
-    error,
-    submitting,
-    submit,
-    afterClose,
-  };
+  return { ...dialog, note, changeNote, field, fieldError, submit };
 }
 
 /**
@@ -118,17 +102,20 @@ export function useEditForm(
   review: Review,
   announce: (text: string) => void,
 ) {
-  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => draftOf(finding));
   const [errors, setErrors] = useState<EditErrors>({});
   const [focusRequest, setFocusRequest] = useState<{ field: keyof EditDraft }>();
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-  const saved = useRef(false);
   const rationaleField = useRef<HTMLTextAreaElement>(null);
   const actionTextField = useRef<HTMLTextAreaElement>(null);
   const dueOnField = useRef<HTMLInputElement>(null);
   const changes = editChanges(finding, draft);
+  const { submit: submitDialog, ...dialog } = useFormDialog<string>({
+    reset: () => {
+      setDraft(draftOf(finding));
+      setErrors({});
+    },
+    onSaved: (message) => announce(message),
+  });
 
   useEffect(() => {
     if (!focusRequest) return;
@@ -140,57 +127,31 @@ export function useEditForm(
     fields[focusRequest.field]?.focus();
   }, [focusRequest]);
 
-  const openChange = (next: boolean) => {
-    setOpen(next);
-    if (!next) return;
-    setDraft(draftOf(finding));
-    setErrors({});
-    setError(undefined);
-  };
-
   const change = (key: keyof EditDraft) => (event: { target: { value: string } }) => {
     setDraft({ ...draft, [key]: event.target.value });
     setErrors({ ...errors, [key]: undefined });
   };
 
-  const submit = async () => {
-    setError(undefined);
-    const found = editErrors(finding, draft);
-    const first = editFields.find((key) => found[key]);
-    if (first) {
+  const submit = () =>
+    submitDialog(() => {
+      const found = editErrors(finding, draft);
+      const first = editFields.find((key) => found[key]);
+      if (!first)
+        return sendReview(review, path, { method: "PATCH", json: changes }, copy.findings.edited);
       setErrors(found);
       setFocusRequest({ field: first });
-      return;
-    }
-    setSubmitting(true);
-    const refusal = await review(path, { method: "PATCH", json: changes });
-    setSubmitting(false);
-    if (refusal) {
-      setError(reviewError(refusal));
-      return;
-    }
-    saved.current = true;
-    setOpen(false);
-  };
-
-  const afterClose = () => {
-    if (saved.current) announce(copy.findings.edited);
-    saved.current = false;
-  };
+      return undefined;
+    });
 
   return {
-    open,
-    openChange,
+    ...dialog,
     draft,
     change,
     errors,
     rationaleField,
     actionTextField,
     dueOnField,
-    error,
-    submitting,
     ready: Object.keys(changes).length > 0,
     submit,
-    afterClose,
   };
 }

@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router";
 import { permissions, problemCodes } from "../api/contract";
 import {
@@ -24,10 +24,11 @@ import {
   type Me,
   type ProfileSummary,
 } from "../api/queries";
-import { refusalText, useSend } from "../api/send";
+import { refusalText, useSend, type Sent } from "../api/send";
 import { copy, format } from "../copy";
 import { paths } from "../routes";
-import { focusById } from "../ui/focus";
+import { useFormDialog, type Submitted } from "../ui/dialogs";
+import { focusById, useFieldErrorFocus } from "../ui/focus";
 import { sameSet, togglePermission } from "./profiles";
 
 export const EDITOR_TITLE_ID = "profile-title";
@@ -275,4 +276,63 @@ export function useProfileToggle({
   };
 
   return { error, stateOf, toggle, openChange };
+}
+
+/**
+ * NameDialog's form: the name starts at `initialName` on opening, and `onSubmit` gets it trimmed;
+ * the dialog closes when it succeeds. An empty or taken name shows on the field, which takes
+ * focus; any other refusal in the dialog. With `onClosedAfterSave` focus does not go back to the
+ * trigger after a save: the caller moves it.
+ */
+export function useNameForm({
+  initialName,
+  onSubmit,
+  onClosed,
+  onClosedAfterSave,
+}: {
+  initialName: string;
+  onSubmit: (name: string) => Promise<Sent>;
+  onClosed?: () => void;
+  onClosedAfterSave?: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const input = useRef<HTMLInputElement>(null);
+  const { fieldError, setFieldError } = useFieldErrorFocus(input);
+  const { submit: submitDialog, ...dialog } = useFormDialog<true>({
+    reset: () => {
+      setName(initialName);
+      setFieldError();
+    },
+    onClosed,
+    onSaved: (_saved, event) => {
+      if (!onClosedAfterSave) return;
+      event.preventDefault();
+      onClosedAfterSave();
+    },
+  });
+
+  const save = async (trimmed: string): Promise<Submitted<true>> => {
+    const result = await onSubmit(trimmed);
+    if (result.ok) return { saved: true };
+    if (result.code === problemCodes.nameTaken) {
+      setFieldError(format(copy.profiles.nameTaken, { name: trimmed }));
+      return undefined;
+    }
+    return { error: refusalText(result, copy.profiles.nameError) };
+  };
+
+  const submit = () =>
+    submitDialog(() => {
+      const trimmed = name.trim();
+      if (trimmed) return save(trimmed);
+      setFieldError(copy.profiles.nameRequired);
+      return undefined;
+    });
+
+  const changeName = (event: ChangeEvent<HTMLInputElement>) => {
+    setName(event.target.value);
+    setFieldError();
+  };
+
+  return { ...dialog, name, changeName, input, fieldError, submit };
 }
