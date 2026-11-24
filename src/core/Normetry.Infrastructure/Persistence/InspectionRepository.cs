@@ -19,7 +19,7 @@ internal sealed class InspectionRepository(CoreDbContext db, ITenantContext tena
         CancellationToken cancellationToken
     )
     {
-        await LockOfEstablishmentAsync(establishmentId, id, cancellationToken);
+        await db.LockOfEstablishmentAsync<Inspection>(establishmentId, id, cancellationToken);
         return await db.Inspections.FirstOrDefaultAsync(
             OfEstablishment(establishmentId, id),
             cancellationToken
@@ -32,7 +32,7 @@ internal sealed class InspectionRepository(CoreDbContext db, ITenantContext tena
         CancellationToken cancellationToken
     )
     {
-        await LockOfEstablishmentAsync(establishmentId, id, cancellationToken);
+        await db.LockOfEstablishmentAsync<Inspection>(establishmentId, id, cancellationToken);
         return await db
             .Inspections.Include(inspection => inspection.Findings)
                 .ThenInclude(finding => finding.ActionItem)
@@ -57,17 +57,6 @@ internal sealed class InspectionRepository(CoreDbContext db, ITenantContext tena
         Guid establishmentId,
         Guid id
     ) => inspection => inspection.Id == id && inspection.EstablishmentId == establishmentId;
-
-    /// <summary>Locks the inspection's row until the transaction ends, when it is the establishment's.</summary>
-    private Task LockOfEstablishmentAsync(
-        Guid establishmentId,
-        Guid id,
-        CancellationToken cancellationToken
-    ) =>
-        db.Database.ExecuteSqlAsync(
-            $"SELECT FROM core.inspections WHERE id = {id} AND establishment_id = {establishmentId} FOR UPDATE",
-            cancellationToken
-        );
 
     public async Task<IReadOnlyList<InspectionSummary>> ListAsync(
         Guid establishmentId,

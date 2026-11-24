@@ -14,14 +14,8 @@ internal sealed class EstablishmentRepository(CoreDbContext db) : IEstablishment
             .Establishments.AsNoTracking()
             .FirstOrDefaultAsync(establishment => establishment.Id == id, cancellationToken);
 
-    public async Task<bool> LockAsync(Guid id, CancellationToken cancellationToken) =>
-        (
-            await db
-                .Database.SqlQuery<Guid>(
-                    $"SELECT id AS \"Value\" FROM core.establishments WHERE id = {id} FOR UPDATE"
-                )
-                .ToListAsync(cancellationToken)
-        ).Count == 1;
+    public Task<bool> LockAsync(Guid id, CancellationToken cancellationToken) =>
+        db.LockByIdAsync<Establishment>(id, cancellationToken);
 
     public async Task<IReadOnlyList<Establishment>> ListAsync(
         CancellationToken cancellationToken
