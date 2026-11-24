@@ -1,5 +1,6 @@
 import { Check, ChevronDown, CircleAlert, FileText, Minus, Upload } from "lucide-react";
-import { useId, useRef, useState, type ComponentProps, type DragEvent, type Ref } from "react";
+import { useId, useRef, type ComponentProps, type Ref } from "react";
+import { useFileDrop } from "./drop";
 
 /**
  * Native checkbox in a 44px label row; the description is its accessible description, followed
@@ -254,8 +255,6 @@ export function SelectField({
   );
 }
 
-const draggingFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
-
 /**
  * A file picker (DESIGN.md Drop zone): a native button, so Enter or Space opens the system
  * picker, that also takes a dropped file (a pointer shortcut). `onFiles` gets every file chosen
@@ -288,14 +287,8 @@ export function DropZone({
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const { dragging, dropHandlers } = useFileDrop(onFiles);
   const describedBy = [!file && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
-
-  const over = (event: DragEvent) => {
-    if (!draggingFiles(event)) return;
-    event.preventDefault();
-    setDragging(true);
-  };
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -305,17 +298,7 @@ export function DropZone({
         aria-labelledby={`${id}-label`}
         aria-describedby={describedBy || undefined}
         onClick={() => input.current?.click()}
-        onDragEnter={over}
-        onDragOver={over}
-        onDragLeave={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-        }}
-        onDrop={(event) => {
-          if (!draggingFiles(event)) return;
-          event.preventDefault();
-          setDragging(false);
-          onFiles([...event.dataTransfer.files]);
-        }}
+        {...dropHandlers}
         className={`flex min-h-32 w-full flex-col items-center justify-center gap-1 rounded-control border p-4 text-center ${
           dragging
             ? "border-solid border-mint bg-teal-deep"
