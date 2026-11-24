@@ -14,6 +14,6 @@ internal sealed class GetCurrentUserPermissionsHandler(
         CancellationToken cancellationToken
     ) =>
         Result<IReadOnlyList<string>>.Success(
-            await users.GetPermissionsAsync(currentUser.UserId, cancellationToken)
+            await users.GetPermissionsAsync(currentUser.Sub, cancellationToken)
         );
 }

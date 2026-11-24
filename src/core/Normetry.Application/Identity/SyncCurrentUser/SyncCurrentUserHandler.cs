@@ -13,7 +13,7 @@ internal sealed class SyncCurrentUserHandler(IUserRepository users, ICurrentUser
     )
     {
         await users.SyncAsync(
-            currentUser.UserId,
+            currentUser.Sub,
             currentUser.DisplayName,
             currentUser.Email,
             cancellationToken

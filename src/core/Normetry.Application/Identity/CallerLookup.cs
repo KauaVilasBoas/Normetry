@@ -11,6 +11,6 @@ internal static class CallerLookup
         ICurrentUser currentUser,
         CancellationToken cancellationToken
     ) =>
-        await users.FindIdAsync(currentUser.UserId, cancellationToken)
+        await users.FindIdAsync(currentUser.Sub, cancellationToken)
         ?? throw new InvalidOperationException("The caller has no user row.");
 }
