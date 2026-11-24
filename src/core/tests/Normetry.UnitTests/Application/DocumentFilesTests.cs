@@ -7,6 +7,11 @@ namespace Normetry.UnitTests.Application;
 
 public sealed class DocumentFilesTests
 {
+    private const string Emoji = "\U0001F600";
+
+    /// <summary>The characters left before a ".txt" extension.</summary>
+    private const int StemMaxLength = DocumentVersion.FileNameMaxLength - 4;
+
     private static readonly byte[] Text = Encoding.UTF8.GetBytes("Cold storage log");
 
     [Fact]
@@ -20,19 +25,30 @@ public sealed class DocumentFilesTests
     }
 
     [Fact]
+    public void A_name_at_the_limit_in_astral_characters_is_kept_whole()
+    {
+        // 255 characters, but 506 UTF-16 units: each emoji is a surrogate pair.
+        var fileName = string.Concat(Enumerable.Repeat(Emoji, StemMaxLength)) + ".txt";
+
+        var name = DocumentFiles
+            .Inspect(new UploadedFile(fileName, "text/plain", Text))
+            .Value.FileName;
+
+        Assert.Equal(fileName, name);
+    }
+
+    [Fact]
     public void A_long_name_is_cut_to_the_limit_between_characters_and_keeps_its_extension()
     {
-        // Each emoji is two chars, so the 251 chars left before ".txt" would end inside one.
         var file = new UploadedFile(
-            string.Concat(Enumerable.Repeat("\U0001F600", 130)) + ".txt",
+            string.Concat(Enumerable.Repeat(Emoji, 300)) + ".txt",
             "text/plain",
             Text
         );
 
         var name = DocumentFiles.Inspect(file).Value.FileName;
 
-        Assert.True(name.Length <= DocumentVersion.FileNameMaxLength);
-        Assert.EndsWith(".txt", name);
-        Assert.False(char.IsHighSurrogate(name[^5]));
+        // Whole emoji only: a cut inside a surrogate pair would not equal this.
+        Assert.Equal(string.Concat(Enumerable.Repeat(Emoji, StemMaxLength)) + ".txt", name);
     }
 }
