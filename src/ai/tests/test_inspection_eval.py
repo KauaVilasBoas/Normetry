@@ -263,5 +263,5 @@ def test_inspection_eval(app_ai: Engine, corpus: Engine) -> None:
 
     m = metrics(runs)
     # Invariants, not quality targets: retrieval keeps to the establishment, the guard to the text.
-    assert m["foreign evidence"] == 0, f"evidence from another establishment: see {stem}.md"
-    assert m["unverified quotes"] == 0, f"a shown quote is not in its passage: see {stem}.md"
+    assert m.foreign_evidence == 0, f"evidence from another establishment: see {stem}.md"
+    assert m.unverified_quotes == 0, f"a shown quote is not in its passage: see {stem}.md"
