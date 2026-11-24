@@ -8,8 +8,7 @@ namespace Normetry.Application.Documents.UploadDocumentVersion;
 internal sealed class UploadDocumentVersionHandler(
     IDocumentRepository documents,
     IUserRepository users,
-    IDocumentBlobStore blobs,
-    IOutbox outbox,
+    DocumentUploadService uploads,
     ICurrentUser currentUser,
     DocumentsOptions options,
     TimeProvider clock
@@ -47,14 +46,7 @@ internal sealed class UploadDocumentVersionHandler(
             await users.CallerIdAsync(currentUser, cancellationToken),
             clock.GetUtcNow()
         );
-        await DocumentUploads.StoreAsync(
-            blobs,
-            outbox,
-            document,
-            version,
-            request.File!.Content,
-            cancellationToken
-        );
-        return await DocumentUploads.ResponseAsync(users, document, cancellationToken);
+        await uploads.StoreAsync(document, version, request.File!.Content, cancellationToken);
+        return await DocumentResponse.LoadAsync(users, document, cancellationToken);
     }
 }
