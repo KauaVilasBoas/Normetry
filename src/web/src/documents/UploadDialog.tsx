@@ -1,15 +1,7 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Dialog } from "radix-ui";
-import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
+import type { DragEvent, RefObject } from "react";
 import type { RequestOptions } from "../api/client";
-import { problemCodes } from "../api/contract";
-import {
-  documentKey,
-  documentsKey,
-  documentsPath,
-  documentVersionsPath,
-  type DocumentDetail,
-} from "../api/documents";
+import type { DocumentDetail } from "../api/documents";
 import type { Establishment } from "../api/queries";
 import { useSend, type Sent } from "../api/send";
 import { copy, fileSize, format } from "../copy";
@@ -21,15 +13,8 @@ import {
   TextField,
   uploadDialogPanel,
 } from "../ui/primitives";
-import {
-  ACCEPT,
-  expiryProblem,
-  fileProblem,
-  TITLE_MAX_LENGTH,
-  titleFromFile,
-  uploadRefusal,
-  withContentType,
-} from "./documents";
+import { ACCEPT, TITLE_MAX_LENGTH } from "./documents";
+import { useUploadForm } from "./upload";
 
 // A file dropped beside the drop zone would make the browser open it, leaving the app (and its
 // in-memory session). Inside the dialog it does nothing, and it never reaches the list card.
@@ -112,10 +97,7 @@ export function UploadDialog({
   );
 }
 
-type Field = "file" | "title" | "type" | "expiresOn";
-
-const fieldOrder = ["file", "title", "type", "expiresOn"] as const;
-
+/** The form inside the dialog (`useUploadForm`): the drop zone, then the new document's fields. */
 function UploadForm({
   files,
   establishment,
@@ -129,111 +111,25 @@ function UploadForm({
   send: (path: string, options: RequestOptions) => Promise<Sent>;
   onUploaded: (document: DocumentDetail) => void;
 }) {
-  const queryClient = useQueryClient();
-  // Files dropped on the list card count as chosen.
-  const dropped = files.length > 0 ? fileProblem(files) : undefined;
-  const [file, setFile] = useState(files.length > 0 && !dropped ? files[0] : undefined);
-  const [title, setTitle] = useState(file ? titleFromFile(file.name) : "");
-  const [typed, setTyped] = useState(false);
-  const [type, setType] = useState("");
-  const [expiresOn, setExpiresOn] = useState("");
-  const [errors, setErrors] = useState<Partial<Record<Field, string>>>(
-    dropped ? { file: dropped } : {},
-  );
-  const [error, setError] = useState<string>();
-  const [chosen, setChosen] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  // A new object per request, so the same field twice still takes focus.
-  const [focusRequest, setFocusRequest] = useState<{ field: Field }>();
-  const zone = useRef<HTMLButtonElement>(null);
-  const titleInput = useRef<HTMLInputElement>(null);
-  const typeSelect = useRef<HTMLSelectElement>(null);
-  const expiryInput = useRef<HTMLInputElement>(null);
-  const upload = useRef<AbortController>(null);
-
-  // Focus moves once the error is rendered, so the error is read as the field's description.
-  useEffect(() => {
-    if (!focusRequest) return;
-    const fields = { file: zone, title: titleInput, type: typeSelect, expiresOn: expiryInput };
-    fields[focusRequest.field].current?.focus();
-  }, [focusRequest]);
-
-  // Closing the dialog aborts a running upload; the server may have accepted it already.
-  useEffect(
-    () => () => {
-      if (!upload.current) return;
-      upload.current.abort();
-      void queryClient.invalidateQueries({ queryKey: documentsKey(establishment.id) });
-    },
-    [queryClient, establishment.id],
-  );
-
-  const choose = (next: File[]) => {
-    const problem = fileProblem(next);
-    setError(undefined);
-    if (problem) {
-      setFile(undefined);
-      setErrors((current) => ({ ...current, file: problem }));
-      setChosen("");
-      return;
-    }
-    const [picked] = next;
-    setFile(picked);
-    setErrors((current) => ({ ...current, file: undefined }));
-    if (!typed) setTitle(titleFromFile(picked.name));
-    setChosen(format(copy.upload.chosen, { file: picked.name }));
-  };
-
-  const submit = async () => {
-    if (submitting) return;
-    setError(undefined);
-    const found: Partial<Record<Field, string>> = {
-      file: file ? undefined : (errors.file ?? copy.upload.fileRequired),
-      title: existing || title.trim() ? undefined : copy.upload.titleRequired,
-      type: existing || type ? undefined : copy.upload.typeRequired,
-      expiresOn: existing ? undefined : expiryProblem(expiryInput.current),
-    };
-    setErrors(found);
-    const first = fieldOrder.find((field) => found[field]);
-    if (first || !file) {
-      setFocusRequest({ field: first ?? "file" });
-      return;
-    }
-
-    const form = new FormData();
-    form.append("file", withContentType(file));
-    if (!existing) {
-      form.append("title", title.trim());
-      form.append("type", type);
-      if (expiresOn) form.append("expiresOn", expiresOn);
-    }
-    const controller = new AbortController();
-    upload.current = controller;
-    setSubmitting(true);
-    const result = await send(
-      existing ? documentVersionsPath(existing.id) : documentsPath(establishment.id),
-      { method: "POST", form, signal: controller.signal },
-    );
-    if (controller.signal.aborted) return;
-    upload.current = null;
-    setSubmitting(false);
-    if (result.ok) {
-      onUploaded((await result.response.json()) as DocumentDetail);
-      return;
-    }
-    const refusal = uploadRefusal(result, file.name);
-    // The only field the client can't fully check is the date (the server reads it strictly).
-    if (result.code === problemCodes.validation && expiresOn) {
-      setErrors({ expiresOn: copy.upload.expiryInvalid });
-      setFocusRequest({ field: "expiresOn" });
-    } else if (refusal.file) {
-      setFile(undefined);
-      setErrors({ file: refusal.file });
-      setFocusRequest({ field: "file" });
-    } else setError(refusal.form);
-    if (result.code === problemCodes.versionInFlight && existing)
-      void queryClient.invalidateQueries({ queryKey: documentKey(existing.id) });
-  };
+  const {
+    file,
+    title,
+    type,
+    expiresOn,
+    errors,
+    error,
+    chosen,
+    submitting,
+    zone,
+    titleInput,
+    typeSelect,
+    expiryInput,
+    choose,
+    changeTitle,
+    changeType,
+    changeExpiresOn,
+    submit,
+  } = useUploadForm({ files, establishment, existing, send, onUploaded });
 
   const current = existing?.currentVersionNumber ?? null;
   return (
@@ -248,14 +144,7 @@ function UploadForm({
             ? format(copy.upload.versionDescription, { title: existing.title, c: String(current) })
             : format(copy.upload.versionDescriptionNoCurrent, { title: existing.title })}
       </Dialog.Description>
-      <form
-        noValidate
-        className="mt-4 flex flex-col gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-      >
+      <form noValidate className="mt-4 flex flex-col gap-4" onSubmit={submit}>
         <DropZone
           ref={zone}
           file={file}
@@ -277,11 +166,7 @@ function UploadForm({
               value={title}
               maxLength={TITLE_MAX_LENGTH}
               autoComplete="off"
-              onChange={(event) => {
-                setTitle(event.target.value);
-                setTyped(true);
-                setErrors((current) => ({ ...current, title: undefined }));
-              }}
+              onChange={changeTitle}
             />
             <SelectField
               ref={typeSelect}
@@ -290,10 +175,7 @@ function UploadForm({
               options={typeOptions}
               error={errors.type}
               value={type}
-              onChange={(event) => {
-                setType(event.target.value);
-                setErrors((current) => ({ ...current, type: undefined }));
-              }}
+              onChange={changeType}
             />
             <TextField
               ref={expiryInput}
@@ -303,10 +185,7 @@ function UploadForm({
               hint={copy.upload.expiryHint}
               error={errors.expiresOn}
               value={expiresOn}
-              onChange={(event) => {
-                setExpiresOn(event.target.value);
-                setErrors((current) => ({ ...current, expiresOn: undefined }));
-              }}
+              onChange={changeExpiresOn}
             />
           </>
         )}
