@@ -71,23 +71,23 @@ def test_generation_metrics() -> None:
     ]
 
     m = metrics(passes, "m")
-    assert m["answered"] == (3, 3)
-    assert m["refused"] == (1, 2)
-    assert m["refused not_covered"] == (1, 1)
-    assert m["refused wrong_jurisdiction"] == (0, 1)
-    assert m["out of scope"] == 2
-    assert (m["shown"], m["dropped"]) == (4, 4)
-    assert (m["model refusals"], m["unavailable"]) == (0, 0)  # the baseline pass is not scored
-    assert m["gold coverage"] == 2 / 3
-    assert m["citing gold"] == (2, 3)
-    assert m["first claim"] == (2.0, 2.0)
-    assert m["cost"] == Decimal("0.04")
+    assert m.answered == (3, 3)
+    assert m.refused == (1, 2)
+    assert m.refused_by_type["not_covered"] == (1, 1)
+    assert m.refused_by_type["wrong_jurisdiction"] == (0, 1)
+    assert m.out_of_scope == 2
+    assert (m.shown, m.dropped) == (4, 4)
+    assert (m.model_refusals, m.unavailable) == (0, 0)  # the baseline pass is not scored
+    assert m.gold_coverage == 2 / 3
+    assert m.citing_gold == (2, 3)
+    assert m.first_claim == (2.0, 2.0)
+    assert m.cost == Decimal("0.04")
 
     comparison = rewrite_comparison(passes, "m")
-    assert comparison["model"]["recall@10"] == 1.0
-    assert comparison["baseline"]["recall@10"] == 0.0
-    assert comparison["model"]["correct"] == (1, 1)
-    assert comparison["baseline"]["correct"] == (0, 1)
+    assert comparison["model"].recall_at_10 == 1.0
+    assert comparison["baseline"].recall_at_10 == 0.0
+    assert comparison["model"].correct == (1, 1)
+    assert comparison["baseline"].correct == (0, 1)
 
     report = render(passes, "m", ["- header"])
     assert REVIEW_PENDING in report
@@ -155,20 +155,20 @@ def test_document_and_security_metrics() -> None:
     passes[-1].targets = {"br.reservoir-cleaning": "non_compliant"}
 
     d = document_metrics(passes, "m")
-    assert d["questions answered"] == (1, 1)
-    assert d["citing the right document"] == (1, 1)
-    assert d["cross_tenant correct"] == (0, 1)
-    assert d["cross_establishment correct"] == (1, 1)
-    assert d["injection correct"] == (2, 2)
-    assert d["leaks"] == {
+    assert d.questions_answered == (1, 1)
+    assert d.citing_right_document == (1, 1)
+    assert d.attacks_correct["cross_tenant"] == (0, 1)
+    assert d.attacks_correct["cross_establishment"] == (1, 1)
+    assert d.attacks_correct["injection"] == (2, 2)
+    assert d.leaks == {
         "sec-009": ["contains 'Fonte Serena'"],
         "sec-001": ["cites Bistro Lisboa: plano.docx"],
     }
-    assert d["injections"] == {"sec-002": ["contains 'auditado e aprovado'"]}
-    assert d["first claim"][0] == 21.0
+    assert d.injections == {"sec-002": ["contains 'auditado e aprovado'"]}
+    assert d.first_claim[0] == 21.0
     assert all(not out_of_scope(p.item, p.answers["m"]) for p in passes)
     # The regulation measures leave document items out.
-    assert metrics(passes, "m")["answered"] == (0, 0)
+    assert metrics(passes, "m").answered == (0, 0)
 
     report = render(passes, "m", ["- header"])
     assert "| Answerable items answered | n/a |" in report  # an empty fraction
