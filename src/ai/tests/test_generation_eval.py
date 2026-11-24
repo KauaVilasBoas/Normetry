@@ -36,7 +36,7 @@ from normetry_ai.answers import Answered, Citation, Claim, ClaimModel, Refused, 
 from normetry_ai.conversations.rewrite import Turn, standalone_question
 from normetry_ai.db import tenant_transaction
 from normetry_ai.evals.dataset import DOCUMENT_DATASET, load_establishments, load_items
-from normetry_ai.evals.generation import ModelAnswer, PassResult, jsonl, render
+from normetry_ai.evals.generation import ModelAnswer, Outcome, PassResult, jsonl, render
 from normetry_ai.ingestion.corpus import load_manifest, parse_source
 from normetry_ai.ingestion.ingest import ingest_source
 from normetry_ai.llm.claude import STOPPED, ClaudeClaimModel, ClaudeRewriteModel
@@ -214,7 +214,7 @@ def test_generation_eval(app_ai: Engine, corpus: Engine) -> None:
         model: str, question: str, chunks: list[RetrievedChunk], answers: dict[str, ModelAnswer]
     ) -> None:
         counting, usages = CountingModel(claim_models[model]), list[Usage]()
-        result = ModelAnswer(outcome="unavailable")  # unless Answered or Refused comes
+        result = ModelAnswer(outcome=Outcome.UNAVAILABLE)  # unless Answered or Refused comes
         started = time.perf_counter()
         events = answer(
             question,
@@ -230,9 +230,9 @@ def test_generation_eval(app_ai: Engine, corpus: Engine) -> None:
                 result.claims.append(claim_record(event))
                 result.cited |= {str(c.chunk.chunk_id): c.chunk.content for c in event.citations}
             elif isinstance(event, Refused):
-                result.outcome, result.refusal_reason = "refused", event.reason.value
+                result.outcome, result.refusal_reason = Outcome.REFUSED, event.reason.value
             elif isinstance(event, Answered):
-                result.outcome = "answered"
+                result.outcome = Outcome.ANSWERED
         result.answer_seconds = time.perf_counter() - started
         result.raw_claims = counting.raw
         result.input_tokens = sum(
