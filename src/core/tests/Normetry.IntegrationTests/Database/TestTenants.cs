@@ -1,11 +1,16 @@
+using Normetry.Domain.Establishments;
+
 namespace Normetry.IntegrationTests.Database;
 
 /// <summary>
-/// Tenants and users a test makes for itself, written in SQL as app_core under RLS. Profiles get
-/// exactly the permissions given: no implied reads, unlike the API.
+/// Tenants, users, establishments and documents a test makes for itself, written in SQL as
+/// app_core under RLS. Profiles get exactly the permissions given: no implied reads, unlike the API.
 /// </summary>
 public static class TestTenants
 {
+    /// <summary>A tenant, its Owner and one establishment (US).</summary>
+    public sealed record Target(Guid Tenant, Guid Establishment, string Owner);
+
     /// <summary>
     /// A new tenant with its three system profiles, Owner held by one user per
     /// <paramref name="owners"/> sub.
@@ -78,20 +83,83 @@ public static class TestTenants
     }
 
     /// <summary>A new establishment of <paramref name="tenant"/>. Returns its id.</summary>
-    public static async Task<Guid> CreateEstablishmentAsync(DatabaseFixture db, Guid tenant)
+    public static async Task<Guid> CreateEstablishmentAsync(
+        DatabaseFixture db,
+        Guid tenant,
+        Jurisdiction jurisdiction = Jurisdiction.US
+    )
     {
         var establishment = Guid.CreateVersion7();
         await using var session = await Session.BeginAsync(db.ConnectionString("app_core"), tenant);
         await session.ExecuteAsync(
             """
             INSERT INTO core.establishments (id, tenant_id, name, type, jurisdiction)
-            VALUES ($1, $2, 'Kitchen', 'Restaurant', 'US')
+            VALUES ($1, $2, 'Kitchen', 'Restaurant', $3)
             """,
             establishment,
-            tenant
+            tenant,
+            jurisdiction.ToString()
         );
         await session.CommitAsync();
         return establishment;
+    }
+
+    /// <summary>
+    /// A new tenant with its Owner and a US establishment, with one indexed document unless told
+    /// otherwise. That document's id is the establishment's, so an inspection's completion can cite
+    /// it as the establishment's evidence.
+    /// </summary>
+    public static async Task<Target> NewTargetAsync(DatabaseFixture db, bool indexed = true)
+    {
+        var owner = Guid.NewGuid().ToString();
+        var tenant = await CreateAsync(db, null, owner);
+        var target = new Target(tenant, await CreateEstablishmentAsync(db, tenant), owner);
+        if (indexed)
+        {
+            await AddDocumentAsync(db, target, "Indexed", id: target.Establishment);
+        }
+        return target;
+    }
+
+    /// <summary>A document of the establishment whose one version has <paramref name="status"/>. Returns its id.</summary>
+    public static async Task<Guid> AddDocumentAsync(
+        DatabaseFixture db,
+        Target target,
+        string status,
+        bool deleted = false,
+        Guid? id = null
+    )
+    {
+        var document = id ?? Guid.CreateVersion7();
+        await using var session = await Session.BeginAsync(
+            db.ConnectionString("app_core"),
+            target.Tenant
+        );
+        await session.ExecuteAsync(
+            """
+            INSERT INTO core.documents (id, tenant_id, establishment_id, title, type, created_at, deleted_at)
+            VALUES ($1, $2, $3, 'SOP', 'Sop', now(), CASE WHEN $4 THEN now() END)
+            """,
+            document,
+            target.Tenant,
+            target.Establishment,
+            deleted
+        );
+        await session.ExecuteAsync(
+            """
+            INSERT INTO core.document_versions (id, tenant_id, document_id, number, file_name,
+                content_type, size, sha256, blob_path, uploaded_by, uploaded_at, status, status_changed_at)
+            SELECT $1, $2, $3, 1, 'sop.pdf', 'application/pdf', 1, '00', 'path', id, now(), $4, now()
+            FROM core.users WHERE sub = $5
+            """,
+            Guid.CreateVersion7(),
+            target.Tenant,
+            document,
+            status,
+            target.Owner
+        );
+        await session.CommitAsync();
+        return document;
     }
 
     private static async Task AssignAsync(Session session, Guid tenant, string sub, Guid profile)

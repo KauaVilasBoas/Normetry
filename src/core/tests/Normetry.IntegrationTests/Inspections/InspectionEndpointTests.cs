@@ -14,6 +14,7 @@ using Normetry.Infrastructure.Messaging;
 using Normetry.IntegrationTests.Database;
 using Normetry.IntegrationTests.Documents;
 using Xunit;
+using static Normetry.IntegrationTests.Database.TestTenants;
 
 namespace Normetry.IntegrationTests.Inspections;
 
@@ -33,9 +34,6 @@ public sealed class InspectionEndpointTests
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-
-    /// <summary>A tenant, its Owner and one establishment (US).</summary>
-    internal sealed record Target(Guid Tenant, Guid Establishment, string Owner);
 
     [Fact]
     public async Task A_start_is_accepted_announced_counted_and_listed_as_requested()
@@ -495,67 +493,6 @@ public sealed class InspectionEndpointTests
         );
     }
 
-    /// <summary>
-    /// A new tenant with its Owner and a US establishment, with one indexed document unless told
-    /// otherwise. That document's id is the establishment's, so <see cref="Completed"/> can cite it.
-    /// </summary>
-    internal static async Task<Target> NewTargetAsync(DatabaseFixture db, bool indexed = true)
-    {
-        var owner = Guid.NewGuid().ToString();
-        var tenant = await TestTenants.CreateAsync(db, null, owner);
-        var target = new Target(
-            tenant,
-            await TestTenants.CreateEstablishmentAsync(db, tenant),
-            owner
-        );
-        if (indexed)
-        {
-            await AddDocumentAsync(db, target, "Indexed", id: target.Establishment);
-        }
-        return target;
-    }
-
-    /// <summary>A document of the establishment whose one version has <paramref name="status"/>. Returns its id.</summary>
-    internal static async Task<Guid> AddDocumentAsync(
-        DatabaseFixture db,
-        Target target,
-        string status,
-        bool deleted = false,
-        Guid? id = null
-    )
-    {
-        var document = id ?? Guid.CreateVersion7();
-        await using var session = await Session.BeginAsync(
-            db.ConnectionString("app_core"),
-            target.Tenant
-        );
-        await session.ExecuteAsync(
-            """
-            INSERT INTO core.documents (id, tenant_id, establishment_id, title, type, created_at, deleted_at)
-            VALUES ($1, $2, $3, 'SOP', 'Sop', now(), CASE WHEN $4 THEN now() END)
-            """,
-            document,
-            target.Tenant,
-            target.Establishment,
-            deleted
-        );
-        await session.ExecuteAsync(
-            """
-            INSERT INTO core.document_versions (id, tenant_id, document_id, number, file_name,
-                content_type, size, sha256, blob_path, uploaded_by, uploaded_at, status, status_changed_at)
-            SELECT $1, $2, $3, 1, 'sop.pdf', 'application/pdf', 1, '00', 'path', id, now(), $4, now()
-            FROM core.users WHERE sub = $5
-            """,
-            Guid.CreateVersion7(),
-            target.Tenant,
-            document,
-            status,
-            target.Owner
-        );
-        await session.CommitAsync();
-        return document;
-    }
-
     internal static HttpClient Client(WebApplicationFactory<Program> api, Target target) =>
         api.CreateClient(ApiFactory.CreateToken(target.Tenant.ToString(), target.Owner));
 
@@ -591,7 +528,7 @@ public sealed class InspectionEndpointTests
 
     /// <summary>
     /// Three findings, one per verdict; the non-compliant one has an action due in 7 days. Each
-    /// cites the indexed document <see cref="NewTargetAsync"/> made (its id is the establishment's).
+    /// cites the indexed document <see cref="TestTenants.NewTargetAsync"/> made (its id is the establishment's).
     /// </summary>
     internal static InspectionCompleted Completed(Guid establishment, Guid inspection)
     {
