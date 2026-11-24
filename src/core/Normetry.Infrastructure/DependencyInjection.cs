@@ -70,6 +70,13 @@ public static class DependencyInjection
         services.AddSingleton<OutboxSignal>();
         services.AddSingleton<RabbitMqConnection>();
         services.AddSingleton<RabbitMqPublisher>();
+        // The tenants the dispatcher and the sweeper visit, as core_dispatcher: its connection
+        // string is read once, when the first of them starts.
+        services.AddSingleton(provider => new OutboxTenantList(
+            CoreDatabase.GetDispatcherConnectionString(
+                provider.GetRequiredService<IConfiguration>()
+            )
+        ));
         services.AddHostedService<OutboxDispatcher>();
         services.AddScoped<IInbox, Inbox>();
         services.AddSingleton<DocumentStatusMessages>();
