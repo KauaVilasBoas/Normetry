@@ -43,7 +43,7 @@ public sealed class ProfilesController(IDispatcher dispatcher) : ControllerBase
     {
         var result = await dispatcher.SendAsync(command, cancellationToken);
         return result.IsSuccess
-            ? Created($"/profiles/{result.Value}", new { id = result.Value })
+            ? Created(Url.Action(nameof(Get), new { id = result.Value }), new { id = result.Value })
             : result.ToActionResult();
     }
 

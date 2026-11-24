@@ -65,9 +65,7 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
             ),
             cancellationToken
         );
-        return result.IsSuccess
-            ? Accepted($"/documents/{result.Value.Id}", result.Value)
-            : result.ToActionResult();
+        return result.IsSuccess ? AcceptedAtDocument(result.Value) : result.ToActionResult();
     }
 
     /// <summary>The next version of a document (form field <c>file</c>). 409 while one is in flight.</summary>
@@ -89,9 +87,7 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
             ),
             cancellationToken
         );
-        return result.IsSuccess
-            ? Accepted($"/documents/{result.Value.Id}", result.Value)
-            : result.ToActionResult();
+        return result.IsSuccess ? AcceptedAtDocument(result.Value) : result.ToActionResult();
     }
 
     /// <summary>
@@ -153,6 +149,10 @@ public sealed class DocumentsController(IDispatcher dispatcher) : ControllerBase
         );
         return result.IsSuccess ? NoContent() : result.ToActionResult();
     }
+
+    // An upload answers 202 with the document's address, as GET serves it.
+    private AcceptedResult AcceptedAtDocument(DocumentResponse document) =>
+        Accepted(Url.Action(nameof(Get), new { documentId = document.Id }), document);
 
     // Enums travel by name, as in JSON; a number or an unknown name is 0, which validation refuses.
     private static DocumentType TypeByName(string? name) =>

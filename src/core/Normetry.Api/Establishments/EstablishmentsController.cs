@@ -22,7 +22,7 @@ public sealed class EstablishmentsController(IDispatcher dispatcher) : Controlle
     {
         var result = await dispatcher.SendAsync(command, cancellationToken);
         return result.IsSuccess
-            ? Created($"/establishments/{result.Value}", new { id = result.Value })
+            ? Created(Url.Action(nameof(Get), new { id = result.Value }), new { id = result.Value })
             : result.ToActionResult();
     }
 
