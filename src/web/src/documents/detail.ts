@@ -9,7 +9,7 @@ import {
   type DocumentDetail,
   type DocumentSummary,
 } from "../api/documents";
-import { queryNotFound, useQueryRetry } from "../api/queries";
+import { queryFailed, queryNotFound, useQueryRetry } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy } from "../copy";
 import { cachedTitle, expiryProblem, inFlight } from "./documents";
@@ -33,8 +33,8 @@ export function useDocumentDetail({
   const queryClient = useQueryClient();
   const query = useDocument(id, true);
   const notFound = queryNotFound(query);
-  const load = useQueryRetry(query, DETAIL_TITLE_ID);
-  const failed = load.failed && !notFound;
+  const failed = queryFailed(query) && !notFound;
+  const load = useQueryRetry(query, DETAIL_TITLE_ID, failed);
   const detail = query.data;
 
   const deleted = (title: string) => {
