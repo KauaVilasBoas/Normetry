@@ -11,12 +11,9 @@ namespace Normetry.Infrastructure.Messaging;
 /// nothing else; <c>app_core</c> cannot read them. Every row of tenant data is read afterwards as
 /// <c>app_core</c>, in that tenant's own transaction, under RLS.
 /// </summary>
-internal static class OutboxTenantList
+internal sealed class OutboxTenantList(string connectionString)
 {
-    public static async Task<List<Guid>> ListAsync(
-        string connectionString,
-        CancellationToken cancellationToken
-    )
+    public async Task<List<Guid>> ListAsync(CancellationToken cancellationToken)
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -37,15 +34,14 @@ internal static class OutboxTenantList
     /// Runs <paramref name="work"/> for every listed tenant in turn. One tenant's failure is logged
     /// and does not hold back the tenants after it.
     /// </summary>
-    public static async Task ForEachAsync(
-        string connectionString,
+    public async Task ForEachAsync(
         ILogger logger,
         string workName,
         Func<Guid, Task> work,
         CancellationToken cancellationToken
     )
     {
-        foreach (var tenantId in await ListAsync(connectionString, cancellationToken))
+        foreach (var tenantId in await ListAsync(cancellationToken))
         {
             try
             {

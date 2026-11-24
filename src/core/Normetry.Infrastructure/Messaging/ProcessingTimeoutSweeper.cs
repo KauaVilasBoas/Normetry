@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -21,15 +20,11 @@ namespace Normetry.Infrastructure.Messaging;
 /// </summary>
 internal sealed class ProcessingTimeoutSweeper(
     IServiceScopeFactory scopes,
-    IConfiguration configuration,
+    OutboxTenantList tenants,
     ILogger<ProcessingTimeoutSweeper> logger
 ) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
-
-    private readonly string tenantListConnectionString = CoreDatabase.GetDispatcherConnectionString(
-        configuration
-    );
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -37,8 +32,7 @@ internal sealed class ProcessingTimeoutSweeper(
         {
             try
             {
-                await OutboxTenantList.ForEachAsync(
-                    tenantListConnectionString,
+                await tenants.ForEachAsync(
                     logger,
                     "Processing timeout sweep",
                     async tenantId =>
