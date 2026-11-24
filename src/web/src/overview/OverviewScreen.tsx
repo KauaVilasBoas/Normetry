@@ -35,6 +35,7 @@ import {
   KpiCard,
   Message,
   ProgressBar,
+  rowLink,
   secondaryButton,
   Skeleton,
   StatusPill,
@@ -57,9 +58,6 @@ const card =
   "overflow-hidden rounded-card border border-border bg-card motion-safe:animate-fade-in";
 const cardHeader = "px-5 pt-5";
 const legendRow = "-mx-2 flex min-h-9 items-center gap-2 rounded-sm px-2";
-/** A link stretched over its row: the whole row opens it, with one tab stop. */
-const rowLink =
-  "block truncate text-body font-medium after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-mint";
 const emptyIcon = "size-5 text-neutral";
 const noResult = (
   <>
@@ -451,7 +449,7 @@ function ThemesCard({ latest }: { latest: LatestInspection }) {
                     to={paths.inspection(latest.id, { theme: row.theme })}
                     state={arrivalState}
                     aria-describedby={complianceId}
-                    className={rowLink}
+                    className={`${rowLink} truncate`}
                   >
                     {themeLabel(row.theme)}
                   </Link>
@@ -600,7 +598,7 @@ function DocumentsCard({
                   to={paths.document(document.id)}
                   state={arrivalState}
                   aria-describedby={badgeId}
-                  className={rowLink}
+                  className={`${rowLink} truncate`}
                 >
                   {document.title}
                 </Link>
@@ -662,7 +660,7 @@ function RiskCard({ latest, className }: { latest: LatestInspection; className: 
                     to={paths.inspection(latest.id, { theme: risk.theme })}
                     state={arrivalState}
                     aria-describedby={countsId}
-                    className={rowLink}
+                    className={`${rowLink} truncate`}
                   >
                     {themeLabel(risk.theme)}
                   </Link>
