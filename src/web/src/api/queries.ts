@@ -1,6 +1,6 @@
 import { QueryCache, QueryClient, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
-import { useFocusAfterCommit } from "../ui/focus";
+import { useFocusAfterCommit, useRefocusWhenGone } from "../ui/focus";
 import { ApiError } from "./client";
 import { permissions } from "./contract";
 
@@ -100,11 +100,18 @@ export const queryNotFound = (query: UseQueryResult) =>
 /**
  * A query's load failure and its Try again: `failed` as `queryFailed`, `retrying` while Try again
  * refetches it. Once it loads the button goes away, so focus moves to the heading, after the
- * commit that shows what loaded (a detail view's heading is a new element then).
+ * commit that shows what loaded (a detail view's heading is a new element then). When the error
+ * (`errorShown`, the failure by default) goes away some other way, a refetch elsewhere, and focus
+ * fell to the page with it, the heading takes it too.
  */
-export function useQueryRetry(query: UseQueryResult, headingId: string) {
+export function useQueryRetry(
+  query: UseQueryResult,
+  headingId: string,
+  errorShown = queryFailed(query),
+) {
   const focusAfterCommit = useFocusAfterCommit();
   const failed = queryFailed(query);
+  useRefocusWhenGone(errorShown, headingId);
 
   const refetchThenFocusHeading = async () => {
     if ((await query.refetch()).isSuccess) focusAfterCommit(headingId);
