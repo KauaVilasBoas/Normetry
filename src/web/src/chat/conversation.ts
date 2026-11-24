@@ -8,6 +8,7 @@ import {
   quotaKey,
   useConversation,
   type ChatQuota,
+  type Claim,
   type ConversationSummary,
 } from "../api/chat";
 import { ApiError, seconds } from "../api/client";
@@ -18,6 +19,7 @@ import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { focusIsLost } from "../ui/focus";
 import {
+  answering,
   quotaAfter,
   quotaNoticeText,
   rateLimited,
@@ -73,6 +75,34 @@ export function useStickToBottom() {
   };
 
   return { scroller, content: setContent, onScroll, follow };
+}
+
+/** About 25 words per second (DESIGN.md §6). */
+const WORD_MS = 40;
+
+/**
+ * A live answer's reveal: the words of each claim shown so far (`visible`, by claim), one more
+ * every WORD_MS while `animate`, filling each claim before the next one starts; all of them
+ * otherwise.
+ */
+export function useWordReveal(claims: Claim[], animate: boolean) {
+  const words = claims.map((claim) => claim.text.split(" "));
+  const total = words.reduce((sum, list) => sum + list.length, 0);
+  const [shown, setShown] = useState(0);
+
+  useEffect(() => {
+    if (!animate || shown >= total) return;
+    const next = setTimeout(() => setShown((count) => count + 1), WORD_MS);
+    return () => clearTimeout(next);
+  }, [animate, shown, total]);
+
+  const visible: number[] = [];
+  let left = animate ? shown : Infinity;
+  for (const list of words) {
+    visible.push(Math.min(list.length, left));
+    left -= visible.at(-1)!;
+  }
+  return { words, visible };
 }
 
 /**
@@ -302,7 +332,7 @@ export function useAnswerStream({
     createdId,
     savedId,
     notFound,
-    busy: turns.some((turn) => turn.status === "pending" || turn.status === "streaming"),
+    busy: turns.some(answering),
     draft,
     setDraft,
     input,

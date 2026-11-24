@@ -22,6 +22,9 @@ export interface Turn {
   attempt: number;
 }
 
+/** The answer is still coming: asked and waiting, or streaming. */
+export const answering = ({ status }: Turn) => status === "pending" || status === "streaming";
+
 /** The DOM id of a citation's chip, to give it focus back when the source panel closes. */
 export const chipId = (citation: Citation) => `citation-${citation.id}`;
 
