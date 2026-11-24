@@ -1,6 +1,7 @@
-import { Dialog } from "radix-ui";
+import { AlertDialog, Dialog } from "radix-ui";
 import type { ComponentProps, ReactNode } from "react";
 import { Button } from "./buttons";
+import { useConfirm } from "./dialogs";
 import { Spinner } from "./feedback";
 
 /**
@@ -139,5 +140,72 @@ export function FormDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * A confirmation (DESIGN.md Alert dialog; no red button): `trigger` opens it, then the title, the
+ * body, a refusal, and Cancel and the primary confirm. Its state is `useConfirm`'s.
+ */
+export function ConfirmDialog({
+  trigger,
+  title,
+  body,
+  cancelLabel,
+  confirmLabel,
+  onConfirm,
+  onClosed,
+}: {
+  /** A button, which takes focus back after Cancel. */
+  trigger: ReactNode;
+  title: string;
+  body: string;
+  cancelLabel: string;
+  confirmLabel: string;
+  /** Resolves to the refusal to show, or undefined once done (the caller takes the dialog away). */
+  onConfirm: () => Promise<string | undefined>;
+  /** The dialog closed: a refusal it showed may now refetch /me. */
+  onClosed: () => void;
+}) {
+  const { open, openChange, confirming, refusal, confirm, triggerRef, afterClose } = useConfirm(
+    onConfirm,
+    onClosed,
+  );
+
+  return (
+    <AlertDialog.Root open={open} onOpenChange={openChange}>
+      <AlertDialog.Trigger asChild ref={triggerRef}>
+        {trigger}
+      </AlertDialog.Trigger>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 z-40 bg-scrim" />
+        <AlertDialog.Content onCloseAutoFocus={afterClose} className={dialogPanel}>
+          <AlertDialog.Title className="text-title font-semibold">{title}</AlertDialog.Title>
+          <AlertDialog.Description className="mt-2 text-body text-text-secondary">
+            {body}
+          </AlertDialog.Description>
+          {refusal && (
+            <p role="alert" className="mt-3 text-body">
+              {refusal}
+            </p>
+          )}
+          <div className="mt-5 flex justify-end gap-2">
+            <AlertDialog.Cancel asChild>
+              <Button variant="secondary" onElevated>
+                {cancelLabel}
+              </Button>
+            </AlertDialog.Cancel>
+            <Button
+              variant="primary"
+              aria-disabled={confirming}
+              onClick={confirming ? undefined : () => void confirm()}
+            >
+              {confirming && <Spinner surface="mint" />}
+              {confirmLabel}
+            </Button>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }
