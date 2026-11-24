@@ -1,14 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import type { RequestOptions } from "../api/client";
-import { reviewStatuses, severities, verdicts } from "../api/contract";
+import { actionStatuses, reviewStatuses, severities, verdicts } from "../api/contract";
 import {
+  actionItemPaths,
   inspectionKey,
   inspectionsKey,
   type ActionItem,
   type Finding,
   type InspectionDetail,
 } from "../api/inspections";
-import type { Sent } from "../api/send";
+import { useSend, type Sent } from "../api/send";
 import { calendarDate, copy, dateTime, format, localDate, locale, relativeDays } from "../copy";
 import { findingCount, rankIn, themeRank } from "./inspections";
 
@@ -258,5 +260,55 @@ export function useReview(
     if (refetch || !finding?.id) void queryClient.invalidateQueries({ queryKey: key });
     if (refetch) void queryClient.invalidateQueries({ queryKey: inspectionsKey(establishmentId) });
     return undefined;
+  };
+}
+
+/**
+ * The action plan (`actionPlan`) and its done toggles: a toggle shows at once, posts, and reverts
+ * with the row's error when it fails. While its request runs, more clicks on it are ignored.
+ */
+export function useActionToggles(inspection: InspectionDetail) {
+  const { send } = useSend();
+  const review = useReview(inspection.establishmentId, inspection.id, send, { refetch: false });
+  // The status each toggle in flight shows until its answer, by action id.
+  const [toggled, setToggled] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const busy = useRef(new Set<string>());
+  const rows = actionPlan(inspection.findings);
+  const isDone = (action: ActionItem) =>
+    (toggled[action.id] ?? action.status) === actionStatuses.done;
+
+  const settle = (id: string) =>
+    setToggled((map) => {
+      const rest = { ...map };
+      delete rest[id];
+      return rest;
+    });
+
+  const toggle = async (action: ActionItem, checked: boolean) => {
+    if (busy.current.has(action.id)) return;
+    busy.current.add(action.id);
+    setToggled((map) => ({
+      ...map,
+      [action.id]: checked ? actionStatuses.done : actionStatuses.open,
+    }));
+    setErrors((map) => ({ ...map, [action.id]: undefined }));
+    const toggles = actionItemPaths(inspection.establishmentId, inspection.id, action.id);
+    const refusal = await review(checked ? toggles.done : toggles.reopen, { method: "POST" });
+    busy.current.delete(action.id);
+    settle(action.id);
+    if (refusal)
+      setErrors((map) => ({
+        ...map,
+        [action.id]: refusal.status === 403 ? copy.inspections.denied : copy.actions.error,
+      }));
+  };
+
+  return {
+    rows,
+    done: rows.filter((row) => isDone(row.actionItem)).length,
+    isDone,
+    errors,
+    toggle,
   };
 }
