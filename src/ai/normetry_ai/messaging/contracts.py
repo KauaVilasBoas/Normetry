@@ -5,8 +5,8 @@ output against them, and the shared fixtures against both. Fields are camelCase 
 Readers are tolerant: a payload field this side does not know yet is ignored, so adding an
 optional field is not a breaking change (README.md there, "Versions").
 
-The reason codes, verdicts and severities are the StrEnums below, the only place their values are
-spelled out; each serializes to its value, as the schemas say.
+The reason codes, verdicts, confidences and severities are the StrEnums below, the only place their
+values are spelled out; each serializes to its value, as the schemas say.
 """
 
 import json
@@ -46,6 +46,14 @@ class Verdict(StrEnum):
     COMPLIANT = "compliant"
     NON_COMPLIANT = "non_compliant"
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+
+
+class Confidence(StrEnum):
+    """How sure the judge is of a finding's verdict: what it may answer and the guard keeps."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
 
 
 class Severity(StrEnum):
@@ -231,7 +239,7 @@ class Finding(_Model):
     title: str = Field(min_length=1, max_length=200)
     severity: Severity
     verdict: Verdict
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     rationale: str = Field(min_length=1, max_length=4000)
     regulation_citations: tuple[RegulationCitation, ...] = Field(min_length=1)
     evidence_citations: tuple[EvidenceCitation, ...]

@@ -204,7 +204,7 @@ def _plain(finding: JudgedFinding) -> dict[str, Any]:
     plain = {name.name: getattr(finding, name.name) for name in fields(finding)}
     # The saver's serde would store an enum member with its class, which LangGraph is moving to
     # refuse on load; the state keeps the values only.
-    for key in ("severity", "verdict"):
+    for key in ("severity", "verdict", "confidence"):
         plain[key] = str(plain[key])
     for key in ("regulation_citations", "evidence_citations"):
         plain[key] = [citation.model_dump(mode="json") for citation in plain[key]]
