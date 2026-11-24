@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { createAuth } from "../auth/session";
 import { calendarDate } from "../copy";
@@ -14,71 +14,12 @@ import {
   mockViewport,
   stubApi,
 } from "../test/fakes";
+import { hubs, latestHub } from "../test/signalr";
 import type { DocumentStatusChange } from "./documents";
 
 // A hub per connection the screen opens; the test plays the server's side.
-const hubs = vi.hoisted(() => {
-  type Callback = () => void;
-  class FakeHub {
-    state = "Disconnected";
-    events = new Map<string, (change: unknown) => void>();
-    reconnecting: Callback = () => {};
-    reconnected: Callback = () => {};
-    closed: Callback = () => {};
-    invoke = vi.fn(() => Promise.resolve());
-    start = vi.fn(() => {
-      this.state = "Connected";
-      return Promise.resolve();
-    });
-    stop = vi.fn(() => {
-      this.state = "Disconnected";
-      return Promise.resolve();
-    });
-    on(name: string, handler: (change: unknown) => void) {
-      this.events.set(name, handler);
-    }
-    onreconnecting(callback: Callback) {
-      this.reconnecting = callback;
-    }
-    onreconnected(callback: Callback) {
-      this.reconnected = callback;
-    }
-    onclose(callback: Callback) {
-      this.closed = callback;
-    }
-  }
-  return { FakeHub, all: [] as FakeHub[], urls: [] as unknown[] };
-});
+vi.mock("@microsoft/signalr", () => import("../test/signalr"));
 
-vi.mock("@microsoft/signalr", () => ({
-  HttpTransportType: { WebSockets: 1 },
-  HubConnectionState: { Connected: "Connected" },
-  LogLevel: { Warning: 3 },
-  HubConnectionBuilder: class {
-    withUrl(url: string, options: unknown) {
-      hubs.urls.push({ url, options });
-      return this;
-    }
-    withAutomaticReconnect() {
-      return this;
-    }
-    configureLogging() {
-      return this;
-    }
-    build() {
-      const hub = new hubs.FakeHub();
-      hubs.all.push(hub);
-      return hub;
-    }
-  },
-}));
-
-beforeEach(() => {
-  hubs.all.length = 0;
-  hubs.urls.length = 0;
-});
-
-const latestHub = () => hubs.all[hubs.all.length - 1];
 const push = (change: Partial<DocumentStatusChange>) =>
   act(() =>
     latestHub().events.get("DocumentStatusChanged")?.({

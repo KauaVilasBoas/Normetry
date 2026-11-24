@@ -18,34 +18,7 @@ import {
 } from "../test/fakes";
 
 // Links open Documents and Simulated Inspection, whose hubs connect and stay quiet.
-vi.mock("@microsoft/signalr", () => ({
-  HttpTransportType: { WebSockets: 1 },
-  HubConnectionState: { Connected: "Connected" },
-  LogLevel: { Warning: 3 },
-  HubConnectionBuilder: class {
-    withUrl() {
-      return this;
-    }
-    withAutomaticReconnect() {
-      return this;
-    }
-    configureLogging() {
-      return this;
-    }
-    build() {
-      return {
-        state: "Connected",
-        start: () => Promise.resolve(),
-        stop: () => Promise.resolve(),
-        invoke: () => Promise.resolve(),
-        on: () => {},
-        onreconnecting: () => {},
-        onreconnected: () => {},
-        onclose: () => {},
-      };
-    }
-  },
-}));
+vi.mock("@microsoft/signalr", () => import("../test/signalr"));
 
 const never = () => new Promise<Response>(() => {});
 const storageKey = `normetry.establishment.${me.tenantId}.${me.userId}`;

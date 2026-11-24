@@ -14,34 +14,7 @@ import {
 } from "../test/fakes";
 
 // The chat has no hub; the Documents page an "Open document" link lands on connects and stays quiet.
-vi.mock("@microsoft/signalr", () => ({
-  HttpTransportType: { WebSockets: 1 },
-  HubConnectionState: { Connected: "Connected" },
-  LogLevel: { Warning: 3 },
-  HubConnectionBuilder: class {
-    withUrl() {
-      return this;
-    }
-    withAutomaticReconnect() {
-      return this;
-    }
-    configureLogging() {
-      return this;
-    }
-    build() {
-      return {
-        state: "Connected",
-        start: () => Promise.resolve(),
-        stop: () => Promise.resolve(),
-        invoke: () => Promise.resolve(),
-        on: () => {},
-        onreconnecting: () => {},
-        onreconnected: () => {},
-        onclose: () => {},
-      };
-    }
-  },
-}));
+vi.mock("@microsoft/signalr", () => import("../test/signalr"));
 
 const storageKey = `normetry.establishment.${me.tenantId}.${me.userId}`;
 const never = () => new Promise<Response>(() => {});
