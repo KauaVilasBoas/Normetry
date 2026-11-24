@@ -20,7 +20,7 @@ import {
   useQueryRetry,
   type Establishment,
 } from "../api/queries";
-import { useSend } from "../api/send";
+import { refusalText, useSend } from "../api/send";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { focusIsLost } from "../ui/focus";
@@ -463,7 +463,7 @@ export function useDeleteConversation(savedId: string | undefined, onDeleted: ()
     if (savedId === undefined) return copy.chat.deleteError;
     const result = await send(conversationPath(savedId), { method: "DELETE" });
     if (!result.ok && result.status !== 404) {
-      return result.status === 403 ? copy.settings.denied : copy.chat.deleteError;
+      return refusalText(result, copy.chat.deleteError);
     }
     queryClient.setQueryData<ConversationSummary[]>(conversationsKey, (list) =>
       list?.filter((item) => item.id !== savedId),
