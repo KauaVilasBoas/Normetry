@@ -198,6 +198,7 @@ export function ConfirmDialog({
             <Button
               variant="primary"
               aria-disabled={confirming}
+              className="aria-disabled:hover:bg-mint"
               onClick={confirming ? undefined : () => void confirm()}
             >
               {confirming && <Spinner surface="mint" />}
