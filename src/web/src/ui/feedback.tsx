@@ -122,32 +122,70 @@ export function Skeleton({ className }: { className: string }) {
   );
 }
 
-/** Empty and error block: optional icon, title and body. `heading`: h2 when no card title is above. */
+/**
+ * Empty and error block: optional icon, title and body. `heading`: h2 when no card title is above.
+ * `headingId`: focus moves to the heading by this id (it takes `tabIndex={-1}`).
+ */
 export function Message({
   icon,
   title,
   body,
   heading: Heading = "h3",
+  headingId,
   className = "mt-4 items-start",
 }: {
   icon?: ReactNode;
   title: string;
   body: string;
   heading?: "h2" | "h3";
+  headingId?: string;
   className?: string;
 }) {
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       {icon}
-      <Heading className="text-title font-semibold">{title}</Heading>
+      <Heading
+        id={headingId}
+        tabIndex={headingId === undefined ? undefined : -1}
+        className="text-title font-semibold"
+      >
+        {title}
+      </Heading>
       <p className="text-body text-text-secondary">{body}</p>
     </div>
   );
 }
 
+/** Try again: `aria-disabled` with a spinner while it retries, so focus stays on it. */
+export function RetryButton({
+  label,
+  retrying,
+  onRetry,
+  className,
+}: {
+  label: string;
+  retrying: boolean;
+  onRetry: () => void;
+  className?: string;
+}) {
+  return (
+    <Button
+      variant="secondary"
+      className={className}
+      aria-disabled={retrying}
+      onClick={retrying ? undefined : onRetry}
+    >
+      {retrying && <Spinner />}
+      {label}
+    </Button>
+  );
+}
+
+const alertIcon = <CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />;
+
 /**
- * A load failure: the message, then Try again (`aria-disabled` with a spinner while it retries, so
- * focus stays on it). `className` places it (16px below what is above, by default).
+ * A load failure: the message, then Try again (`RetryButton`). `className` places it (16px below
+ * what is above, by default).
  */
 export function ErrorMessage({
   title,
@@ -166,21 +204,49 @@ export function ErrorMessage({
 }) {
   return (
     <div role="alert" className={className}>
-      <Message
-        className="items-start"
-        icon={<CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />}
-        title={title}
-        body={body}
-      />
-      <Button
-        variant="secondary"
-        className="mt-4"
-        aria-disabled={retrying}
-        onClick={retrying ? undefined : onRetry}
-      >
-        {retrying && <Spinner />}
-        {retryLabel}
-      </Button>
+      <Message className="items-start" icon={alertIcon} title={title} body={body} />
+      <RetryButton className="mt-4" label={retryLabel} retrying={retrying} onRetry={onRetry} />
     </div>
+  );
+}
+
+/**
+ * A detail view's card when what it opens is not there, or `failed` to load (then an alert): the
+ * message under its h2 (`titleId`, where focus goes), then `action` (the way back, or Try again).
+ * Busy while it is `retrying`.
+ */
+export function DetailUnavailable({
+  titleId,
+  title,
+  body,
+  failed,
+  retrying,
+  action,
+}: {
+  titleId: string;
+  title: string;
+  body: string;
+  failed: boolean;
+  retrying: boolean;
+  action: ReactNode;
+}) {
+  return (
+    <section
+      aria-labelledby={titleId}
+      aria-busy={retrying}
+      className="w-full max-w-160 rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in"
+    >
+      <div role={failed ? "alert" : undefined} className="flex flex-col items-start gap-4">
+        <Message
+          className="items-start"
+          heading="h2"
+          headingId={titleId}
+          icon={alertIcon}
+          title={title}
+          body={body}
+        />
+        {action}
+      </div>
+    </section>
   );
 }
