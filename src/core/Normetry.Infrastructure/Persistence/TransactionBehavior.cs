@@ -3,6 +3,7 @@ using Normetry.Application.Identity;
 using Normetry.Application.Inspections;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
+using Normetry.Infrastructure.Persistence.Configurations;
 using Npgsql;
 
 namespace Normetry.Infrastructure.Persistence;
@@ -24,9 +25,8 @@ internal sealed class TransactionBehavior<TRequest, TResult>(
     // Unique indexes whose violation is an expected refusal, by name.
     private static readonly Dictionary<string, Error> UniqueRefusals = new()
     {
-        ["ix_profiles_tenant_id_name"] = IdentityErrors.NameTaken,
-        // One inspection in flight per establishment: two concurrent starts.
-        ["ix_inspections_tenant_id_establishment_id"] = InspectionErrors.Running,
+        [ProfileConfiguration.NameIndex] = IdentityErrors.NameTaken,
+        [InspectionConfiguration.InFlightIndex] = InspectionErrors.Running,
     };
 
     private static readonly bool IsQuery = typeof(TRequest)
