@@ -47,10 +47,11 @@ internal sealed class RecordInspectionEventHandler(
         var @event = request.Event;
         // RLS shows only the message's tenant, so another tenant's ids find nothing here.
         var inspection = await inspections.GetForUpdateAsync(
+            @event.EstablishmentId,
             @event.InspectionId,
             cancellationToken
         );
-        if (inspection is null || inspection.EstablishmentId != @event.EstablishmentId)
+        if (inspection is null)
         {
             logger.LogWarning(
                 "{MessageType} {MessageId} names no inspection {InspectionId} of establishment {EstablishmentId} here; dropped",
