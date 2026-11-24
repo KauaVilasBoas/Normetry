@@ -904,6 +904,25 @@ describe("conversation list", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Conversations" })).toHaveFocus();
   });
 
+  it("in its sheet, Try again focuses the heading that names the sheet", async () => {
+    renderChat(
+      { "/ai/conversations": [{ status: 503 }, { status: 503 }, { body: [summary("c-1")] }] },
+      { width: 600 },
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Show conversations" }));
+
+    const sheet = await screen.findByRole("dialog", { name: "Conversations" });
+    const alert = await within(sheet).findByRole("alert", {}, { timeout: 3000 });
+    await expectNoAxeViolations();
+    await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+
+    expect(await within(sheet).findByRole("link", { name: /How cold/ })).toBeVisible();
+    await waitFor(() =>
+      expect(within(sheet).getByRole("heading", { level: 2, name: "Conversations" })).toHaveFocus(),
+    );
+    expect(screen.getByRole("dialog", { name: "Conversations" })).toBe(sheet);
+  });
+
   it("is a sheet below 768px; a row opens and focuses the conversation", async () => {
     renderChat(
       {
