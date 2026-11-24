@@ -1,11 +1,17 @@
+using Normetry.Application.Abstractions;
+using Normetry.Application.Identity;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 using Normetry.Domain.Inspections;
 
 namespace Normetry.Application.Inspections.SetActionItemStatus;
 
-internal sealed class SetActionItemStatusHandler(FindingReviewService reviews, TimeProvider clock)
-    : ICommandHandler<SetActionItemStatusCommand, FindingResponse>
+internal sealed class SetActionItemStatusHandler(
+    FindingReviewService reviews,
+    IUserRepository users,
+    ICurrentUser currentUser,
+    TimeProvider clock
+) : ICommandHandler<SetActionItemStatusCommand, FindingResponse>
 {
     public async Task<Result<FindingResponse>> HandleAsync(
         SetActionItemStatusCommand request,
@@ -18,7 +24,7 @@ internal sealed class SetActionItemStatusHandler(FindingReviewService reviews, T
             return found.Error;
         }
         var (finding, item) = found.Value;
-        var user = await reviews.ReviewerIdAsync(cancellationToken);
+        var user = await users.CallerIdAsync(currentUser, cancellationToken);
         ApplyStatus(request.Status, item, user, clock.GetUtcNow());
         return await reviews.ResponseAsync(finding, cancellationToken);
     }
