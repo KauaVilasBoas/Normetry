@@ -1,18 +1,9 @@
-import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import type { UseQueryResult } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
-import { useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { permissions } from "../api/contract";
-import {
-  profileKey,
-  profilesKey,
-  profilesPath,
-  useProfiles,
-  type Profile,
-  type ProfileListItem,
-} from "../api/profiles";
+import { useProfiles } from "../api/profiles";
 import { can, queryFailed, useQueryRetry, type Me } from "../api/queries";
-import { useSend } from "../api/send";
 import { copy, format } from "../copy";
 import { paths } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
@@ -20,7 +11,8 @@ import { useFocusAfterCommit, useRefocusWhenGone } from "../ui/focus";
 import { media, useMediaQuery } from "../ui/media";
 import { Button, ErrorMessage, PoliteRegion, Skeleton, TabStrip, Tag } from "../ui/primitives";
 import { NameDialog } from "./NameDialog";
-import { EDITOR_TITLE_ID, ProfileEditor } from "./ProfileEditor";
+import { EDITOR_TITLE_ID, useCreateProfile } from "./editor";
+import { ProfileEditor } from "./ProfileEditor";
 import { countLabel, sortProfiles } from "./profiles";
 import { UsersCard } from "./UsersCard";
 
@@ -35,9 +27,6 @@ const PROFILES_TITLE_ID = "profiles-title";
 export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
   const { profileId } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  // Create happens inside its dialog.
-  const { send, closed } = useSend({ inside: true });
   const wide = useMediaQuery(media.list);
   const canManage = can(me.data, permissions.profiles.manage);
   const profiles = useProfiles(can(me.data, permissions.profiles.read));
@@ -66,37 +55,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
 
   const { announcements, announce } = useAnnouncer();
 
-  const created = useRef<string>(undefined);
-  const create = async (name: string) => {
-    const result = await send(profilesPath, { method: "POST", json: { name } });
-    if (result.ok) {
-      const { id } = (await result.response.json()) as { id: string };
-      // A new profile grants nothing, so it opens without a fetch.
-      queryClient.setQueryData<Profile>(profileKey(id), {
-        id,
-        name,
-        systemKey: null,
-        grantsAll: false,
-        permissions: [],
-      });
-      queryClient.setQueryData<ProfileListItem[]>(profilesKey, (list = []) => [
-        ...list,
-        { id, name, systemKey: null, grantsAll: false, permissionCount: 0 },
-      ]);
-      void queryClient.invalidateQueries({ queryKey: profilesKey });
-      created.current = id;
-      announce(format(copy.profiles.created, { name }));
-    }
-    return result;
-  };
-
-  // Once the dialog has closed (below 768px the list, and the dialog with it, goes away).
-  const openCreated = () => {
-    if (created.current === undefined) return;
-    void navigate(paths.profile(created.current));
-    created.current = undefined;
-    focus(EDITOR_TITLE_ID);
-  };
+  const { create, openCreated, closed } = useCreateProfile({ announce, focus });
 
   return (
     <div className="flex flex-col">
