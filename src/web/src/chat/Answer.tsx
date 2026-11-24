@@ -1,15 +1,14 @@
 import { CircleAlert, FileText, SearchX, WifiOff, type LucideIcon } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Citation, Claim } from "../api/chat";
 import { sourceTypes } from "../api/contract";
 import { copy, format } from "../copy";
 import { LogoMark } from "../ui/Logo";
 import { media, useMediaQuery } from "../ui/media";
 import { Button, CitationChip, Spinner } from "../ui/primitives";
-import { chipId, type Turn } from "./answers";
+import { answering, chipId, type Turn } from "./answers";
+import { useWordReveal } from "./conversation";
 
-/** About 25 words per second (DESIGN.md §6). */
-const WORD_MS = 40;
 export const SOURCE_PANEL_ID = "source-panel";
 
 interface AnswerProps {
@@ -114,9 +113,8 @@ export function Answer({
       body = claims || refusal;
   }
 
-  const busy = turn.status === "pending" || turn.status === "streaming";
   return (
-    <li aria-busy={busy} className="flex gap-3">
+    <li aria-busy={answering(turn)} className="flex gap-3">
       <span
         aria-hidden="true"
         className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-elevated"
@@ -175,24 +173,7 @@ function Claims({
   onOpenSource: (citation: Citation) => void;
 }) {
   const reducedMotion = useMediaQuery(media.reducedMotion);
-  const animate = reveal && !reducedMotion;
-  const words = claims.map((claim) => claim.text.split(" "));
-  const total = words.reduce((sum, list) => sum + list.length, 0);
-  const [shown, setShown] = useState(0);
-
-  useEffect(() => {
-    if (!animate || shown >= total) return;
-    const next = setTimeout(() => setShown((count) => count + 1), WORD_MS);
-    return () => clearTimeout(next);
-  }, [animate, shown, total]);
-
-  // Words shown per claim: the reveal fills each claim before the next one starts.
-  const visible: number[] = [];
-  let left = animate ? shown : Infinity;
-  for (const list of words) {
-    visible.push(Math.min(list.length, left));
-    left -= visible.at(-1)!;
-  }
+  const { words, visible } = useWordReveal(claims, reveal && !reducedMotion);
   return (
     <div className="flex flex-col gap-3">
       {claims.map((claim, index) => {
@@ -212,42 +193,14 @@ function Claims({
                   {claim.text}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {claim.citations.map((citation) => {
-                    const open = citation.id === openCitationId;
-                    const section = citation.sectionPath;
-                    if (citation.sourceType === sourceTypes.regulation)
-                      return (
-                        <CitationChip
-                          key={citation.id}
-                          id={chipId(citation)}
-                          label={format(copy.chat.viewSource, { section })}
-                          expanded={open}
-                          aria-controls={open ? SOURCE_PANEL_ID : undefined}
-                          onClick={() => onOpenSource(citation)}
-                        />
-                      );
-                    // A document chip shows the document (the title alone without a section) and
-                    // says, to screen readers too, that it is the establishment's own text.
-                    const title = citation.documentTitle ?? copy.chat.untitledDocumentChip;
-                    const label = section
-                      ? format(copy.chat.documentChip, { title, section })
-                      : title;
-                    return (
-                      <CitationChip
-                        key={citation.id}
-                        id={chipId(citation)}
-                        icon={FileText}
-                        label={title}
-                        detail={
-                          section ? format(copy.chat.documentChipSection, { section }) : undefined
-                        }
-                        aria-label={format(copy.chat.documentChipName, { label })}
-                        expanded={open}
-                        aria-controls={open ? SOURCE_PANEL_ID : undefined}
-                        onClick={() => onOpenSource(citation)}
-                      />
-                    );
-                  })}
+                  {claim.citations.map((citation) => (
+                    <ClaimChip
+                      key={citation.id}
+                      citation={citation}
+                      open={citation.id === openCitationId}
+                      onOpen={() => onOpenSource(citation)}
+                    />
+                  ))}
                 </div>
               </>
             )}
@@ -255,5 +208,46 @@ function Claims({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * A claim's citation chip: "View source" with the regulation's section, or the document (its
+ * title alone without a section), which says, to screen readers too, that it is the
+ * establishment's own text.
+ */
+function ClaimChip({
+  citation,
+  open,
+  onOpen,
+}: {
+  citation: Citation;
+  open: boolean;
+  onOpen: () => void;
+}) {
+  const section = citation.sectionPath;
+  if (citation.sourceType === sourceTypes.regulation)
+    return (
+      <CitationChip
+        id={chipId(citation)}
+        label={format(copy.chat.viewSource, { section })}
+        expanded={open}
+        aria-controls={open ? SOURCE_PANEL_ID : undefined}
+        onClick={onOpen}
+      />
+    );
+  const title = citation.documentTitle ?? copy.chat.untitledDocumentChip;
+  const label = section ? format(copy.chat.documentChip, { title, section }) : title;
+  return (
+    <CitationChip
+      id={chipId(citation)}
+      icon={FileText}
+      label={title}
+      detail={section ? format(copy.chat.documentChipSection, { section }) : undefined}
+      aria-label={format(copy.chat.documentChipName, { label })}
+      expanded={open}
+      aria-controls={open ? SOURCE_PANEL_ID : undefined}
+      onClick={onOpen}
+    />
   );
 }
