@@ -36,7 +36,7 @@ public sealed class InspectionsHub(IDispatcher dispatcher, ITenantContext tenant
 /// ponytail: no backplane, like the documents hub; add the Redis backplane with several instances.
 /// </summary>
 internal sealed class SignalRInspectionNotifier(IHubContext<InspectionsHub> hub)
-    : IInspectionNotifier
+    : IChangeNotifier<InspectionChange>
 {
     public Task NotifyAsync(
         Guid tenantId,

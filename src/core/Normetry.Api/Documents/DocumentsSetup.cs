@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Connections;
+using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 
 namespace Normetry.Api.Documents;
@@ -28,7 +29,10 @@ internal static class DocumentsSetup
                     new JsonStringEnumConverter(allowIntegerValues: false)
                 )
             );
-        builder.Services.AddSingleton<IDocumentStatusNotifier, SignalRDocumentStatusNotifier>();
+        builder.Services.AddSingleton<
+            IChangeNotifier<DocumentStatusChange>,
+            SignalRDocumentStatusNotifier
+        >();
         return builder;
     }
 

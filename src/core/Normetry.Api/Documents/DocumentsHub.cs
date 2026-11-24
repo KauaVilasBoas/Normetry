@@ -38,7 +38,7 @@ public sealed class DocumentsHub(IDispatcher dispatcher, ITenantContext tenant) 
 /// instance applied (it still sees every change on its next refetch); add the Redis backplane then.
 /// </summary>
 internal sealed class SignalRDocumentStatusNotifier(IHubContext<DocumentsHub> hub)
-    : IDocumentStatusNotifier
+    : IChangeNotifier<DocumentStatusChange>
 {
     public Task NotifyAsync(
         Guid tenantId,

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Normetry.Application.Abstractions;
 using Normetry.Application.Documents;
 using Normetry.Application.Documents.RecordIngestion;
 using Normetry.Application.Inspections;
@@ -17,11 +18,7 @@ namespace Normetry.Infrastructure.Messaging;
 internal sealed class DocumentStatusMessages(
     IServiceScopeFactory scopes,
     ILogger<DocumentStatusMessages> logger
-)
-    : StatusMessages<IDocumentVersionEvent, DocumentStatusChange, IDocumentStatusNotifier>(
-        scopes,
-        logger
-    )
+) : StatusMessages<IDocumentVersionEvent, DocumentStatusChange>(scopes, logger)
 {
     protected override string EventsThisQueueTakes => "status events";
 
@@ -29,13 +26,6 @@ internal sealed class DocumentStatusMessages(
         InboundMessage message,
         IDocumentVersionEvent @event
     ) => new RecordIngestionCommand(message.MessageId, message.Type, @event);
-
-    protected override Task PushAsync(
-        IDocumentStatusNotifier notifier,
-        Guid tenantId,
-        DocumentStatusChange change,
-        CancellationToken cancellationToken
-    ) => notifier.NotifyAsync(tenantId, change, cancellationToken);
 
     protected override Guid ChangeIdOf(DocumentStatusChange change) => change.VersionId;
 }
@@ -48,7 +38,7 @@ internal sealed class DocumentStatusMessages(
 internal sealed class InspectionStatusMessages(
     IServiceScopeFactory scopes,
     ILogger<InspectionStatusMessages> logger
-) : StatusMessages<IInspectionEvent, InspectionChange, IInspectionNotifier>(scopes, logger)
+) : StatusMessages<IInspectionEvent, InspectionChange>(scopes, logger)
 {
     protected override string EventsThisQueueTakes => "inspection events";
 
@@ -56,13 +46,6 @@ internal sealed class InspectionStatusMessages(
         InboundMessage message,
         IInspectionEvent @event
     ) => new RecordInspectionEventCommand(message.MessageId, message.Type, @event);
-
-    protected override Task PushAsync(
-        IInspectionNotifier notifier,
-        Guid tenantId,
-        InspectionChange change,
-        CancellationToken cancellationToken
-    ) => notifier.NotifyAsync(tenantId, change, cancellationToken);
 
     protected override Guid ChangeIdOf(InspectionChange change) => change.InspectionId;
 }
@@ -75,26 +58,15 @@ internal sealed class InspectionStatusMessages(
 /// throws, so the consumer retries the delivery. A change is pushed only after its transaction
 /// has committed.
 /// </summary>
-internal abstract class StatusMessages<TEvent, TChange, TNotifier>(
-    IServiceScopeFactory scopes,
-    ILogger logger
-)
+internal abstract class StatusMessages<TEvent, TChange>(IServiceScopeFactory scopes, ILogger logger)
     where TEvent : class
     where TChange : class
-    where TNotifier : notnull
 {
     /// <summary>What the dead-letter line says this queue takes, such as "status events".</summary>
     protected abstract string EventsThisQueueTakes { get; }
 
     /// <summary>The command that applies the event, once per message id.</summary>
     protected abstract ICommand<TChange?> RecordCommand(InboundMessage message, TEvent @event);
-
-    protected abstract Task PushAsync(
-        TNotifier notifier,
-        Guid tenantId,
-        TChange change,
-        CancellationToken cancellationToken
-    );
 
     /// <summary>The id a failed push is logged with.</summary>
     protected abstract Guid ChangeIdOf(TChange change);
@@ -180,15 +152,13 @@ internal abstract class StatusMessages<TEvent, TChange, TNotifier>(
         Guid tenantId,
         TChange change,
         CancellationToken cancellationToken
-    )
-    {
-        var notifier = services.GetRequiredService<TNotifier>();
-        return Notify.SafelyAsync(
+    ) =>
+        Notify.SafelyAsync(
+            services.GetRequiredService<IChangeNotifier<TChange>>(),
+            tenantId,
             [change],
-            (change, token) => PushAsync(notifier, tenantId, change, token),
             ChangeIdOf,
             logger,
             cancellationToken
         );
-    }
 }
