@@ -1,12 +1,15 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Normetry.Application.Abstractions;
 using Normetry.Application.Inspections;
 using Normetry.Domain.Inspections;
 
 namespace Normetry.Infrastructure.Persistence;
 
 // No tenant filter here: row-level security returns and accepts only the transaction's tenant.
-internal sealed class InspectionRepository(CoreDbContext db) : IInspectionRepository
+// The scope's tenant keys the start lock and the start count row, and RLS refuses any other.
+internal sealed class InspectionRepository(CoreDbContext db, ITenantContext tenant)
+    : IInspectionRepository
 {
     public void Add(Inspection inspection) => db.Inspections.Add(inspection);
 
@@ -155,9 +158,9 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
     // another advisory lock; a hash collision between tenants only serializes their starts.
     private const int StartsLockClass = 1;
 
-    public Task LockStartsAsync(Guid tenantId, CancellationToken cancellationToken) =>
+    public Task LockStartsAsync(CancellationToken cancellationToken) =>
         db.Database.ExecuteSqlAsync(
-            $"SELECT pg_advisory_xact_lock({StartsLockClass}, hashtext({tenantId.ToString()}))",
+            $"SELECT pg_advisory_xact_lock({StartsLockClass}, hashtext({tenant.TenantId.ToString()}))",
             cancellationToken
         );
 
@@ -197,7 +200,6 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
     }
 
     public async Task<int?> TryCountStartAsync(
-        Guid tenantId,
         DateOnly day,
         int? limit,
         CancellationToken cancellationToken
@@ -210,7 +212,7 @@ internal sealed class InspectionRepository(CoreDbContext db) : IInspectionReposi
             .Database.SqlQuery<int>(
                 $"""
                 INSERT INTO core.inspection_counts AS c (tenant_id, day, count)
-                VALUES ({tenantId}, {day}, 1)
+                VALUES ({tenant.TenantId}, {day}, 1)
                 ON CONFLICT (tenant_id, day) DO UPDATE SET count = c.count + 1
                     WHERE {limit}::integer IS NULL OR c.count < {limit}::integer
                 RETURNING c.count AS "Value"

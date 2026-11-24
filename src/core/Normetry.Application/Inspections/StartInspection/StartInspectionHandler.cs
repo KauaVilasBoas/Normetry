@@ -82,7 +82,6 @@ internal sealed class StartInspectionHandler(
     )
     {
         var counted = await inspections.TryCountStartAsync(
-            tenant.TenantId,
             now.UtcDate(),
             options.DailyQuotaOf(plans.PlanOf(tenant.TenantId)),
             cancellationToken
@@ -99,7 +98,7 @@ internal sealed class StartInspectionHandler(
         // time and see each other's inspections, also on either side of a UTC midnight (the day
         // count's row lock covers only one day). A Requested inspection older than the timeout
         // lost its message and does not count. A refusal rolls the day count back.
-        await inspections.LockStartsAsync(tenant.TenantId, cancellationToken);
+        await inspections.LockStartsAsync(cancellationToken);
         var inFlight = await inspections.CountInFlightAsync(
             now - options.RunningTimeout,
             cancellationToken

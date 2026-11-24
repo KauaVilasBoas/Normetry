@@ -1,14 +1,10 @@
-using Normetry.Application.Abstractions;
 using Normetry.BuildingBlocks.Cqrs;
 using Normetry.BuildingBlocks.Results;
 
 namespace Normetry.Application.Identity.AssignProfile;
 
-internal sealed class AssignProfileHandler(
-    IUserRepository users,
-    IProfileRepository profiles,
-    ITenantContext tenant
-) : ICommandHandler<AssignProfileCommand>
+internal sealed class AssignProfileHandler(IUserRepository users, IProfileRepository profiles)
+    : ICommandHandler<AssignProfileCommand>
 {
     public async Task<Result> HandleAsync(
         AssignProfileCommand request,
@@ -24,12 +20,7 @@ internal sealed class AssignProfileHandler(
             return IdentityErrors.ProfileNotFound;
         }
 
-        await users.AssignAsync(
-            tenant.TenantId,
-            request.UserId,
-            request.ProfileId,
-            cancellationToken
-        );
+        await users.AssignAsync(request.UserId, request.ProfileId, cancellationToken);
         return Result.Success();
     }
 }

@@ -1,14 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Normetry.Application.Abstractions;
 using Normetry.Application.Identity;
 using Normetry.Domain.Identity;
 
 namespace Normetry.Infrastructure.Persistence;
 
 // No tenant filter here: row-level security returns and accepts only the transaction's tenant.
-internal sealed class UserRepository(CoreDbContext db) : IUserRepository
+// The rows it inserts carry the scope's tenant, and RLS refuses any other.
+internal sealed class UserRepository(CoreDbContext db, ITenantContext tenant) : IUserRepository
 {
     public Task SyncAsync(
-        Guid tenantId,
         string sub,
         string? displayName,
         string? email,
@@ -20,8 +21,8 @@ internal sealed class UserRepository(CoreDbContext db) : IUserRepository
         db.Database.ExecuteSqlAsync(
             $"""
             INSERT INTO core.users AS u (tenant_id, id, sub, display_name, email)
-            SELECT {tenantId}, {Guid.CreateVersion7()}, {sub}, {displayName}::text, {email}::text
-            WHERE EXISTS (SELECT FROM core.tenants WHERE id = {tenantId})
+            SELECT {tenant.TenantId}, {Guid.CreateVersion7()}, {sub}, {displayName}::text, {email}::text
+            WHERE EXISTS (SELECT FROM core.tenants WHERE id = {tenant.TenantId})
             ON CONFLICT (tenant_id, sub) DO UPDATE
                 SET display_name = excluded.display_name, email = excluded.email
                 WHERE (u.display_name, u.email) IS DISTINCT FROM (excluded.display_name, excluded.email)
@@ -115,18 +116,13 @@ internal sealed class UserRepository(CoreDbContext db) : IUserRepository
             .ToDictionaryAsync(user => user.Id, user => user.Sub, cancellationToken);
     }
 
-    public Task AssignAsync(
-        Guid tenantId,
-        Guid userId,
-        Guid profileId,
-        CancellationToken cancellationToken
-    ) =>
+    public Task AssignAsync(Guid userId, Guid profileId, CancellationToken cancellationToken) =>
         // Safe under a repeated or concurrent assign. The composite foreign keys reject a user or
         // profile of another tenant even if RLS let the row through.
         db.Database.ExecuteSqlAsync(
             $"""
             INSERT INTO core.user_profiles (tenant_id, user_id, profile_id)
-            VALUES ({tenantId}, {userId}, {profileId})
+            VALUES ({tenant.TenantId}, {userId}, {profileId})
             ON CONFLICT DO NOTHING
             """,
             cancellationToken
