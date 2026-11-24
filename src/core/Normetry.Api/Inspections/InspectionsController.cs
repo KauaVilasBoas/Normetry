@@ -47,7 +47,7 @@ public sealed class InspectionsController(IDispatcher dispatcher, TimeProvider c
         if (result.IsSuccess)
         {
             return Accepted(
-                $"/establishments/{establishmentId}/inspections/{result.Value.Id}",
+                Url.Action(nameof(Get), new { establishmentId, id = result.Value.Id }),
                 result.Value
             );
         }
