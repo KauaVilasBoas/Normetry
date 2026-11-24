@@ -17,11 +17,11 @@ Item id, theme, title and severity come from the checklist item, never from the 
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal
 
 from normetry_ai.answers.guard import Citation, verify_quote
 from normetry_ai.inspection.checklist import ChecklistItem
 from normetry_ai.messaging.contracts import (
+    Confidence,
     EvidenceCitation,
     RegulationCitation,
     Severity,
@@ -29,8 +29,6 @@ from normetry_ai.messaging.contracts import (
 )
 from normetry_ai.retrieval.models import RetrievedChunk
 
-Confidence = Literal["low", "medium", "high"]
-CONFIDENCES: tuple[Confidence, ...] = ("low", "medium", "high")
 # The bounds of contracts.py Finding.rationale and Action.text.
 RATIONALE_LIMIT, ACTION_LIMIT = 4000, 2000
 UNVERIFIED_RATIONALE = (
@@ -74,11 +72,11 @@ def check_finding(
     """
     if not isinstance(raw, dict):
         return None
-    raw_verdict, confidence = raw.get("verdict"), raw.get("confidence")
+    raw_verdict, raw_confidence = raw.get("verdict"), raw.get("confidence")
     rationale, action = raw.get("rationale"), raw.get("action")
-    if raw_verdict not in Verdict or confidence not in CONFIDENCES:
+    if raw_verdict not in Verdict or raw_confidence not in Confidence:
         return None
-    verdict = Verdict(raw_verdict)
+    verdict, confidence = Verdict(raw_verdict), Confidence(raw_confidence)
     if not isinstance(rationale, str) or not rationale.strip():
         return None
     regulation_quotes = _verified(raw.get("regulation_quotes"), regulation, min_quote_words)
@@ -88,7 +86,7 @@ def check_finding(
     if verdict != Verdict.INSUFFICIENT_EVIDENCE and not evidence_quotes:
         verdict, confidence, rationale, action = (
             Verdict.INSUFFICIENT_EVIDENCE,
-            "low",
+            Confidence.LOW,
             UNVERIFIED_RATIONALE,
             None,
         )
