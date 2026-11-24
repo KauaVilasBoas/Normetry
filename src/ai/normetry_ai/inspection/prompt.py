@@ -2,16 +2,16 @@
 
 The user message holds the checklist item, the regulation chunks in <regulation id="R1" ...>
 elements and the establishment's document chunks in <document id="D1" ...> elements. Every text
-and attribute is XML-escaped (as answers/prompt.py does), so nothing inside a document, not even
-its title, can close its element or open a new one: injected text stays in the document it came
-from, and the system prompt never holds document text.
+and attribute is XML-escaped (`llm/prompt_xml.py`, as in answers/prompt.py), so nothing inside a
+document, not even its title, can close its element or open a new one: injected text stays in the
+document it came from, and the system prompt never holds document text.
 """
 
 from collections.abc import Mapping
 from xml.sax.saxutils import escape
 
-from normetry_ai.answers.prompt import attribute
 from normetry_ai.inspection.checklist import ChecklistItem
+from normetry_ai.llm.prompt_xml import attribute
 from normetry_ai.retrieval.models import RetrievedChunk
 
 _SYSTEM_PROMPT = """\

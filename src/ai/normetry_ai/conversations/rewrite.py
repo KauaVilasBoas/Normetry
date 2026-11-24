@@ -14,8 +14,8 @@ from enum import StrEnum
 from typing import Protocol
 from xml.sax.saxutils import escape
 
-from normetry_ai.answers.prompt import attribute
 from normetry_ai.llm.claude import ModelUnavailable
+from normetry_ai.llm.prompt_xml import attribute
 from normetry_ai.llm.usage import Usage, record_usage_shielded
 from normetry_ai.settings import ConversationSettings, FollowupRewrite
 

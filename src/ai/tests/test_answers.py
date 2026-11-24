@@ -27,9 +27,10 @@ from normetry_ai.answers import (
     Unavailable,
     answer,
 )
-from normetry_ai.answers.prompt import attribute, system_prompt, user_message
+from normetry_ai.answers.prompt import system_prompt, user_message
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.llm.claude import CLAIMS_SCHEMA, ClaimParser, ClaudeClaimModel, ModelUnavailable
+from normetry_ai.llm.prompt_xml import attribute
 from normetry_ai.llm.usage import Usage
 from normetry_ai.retrieval.models import RetrievedChunk
 from normetry_ai.settings import AnswerSettings, ModelPrice
