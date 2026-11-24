@@ -111,7 +111,12 @@ internal abstract class StatusConsumer(
             cancellationToken: stoppingToken
         );
         await DeclareAsync(channel, stoppingToken);
-        await channel.BasicQosAsync(0, 1, false, stoppingToken);
+        await channel.BasicQosAsync(
+            prefetchSize: 0,
+            prefetchCount: 1,
+            global: false,
+            stoppingToken
+        );
         var consumer = new AsyncEventingBasicConsumer(channel);
         consumer.ReceivedAsync += (_, delivery) =>
             OnDeliveryAsync(channel, delivery, stoppingToken);
@@ -140,26 +145,48 @@ internal abstract class StatusConsumer(
         CancellationToken cancellationToken
     )
     {
-        var headers = delivery.BasicProperties.Headers;
-        var count =
-            headers?.TryGetValue(MessageHeaders.DeliveryCount, out var value) == true
-                ? Convert.ToInt32(value)
-                : 0;
-        using var activity = MessagingTelemetry.StartActivity(
+        var deliveryCount = DeliveryCountOf(delivery.BasicProperties);
+        using var activity = StartProcessActivity(delivery.BasicProperties);
+        var outcome = await HandleHoldingThroughOutagesAsync(
+            delivery,
+            deliveryCount,
+            cancellationToken
+        );
+        await SettleAsync(channel, delivery.DeliveryTag, outcome, deliveryCount, cancellationToken);
+    }
+
+    /// <summary>The broker's count of the message's earlier deliveries: 0 on the first.</summary>
+    private static int DeliveryCountOf(IReadOnlyBasicProperties properties) =>
+        properties.Headers?.TryGetValue(MessageHeaders.DeliveryCount, out var value) == true
+            ? Convert.ToInt32(value)
+            : 0;
+
+    /// <summary>The consumer span, a child of the publisher's (the message's trace headers).</summary>
+    private Activity? StartProcessActivity(IReadOnlyBasicProperties properties) =>
+        MessagingTelemetry.StartActivity(
             $"{Queue} process",
             ActivityKind.Consumer,
-            Header(headers, MessageHeaders.TraceParent),
-            Header(headers, MessageHeaders.TraceState),
-            delivery.BasicProperties.MessageId
+            Header(properties.Headers, MessageHeaders.TraceParent),
+            Header(properties.Headers, MessageHeaders.TraceState),
+            properties.MessageId
         );
 
-        ConsumeOutcome outcome;
+    /// <summary>
+    /// Handles the delivery and returns what to do with it. A failure while the database does not
+    /// answer holds the message and handles it again every <see cref="OutageWait"/>; any other
+    /// failure is a <see cref="ConsumeOutcome.Retry"/>.
+    /// </summary>
+    private async Task<ConsumeOutcome> HandleHoldingThroughOutagesAsync(
+        BasicDeliverEventArgs delivery,
+        int deliveryCount,
+        CancellationToken cancellationToken
+    )
+    {
         while (true)
         {
             try
             {
-                outcome = await HandleAsync(delivery.Body, cancellationToken);
-                break;
+                return await HandleAsync(delivery.Body, cancellationToken);
             }
             catch (Exception error) when (!cancellationToken.IsCancellationRequested)
             {
@@ -178,27 +205,39 @@ internal abstract class StatusConsumer(
                 logger.LogWarning(
                     error,
                     "Delivery {DeliveryCount} of {MessageId} for tenant {TenantId} failed; retrying",
-                    count + 1,
+                    deliveryCount + 1,
                     delivery.BasicProperties.MessageId,
                     TenantOf(delivery.Body)
                 );
-                outcome = ConsumeOutcome.Retry;
-                break;
+                return ConsumeOutcome.Retry;
             }
         }
+    }
 
+    /// <summary>
+    /// Acks the delivery, dead-letters it, or waits <see cref="RequeueSeconds"/> and requeues it,
+    /// as its outcome says.
+    /// </summary>
+    private static async Task SettleAsync(
+        IChannel channel,
+        ulong deliveryTag,
+        ConsumeOutcome outcome,
+        int deliveryCount,
+        CancellationToken cancellationToken
+    )
+    {
         switch (outcome)
         {
             case ConsumeOutcome.Ack:
-                await channel.BasicAckAsync(delivery.DeliveryTag, false, cancellationToken);
+                await channel.BasicAckAsync(deliveryTag, multiple: false, cancellationToken);
                 break;
             case ConsumeOutcome.DeadLetter:
-                await channel.BasicRejectAsync(delivery.DeliveryTag, false, cancellationToken);
+                await channel.BasicRejectAsync(deliveryTag, requeue: false, cancellationToken);
                 break;
             default:
-                var seconds = RequeueSeconds[Math.Min(count, RequeueSeconds.Length - 1)];
+                var seconds = RequeueSeconds[Math.Min(deliveryCount, RequeueSeconds.Length - 1)];
                 await Task.Delay(TimeSpan.FromSeconds(seconds), cancellationToken);
-                await channel.BasicRejectAsync(delivery.DeliveryTag, true, cancellationToken);
+                await channel.BasicRejectAsync(deliveryTag, requeue: true, cancellationToken);
                 break;
         }
     }
