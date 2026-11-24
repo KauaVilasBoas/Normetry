@@ -22,6 +22,17 @@ from normetry_ai.settings import AnswerSettings
 
 logger = logging.getLogger(__name__)
 
+# The stop reason of a call whose reply is complete.
+END_TURN = "end_turn"
+# Logged, with the model and the stop reason, by a call that ended other than with END_TURN
+# (max_tokens cut the reply, or the model refused). The paid evals count these records by this
+# exact text, which they import.
+STOPPED = "Claude %s stopped with %s"
+# A rewrite needs little thought; low effort keeps it fast and cheap.
+REWRITE_EFFORT = "low"
+# ponytail: the judge's effort is fixed at the model's default; make it a setting if the eval asks.
+JUDGE_EFFORT = "medium"
+
 # What the model must return. The guard (answers/guard.py) checks every claim again anyway.
 CLAIMS_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -155,14 +166,14 @@ class ClaudeClaimModel:
         settings, parser = self._settings, ClaimParser()
         try:
             async with self._client.messages.stream(
-                model=settings.chat_model,
-                max_tokens=settings.chat_max_tokens,
-                output_config={
-                    "effort": settings.chat_effort,
-                    "format": {"type": "json_schema", "schema": CLAIMS_SCHEMA},
-                },
-                system=system,
-                messages=[{"role": "user", "content": user}],
+                **_request(
+                    settings.chat_model,
+                    settings.chat_max_tokens,
+                    settings.chat_effort,
+                    CLAIMS_SCHEMA,
+                    system,
+                    user,
+                )
             ) as stream:
                 async for event in stream:
                     if event.type == "message_start":
@@ -175,10 +186,8 @@ class ClaudeClaimModel:
                 message = await stream.get_final_message()
         except anthropic.AnthropicError as error:
             raise _unavailable(error) from error
-        if message.stop_reason != "end_turn":
-            # max_tokens cuts the last claim (never handed on); refusal ends the answer early.
-            # The model name lets the generation eval tell concurrent models' stops apart.
-            logger.warning("Claude %s stopped with %s", settings.chat_model, message.stop_reason)
+        # max_tokens cuts the last claim (never handed on); refusal ends the answer early.
+        _warn_if_stopped(settings.chat_model, message.stop_reason)
         yield _usage(settings.chat_model, message.usage)
 
 
@@ -209,14 +218,7 @@ class _StructuredModel:
             raise ModelUnavailable("no Anthropic API key")
         try:
             message = await self._client.messages.create(
-                model=self._model,
-                max_tokens=self._max_tokens,
-                output_config={
-                    "effort": effort,
-                    "format": {"type": "json_schema", "schema": schema},
-                },
-                system=system,
-                messages=[{"role": "user", "content": user}],
+                **_request(self._model, self._max_tokens, effort, schema, system, user)
             )
         except anthropic.AnthropicError as error:
             raise _unavailable(error) from error
@@ -237,8 +239,7 @@ class ClaudeRewriteModel(_StructuredModel):
         The question is "" when the reply does not hold one (cut by max_tokens, a refusal): the
         call was still paid for, so its Usage comes back with it.
         """
-        # A rewrite needs little thought; low effort keeps it fast and cheap.
-        reply, usage, _ = await self._call(system, user, "low", QUESTION_SCHEMA)
+        reply, usage, _ = await self._call(system, user, REWRITE_EFFORT, QUESTION_SCHEMA)
         question = reply.get("question") if isinstance(reply, dict) else None
         return (question.strip() if isinstance(question, str) else ""), usage
 
@@ -250,11 +251,30 @@ class ClaudeJudgeModel(_StructuredModel):
     async def judge(self, system: str, user: str) -> tuple[Any, Usage]:
         """The decoded reply (untrusted: inspection/guard.py checks it; None when the reply holds
         no JSON) and the call's Usage. Raises ModelUnavailable."""
-        # ponytail: effort fixed at the model's default; make it a setting if the eval asks.
-        reply, usage, stop_reason = await self._call(system, user, "medium", JUDGE_SCHEMA)
-        if stop_reason != "end_turn":
-            logger.warning("Claude %s stopped with %s", self._model, stop_reason)
+        reply, usage, stop_reason = await self._call(system, user, JUDGE_EFFORT, JUDGE_SCHEMA)
+        _warn_if_stopped(self._model, stop_reason)
         return reply, usage
+
+
+def _request(
+    model: str, max_tokens: int, effort: str, schema: dict[str, object], system: str, user: str
+) -> dict[str, Any]:
+    """The Messages API arguments of one call: the instructions as the system prompt, the data in
+    the one user message, and the reply constrained to `schema`."""
+    return {
+        "model": model,
+        "max_tokens": max_tokens,
+        "output_config": {"effort": effort, "format": {"type": "json_schema", "schema": schema}},
+        "system": system,
+        "messages": [{"role": "user", "content": user}],
+    }
+
+
+def _warn_if_stopped(model: str, stop_reason: str | None) -> None:
+    """Log a call that ended other than with END_TURN. The model name lets the evals tell
+    concurrent models' stops apart."""
+    if stop_reason != END_TURN:
+        logger.warning(STOPPED, model, stop_reason)
 
 
 def _client(settings: AnswerSettings) -> anthropic.AsyncAnthropic | None:

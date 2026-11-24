@@ -39,7 +39,7 @@ from normetry_ai.evals.dataset import DOCUMENT_DATASET, load_establishments, loa
 from normetry_ai.evals.generation import ModelAnswer, PassResult, jsonl, render
 from normetry_ai.ingestion.corpus import load_manifest, parse_source
 from normetry_ai.ingestion.ingest import ingest_source
-from normetry_ai.llm.claude import ClaudeClaimModel, ClaudeRewriteModel
+from normetry_ai.llm.claude import STOPPED, ClaudeClaimModel, ClaudeRewriteModel
 from normetry_ai.llm.embeddings import SentenceTransformerEmbedder
 from normetry_ai.llm.reranker import CrossEncoderReranker
 from normetry_ai.llm.usage import Usage
@@ -66,8 +66,6 @@ pytestmark = [
 ]
 
 DEFAULT_MODELS = "claude-haiku-5-5,claude-sonnet-5-5,claude-opus-5-5"
-# ClaudeClaimModel logs this when a call ends other than with end_turn (llm/claude.py).
-STOPPED = "Claude %s stopped with %s"
 
 
 class BudgetReached(Exception):
