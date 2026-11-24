@@ -12,11 +12,11 @@ import {
   type InspectionDetail,
 } from "../api/inspections";
 import { refusalText, useSend, type Sent } from "../api/send";
-import { calendarDate, copy, dateTime, format, localDate, locale, relativeDays } from "../copy";
+import { calendarDate, copy, dateTime, daysFromToday, format, locale, relativeDays } from "../copy";
 import { findingFilterParams, hasFindingFilter } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
 import { focusById } from "../ui/focus";
-import { FINDINGS_TITLE_ID, findingCount, rankIn, themeRank } from "./inspections";
+import { FINDINGS_TITLE_ID, findingCount, rankIn, themeLabel, themeRank } from "./inspections";
 
 // The completed view (spec inspection-screen.md §4, §5): order, filters, due dates, edit rules.
 
@@ -33,7 +33,6 @@ export const verdictLabel = (code: string) => copy.findings.verdicts[code] ?? co
 export const severityLabel = (code: string) => copy.findings.severities[code] ?? code;
 export const reviewLabel = (status: string) => copy.findings.reviews[status] ?? status;
 export const confidenceLabel = (code: string) => copy.findings.confidences[code] ?? code;
-export const themeLabel = (code: string) => copy.themes[code] ?? code;
 
 const byTitle = (a: Finding, b: Finding) => a.title.localeCompare(b.title, locale);
 
@@ -212,9 +211,7 @@ export function findingsCaption(findings: Finding[]): string {
 
 /** An open action's badge: "Due in 7 days" from today on (local dates), "Overdue" before. */
 export function dueBadge(dueOn: string, now = new Date()): { overdue: boolean; label: string } {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  // Rounded: a day across a daylight saving change is 23 or 25 hours.
-  const days = Math.round((localDate(dueOn).getTime() - today.getTime()) / 86_400_000);
+  const days = daysFromToday(dueOn, now);
   return days < 0
     ? { overdue: true, label: copy.actions.overdue }
     : { overdue: false, label: format(copy.actions.dueIn, { when: relativeDays(days) }) };

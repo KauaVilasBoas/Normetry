@@ -4,6 +4,7 @@ import { useChatQuota, type Citation } from "../api/chat";
 import type { Establishment } from "../api/queries";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
+import { regulationOf } from "../inspections/inspections";
 import {
   Avatar,
   Button,
@@ -68,7 +69,7 @@ export function ConversationPane({
   const { profile } = useSession();
   const quota = useChatQuota().data;
   const place = copy.jurisdictions[establishment.jurisdiction];
-  const regulation = place?.regulation ?? establishment.jurisdiction;
+  const regulation = regulationOf(establishment);
   const { scroller, content, onScroll, follow } = useStickToBottom();
   const asked = useAnswerStream({
     establishment,

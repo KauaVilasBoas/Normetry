@@ -5,8 +5,7 @@ import { permissions } from "../api/contract";
 import { useInspections, type InspectionSummary } from "../api/inspections";
 import type { Live } from "../api/live";
 import { can, useQueryRetry, type Establishment, type Me } from "../api/queries";
-import { untilReset } from "../chat/answers";
-import { copy, dateTime, format } from "../copy";
+import { copy, dateTime, format, untilReset } from "../copy";
 import { arrivalState, paths } from "../routes";
 import { useRefocusWhenGone } from "../ui/focus";
 import {
