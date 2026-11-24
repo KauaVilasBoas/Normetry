@@ -1,13 +1,10 @@
 import { CircleAlert, ListChecks } from "lucide-react";
-import { useRef, useState } from "react";
-import { actionStatuses } from "../api/contract";
-import { actionItemPaths, type ActionItem, type InspectionDetail } from "../api/inspections";
-import { useSend } from "../api/send";
+import type { InspectionDetail } from "../api/inspections";
 import { calendarDate, copy, format } from "../copy";
 import { useRefocusWhenGone } from "../ui/focus";
 import { Checkbox, Message, ReadOnlyCheckbox } from "../ui/primitives";
 import { DueBadge } from "./FindingSheet";
-import { actionPlan, useReview } from "./findings";
+import { useActionToggles } from "./findings";
 
 const ACTIONS_TITLE_ID = "action-plan-title";
 
@@ -23,42 +20,11 @@ export function ActionPlan({
   inspection: InspectionDetail;
   canReview: boolean;
 }) {
-  const { send } = useSend();
-  const review = useReview(inspection.establishmentId, inspection.id, send, { refetch: false });
-  // The status each toggle in flight shows until its answer, by action id.
-  const [toggled, setToggled] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
-  const busy = useRef(new Set<string>());
-  const rows = actionPlan(inspection.findings);
-  const statusOf = (action: ActionItem) => toggled[action.id] ?? action.status;
-  const done = rows.filter((row) => statusOf(row.actionItem) === actionStatuses.done).length;
+  const { rows, done, isDone, errors, toggle } = useActionToggles(inspection);
 
   // A 403 takes the checkboxes away (/me is fetched again): focus, lost with the one that was
   // toggled, goes to the heading. The row's error stays.
   useRefocusWhenGone(canReview, ACTIONS_TITLE_ID);
-
-  const toggle = async (action: ActionItem, checked: boolean) => {
-    if (busy.current.has(action.id)) return;
-    busy.current.add(action.id);
-    setToggled((map) => ({
-      ...map,
-      [action.id]: checked ? actionStatuses.done : actionStatuses.open,
-    }));
-    setErrors((map) => ({ ...map, [action.id]: undefined }));
-    const toggles = actionItemPaths(inspection.establishmentId, inspection.id, action.id);
-    const refusal = await review(checked ? toggles.done : toggles.reopen, { method: "POST" });
-    busy.current.delete(action.id);
-    setToggled((map) => {
-      const rest = { ...map };
-      delete rest[action.id];
-      return rest;
-    });
-    if (refusal)
-      setErrors((map) => ({
-        ...map,
-        [action.id]: refusal.status === 403 ? copy.inspections.denied : copy.actions.error,
-      }));
-  };
 
   return (
     <section
@@ -90,7 +56,7 @@ export function ActionPlan({
       ) : (
         <ul className="divide-y divide-border border-t border-border">
           {rows.map(({ actionItem: action, title }) => {
-            const isDone = statusOf(action) === actionStatuses.done;
+            const checked = isDone(action);
             const description = format(copy.actions.meta, {
               finding: title,
               date: calendarDate(action.dueOn),
@@ -105,14 +71,14 @@ export function ActionPlan({
                       label={action.text}
                       description={description}
                       // The badge sits outside the label: "Overdue" joins the description.
-                      aria-describedby={isDone ? undefined : dueId}
-                      checked={isDone}
+                      aria-describedby={checked ? undefined : dueId}
+                      checked={checked}
                       onChange={(event) => void toggle(action, event.target.checked)}
                     />
                   ) : (
                     <ReadOnlyCheckbox
-                      checked={isDone}
-                      state={isDone ? copy.actions.done : copy.actions.open}
+                      checked={checked}
+                      state={checked ? copy.actions.done : copy.actions.open}
                       label={action.text}
                       description={description}
                       dimUnchecked={false}
@@ -120,7 +86,7 @@ export function ActionPlan({
                   )}
                 </div>
                 {/* Under the description below 640px, in line with the label's first line from there. */}
-                {!isDone && (
+                {!checked && (
                   <div id={dueId} className="pb-2 pl-9 sm:ml-auto sm:pt-2.5 sm:pb-0 sm:pl-0">
                     <DueBadge dueOn={action.dueOn} />
                   </div>
