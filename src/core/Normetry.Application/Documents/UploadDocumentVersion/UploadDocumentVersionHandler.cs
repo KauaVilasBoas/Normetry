@@ -25,13 +25,12 @@ internal sealed class UploadDocumentVersionHandler(
             return file.Error;
         }
         // Locked, so two uploads of one document cannot both pass the check below.
-        if (
-            await documents.GetForUpdateAsync(request.DocumentId, cancellationToken)
-            is not { IsDeleted: false } document
-        )
+        var locked = await documents.LockLiveOrNotFoundAsync(request.DocumentId, cancellationToken);
+        if (!locked.IsSuccess)
         {
-            return DocumentErrors.NotFound;
+            return locked.Error;
         }
+        var document = locked.Value;
         if (document.HasVersionInFlight)
         {
             return DocumentErrors.VersionInFlight;
