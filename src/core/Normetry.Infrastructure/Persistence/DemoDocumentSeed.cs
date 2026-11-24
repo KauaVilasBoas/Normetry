@@ -73,16 +73,12 @@ public sealed class DemoDocumentSeed(
         {
             await started.Task.WaitAsync(stoppingToken);
         }
-        var directory = Path.GetFullPath(
-            configuration[DirectorySetting]
-                ?? Path.Combine(
-                    environment.ContentRootPath,
-                    "..",
-                    "..",
-                    "..",
-                    "evals",
-                    "establishments"
-                )
+        var directory = RepositoryPaths.Resolve(
+            configuration,
+            DirectorySetting,
+            environment,
+            "evals",
+            "establishments"
         );
         try
         {
