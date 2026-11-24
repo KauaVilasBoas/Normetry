@@ -5,6 +5,7 @@ import { expectNoAxeViolations } from "../test/fakes";
 import {
   Checkbox,
   ChecklistRow,
+  DetailUnavailable,
   FilterSelect,
   QuotedPassage,
   RadialProgress,
@@ -310,6 +311,42 @@ describe("Checkbox", () => {
     );
 
     expect(screen.getByRole("checkbox")).toHaveAccessibleDescription("Due Nov 23 Overdue");
+  });
+});
+
+describe("DetailUnavailable", () => {
+  const card = (failed: boolean, retrying = false) => (
+    <DetailUnavailable
+      titleId="document-title"
+      title={failed ? "Couldn't load this document" : "This document isn't available"}
+      body="It may have been deleted."
+      failed={failed}
+      retrying={retrying}
+      action={<button type="button">Act</button>}
+    />
+  );
+
+  it("is a region named by its h2, which takes focus by its id, with its action", async () => {
+    render(card(false));
+
+    const region = screen.getByRole("region", { name: "This document isn't available" });
+    const heading = within(region).getByRole("heading", { level: 2 });
+    expect(heading).toHaveAttribute("id", "document-title");
+    document.getElementById("document-title")?.focus();
+    expect(heading).toHaveFocus();
+    expect(within(region).getByRole("button", { name: "Act" })).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+    await expectNoAxeViolations();
+  });
+
+  it("is an alert once it failed, and busy while it retries", () => {
+    render(card(true, true));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load this document");
+    expect(screen.getByRole("region", { name: "Couldn't load this document" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
   });
 });
 
