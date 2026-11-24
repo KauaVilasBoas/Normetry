@@ -491,6 +491,21 @@ describe("a saved conversation", () => {
     );
   });
 
+  it("moves focus to the heading when Try again finds the conversation gone", async () => {
+    renderChat(
+      { "/ai/conversations/c-1": [{ status: 503 }, { status: 503 }, { status: 404 }] },
+      { path: "/conversations/c-1" },
+    );
+
+    const alert = await screen.findByRole("alert", {}, { timeout: 3000 });
+    await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByText("This conversation isn't available")).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "New conversation" })).toHaveFocus(),
+    );
+  });
+
   it("shows not found, and starts a new conversation from there", async () => {
     renderChat({ "/ai/conversations/c-gone": { status: 404 } }, { path: "/conversations/c-gone" });
 
