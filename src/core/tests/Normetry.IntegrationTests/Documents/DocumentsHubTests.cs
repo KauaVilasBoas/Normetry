@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Normetry.Application.Documents;
 using Normetry.Domain.Documents;
 using Normetry.Domain.Identity;
+using Normetry.Infrastructure.Messaging;
 using Normetry.IntegrationTests.Database;
 using Xunit;
 
@@ -75,6 +76,37 @@ public sealed class DocumentsHubTests
         // Each heard only its own establishment's change.
         await Task.Delay(300, Ct);
         Assert.False(receivedA.TryRead(out _));
+        Assert.False(receivedB.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task A_timed_out_version_reaches_its_own_establishment_and_never_another_tenants()
+    {
+        var a = await DocumentStatusTests.UploadAsync(db);
+        var b = await DocumentStatusTests.UploadAsync(db);
+        // Past Documents:ProcessingTimeout (15 minutes).
+        await DocumentStatusTests.SetStatusAsync(db, a, "Processing", TimeSpan.FromMinutes(16));
+        await using var clientA = await ConnectAsync(a.Tenant, a.Owner);
+        await using var clientB = await ConnectAsync(b.Tenant, b.Owner);
+        var receivedA = Listen(clientA);
+        var receivedB = Listen(clientB);
+        await clientA.InvokeAsync("JoinEstablishment", a.Establishment, Ct).WaitAsync(Wait, Ct);
+        await clientB.InvokeAsync("JoinEstablishment", b.Establishment, Ct).WaitAsync(Wait, Ct);
+        var sweeper = ActivatorUtilities.CreateInstance<TimeoutSweeper>(db.Api.Services);
+
+        Assert.Single(await sweeper.SweepDocumentVersionsAsync(a.Tenant, Ct));
+
+        var change = await receivedA.ReadAsync(Ct).AsTask().WaitAsync(Wait, Ct);
+        Assert.Equal(
+            (
+                a.Establishment,
+                a.Version,
+                DocumentVersionStatus.Failed,
+                (string?)DocumentIngestionFailureReasons.TimedOut
+            ),
+            (change.EstablishmentId, change.VersionId, change.Status, change.FailureCode)
+        );
+        await Task.Delay(300, Ct);
         Assert.False(receivedB.TryRead(out _));
     }
 
