@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { problemCodes } from "../api/contract";
 import {
   documentKey,
+  documentPath,
   documentsKey,
   establishmentDocumentPath,
   useDocument,
@@ -17,7 +18,9 @@ import { DETAIL_TITLE_ID } from "./parts";
 
 /**
  * The document the detail view shows: its title (the list's row while it loads), whether it was
- * not found or failed to load, Try again, and the cache after a delete or an upload here.
+ * not found or failed to load, Try again, Delete (`remove`, sent from its confirmation, which
+ * calls `closed` when it closes: a 403 refetches /me only then), and the cache after a delete or
+ * an upload here.
  */
 export function useDocumentDetail({
   id,
@@ -31,19 +34,25 @@ export function useDocumentDetail({
   announce: (text: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const { send, closed } = useSend({ inside: true });
   const query = useDocument(id, true);
   const notFound = queryNotFound(query);
   const failed = queryFailed(query) && !notFound;
   const load = useQueryRetry(query, DETAIL_TITLE_ID, failed);
   const detail = query.data;
 
-  const deleted = (title: string) => {
+  /** Resolves to the refusal to show, or undefined once the document is gone. */
+  const remove = async () => {
+    const result = await send(documentPath(id), { method: "DELETE" });
+    // 404: it is already gone, which is what the user asked for.
+    if (!result.ok && result.status !== 404) return refusalText(result, copy.documents.deleteError);
     queryClient.removeQueries({ queryKey: documentKey(id) });
     queryClient.setQueryData<DocumentSummary[]>(documentsKey(establishmentId), (list) =>
       list?.filter((row) => row.id !== id),
     );
     void queryClient.invalidateQueries({ queryKey: documentsKey(establishmentId) });
-    onDeleted(title);
+    onDeleted(detail?.title ?? "");
+    return undefined;
   };
 
   const uploaded = (version: DocumentDetail) => {
@@ -62,7 +71,8 @@ export function useDocumentDetail({
     retry: load.retry,
     /** The newest version is Waiting or Processing: Upload new version waits for it. */
     newestInFlight: detail?.versions[0] !== undefined && inFlight(detail.versions[0]),
-    deleted,
+    remove,
+    closed,
     uploaded,
   };
 }

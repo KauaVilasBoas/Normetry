@@ -1,6 +1,5 @@
 import { CircleAlert, History, SquarePen, Trash2 } from "lucide-react";
-import { AlertDialog } from "radix-ui";
-import { Fragment, useRef, useState } from "react";
+import { Fragment } from "react";
 import { useChatQuota, type Citation } from "../api/chat";
 import type { Establishment } from "../api/queries";
 import { useSession } from "../auth/session";
@@ -8,12 +7,11 @@ import { copy, format } from "../copy";
 import {
   Avatar,
   Button,
-  dialogPanel,
+  ConfirmDialog,
   ErrorMessage,
   iconButton,
   Message,
   Skeleton,
-  Spinner,
   TypeTile,
 } from "../ui/primitives";
 import { Answer } from "./Answer";
@@ -135,10 +133,26 @@ export function ConversationPane({
           </button>
         )}
         {asked.savedId !== undefined && view === "ready" && (
-          <DeleteConversation
-            title={title ?? copy.conversations.untitled}
-            busy={asked.busy}
-            onDelete={deleteConversation}
+          // No red button (DESIGN.md). Unavailable while an answer is in progress.
+          <ConfirmDialog
+            trigger={
+              <button
+                type="button"
+                aria-label={copy.chat.deleteConversation}
+                aria-disabled={asked.busy}
+                onClick={(event) => {
+                  if (asked.busy) event.preventDefault();
+                }}
+                className={`${iconButton} -mr-2 aria-disabled:opacity-50 aria-disabled:hover:bg-transparent`}
+              >
+                <Trash2 aria-hidden="true" className="size-5" />
+              </button>
+            }
+            title={copy.chat.deleteTitle}
+            body={format(copy.chat.deleteBody, { title: title ?? copy.conversations.untitled })}
+            cancelLabel={copy.chat.deleteCancel}
+            confirmLabel={copy.chat.deleteConfirm}
+            onConfirm={deleteConversation}
             onClosed={closed}
           />
         )}
@@ -250,97 +264,5 @@ function LoadingTurns({ label }: { label: boolean }) {
         </div>
       </div>
     </>
-  );
-}
-
-/** Header action and its confirmation; no red button (DESIGN.md). */
-function DeleteConversation({
-  title,
-  busy,
-  onDelete,
-  onClosed,
-}: {
-  title: string;
-  /** An answer is in progress. */
-  busy: boolean;
-  /** Resolves the refusal to show when the conversation could not be deleted. */
-  onDelete: () => Promise<string | undefined>;
-  /** The dialog closed: a refusal it showed may now refetch /me. */
-  onClosed: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [refusal, setRefusal] = useState<string>();
-  const trigger = useRef<HTMLButtonElement>(null);
-
-  const confirm = async () => {
-    setDeleting(true);
-    setRefusal(undefined);
-    const refused = await onDelete();
-    if (refused === undefined) return;
-    setDeleting(false);
-    setRefusal(refused);
-  };
-
-  return (
-    <AlertDialog.Root
-      open={open}
-      onOpenChange={(next) => {
-        if (deleting) return;
-        setOpen(next);
-        setRefusal(undefined);
-        if (!next) onClosed();
-      }}
-    >
-      <AlertDialog.Trigger
-        ref={trigger}
-        aria-label={copy.chat.deleteConversation}
-        aria-disabled={busy}
-        onClick={(event) => {
-          if (busy) event.preventDefault();
-        }}
-        className={`${iconButton} -mr-2 aria-disabled:opacity-50 aria-disabled:hover:bg-transparent`}
-      >
-        <Trash2 aria-hidden="true" className="size-5" />
-      </AlertDialog.Trigger>
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-40 bg-scrim" />
-        <AlertDialog.Content
-          // Back to the trigger after Cancel; after a delete the next view takes focus.
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            if (trigger.current?.isConnected) trigger.current.focus();
-          }}
-          className={dialogPanel}
-        >
-          <AlertDialog.Title className="text-title font-semibold">
-            {copy.chat.deleteTitle}
-          </AlertDialog.Title>
-          <AlertDialog.Description className="mt-2 text-body text-text-secondary">
-            {format(copy.chat.deleteBody, { title })}
-          </AlertDialog.Description>
-          {refusal && (
-            <p role="alert" className="mt-3 text-body">
-              {refusal}
-            </p>
-          )}
-          <div className="mt-5 flex justify-end gap-2">
-            <AlertDialog.Cancel asChild>
-              <Button variant="secondary" onElevated>
-                {copy.chat.deleteCancel}
-              </Button>
-            </AlertDialog.Cancel>
-            <Button
-              variant="primary"
-              aria-disabled={deleting}
-              onClick={deleting ? undefined : () => void confirm()}
-            >
-              {deleting && <Spinner surface="mint" />}
-              {copy.chat.deleteConfirm}
-            </Button>
-          </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
   );
 }
