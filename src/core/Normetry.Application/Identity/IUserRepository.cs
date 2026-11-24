@@ -8,11 +8,10 @@ public interface IUserRepository
 {
     /// <summary>
     /// Creates the user with <paramref name="sub"/> on first sight, or refreshes their display
-    /// name and email when the token's differ. Does nothing when the core has no row for
-    /// <paramref name="tenantId"/>.
+    /// name and email when the token's differ. Does nothing when the core has no row for the
+    /// current tenant.
     /// </summary>
     Task SyncAsync(
-        Guid tenantId,
         string sub,
         string? displayName,
         string? email,
@@ -61,12 +60,7 @@ public interface IUserRepository
     );
 
     /// <summary>Gives the user the profile; nothing changes when they already hold it.</summary>
-    Task AssignAsync(
-        Guid tenantId,
-        Guid userId,
-        Guid profileId,
-        CancellationToken cancellationToken
-    );
+    Task AssignAsync(Guid userId, Guid profileId, CancellationToken cancellationToken);
 
     /// <summary>Takes the profile from the user; nothing changes when they do not hold it.</summary>
     Task UnassignAsync(Guid userId, Guid profileId, CancellationToken cancellationToken);

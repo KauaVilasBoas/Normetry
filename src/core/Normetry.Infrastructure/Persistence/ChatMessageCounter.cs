@@ -1,13 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Normetry.Application.Abstractions;
 using Normetry.Application.Usage;
 
 namespace Normetry.Infrastructure.Persistence;
 
 // No tenant filter here: row-level security returns and accepts only the transaction's tenant.
-internal sealed class ChatMessageCounter(CoreDbContext db) : IChatMessageCounter
+// The row it inserts carries the scope's tenant, and RLS refuses any other.
+internal sealed class ChatMessageCounter(CoreDbContext db, ITenantContext tenant)
+    : IChatMessageCounter
 {
     public async Task<int?> TryIncrementAsync(
-        Guid tenantId,
         string userId,
         DateOnly day,
         int? limit,
@@ -21,7 +23,7 @@ internal sealed class ChatMessageCounter(CoreDbContext db) : IChatMessageCounter
             .Database.SqlQuery<int>(
                 $"""
                 INSERT INTO core.chat_message_counts AS c (tenant_id, user_id, day, count)
-                VALUES ({tenantId}, {userId}, {day}, 1)
+                VALUES ({tenant.TenantId}, {userId}, {day}, 1)
                 ON CONFLICT (tenant_id, user_id, day) DO UPDATE SET count = c.count + 1
                     WHERE {limit}::integer IS NULL OR c.count < {limit}::integer
                 RETURNING c.count AS "Value"
