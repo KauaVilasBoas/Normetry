@@ -8,7 +8,7 @@ import {
   type DocumentVersion,
 } from "../api/documents";
 import { useLiveStatus } from "../api/live";
-import type { Sent } from "../api/send";
+import { refusalText, type Sent } from "../api/send";
 import { calendarDate, copy, format, localDate, relativeDays } from "../copy";
 
 /** The list's expiry filter: every document, the expired ones, or those expiring soon. */
@@ -99,7 +99,7 @@ export function uploadRefusal(result: Sent & { ok: false }, fileName: string) {
     case problemCodes.versionInFlight:
       return { form: copy.upload.inFlight };
   }
-  return { form: result.status === 403 ? copy.settings.denied : copy.upload.network };
+  return { form: refusalText(result, copy.upload.network) };
 }
 
 /** Waiting or Processing: a new version is refused until it finishes. */

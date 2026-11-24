@@ -1,12 +1,17 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { useSession } from "../auth/session";
+import { copy } from "../copy";
 import { problemCode, seconds, type RequestOptions } from "./client";
 import { meKey } from "./queries";
 
 export type Sent =
   | { ok: true; response: Response }
   | { ok: false; status: number; code: string | undefined; retryAfter?: number };
+
+/** A refusal as the screen says it: a 403 is a permission taken away, anything else `fallback`. */
+export const refusalText = ({ status }: { status: number }, fallback: string) =>
+  status === 403 ? copy.common.denied : fallback;
 
 /**
  * Sends a change and reads its refusal, with its `Retry-After` seconds when it has them (a 429).
