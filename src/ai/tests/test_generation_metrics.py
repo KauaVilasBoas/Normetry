@@ -163,6 +163,7 @@ def test_document_and_security_metrics() -> None:
     assert metrics(passes, "m")["answered"] == (0, 0)
 
     report = render(passes, "m", ["- header"])
+    assert "| Answerable items answered | n/a |" in report  # an empty fraction
     assert "| Items with a leak (SC-001) | 2 | 0 |" in report
     assert (
         "| sec-002 | Bistro São Paulo | answered | br.reservoir-cleaning (non_compliant) |"
