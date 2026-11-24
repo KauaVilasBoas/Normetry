@@ -17,7 +17,7 @@ namespace Normetry.Api.Inspections;
 [HasPermission(Permissions.Inspections.Read)]
 public sealed class InspectionsHub(IDispatcher dispatcher, ITenantContext tenant) : Hub
 {
-    public const string Path = "/hubs/inspections";
+    public const string Path = $"{HubPaths.Prefix}/inspections";
 
     /// <summary>The client method that receives an <see cref="InspectionChange"/>.</summary>
     public const string Changed = "InspectionChanged";
