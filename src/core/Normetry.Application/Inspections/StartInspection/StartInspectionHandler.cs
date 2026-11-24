@@ -14,6 +14,7 @@ internal sealed class StartInspectionHandler(
     IEstablishmentRepository establishments,
     IDocumentRepository documents,
     IInspectionRepository inspections,
+    IInspectionStartCounter startCounter,
     IOutbox outbox,
     ICurrentUser currentUser,
     ITenantContext tenant,
@@ -81,7 +82,7 @@ internal sealed class StartInspectionHandler(
         CancellationToken cancellationToken
     )
     {
-        var counted = await inspections.TryCountStartAsync(
+        var counted = await startCounter.TryCountStartAsync(
             now.UtcDate(),
             options.DailyQuotaOf(plans.PlanOf(tenant.TenantId)),
             cancellationToken

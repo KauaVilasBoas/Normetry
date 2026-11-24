@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IEstablishmentRepository, EstablishmentRepository>();
         services.AddScoped<IChatMessageCounter, ChatMessageCounter>();
+        services.AddScoped<IInspectionStartCounter, InspectionStartCounter>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
