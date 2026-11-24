@@ -1,6 +1,4 @@
 import { CircleAlert, Pencil, ShieldCheck, Trash2 } from "lucide-react";
-import { AlertDialog } from "radix-ui";
-import { useRef, useState } from "react";
 import { Link } from "react-router";
 import type { ProfileListItem } from "../api/profiles";
 import type { Me } from "../api/queries";
@@ -9,7 +7,7 @@ import { paths } from "../routes";
 import {
   Button,
   Checkbox,
-  dialogPanel,
+  ConfirmDialog,
   ErrorMessage,
   iconButton,
   ReadOnlyCheckbox,
@@ -116,7 +114,24 @@ export function ProfileEditor({
               onSubmit={rename}
               onClosed={closed}
             />
-            <DeleteProfile name={name} onDelete={remove} onClosed={closed} />
+            {/* No red button (DESIGN.md). */}
+            <ConfirmDialog
+              trigger={
+                <button
+                  type="button"
+                  aria-label={copy.profiles.delete}
+                  className={`${iconButton} -my-2 -mr-2`}
+                >
+                  <Trash2 aria-hidden="true" className="size-5" />
+                </button>
+              }
+              title={format(copy.profiles.deleteTitle, { name })}
+              body={copy.profiles.deleteBody}
+              cancelLabel={copy.settings.cancel}
+              confirmLabel={copy.profiles.deleteConfirm}
+              onConfirm={remove}
+              onClosed={closed}
+            />
           </>
         )}
       </div>
@@ -227,90 +242,5 @@ function EditorSkeleton({ label }: { label: boolean }) {
         ))}
       </div>
     </>
-  );
-}
-
-/** The header's Delete and its confirmation; no red button (DESIGN.md). */
-function DeleteProfile({
-  name,
-  onDelete,
-  onClosed,
-}: {
-  name: string;
-  /** Resolves to the refusal to show, or undefined once deleted (the editor then goes away). */
-  onDelete: () => Promise<string | undefined>;
-  /** Cancelled: a refusal it showed may now take its trigger away. */
-  onClosed: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string>();
-  const trigger = useRef<HTMLButtonElement>(null);
-
-  const confirm = async () => {
-    setDeleting(true);
-    setError(undefined);
-    const refusal = await onDelete();
-    if (refusal === undefined) return;
-    setDeleting(false);
-    setError(refusal);
-  };
-
-  return (
-    <AlertDialog.Root
-      open={open}
-      onOpenChange={(next) => {
-        if (deleting) return;
-        setOpen(next);
-        setError(undefined);
-        if (!next) onClosed();
-      }}
-    >
-      <AlertDialog.Trigger
-        ref={trigger}
-        aria-label={copy.profiles.delete}
-        className={`${iconButton} -my-2 -mr-2`}
-      >
-        <Trash2 aria-hidden="true" className="size-5" />
-      </AlertDialog.Trigger>
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-40 bg-scrim" />
-        <AlertDialog.Content
-          // Back to the trigger after Cancel; after a delete the list heading takes focus.
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            if (trigger.current?.isConnected) trigger.current.focus();
-          }}
-          className={dialogPanel}
-        >
-          <AlertDialog.Title className="text-title font-semibold">
-            {format(copy.profiles.deleteTitle, { name })}
-          </AlertDialog.Title>
-          <AlertDialog.Description className="mt-2 text-body text-text-secondary">
-            {copy.profiles.deleteBody}
-          </AlertDialog.Description>
-          {error && (
-            <p role="alert" className="mt-3 text-body">
-              {error}
-            </p>
-          )}
-          <div className="mt-5 flex justify-end gap-2">
-            <AlertDialog.Cancel asChild>
-              <Button variant="secondary" onElevated>
-                {copy.settings.cancel}
-              </Button>
-            </AlertDialog.Cancel>
-            <Button
-              variant="primary"
-              aria-disabled={deleting}
-              onClick={deleting ? undefined : () => void confirm()}
-            >
-              {deleting && <Spinner surface="mint" />}
-              {copy.profiles.deleteConfirm}
-            </Button>
-          </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
   );
 }
