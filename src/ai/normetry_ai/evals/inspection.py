@@ -29,6 +29,7 @@ from typing import Any
 
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.inspection.checklist import ChecklistItem, load_checklist
+from normetry_ai.inspection.graph import ItemResultState
 from normetry_ai.inspection.guard import UNVERIFIED_RATIONALE
 from normetry_ai.messaging.contracts import Verdict
 
@@ -92,7 +93,7 @@ class ItemResult:
 
 
 def item_results(
-    results: Sequence[Mapping[str, Any]], raw: Mapping[str, Any] | None = None
+    results: Sequence[ItemResultState], raw: Mapping[str, Any] | None = None
 ) -> list[ItemResult]:
     """The ItemResults of an inspection's stored results (`graph.Saved.results`, one per item
     evaluated or stopped), with the judge's raw replies by item id when the runner kept them."""

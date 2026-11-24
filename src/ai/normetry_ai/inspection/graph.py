@@ -50,10 +50,27 @@ SEVERITY_RANK = {severity: rank for rank, severity in enumerate(Severity)}
 # The budget's estimate of a prompt's tokens. English runs about 4 characters a token, Portuguese
 # fewer; 3 overestimates both, so the ceiling holds.
 CHARS_PER_TOKEN = 3
+# The graph's node names. Plain strings, not enum members: LangGraph keeps them in each checkpoint.
+PLAN_NODE = "plan"
+EVALUATE_NODE = "evaluate"
+CONSOLIDATE_NODE = "consolidate"
+ACTION_PLAN_NODE = "action_plan"
 
 Snapshot = tuple[ThemeProgress, ...]
 # An item's regulation chunks and evidence chunks.
 Excerpts = Callable[[ChecklistItem], tuple[Sequence[RetrievedChunk], Sequence[RetrievedChunk]]]
+
+
+class ItemResultState(TypedDict):
+    """One item's result, as `_result` builds it and the state stores it: a plain dict."""
+
+    item_id: str
+    theme: str
+    finding: dict[str, Any] | None  # JudgedFinding's plain fields; None when dropped or not judged
+    input_tokens: int  # cached ones included
+    output_tokens: int
+    cost_usd: float
+    budget_exceeded: bool  # stopped before its call, never judged
 
 
 class State(TypedDict, total=False):
@@ -62,7 +79,7 @@ class State(TypedDict, total=False):
     jurisdiction: str
     establishment_type: str
     plan: dict[str, list[str]]  # theme -> item ids, in checklist order
-    results: Annotated[list[dict[str, Any]], operator.add]  # one per evaluated item
+    results: Annotated[list[ItemResultState], operator.add]  # one per evaluated item
     judged: list[dict[str, Any]]  # the findings, deduplicated and in severity order
     budget_exceeded: bool
     findings: list[dict[str, Any]]  # contract Findings (camelCase JSON), with due days
@@ -143,9 +160,9 @@ class Saved:
     """An inspection's last checkpoint: its state and every item result stored so far."""
 
     exists: bool
-    values: dict[str, Any]
+    values: State
     # One per item: from finished super-steps, finished branches and finished item tasks.
-    results: list[dict[str, Any]]
+    results: list[ItemResultState]
 
     @property
     def finished(self) -> bool:
@@ -158,7 +175,7 @@ class Saved:
         return all(self.values.get(key, value) == value for key, value in start(request).items())
 
 
-def start(request: InspectionRequested) -> dict[str, Any]:
+def start(request: InspectionRequested) -> State:
     """The graph's input for an inspection request."""
     return {
         "establishment_id": str(request.establishment_id),
@@ -173,12 +190,13 @@ def config(inspection_id: UUID) -> RunnableConfig:
 
 
 def _is_result(value: object) -> bool:
-    return isinstance(value, dict) and "item_id" in value and "budget_exceeded" in value
+    """Whether a pending write is an item task's return value."""
+    return isinstance(value, dict) and ItemResultState.__required_keys__ <= value.keys()
 
 
-def _unique(results: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+def _unique(results: Sequence[ItemResultState]) -> list[ItemResultState]:
     """One result per item, the first one stored."""
-    seen: dict[str, dict[str, Any]] = {}
+    seen: dict[str, ItemResultState] = {}
     for result in results:
         seen.setdefault(result["item_id"], result)
     return list(seen.values())
@@ -191,7 +209,7 @@ async def load(checkpointer: BaseCheckpointSaver, inspection_id: UUID) -> Saved:
     if saved is None:
         return Saved(exists=False, values={}, results=[])
     values = saved.checkpoint["channel_values"]
-    results = list(values.get("results", []))
+    results: list[ItemResultState] = list(values.get("results", []))
     for _, channel, value in saved.pending_writes or []:
         if channel == "results":
             results += value
@@ -218,7 +236,7 @@ def _result(
     settings: AnswerSettings,
     *,
     budget_exceeded: bool = False,
-) -> dict[str, Any]:
+) -> ItemResultState:
     cost = sum((u.cost_usd(settings.model_prices[u.model]) for u in usages), Decimal(0))
     return {
         "item_id": item.id,
@@ -256,10 +274,10 @@ def plan(state: State) -> dict[str, Any]:
 
 def branches(state: State) -> list[Send] | str:
     sends = [
-        Send("evaluate", {"theme": theme, "item_ids": item_ids})
+        Send(EVALUATE_NODE, {"theme": theme, "item_ids": item_ids})
         for theme, item_ids in state["plan"].items()
     ]
-    return sends or "consolidate"
+    return sends or CONSOLIDATE_NODE
 
 
 def consolidate(state: State) -> dict[str, Any]:
@@ -290,7 +308,7 @@ def _graph(
     limit = asyncio.Semaphore(concurrency)
 
     @task
-    async def evaluate_item(item_id: str) -> dict[str, Any]:
+    async def evaluate_item(item_id: str) -> ItemResultState:
         item = items[item_id]
         async with limit:
             if budget.exceeded:  # spare the search too
@@ -316,7 +334,7 @@ def _graph(
         futures = [evaluate_item(item_id) for item_id in branch["item_ids"]]
         for future in futures:
             future.add_done_callback(_read_error)
-        results = []
+        results: list[ItemResultState] = []
         for future in asyncio.as_completed(futures):
             result = await future
             results.append(result)
@@ -325,15 +343,15 @@ def _graph(
         return {"results": results}
 
     graph = StateGraph(State)
-    graph.add_node("plan", plan)
-    graph.add_node("evaluate", evaluate)
-    graph.add_node("consolidate", consolidate)
-    graph.add_node("action_plan", action_plan)
-    graph.add_edge(START, "plan")
-    graph.add_conditional_edges("plan", branches, ["evaluate", "consolidate"])
-    graph.add_edge("evaluate", "consolidate")
-    graph.add_edge("consolidate", "action_plan")
-    graph.add_edge("action_plan", END)
+    graph.add_node(PLAN_NODE, plan)
+    graph.add_node(EVALUATE_NODE, evaluate)
+    graph.add_node(CONSOLIDATE_NODE, consolidate)
+    graph.add_node(ACTION_PLAN_NODE, action_plan)
+    graph.add_edge(START, PLAN_NODE)
+    graph.add_conditional_edges(PLAN_NODE, branches, [EVALUATE_NODE, CONSOLIDATE_NODE])
+    graph.add_edge(EVALUATE_NODE, CONSOLIDATE_NODE)
+    graph.add_edge(CONSOLIDATE_NODE, ACTION_PLAN_NODE)
+    graph.add_edge(ACTION_PLAN_NODE, END)
     return graph
 
 
