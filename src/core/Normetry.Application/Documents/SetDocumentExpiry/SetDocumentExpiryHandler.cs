@@ -12,9 +12,12 @@ internal sealed class SetDocumentExpiryHandler(IDocumentRepository documents)
     )
     {
         if (
-            await documents.GetForUpdateAsync(request.DocumentId, cancellationToken)
-                is not { IsDeleted: false } document
-            || document.EstablishmentId != request.EstablishmentId
+            await documents.GetForUpdateAsync(
+                request.EstablishmentId,
+                request.DocumentId,
+                cancellationToken
+            )
+            is not { IsDeleted: false } document
         )
         {
             return DocumentErrors.NotFound;

@@ -12,19 +12,32 @@ public interface IInspectionRepository
     void Add(Inspection inspection);
 
     /// <summary>
-    /// Tracked and locked until the transaction ends, so the status events of one inspection run
-    /// one at a time. Its findings are not loaded: the events only add them.
+    /// The establishment's inspection, tracked and locked until the transaction ends, so the status
+    /// events of one inspection run one at a time. Its findings are not loaded: the events only add
+    /// them. Another establishment's is neither locked nor returned.
     /// </summary>
-    Task<Inspection?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
+    Task<Inspection?> GetForUpdateAsync(
+        Guid establishmentId,
+        Guid id,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>
-    /// Tracked with its findings and their action items, and locked until the transaction ends, so
-    /// the reviews of one inspection run one at a time.
+    /// The establishment's inspection, tracked with its findings and their action items, and locked
+    /// until the transaction ends, so the reviews of one inspection run one at a time. Another
+    /// establishment's is neither locked nor returned.
     /// </summary>
-    Task<Inspection?> GetForReviewAsync(Guid id, CancellationToken cancellationToken);
+    Task<Inspection?> GetForReviewAsync(
+        Guid establishmentId,
+        Guid id,
+        CancellationToken cancellationToken
+    );
 
-    /// <summary>With its findings and their action items.</summary>
-    Task<Inspection?> GetAsync(Guid id, CancellationToken cancellationToken);
+    /// <summary>
+    /// The establishment's inspection, with its findings and their action items; another
+    /// establishment's is not returned.
+    /// </summary>
+    Task<Inspection?> GetAsync(Guid establishmentId, Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// The establishment's inspections, newest first, with their findings counted by verdict.
