@@ -1,7 +1,18 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
 import { inspectionStatuses, problemCodes } from "../api/contract";
-import type { InspectionSummary, ThemeProgress } from "../api/inspections";
+import {
+  inspectionKey,
+  inspectionsKey,
+  inspectionsQuery,
+  type InspectionDetail,
+  type InspectionSummary,
+  type ThemeProgress,
+} from "../api/inspections";
+import { useLiveStatus } from "../api/live";
 import type { Establishment } from "../api/queries";
 import type { Sent } from "../api/send";
+import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 
 /** The core's inspections hub and its event (spec §5). */
@@ -170,3 +181,105 @@ export const milestoneText = (evaluated: number, total: number) =>
 
 export const progressText = (evaluated: number, total: number) =>
   format(copy.inspections.progress, counts(evaluated, total));
+
+type Progress = Pick<InspectionSummary, "itemsEvaluated" | "itemsTotal">;
+
+/**
+ * The screen's live status (`useLiveStatus`): progress and the start of a run patch the cached
+ * list row and inspection; the open inspection (`inspectionId`) announces each milestone once; a
+ * status change refetches both and announces a failure, or a completion with its finding count.
+ * A resync refetches what is shown; a request already in flight is new enough, so it is not
+ * restarted.
+ */
+export function useInspectionLiveUpdates({
+  establishmentId,
+  inspectionId,
+  announce,
+}: {
+  establishmentId: string;
+  inspectionId: string | undefined;
+  announce: (text: string) => void;
+}) {
+  const { api } = useSession();
+  const queryClient = useQueryClient();
+  const listKey = inspectionsKey(establishmentId);
+  // The milestone the open inspection last reached, so each is announced once.
+  const reached = useRef<{ id: string; milestone: number }>(undefined);
+
+  const patchProgress = ({
+    inspectionId: id,
+    status,
+    itemsEvaluated,
+    itemsTotal,
+    themes,
+  }: InspectionChange) => {
+    const patch = { status, itemsEvaluated, itemsTotal };
+    queryClient.setQueryData<InspectionSummary[]>(listKey, (list) =>
+      list?.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    );
+    queryClient.setQueryData<InspectionDetail>(inspectionKey(establishmentId, id), (detail) =>
+      detail ? { ...detail, ...patch, themes } : detail,
+    );
+  };
+
+  const announceMilestone = (change: InspectionChange, before: Progress | undefined) => {
+    const id = change.inspectionId;
+    const last =
+      reached.current?.id === id
+        ? reached.current.milestone
+        : milestone(before?.itemsEvaluated ?? 0, before?.itemsTotal ?? 0);
+    const now = milestone(change.itemsEvaluated, change.itemsTotal);
+    if (now > last) announce(milestoneText(change.itemsEvaluated, change.itemsTotal));
+    reached.current = { id, milestone: Math.max(now, last) };
+  };
+
+  const announceCompletion = (id: string, list: Promise<InspectionSummary[]>) => {
+    list.then(
+      (rows) => {
+        const counts = rows.find((r) => r.id === id)?.verdictCounts;
+        if (!counts) return;
+        const findings = counts.compliant + counts.nonCompliant + counts.insufficientEvidence;
+        announce(format(copy.inspections.completed, { findings: findingCount(findings) }));
+      },
+      () => {},
+    );
+  };
+
+  const changed = (change: InspectionChange) => {
+    const { inspectionId: id, status } = change;
+    const detailKey = inspectionKey(establishmentId, id);
+    const listed = queryClient.getQueryData<InspectionSummary[]>(listKey);
+    const row = listed?.find((r) => r.id === id);
+    const before = row ?? queryClient.getQueryData<InspectionDetail>(detailKey);
+
+    // Progress and the start of a run patch what is shown. An end refetches: it brings results.
+    if (inFlight(status)) patchProgress(change);
+    if (id === inspectionId && status === inspectionStatuses.running)
+      announceMilestone(change, before);
+
+    const statusChanged = before?.status !== status;
+    // Progress only: nothing is refetched, unless the list is there without this inspection.
+    if (!statusChanged && (row || !listed)) return;
+    // The list is fetched (not just invalidated) for the completion's finding count.
+    const list = queryClient.fetchQuery(inspectionsQuery(api, establishmentId));
+    list.catch(() => {});
+    if (!statusChanged) return;
+    void queryClient.invalidateQueries({ queryKey: detailKey });
+    if (status === inspectionStatuses.failed)
+      announce(
+        format(copy.inspections.failed, { reason: failureText(change.failureReasonCode).short }),
+      );
+    if (status === inspectionStatuses.completed) announceCompletion(id, list);
+  };
+
+  const resync = () => {
+    void queryClient.invalidateQueries({ queryKey: listKey }, { cancelRefetch: false });
+    if (inspectionId)
+      void queryClient.invalidateQueries(
+        { queryKey: inspectionKey(establishmentId, inspectionId) },
+        { cancelRefetch: false },
+      );
+  };
+
+  return useLiveStatus(HUB_URL, HUB_EVENT, establishmentId, changed, resync);
+}
