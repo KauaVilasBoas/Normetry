@@ -24,7 +24,7 @@ import {
   type Me,
   type ProfileSummary,
 } from "../api/queries";
-import { useSend } from "../api/send";
+import { refusalText, useSend } from "../api/send";
 import { copy, format } from "../copy";
 import { paths } from "../routes";
 import { focusById } from "../ui/focus";
@@ -101,9 +101,7 @@ export function useProfileEditor({
       refresh();
       announce(format(copy.profiles.saved, { name }));
     } else {
-      setSaveError(
-        result.status === 403 ? copy.settings.denied : format(copy.profiles.saveError, { name }),
-      );
+      setSaveError(refusalText(result, format(copy.profiles.saveError, { name })));
     }
     setSaving(false);
   };
@@ -122,8 +120,7 @@ export function useProfileEditor({
   const remove = async () => {
     const result = await inDialog.send(path, { method: "DELETE" });
     // 404: it is already gone, which is what the user asked for.
-    if (!result.ok && result.status !== 404)
-      return result.status === 403 ? copy.settings.denied : copy.profiles.deleteError;
+    if (!result.ok && result.status !== 404) return refusalText(result, copy.profiles.deleteError);
     queryClient.setQueryData<ProfileListItem[]>(profilesKey, (list) =>
       list?.filter((item) => item.id !== id),
     );
@@ -260,9 +257,7 @@ export function useProfileToggle({
       setError(
         result.code === problemCodes.lastOwner
           ? format(copy.users.lastOwner, { name })
-          : result.status === 403
-            ? copy.settings.denied
-            : format(copy.users.error, { name }),
+          : refusalText(result, format(copy.users.error, { name })),
       );
     }
     setPending((current) => {
