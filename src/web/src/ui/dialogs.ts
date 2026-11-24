@@ -36,3 +36,65 @@ export function useConfirm(onConfirm: () => Promise<string | undefined>, onClose
 
   return { open, openChange, confirming, refusal, confirm, triggerRef, afterClose };
 }
+
+/**
+ * What a form dialog's request came to: saved (the dialog closes), a refusal to show in the
+ * dialog, or undefined when a field shows why.
+ */
+export type Submitted<T> = { saved: T } | { error: string } | undefined;
+
+/**
+ * A form dialog's state (`FormDialog`). Opening clears its error and runs `reset`, so the form
+ * starts over; closing runs `onClosed`. `submit(request)` clears the error and runs `request`,
+ * which returns undefined when a field shows why the form can't be sent, else its request: the
+ * dialog is `submitting` until it answers. Saved closes the dialog, and `afterClose` (its
+ * `onCloseAutoFocus`) hands what was saved to `onSaved` once it has closed, when the page is heard
+ * again.
+ */
+export function useFormDialog<T>({
+  reset,
+  onClosed,
+  onSaved,
+}: {
+  reset: () => void;
+  onClosed?: () => void;
+  onSaved: (saved: T, event: Event) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
+  const saved = useRef<{ value: T }>(undefined);
+
+  const openChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      onClosed?.();
+      return;
+    }
+    reset();
+    setError(undefined);
+  };
+
+  const submit = async (request: () => Promise<Submitted<T>> | undefined) => {
+    setError(undefined);
+    const sent = request();
+    if (!sent) return;
+    setSubmitting(true);
+    const outcome = await sent;
+    setSubmitting(false);
+    if (!outcome) return;
+    if ("error" in outcome) {
+      setError(outcome.error);
+      return;
+    }
+    saved.current = { value: outcome.saved };
+    setOpen(false);
+  };
+
+  const afterClose = (event: Event) => {
+    if (saved.current) onSaved(saved.current.value, event);
+    saved.current = undefined;
+  };
+
+  return { open, openChange, submitting, error, submit, afterClose };
+}
