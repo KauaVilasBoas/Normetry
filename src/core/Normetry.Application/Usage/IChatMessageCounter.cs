@@ -13,7 +13,6 @@ public interface IChatMessageCounter
     /// added.
     /// </summary>
     Task<int?> TryIncrementAsync(
-        Guid tenantId,
         string userId,
         DateOnly day,
         int? limit,

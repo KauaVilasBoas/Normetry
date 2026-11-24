@@ -4,11 +4,8 @@ using Normetry.BuildingBlocks.Results;
 
 namespace Normetry.Application.Identity.SyncCurrentUser;
 
-internal sealed class SyncCurrentUserHandler(
-    IUserRepository users,
-    ICurrentUser currentUser,
-    ITenantContext tenant
-) : ICommandHandler<SyncCurrentUserCommand>
+internal sealed class SyncCurrentUserHandler(IUserRepository users, ICurrentUser currentUser)
+    : ICommandHandler<SyncCurrentUserCommand>
 {
     public async Task<Result> HandleAsync(
         SyncCurrentUserCommand request,
@@ -16,7 +13,6 @@ internal sealed class SyncCurrentUserHandler(
     )
     {
         await users.SyncAsync(
-            tenant.TenantId,
             currentUser.UserId,
             currentUser.DisplayName,
             currentUser.Email,

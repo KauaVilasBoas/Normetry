@@ -72,7 +72,7 @@ public interface IInspectionRepository
     /// tenant id), so concurrent starts of one tenant reach the in-flight count one at a time, on
     /// any day.
     /// </summary>
-    Task LockStartsAsync(Guid tenantId, CancellationToken cancellationToken);
+    Task LockStartsAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// The tenant's inspections that are Running, or Requested since
@@ -99,12 +99,7 @@ public interface IInspectionRepository
     /// the limit; part of the transaction, so a start refused later uncounts itself. Returns the
     /// new count, or <c>null</c> when nothing was counted.
     /// </summary>
-    Task<int?> TryCountStartAsync(
-        Guid tenantId,
-        DateOnly day,
-        int? limit,
-        CancellationToken cancellationToken
-    );
+    Task<int?> TryCountStartAsync(DateOnly day, int? limit, CancellationToken cancellationToken);
 }
 
 /// <summary>
