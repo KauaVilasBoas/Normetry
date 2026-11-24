@@ -93,7 +93,7 @@ public sealed class DocumentStatusTests
         await HandleAsync(a, started, messageId);
         var changedAt = await ChangedAtAsync(a);
         // The version moves on; a redelivery of the first event must not move it back.
-        await SetStatusAsync(a, "Uploaded");
+        await SetStatusAsync(db, a, "Uploaded");
         Assert.Equal(ConsumeOutcome.Ack, await HandleAsync(a, started, messageId));
 
         Assert.Equal(("Uploaded", (string?)null), await StatusAsync(a));
@@ -198,9 +198,9 @@ public sealed class DocumentStatusTests
             recent,
             new DocumentIngestionStarted(recent.Establishment, recent.Document, recent.Version, 1)
         );
-        await SetStatusAsync(stuck, "Processing", TimeSpan.FromMinutes(16));
+        await SetStatusAsync(db, stuck, "Processing", TimeSpan.FromMinutes(16));
         // Uploaded never times out: the version waits for the AI service.
-        await SetStatusAsync(waiting, "Uploaded", TimeSpan.FromHours(2));
+        await SetStatusAsync(db, waiting, "Uploaded", TimeSpan.FromHours(2));
         var sweeper = ActivatorUtilities.CreateInstance<TimeoutSweeper>(db.Api.Services);
 
         // Other tenants' sweeps never reach the stuck version.
@@ -304,7 +304,13 @@ public sealed class DocumentStatusTests
         );
     }
 
-    private async Task SetStatusAsync(Uploaded target, string status, TimeSpan? age = null)
+    /// <summary>Sets the version's status in SQL, changed <paramref name="age"/> ago (now by default).</summary>
+    internal static async Task SetStatusAsync(
+        DatabaseFixture db,
+        Uploaded target,
+        string status,
+        TimeSpan? age = null
+    )
     {
         await using var session = await Session.BeginAsync(
             db.ConnectionString("app_core"),
