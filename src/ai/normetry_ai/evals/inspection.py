@@ -35,6 +35,8 @@ from normetry_ai.inspection.guard import UNVERIFIED_RATIONALE
 from normetry_ai.messaging.contracts import Verdict
 
 DROPPED, NO_REGULATION, NOT_RUN = "dropped", "no_regulation", "not_run"
+# An InspectionRun's status unless the runner records why it stopped.
+COMPLETED = "completed"
 # The `role` of a near-miss passage that makes the document look like evidence (the other: `tell`).
 LURE = "lure"
 OUTCOMES = (*Verdict, DROPPED, NO_REGULATION, NOT_RUN)
@@ -124,7 +126,7 @@ class InspectionRun:
     documents: dict[str, str]  # document id -> file, the establishment's own
     elsewhere: dict[str, str]  # document id -> "<folder>/<file>", every other establishment's
     items: list[ItemResult] = field(default_factory=list)
-    status: str = "completed"
+    status: str = COMPLETED
     seconds: float = 0.0  # the inspection, from its start to its result
     ingest_seconds: float = 0.0  # indexing its documents
     stop_reasons: dict[str, int] = field(default_factory=dict)  # calls not ended by end_turn

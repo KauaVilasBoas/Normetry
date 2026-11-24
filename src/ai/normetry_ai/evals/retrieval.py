@@ -15,6 +15,7 @@ from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
+from normetry_ai.evals.dataset import Behavior
 from normetry_ai.evals.report import NOT_AVAILABLE
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.retrieval.hybrid import Trace
@@ -67,7 +68,7 @@ class ItemResult:
 
     @property
     def answerable(self) -> bool:
-        return self.item["expected_behavior"] == "answer"
+        return self.item["expected_behavior"] == Behavior.ANSWER
 
 
 def _only(trace: Trace, source_type: SourceType) -> list[str]:

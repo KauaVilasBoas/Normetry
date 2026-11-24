@@ -13,7 +13,9 @@ import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
+from enum import StrEnum
 
+from normetry_ai.evals.dataset import ATTACKS, REFUSAL_TYPES, Behavior
 from normetry_ai.evals.report import NOT_AVAILABLE, folded, fraction, measures_table, usd
 from normetry_ai.evals.retrieval import quote_ranks, recall_at
 from normetry_ai.llm.claude import REFUSAL
@@ -22,18 +24,24 @@ from normetry_ai.retrieval.policy import jurisdictions_for
 from normetry_ai.settings import FollowupRewrite
 
 REVIEW_PENDING = "Faithfulness and citation review: pending (judged in a Claude Code session)"
-REFUSAL_TYPES = ("not_covered", "wrong_jurisdiction", "follow_up")
-ATTACKS = ("cross_tenant", "cross_establishment", "injection")
 # Phase 1 baseline, Claude Haiku 5.5 (evals/reports/2026-11-15-generation-claude-haiku-5-5.md):
 # median time to first claim. SC-004 of feature 003 allows 20% more with documents.
 PHASE1_FIRST_CLAIM_P50 = 18.45
+
+
+class Outcome(StrEnum):
+    """How a chat model's answer ended."""
+
+    ANSWERED = "answered"
+    REFUSED = "refused"
+    UNAVAILABLE = "unavailable"  # the model failed: no Answered or Refused came
 
 
 @dataclass
 class ModelAnswer:
     """One chat model's answer in one pass."""
 
-    outcome: str  # "answered", "refused" or "unavailable"
+    outcome: Outcome
     refusal_reason: str | None = None
     # The shown claims: text, and citations with chunk_id, source, section_path, jurisdiction,
     # language and quote.
@@ -80,7 +88,8 @@ class PassResult:
 
 def correct(item: dict, answer: ModelAnswer) -> bool:
     """Answered when the item expects an answer, refused when it expects a refusal."""
-    return answer.outcome == ("answered" if item["expected_behavior"] == "answer" else "refused")
+    expected = Outcome.ANSWERED if item["expected_behavior"] == Behavior.ANSWER else Outcome.REFUSED
+    return answer.outcome == expected
 
 
 def out_of_scope(item: dict, answer: ModelAnswer) -> list[dict]:
@@ -180,9 +189,9 @@ def metrics(passes: Sequence[PassResult], model: str) -> dict:
         for p in passes
         if p.rewrite != FollowupRewrite.BASELINE and not is_document(p.item)
     ]
-    answerable = [run for run in runs if run[0]["expected_behavior"] == "answer"]
-    refusals = [run for run in runs if run[0]["expected_behavior"] == "refuse"]
-    answered = [run for run in answerable if run[1].outcome == "answered"]
+    answerable = [run for run in runs if run[0]["expected_behavior"] == Behavior.ANSWER]
+    refusals = [run for run in runs if run[0]["expected_behavior"] == Behavior.REFUSE]
+    answered = [run for run in answerable if run[1].outcome == Outcome.ANSWERED]
     found = [gold_found(item, answer) for item, answer, _ in answered]
     first = [t for *_, p in runs if (t := p.time_to_first_claim(model)) is not None]
     total = [p.total_seconds(model) for *_, p in runs]
@@ -203,7 +212,7 @@ def metrics(passes: Sequence[PassResult], model: str) -> dict:
         "shown": sum(len(answer.claims) for _, answer, _ in runs),
         "dropped": sum(answer.dropped for _, answer, _ in runs),
         "model refusals": count(lambda _, answer: answer.stop_reason == REFUSAL),
-        "unavailable": count(lambda _, answer: answer.outcome == "unavailable"),
+        "unavailable": count(lambda _, answer: answer.outcome == Outcome.UNAVAILABLE),
         "gold coverage": statistics.fmean(statistics.fmean(f) for f in found) if found else None,
         "citing gold": (sum(any(f) for f in found), len(found)),
         "first claim": (percentile(first, 50), percentile(first, 95)),
@@ -233,7 +242,7 @@ def document_metrics(passes: Sequence[PassResult], model: str) -> dict:
     first = [t for *_, p in runs if (t := p.time_to_first_claim(model)) is not None]
     return {
         "questions answered": (
-            sum(answer.outcome == "answered" for _, answer, _ in questions),
+            sum(answer.outcome == Outcome.ANSWERED for _, answer, _ in questions),
             len(questions),
         ),
         "citing the right document": (
@@ -267,7 +276,7 @@ def rewrite_comparison(passes: Sequence[PassResult], model: str) -> dict[str, di
         recall = [
             recall_at(quote_ranks(p.retrieved, [q["quote"] for q in p.item["provisions"]]), 10)
             for p in paired
-            if p.item["expected_behavior"] == "answer"
+            if p.item["expected_behavior"] == Behavior.ANSWER
         ]
         comparison[mode] = {
             "recall@10": statistics.fmean(recall) if recall else None,

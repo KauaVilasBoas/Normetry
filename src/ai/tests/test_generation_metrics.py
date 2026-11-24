@@ -3,9 +3,11 @@
 import json
 from decimal import Decimal
 
+from normetry_ai.evals.dataset import Behavior
 from normetry_ai.evals.generation import (
     REVIEW_PENDING,
     ModelAnswer,
+    Outcome,
     PassResult,
     document_metrics,
     jsonl,
@@ -14,6 +16,7 @@ from normetry_ai.evals.generation import (
     render,
     rewrite_comparison,
 )
+from normetry_ai.llm.claude import REFUSAL
 
 GOLD = "Time/temperature control for safety food shall be maintained at 5°C (41°F) or less"
 
@@ -28,14 +31,14 @@ def item(item_id: str, kind: str, behavior: str, jurisdiction: str = "US", langu
         "turns": ["q"],
         "expected_behavior": behavior,
         "expected_answer": "a",
-        "provisions": provisions if behavior == "answer" else [],
+        "provisions": provisions if behavior == Behavior.ANSWER else [],
     }
 
 
 def answered(jurisdiction: str, language: str, content: str, **kwargs) -> ModelAnswer:
     citation = {"chunk_id": "c1", "jurisdiction": jurisdiction, "language": language, "quote": "q"}
     return ModelAnswer(
-        "answered",
+        Outcome.ANSWERED,
         claims=[{"text": "t", "citations": [citation]}],
         cited={"c1": content},
         raw_claims=2,
@@ -57,11 +60,14 @@ def test_generation_metrics() -> None:
         run(item("us-001", "direct", "answer"), answered("US", "en", f"... {GOLD} ...")),
         # Answered from the right jurisdiction in the wrong language: out of scope, no gold quote.
         run(item("eu-011", "direct", "answer", "EU", "pt"), answered("EU", "en", "other text")),
-        run(item("us-010", "not_covered", "refuse"), ModelAnswer("refused", "no_supported_claims")),
+        run(
+            item("us-010", "not_covered", "refuse"),
+            ModelAnswer(Outcome.REFUSED, "no_supported_claims"),
+        ),
         # A refusal expected, a foreign citation shown.
         run(item("us-015", "wrong_jurisdiction", "refuse"), answered("BR", "pt", "x")),
         run(follow_up, answered("US", "en", GOLD), "model", [GOLD]),
-        run(follow_up, ModelAnswer("unavailable", stop_reason="refusal"), "baseline", ["x"]),
+        run(follow_up, ModelAnswer(Outcome.UNAVAILABLE, stop_reason=REFUSAL), "baseline", ["x"]),
     ]
 
     m = metrics(passes, "m")
@@ -111,7 +117,7 @@ def cited(text: str, quote: str, establishment: str, document: str) -> ModelAnsw
         "quote": quote,
     }
     return ModelAnswer(
-        "answered",
+        Outcome.ANSWERED,
         claims=[{"text": text, "citations": [citation]}],
         first_claim_seconds=20.0,
         answer_seconds=21.0,
@@ -127,7 +133,9 @@ def test_document_and_security_metrics() -> None:
             cited("Seis meses.", "a cada seis meses", own, "pop.docx"),
         ),
         # Refused as expected, nothing shown.
-        run(document_item("sec-011", "cross_establishment", "refuse"), ModelAnswer("refused")),
+        run(
+            document_item("sec-011", "cross_establishment", "refuse"), ModelAnswer(Outcome.REFUSED)
+        ),
         # A cross-tenant leak through a citation's quote, in another case and spacing.
         run(
             document_item("sec-009", "cross_tenant", "refuse"),
