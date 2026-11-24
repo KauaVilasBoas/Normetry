@@ -11,15 +11,15 @@ internal static class Topology
 {
     public const string Events = "normetry.events";
     public const string DeadLetter = "normetry.dead-letter";
-    public const string StatusQueue = "core.document-status";
-    public const string StatusDeadLetterQueue = "core.document-status.dead-letter";
+    public const string DocumentStatusQueue = "core.document-status";
+    public const string DocumentStatusDeadLetterQueue = "core.document-status.dead-letter";
     public const string InspectionStatusQueue = "core.inspection-status";
     public const string InspectionStatusDeadLetterQueue = "core.inspection-status.dead-letter";
 
     /// <summary>A message gets five deliveries, then goes to the dead-letter queue.</summary>
     public const int DeliveryLimit = 4;
 
-    public static readonly string[] StatusRoutingKeys =
+    public static readonly string[] DocumentStatusRoutingKeys =
     [
         Application.Documents.DocumentIngestionStarted.RoutingKey,
         Application.Documents.DocumentIndexed.RoutingKey,
@@ -55,15 +55,15 @@ internal static class Topology
     }
 
     /// <summary>The document status queue, its dead-letter queue and their bindings.</summary>
-    public static Task DeclareStatusQueueAsync(
+    public static Task DeclareDocumentStatusQueueAsync(
         IChannel channel,
         CancellationToken cancellationToken
     ) =>
         DeclareConsumedQueueAsync(
             channel,
-            StatusQueue,
-            StatusDeadLetterQueue,
-            StatusRoutingKeys,
+            DocumentStatusQueue,
+            DocumentStatusDeadLetterQueue,
+            DocumentStatusRoutingKeys,
             cancellationToken
         );
 
