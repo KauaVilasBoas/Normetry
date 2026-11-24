@@ -4,6 +4,7 @@ import { problemCodes } from "../api/contract";
 import {
   documentKey,
   documentsKey,
+  establishmentDocumentPath,
   useDocument,
   type DocumentDetail,
   type DocumentSummary,
@@ -93,10 +94,10 @@ export function useExpiryForm(detail: DocumentDetail, announce: (text: string) =
   const save = async (expiresOn: string | null) => {
     setError(undefined);
     setSubmitting(true);
-    const result = await send(
-      `/establishments/${encodeURIComponent(detail.establishmentId)}/documents/${encodeURIComponent(detail.id)}`,
-      { method: "PATCH", json: { expiresOn } },
-    );
+    const result = await send(establishmentDocumentPath(detail.establishmentId, detail.id), {
+      method: "PATCH",
+      json: { expiresOn },
+    });
     setSubmitting(false);
     if (!result.ok) {
       if (result.code === problemCodes.validation)

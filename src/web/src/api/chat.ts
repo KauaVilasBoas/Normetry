@@ -78,6 +78,18 @@ export interface Conversation extends ConversationSummary {
   messages: ConversationMessage[];
 }
 
+/** The core's gateway to the AI service. */
+const gateway = "/ai";
+const conversationsPath = `${gateway}/conversations`;
+/** GET one conversation with its messages; DELETE removes it. */
+export const conversationPath = (id: string) => `${conversationsPath}/${encodeURIComponent(id)}`;
+/** POST starts a conversation in the establishment. */
+export const establishmentConversationsPath = (establishmentId: string) =>
+  `${gateway}/establishments/${encodeURIComponent(establishmentId)}/conversations`;
+/** POST asks a question; the answer streams back. */
+export const conversationMessagesPath = (establishmentId: string, conversationId: string) =>
+  `${establishmentConversationsPath(establishmentId)}/${encodeURIComponent(conversationId)}/messages`;
+
 export const conversationsKey = ["conversations"];
 export const quotaKey = ["chat-quota"];
 
@@ -86,7 +98,7 @@ export function useConversations(enabled = true) {
   const { api } = useSession();
   return useQuery({
     queryKey: conversationsKey,
-    queryFn: () => api.get<ConversationSummary[]>("/ai/conversations"),
+    queryFn: () => api.get<ConversationSummary[]>(conversationsPath),
     enabled,
   });
 }
@@ -99,7 +111,7 @@ export function useConversation(id: string | undefined) {
   const { api } = useSession();
   return useQuery({
     queryKey: ["conversation", id],
-    queryFn: () => api.get<Conversation>(`/ai/conversations/${encodeURIComponent(id ?? "")}`),
+    queryFn: () => api.get<Conversation>(conversationPath(id ?? "")),
     enabled: id !== undefined,
     staleTime: Infinity,
     gcTime: 0,

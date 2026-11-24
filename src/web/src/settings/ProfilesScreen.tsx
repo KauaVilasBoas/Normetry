@@ -6,6 +6,7 @@ import { permissions } from "../api/contract";
 import {
   profileKey,
   profilesKey,
+  profilesPath,
   useProfiles,
   type Profile,
   type ProfileListItem,
@@ -67,7 +68,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
 
   const created = useRef<string>(undefined);
   const create = async (name: string) => {
-    const result = await send("/profiles", { method: "POST", json: { name } });
+    const result = await send(profilesPath, { method: "POST", json: { name } });
     if (result.ok) {
       const { id } = (await result.response.json()) as { id: string };
       // A new profile grants nothing, so it opens without a fetch.

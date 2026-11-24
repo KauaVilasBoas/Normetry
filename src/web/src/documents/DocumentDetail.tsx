@@ -3,7 +3,7 @@ import { AlertDialog } from "radix-ui";
 import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { documentStatuses, permissions } from "../api/contract";
-import type { DocumentDetail } from "../api/documents";
+import { documentPath, type DocumentDetail } from "../api/documents";
 import type { Live } from "../api/live";
 import { can, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
@@ -452,9 +452,7 @@ function DeleteDocument({
   const confirm = async () => {
     setDeleting(true);
     setError(undefined);
-    const result = await send(`/documents/${encodeURIComponent(detail.id)}`, {
-      method: "DELETE",
-    });
+    const result = await send(documentPath(detail.id), { method: "DELETE" });
     // 404: it is already gone, which is what the user asked for.
     if (result.ok || result.status === 404) {
       onDeleted();

@@ -1,7 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FocusEvent, type UIEvent } from "react";
 import {
+  conversationMessagesPath,
+  conversationPath,
   conversationsKey,
+  establishmentConversationsPath,
   quotaKey,
   useConversation,
   type ChatQuota,
@@ -29,8 +32,6 @@ export const SHOW_CONVERSATIONS_ID = "show-conversations";
 
 /** Follow new content only while the reader is this close to the bottom. */
 const STICK_PX = 80;
-
-const path = (id: string) => encodeURIComponent(id);
 
 export type ConversationView = "new" | "loading" | "error" | "not-found" | "ready";
 
@@ -154,10 +155,10 @@ export function useAnswerStream({
     try {
       let id = savedId;
       if (id === undefined) {
-        const created = await api.request(
-          `/ai/establishments/${path(establishment.id)}/conversations`,
-          { method: "POST", signal },
-        );
+        const created = await api.request(establishmentConversationsPath(establishment.id), {
+          method: "POST",
+          signal,
+        });
         if (!created.ok)
           return (await rateLimited(created)) ? limited(created) : fail(created.status);
         const summary = (await created.json()) as ConversationSummary;
@@ -171,10 +172,12 @@ export function useAnswerStream({
         onCreated(id);
       }
 
-      const response = await api.request(
-        `/ai/establishments/${path(establishment.id)}/conversations/${path(id)}/messages`,
-        { method: "POST", json: { text: question }, accept: "text/event-stream", signal },
-      );
+      const response = await api.request(conversationMessagesPath(establishment.id, id), {
+        method: "POST",
+        json: { text: question },
+        accept: "text/event-stream",
+        signal,
+      });
       if (await rateLimited(response)) return limited(response);
       const before = queryClient.getQueryData<ChatQuota>(quotaKey);
       const after = quotaAfter(response, before);
@@ -373,7 +376,7 @@ export function useDeleteConversation(savedId: string | undefined, onDeleted: ()
 
   async function deleteConversation(): Promise<string | undefined> {
     if (savedId === undefined) return copy.chat.deleteError;
-    const result = await send(`/ai/conversations/${path(savedId)}`, { method: "DELETE" });
+    const result = await send(conversationPath(savedId), { method: "DELETE" });
     if (!result.ok && result.status !== 404) {
       return result.status === 403 ? copy.settings.denied : copy.chat.deleteError;
     }

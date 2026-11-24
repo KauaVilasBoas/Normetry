@@ -3,7 +3,7 @@ import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { permissions, problemCodes } from "../api/contract";
-import { usersKey, useUsers, type TenantUser } from "../api/profiles";
+import { userProfilePath, usersKey, useUsers, type TenantUser } from "../api/profiles";
 import { can, meKey, useQueryRetry, type Me, type ProfileSummary } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format, locale } from "../copy";
@@ -152,10 +152,9 @@ function ProfilesMenu({
     const on = !held.has(profile.id);
     setError(undefined);
     setPending((current) => ({ ...current, [profile.id]: on }));
-    const result = await send(
-      `/users/${encodeURIComponent(user.id)}/profiles/${encodeURIComponent(profile.id)}`,
-      { method: on ? "PUT" : "DELETE" },
-    );
+    const result = await send(userProfilePath(user.id, profile.id), {
+      method: on ? "PUT" : "DELETE",
+    });
     if (result.ok) {
       if (user.isCurrentUser) void queryClient.invalidateQueries({ queryKey: meKey });
       await queryClient.invalidateQueries({ queryKey: usersKey });

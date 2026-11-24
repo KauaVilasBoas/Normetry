@@ -3,7 +3,13 @@ import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
 import type { RequestOptions } from "../api/client";
 import { problemCodes } from "../api/contract";
-import { documentKey, documentsKey, type DocumentDetail } from "../api/documents";
+import {
+  documentKey,
+  documentsKey,
+  documentsPath,
+  documentVersionsPath,
+  type DocumentDetail,
+} from "../api/documents";
 import type { Establishment } from "../api/queries";
 import { useSend, type Sent } from "../api/send";
 import { copy, fileSize, format } from "../copy";
@@ -205,9 +211,7 @@ function UploadForm({
     upload.current = controller;
     setSubmitting(true);
     const result = await send(
-      existing
-        ? `/documents/${encodeURIComponent(existing.id)}/versions`
-        : `/establishments/${encodeURIComponent(establishment.id)}/documents`,
+      existing ? documentVersionsPath(existing.id) : documentsPath(establishment.id),
       { method: "POST", form, signal: controller.signal },
     );
     if (controller.signal.aborted) return;
