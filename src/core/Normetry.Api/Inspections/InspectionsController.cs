@@ -1,5 +1,3 @@
-using System.Text.Encodings.Web;
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Normetry.Api.Auth;
@@ -190,7 +188,7 @@ public sealed class InspectionsController(IDispatcher dispatcher, TimeProvider c
     /// <summary>
     /// Development only (404 elsewhere): writes the inspection's rejected and edited findings as
     /// eval examples, one JSON object per line, to <c>{id}.jsonl</c> under
-    /// <see cref="FeedbackDirectorySetting"/> (by default the repository's
+    /// <see cref="FeedbackExportFile.DirectorySetting"/> (by default the repository's
     /// <c>evals/datasets/inspection-feedback</c>), replacing an earlier export. Answers
     /// <c>{ path, examples }</c>. The caller's tenant and RLS scope it like any request.
     /// </summary>
@@ -216,42 +214,15 @@ public sealed class InspectionsController(IDispatcher dispatcher, TimeProvider c
         {
             return result.ToActionResult();
         }
-        var directory = Path.GetFullPath(
-            configuration[FeedbackDirectorySetting]
-                ?? Path.Combine(
-                    environment.ContentRootPath,
-                    "..",
-                    "..",
-                    "..",
-                    "evals",
-                    "datasets",
-                    "inspection-feedback"
-                )
-        );
-        Directory.CreateDirectory(directory);
-        // The id is a parsed Guid, so no client text reaches the path.
-        var path = Path.Combine(directory, $"{id}.jsonl");
-        await System.IO.File.WriteAllTextAsync(
-            path,
-            string.Concat(
-                result.Value.Select(example =>
-                    JsonSerializer.Serialize(example, FeedbackJson) + "\n"
-                )
-            ),
+        var path = await FeedbackExportFile.WriteAsync(
+            configuration,
+            environment,
+            id,
+            result.Value,
             cancellationToken
         );
         return Ok(new { path, examples = result.Value.Count });
     }
-
-    /// <summary>Where the feedback export writes; by default the repository's <c>evals/datasets/inspection-feedback</c>.</summary>
-    public const string FeedbackDirectorySetting = "InspectionFeedback:Directory";
-
-    // People read the file before committing it and it never reaches a page, so accents and
-    // symbols ("°F", "não") stay as they are instead of \u escapes.
-    private static readonly JsonSerializerOptions FeedbackJson = new(JsonSerializerDefaults.Web)
-    {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
 
     private async Task<IActionResult> ReviewAsync(
         ICommand<FindingResponse> command,
