@@ -3,6 +3,8 @@
 
 from uuid import uuid4
 
+from fakes import document_chunk, regulation_chunk
+
 from normetry_ai.evals.retrieval import (
     evaluate,
     evaluate_documents,
@@ -18,30 +20,8 @@ RULE = "Cold food shall be held at 5°C or below"
 OWN = uuid4()
 
 
-def regulation(content: str, jurisdiction: str = "EU", language: str = "pt") -> RetrievedChunk:
-    return RetrievedChunk(
-        uuid4(), content, "Annex II", language, jurisdiction, uuid4(), "852", "1", "u", 0.5
-    )
-
-
-def document(content: str, document_id=OWN, title: str = "Plan") -> RetrievedChunk:
-    return RetrievedChunk(
-        uuid4(),
-        content,
-        "",
-        "pt",
-        "",
-        document_id,
-        title,
-        "1",
-        "",
-        0.6,
-        source_type="tenant_document",
-        document_id=document_id,
-        document_title=title,
-        document_type="Sop",
-        document_version=1,
-    )
+# Regulation 852/2004 in Portuguese, the items' corpus version.
+EU_PT = {"jurisdiction": "EU", "language": "pt", "section_path": "Annex II"}
 
 
 def trace(chunks: list[RetrievedChunk], candidates: list[RetrievedChunk] = ()) -> Trace:
@@ -71,12 +51,17 @@ def item(item_id: str, quotes: list[str], provisions: list[str], behavior: str =
 
 def test_document_quotes_count_only_in_document_chunks_and_rules_only_in_regulation() -> None:
     # The rule also appears in the plan: a document chunk holding it is not a corpus hit.
-    plan = document(f"Our plan copies the rule: {RULE}. The slicer is cleaned weekly.")
-    missed = document("The slicer log for October.")
+    plan = document_chunk(
+        f"Our plan copies the rule: {RULE}. The slicer is cleaned weekly.", document_id=OWN
+    )
+    missed = document_chunk("The slicer log for October.", document_id=OWN)
     traces = {
-        "eu-001": trace([plan, regulation("other text"), regulation(RULE)], [plan, missed]),
-        "eu-002": trace([regulation("x")], [missed]),
-        "sec-001": trace([document("Austin's pest report", uuid4(), "Pest report")]),
+        "eu-001": trace(
+            [plan, regulation_chunk("other text", **EU_PT), regulation_chunk(RULE, **EU_PT)],
+            [plan, missed],
+        ),
+        "eu-002": trace([regulation_chunk("x", **EU_PT)], [missed]),
+        "sec-001": trace([document_chunk("Austin's pest report", title="Pest report")]),
     }
     items = [
         item("eu-001", ["slicer is cleaned weekly"], [RULE]),
@@ -100,8 +85,8 @@ def test_document_quotes_count_only_in_document_chunks_and_rules_only_in_regulat
     assert out_of_scope(first) == []
 
     corpus = [{**item("eu-001", [], [RULE]), "type": "direct"}]
-    without = evaluate(corpus, lambda _: trace([regulation(RULE)]))
-    crowded = evaluate(corpus, lambda _: trace([plan, regulation(RULE)]))
+    without = evaluate(corpus, lambda _: trace([regulation_chunk(RULE, **EU_PT)]))
+    crowded = evaluate(corpus, lambda _: trace([plan, regulation_chunk(RULE, **EU_PT)]))
     assert (without[0].ranks["reranked"], crowded[0].ranks["reranked"]) == ([1], [2])
 
     report = render_documents(results, without, crowded, ["Pest report (x)"], 3)

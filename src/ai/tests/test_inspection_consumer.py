@@ -17,9 +17,8 @@ from uuid import UUID, uuid4
 
 import anyio
 import pytest
-from fakes import EchoJudge, FakeContainer, FakeEmbedder, FakeReranker
+from fakes import EchoJudge, FakeBroker, FakeContainer, FakeEmbedder, FakeReranker
 from sqlalchemy import Engine
-from test_consumer import FakeBroker
 from test_contracts import errors, schema_name
 from test_inspection_graph import ITEMS, SETTINGS, stub_regulation
 

@@ -20,13 +20,12 @@ from xml.sax.saxutils import unescape
 import anyio
 import pytest
 from conftest import TOKEN
-from fakes import EchoJudge, FakeContainer, FakeEmbedder, FakeReranker
+from fakes import EchoJudge, FakeBroker, FakeContainer, FakeEmbedder, FakeReranker
 from fastapi.testclient import TestClient
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from sqlalchemy import Engine
-from test_consumer import FakeBroker
 from test_database import ANSWERED, CHAT_SETTINGS, ChatApi, Person
 from test_inspection_graph import ITEMS, SETTINGS, stub_regulation
 

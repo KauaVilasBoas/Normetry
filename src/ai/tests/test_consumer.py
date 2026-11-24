@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 import anyio
 import pytest
+from fakes import FakeBroker
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -23,7 +24,6 @@ from normetry_ai.messaging.contracts import (
     DocumentDeleted,
     DocumentIndexed,
     DocumentUploaded,
-    Envelope,
     envelope,
 )
 from normetry_ai.messaging.delivery import DELIVERY_LIMIT, retry_delay
@@ -77,22 +77,6 @@ class FakeWorker:
         self.calls.append(("delete", tenant_id, message))
         if self.error is not None:
             raise self.error
-
-
-@dataclass
-class FakeBroker:
-    published: list[Envelope[Any]] = field(default_factory=list)
-    failing: bool = False
-    refuses: str | None = None  # one message type that cannot be published
-
-    async def publish(self, message: Envelope[Any]) -> None:
-        if self.failing or message.type == self.refuses:
-            raise ConnectionError("broker gone")
-        self.published.append(message)
-
-    @property
-    def sent(self) -> list[tuple[str, Any]]:
-        return [(message.type, message.payload) for message in self.published]
 
 
 def deliver(
