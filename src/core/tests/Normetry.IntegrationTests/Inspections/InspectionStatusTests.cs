@@ -314,7 +314,7 @@ public sealed class InspectionStatusTests
         // Long in the queue, but Running only briefly: only the run counts.
         await AgeAsync(recent, "requested_at", TimeSpan.FromHours(2));
         await AgeAsync(queued, "requested_at", TimeSpan.FromMinutes(29));
-        var sweeper = ActivatorUtilities.CreateInstance<ProcessingTimeoutSweeper>(db.Api.Services);
+        var sweeper = ActivatorUtilities.CreateInstance<TimeoutSweeper>(db.Api.Services);
 
         // Other tenants' sweeps never reach the stuck inspection.
         Assert.Empty(await sweeper.SweepInspectionsAsync(recent.Target.Tenant, Ct));
