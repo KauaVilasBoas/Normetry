@@ -17,6 +17,7 @@ import {
   type Finding,
   type RegulationCitation,
 } from "../api/inspections";
+import type { StoredPassage } from "../api/passages";
 import { calendarDate, copy, format, languageName } from "../copy";
 import { arrivalState, paths } from "../routes";
 import {
@@ -300,7 +301,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** The quote alone, then the stored passage with the quote highlighted on request. */
-function Quote({ citation }: { citation: RegulationCitation | EvidenceCitation }) {
+function Quote({ citation }: { citation: StoredPassage }) {
   return (
     <>
       <QuotedPassage citation={citation} mode="quote" className="mt-2" />
