@@ -16,6 +16,7 @@ import {
 import { can, meKey, queryFailed, queryNotFound, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
+import { paths } from "../routes";
 import { focusById } from "../ui/focus";
 import {
   Button,
@@ -200,7 +201,7 @@ export function ProfileEditor({
       {notFound ? (
         <>
           <p className="mt-2 text-body text-text-secondary">{copy.profiles.notFoundBody}</p>
-          <Link to="/settings/profiles" onClick={onBack} className={`${secondaryButton} mt-4`}>
+          <Link to={paths.profiles} onClick={onBack} className={`${secondaryButton} mt-4`}>
             {copy.profiles.backToProfiles}
           </Link>
         </>

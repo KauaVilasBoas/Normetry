@@ -17,6 +17,7 @@ import { can, type Establishment, type Me, type ProfileSummary } from "../api/qu
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
 import { forgetEstablishments, type ListState } from "../establishments/selection";
+import { paths, routePatterns } from "../routes";
 import { sortProfiles } from "../settings/profiles";
 import { Logo } from "../ui/Logo";
 import { Avatar, Skeleton } from "../ui/primitives";
@@ -43,44 +44,45 @@ export function Sidebar({
   onNavigate,
   closeButton,
 }: SidebarProps) {
-  const atOverview = useMatch("/overview") !== null;
+  const atOverview = useMatch(paths.overview) !== null;
   // A new conversation and a saved one are both Ask the Regulation.
-  const atNew = useMatch("/ask") !== null;
-  const atConversation = useMatch("/conversations/:conversationId") !== null;
-  const atDocuments = useMatch("/documents/*") !== null;
-  const atInspections = useMatch("/inspections/*") !== null;
-  const atSettings = useMatch("/settings/*") !== null;
+  const atNew = useMatch(paths.ask) !== null;
+  const atConversation = useMatch(routePatterns.conversation) !== null;
+  // Each section's route, list and detail alike (Settings has Profiles only).
+  const atDocuments = useMatch(routePatterns.documents) !== null;
+  const atInspections = useMatch(routePatterns.inspections) !== null;
+  const atSettings = useMatch(routePatterns.profiles) !== null;
   const items = [
     {
-      to: "/overview",
+      to: paths.overview,
       label: copy.shell.overview,
       Icon: House,
       shown: can(me.data, permissions.inspections.read) || can(me.data, permissions.documents.read),
       active: atOverview,
     },
     {
-      to: "/ask",
+      to: paths.ask,
       label: copy.shell.askTheRegulation,
       Icon: MessagesSquare,
       shown: can(me.data, permissions.chat.ask),
       active: atNew || atConversation,
     },
     {
-      to: "/documents",
+      to: paths.documents,
       label: copy.shell.documents,
       Icon: FileText,
       shown: can(me.data, permissions.documents.read),
       active: atDocuments,
     },
     {
-      to: "/inspections",
+      to: paths.inspections,
       label: copy.shell.inspections,
       Icon: ClipboardCheck,
       shown: can(me.data, permissions.inspections.read),
       active: atInspections,
     },
     {
-      to: "/settings/profiles",
+      to: paths.profiles,
       label: copy.shell.settings,
       Icon: Settings,
       shown: can(me.data, permissions.profiles.read),

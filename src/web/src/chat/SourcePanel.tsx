@@ -6,6 +6,7 @@ import { quoteFound, type Citation } from "../api/chat";
 import { permissions, sourceTypes } from "../api/contract";
 import { can, useMe } from "../api/queries";
 import { copy, format, languageName } from "../copy";
+import { paths } from "../routes";
 import { iconButton, QuotedPassage } from "../ui/primitives";
 import { SOURCE_PANEL_ID } from "./Answer";
 
@@ -41,7 +42,7 @@ export function SourcePanel({
     citation.sourceType === sourceTypes.document
       ? canReadDocuments && (
           <Link
-            to={`/documents/${encodeURIComponent(citation.documentId)}`}
+            to={paths.document(citation.documentId)}
             state={{ focusTitle: true }}
             className={linkClass}
           >

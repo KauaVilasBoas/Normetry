@@ -26,6 +26,7 @@ import { typeLabel } from "../documents/documents";
 import { ExpiryBadge } from "../documents/parts";
 import { themeLabel, verdictLabel } from "../inspections/findings";
 import { findingCount, regulationOf } from "../inspections/inspections";
+import { paths } from "../routes";
 import { AreaChart, DonutChart } from "../ui/charts";
 import { useShellFocusRequest } from "../ui/focus";
 import {
@@ -81,8 +82,7 @@ const verdictRows = [
   { code: verdicts.nonCompliant, key: "nonCompliant", dot: "bg-danger", stroke: "stroke-danger" },
 ] as const;
 
-const inspectionLink = (id: string, filter = "") =>
-  `/inspections/${encodeURIComponent(id)}${filter}`;
+const inspectionLink = (id: string, filter = "") => `${paths.inspection(id)}${filter}`;
 
 /**
  * Overview (spec overview-screen.md): the selected establishment's latest inspection results and
@@ -267,7 +267,7 @@ function Sections({
               regulation: regulationOf(establishment),
             })}
           />
-          <Link to="/inspections" state={arrive} className={`${secondaryButton} mt-4`}>
+          <Link to={paths.inspections} state={arrive} className={`${secondaryButton} mt-4`}>
             {copy.overview.goToInspections}
           </Link>
         </div>
@@ -579,7 +579,7 @@ function DocumentsCard({
         action={
           // The API lists the soonest ten.
           documents.expired + documents.expiringSoon > list.length && (
-            <Link to="/documents" state={arrive} className={secondaryButton}>
+            <Link to={paths.documents} state={arrive} className={secondaryButton}>
               {copy.overview.viewAllDocuments}
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
@@ -601,7 +601,7 @@ function DocumentsCard({
             return (
               <li key={document.id} className="relative min-h-14 px-5 py-2.5 hover:bg-elevated">
                 <Link
-                  to={`/documents/${encodeURIComponent(document.id)}`}
+                  to={paths.document(document.id)}
                   state={arrive}
                   aria-describedby={badgeId}
                   className={rowLink}

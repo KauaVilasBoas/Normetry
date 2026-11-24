@@ -8,6 +8,7 @@ import type { Live } from "../api/live";
 import { can, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { calendarDate, copy, fileSize, format, shortDate } from "../copy";
+import { paths } from "../routes";
 import {
   Button,
   ConnectionNotice,
@@ -69,7 +70,7 @@ export function DocumentDetailView({
 
   const back = (
     <Link
-      to="/documents"
+      to={paths.documents}
       onClick={onBack}
       className="-mx-1 inline-flex items-center gap-1.5 self-start rounded-sm px-1 text-body text-text-secondary hover:text-text-primary"
     >
@@ -96,7 +97,7 @@ export function DocumentDetailView({
               {notFound ? copy.documents.notFoundBody : copy.documents.errorBody}
             </p>
             {notFound ? (
-              <Link to="/documents" onClick={onBack} className={`${secondaryButton} mt-2`}>
+              <Link to={paths.documents} onClick={onBack} className={`${secondaryButton} mt-2`}>
                 {copy.documents.backToDocuments}
               </Link>
             ) : (
