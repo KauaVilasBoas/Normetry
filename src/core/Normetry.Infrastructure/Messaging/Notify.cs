@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Normetry.Application.Abstractions;
 
 namespace Normetry.Infrastructure.Messaging;
 
@@ -13,8 +14,9 @@ internal static class Notify
     /// after a reconnect.
     /// </summary>
     public static async Task SafelyAsync<TChange>(
+        IChangeNotifier<TChange> notifier,
+        Guid tenantId,
         IEnumerable<TChange> changes,
-        Func<TChange, CancellationToken, Task> push,
         Func<TChange, Guid> idOf,
         ILogger logger,
         CancellationToken cancellationToken
@@ -24,7 +26,7 @@ internal static class Notify
         {
             try
             {
-                await push(change, cancellationToken);
+                await notifier.NotifyAsync(tenantId, change, cancellationToken);
             }
             catch (Exception error) when (!cancellationToken.IsCancellationRequested)
             {
