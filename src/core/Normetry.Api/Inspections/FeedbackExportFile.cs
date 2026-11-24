@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Normetry.Application.Inspections.ExportFeedback;
+using Normetry.Infrastructure;
 
 namespace Normetry.Api.Inspections;
 
@@ -30,17 +31,13 @@ public static class FeedbackExportFile
         CancellationToken cancellationToken
     )
     {
-        var directory = Path.GetFullPath(
-            configuration[DirectorySetting]
-                ?? Path.Combine(
-                    environment.ContentRootPath,
-                    "..",
-                    "..",
-                    "..",
-                    "evals",
-                    "datasets",
-                    "inspection-feedback"
-                )
+        var directory = RepositoryPaths.Resolve(
+            configuration,
+            DirectorySetting,
+            environment,
+            "evals",
+            "datasets",
+            "inspection-feedback"
         );
         Directory.CreateDirectory(directory);
         // The id is a parsed Guid, so no client text reaches the path.
