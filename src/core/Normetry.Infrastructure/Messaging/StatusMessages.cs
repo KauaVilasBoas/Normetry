@@ -109,7 +109,7 @@ internal abstract class StatusMessages<TEvent, TChange, TNotifier>(
             return ConsumeOutcome.DeadLetter;
         }
 
-        Activity.Current?.SetTag("normetry.tenant_id", message.TenantId.ToString());
+        Activity.Current?.SetTag(MessagingTelemetry.TenantIdTag, message.TenantId.ToString());
         await using var scope = TenantScope.Open(scopes, logger, message.TenantId);
         var change = await RecordAsync(scope.Services, message, @event, cancellationToken);
         if (change is not null)

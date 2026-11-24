@@ -142,21 +142,16 @@ internal abstract class StatusConsumer(
     {
         var headers = delivery.BasicProperties.Headers;
         var count =
-            headers?.TryGetValue("x-delivery-count", out var value) == true
+            headers?.TryGetValue(MessageHeaders.DeliveryCount, out var value) == true
                 ? Convert.ToInt32(value)
                 : 0;
-        ActivityContext.TryParse(
-            Header(headers, "traceparent"),
-            Header(headers, "tracestate"),
-            out var parent
-        );
-        using var activity = MessagingTelemetry.Source.StartActivity(
+        using var activity = MessagingTelemetry.StartActivity(
             $"{Queue} process",
             ActivityKind.Consumer,
-            parent
+            Header(headers, MessageHeaders.TraceParent),
+            Header(headers, MessageHeaders.TraceState),
+            delivery.BasicProperties.MessageId
         );
-        activity?.SetTag("messaging.system", "rabbitmq");
-        activity?.SetTag("messaging.message.id", delivery.BasicProperties.MessageId);
 
         ConsumeOutcome outcome;
         while (true)
