@@ -105,7 +105,8 @@ internal sealed class DocumentRepository(CoreDbContext db) : IDocumentRepository
                 WHERE EXISTS (
                     SELECT FROM core.document_versions v
                     WHERE v.tenant_id = d.tenant_id AND v.document_id = d.id
-                      AND v.status = 'Processing' AND v.status_changed_at < {before}
+                      AND v.status = {nameof(DocumentVersionStatus.Processing)}
+                      AND v.status_changed_at < {before}
                 )
                 FOR UPDATE OF d SKIP LOCKED
                 """

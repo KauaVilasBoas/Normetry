@@ -186,8 +186,8 @@ internal sealed class InspectionRepository(CoreDbContext db, ITenantContext tena
             .Database.SqlQuery<Guid>(
                 $"""
                 SELECT id AS "Value" FROM core.inspections
-                WHERE status = 'Running' AND started_at < {before}
-                    OR status = 'Requested' AND requested_at < {before}
+                WHERE status = {nameof(InspectionStatus.Running)} AND started_at < {before}
+                    OR status = {nameof(InspectionStatus.Requested)} AND requested_at < {before}
                 FOR UPDATE SKIP LOCKED
                 """
             )
