@@ -25,6 +25,13 @@ from normetry_ai.inspection.prompt import system_prompt, user_message
 from normetry_ai.llm.usage import Usage, record_usage_shielded
 from normetry_ai.retrieval.models import RetrievedChunk
 from normetry_ai.retrieval.policy import corpus_versions, jurisdictions_for
+from normetry_ai.retrieval.sql import (
+    CORPUS_VERSIONS,
+    corpus_version_params,
+    regulation_chunk,
+    regulation_columns,
+    sources_join,
+)
 from normetry_ai.settings import AnswerSettings
 
 logger = logging.getLogger(__name__)
@@ -103,19 +110,17 @@ _DOCUMENT_LANGUAGE = text(
 # item's section order, then each section's chunks in text order (a section over CHUNK_LIMIT is
 # several chunks), with the id as tie-break for rows stored before positions were (all at 0).
 _REGULATION_CHUNKS = text(
-    """
-    SELECT c.id, c.content, c.section_path, c.language, c.jurisdiction, c.source_id,
-           s.title AS source_title, s.version AS source_version, s.official_url
+    f"""
+    SELECT {regulation_columns("c")}
     FROM ai.chunks c
-    JOIN ai.sources s
-      ON s.id = c.source_id AND s.jurisdiction = c.jurisdiction AND s.language = c.language
+    {sources_join("c")}
     WHERE c.tenant_id IS NULL
       AND (c.jurisdiction, c.language) IN (
-          SELECT * FROM unnest(CAST(:jurisdictions AS text[]), CAST(:languages AS text[])))
+          {CORPUS_VERSIONS})
       AND c.section_path = ANY(CAST(:section_paths AS text[]))
     ORDER BY array_position(CAST(:section_paths AS text[]), c.section_path),
              c.position_in_section, c.id
-    """
+    """  # noqa: S608 (fixed fragments)
 )
 
 
@@ -140,24 +145,7 @@ def regulation_chunks(
     pairs = corpus_versions(jurisdictions_for(jurisdiction), language or "en")
     rows = connection.execute(
         _REGULATION_CHUNKS,
-        {
-            "jurisdictions": [pair[0] for pair in pairs],
-            "languages": [pair[1] for pair in pairs],
-            "section_paths": list(section_paths),
-        },
+        {**corpus_version_params(pairs), "section_paths": list(section_paths)},
     ).all()
-    return [
-        RetrievedChunk(
-            chunk_id=row.id,
-            content=row.content,
-            section_path=row.section_path,
-            language=row.language,
-            jurisdiction=row.jurisdiction,
-            source_id=row.source_id,
-            source_title=row.source_title,
-            source_version=row.source_version,
-            official_url=row.official_url,
-            score=1.0,  # chosen by section, not ranked
-        )
-        for row in rows
-    ]
+    # Chosen by section, not ranked: score 1.
+    return [regulation_chunk(row, 1.0) for row in rows]

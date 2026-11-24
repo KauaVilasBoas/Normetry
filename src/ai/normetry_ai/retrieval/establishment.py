@@ -12,7 +12,6 @@ establishment) re-ranks its candidates together with the corpus's, in one call.
 """
 
 import logging
-import re
 from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
@@ -30,6 +29,7 @@ from normetry_ai.retrieval.models import (
     timed,
     vector_literal,
 )
+from normetry_ai.retrieval.sql import TSQUERIES, any_word_terms, tsquery_for
 from normetry_ai.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
@@ -59,16 +59,13 @@ _VECTOR_SEARCH = text(
 # configuration, as its generated tsv column is.
 _TEXT_SEARCH = text(
     f"""
-    WITH query AS (
-        SELECT websearch_to_tsquery('portuguese', :terms) AS pt,
-               websearch_to_tsquery('english', :terms) AS en
-    )
+    WITH {TSQUERIES}
     SELECT {_COLUMNS},
-           -ts_rank(c.tsv, CASE c.language WHEN 'pt' THEN query.pt ELSE query.en END) AS rank
+           -ts_rank(c.tsv, {tsquery_for("c.language")}) AS rank
     {_DOCUMENT_CHUNKS}
     CROSS JOIN query
     WHERE d.establishment_id = :establishment_id AND d.deleted_at IS NULL
-      AND c.tsv @@ CASE c.language WHEN 'pt' THEN query.pt ELSE query.en END
+      AND c.tsv @@ {tsquery_for("c.language")}
     ORDER BY rank
     LIMIT :k
     """
@@ -94,9 +91,7 @@ def document_candidates(
         {**params, "embedding": vector_literal(embedding), "k": vector_k},
     ).all()
     text_rows = connection.execute(
-        _TEXT_SEARCH,
-        # websearch_to_tsquery never fails on user input; "or" makes every word optional.
-        {**params, "terms": " or ".join(re.findall(r"\w+", query)), "k": text_k},
+        _TEXT_SEARCH, {**params, "terms": any_word_terms(query), "k": text_k}
     ).all()
     rows = {row.id: row for row in (*vector_rows, *text_rows)}
     fused = reciprocal_rank_fusion(

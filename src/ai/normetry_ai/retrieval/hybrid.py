@@ -5,7 +5,7 @@ scored on its own by the retrieval evals.
 Runs on a connection from `tenant_transaction`, as app_ai. Queries follow "Retrieval under RLS"
 in src/ai/CLAUDE.md: `tenant_id IS NULL` so only the corpus indexes apply, the filter on the
 (jurisdiction, language) pairs `policy.corpus_versions` gives, and the join to ai.sources on all
-three foreign key columns.
+three foreign key columns (both from `sql.py`).
 
 The chat also passes the conversation's establishment: its document candidates
 (`establishment.document_candidates`) are re-ranked in the same call as the corpus candidates, so
@@ -13,10 +13,8 @@ the scores compare, and the top k keeps at most `retrieval_document_top_k` of th
 """
 
 import logging
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Connection, text
@@ -34,6 +32,16 @@ from normetry_ai.retrieval.models import (
     vector_literal,
 )
 from normetry_ai.retrieval.policy import JurisdictionScope, corpus_versions
+from normetry_ai.retrieval.sql import (
+    CORPUS_VERSIONS,
+    TSQUERIES,
+    any_word_terms,
+    corpus_version_params,
+    regulation_chunk,
+    regulation_columns,
+    sources_join,
+    tsquery_for,
+)
 from normetry_ai.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
@@ -48,52 +56,42 @@ _PREPARE = text(
 )
 # Each search runs on ai.chunks alone, so it can use the corpus indexes; the join to ai.sources
 # then adds the source fields, on all three foreign key columns.
+_WITH_SOURCES = f"""SELECT {regulation_columns("h")}
+    FROM hits h
+    {sources_join("h")}
+    ORDER BY h.rank"""  # noqa: S608 (fixed fragments)
 _VECTOR_SEARCH = text(
-    """
+    f"""
     WITH hits AS (
         SELECT id, content, section_path, language, jurisdiction, source_id,
                embedding <=> CAST(:embedding AS public.vector) AS rank
         FROM ai.chunks
         WHERE tenant_id IS NULL
           AND (jurisdiction, language) IN (
-              SELECT * FROM unnest(CAST(:jurisdictions AS text[]), CAST(:languages AS text[])))
+              {CORPUS_VERSIONS})
         ORDER BY rank
         LIMIT :k
     )
-    SELECT h.id, h.content, h.section_path, h.language, h.jurisdiction, h.source_id,
-           s.title AS source_title, s.version AS source_version, s.official_url
-    FROM hits h
-    JOIN ai.sources s
-      ON s.id = h.source_id AND s.jurisdiction = h.jurisdiction AND s.language = h.language
-    ORDER BY h.rank
-    """
+    {_WITH_SOURCES}
+    """  # noqa: S608 (fixed fragments)
 )
-# Any word of the question may match (OR); ts_rank orders by how often the words occur. The
-# question is parsed with each chunk's own configuration, as the generated tsv column is.
+# Any word of the question may match (OR); ts_rank orders by how often the words occur.
 _TEXT_SEARCH = text(
-    """
-    WITH query AS (
-        SELECT websearch_to_tsquery('portuguese', :terms) AS pt,
-               websearch_to_tsquery('english', :terms) AS en
-    ),
+    f"""
+    WITH {TSQUERIES},
     hits AS (
         SELECT id, content, section_path, language, jurisdiction, source_id,
-               -ts_rank(tsv, CASE language WHEN 'pt' THEN query.pt ELSE query.en END) AS rank
+               -ts_rank(tsv, {tsquery_for("language")}) AS rank
         FROM ai.chunks, query
         WHERE tenant_id IS NULL
           AND (jurisdiction, language) IN (
-              SELECT * FROM unnest(CAST(:jurisdictions AS text[]), CAST(:languages AS text[])))
-          AND tsv @@ CASE language WHEN 'pt' THEN query.pt ELSE query.en END
+              {CORPUS_VERSIONS})
+          AND tsv @@ {tsquery_for("language")}
         ORDER BY rank
         LIMIT :k
     )
-    SELECT h.id, h.content, h.section_path, h.language, h.jurisdiction, h.source_id,
-           s.title AS source_title, s.version AS source_version, s.official_url
-    FROM hits h
-    JOIN ai.sources s
-      ON s.id = h.source_id AND s.jurisdiction = h.jurisdiction AND s.language = h.language
-    ORDER BY h.rank
-    """
+    {_WITH_SOURCES}
+    """  # noqa: S608 (fixed fragments)
 )
 
 
@@ -111,22 +109,6 @@ def best(chunks: list[RetrievedChunk], top_k: int, document_top_k: int) -> list[
         if len(kept) == top_k:
             break
     return kept
-
-
-def _regulation_candidate(row: Any) -> RetrievedChunk:
-    """A corpus search row as a chunk, not re-ranked yet (`score` 0)."""
-    return RetrievedChunk(
-        chunk_id=row.id,
-        content=row.content,
-        section_path=row.section_path,
-        language=row.language,
-        jurisdiction=row.jurisdiction,
-        source_id=row.source_id,
-        source_title=row.source_title,
-        source_version=row.source_version,
-        official_url=row.official_url,
-        score=0.0,
-    )
 
 
 @dataclass(frozen=True)
@@ -220,10 +202,7 @@ class Retriever:
         """The vector and full-text searches over the corpus versions, and their fusion."""
         settings = self.settings
         connection.execute(_PREPARE, {"ef_search": str(settings.retrieval_hnsw_ef_search)})
-        params = {
-            "jurisdictions": [jurisdiction for jurisdiction, _ in versions],
-            "languages": [version for _, version in versions],
-        }
+        params = corpus_version_params(versions)
         with timed(seconds, "vector"):
             vector_rows = connection.execute(
                 _VECTOR_SEARCH,
@@ -236,13 +215,7 @@ class Retriever:
         with timed(seconds, "text"):
             text_rows = connection.execute(
                 _TEXT_SEARCH,
-                {
-                    **params,
-                    # websearch_to_tsquery never fails on user input; "or" makes every word
-                    # optional.
-                    "terms": " or ".join(re.findall(r"\w+", question)),
-                    "k": settings.retrieval_text_k,
-                },
+                {**params, "terms": any_word_terms(question), "k": settings.retrieval_text_k},
             ).all()
         rows = {row.id: row for row in (*vector_rows, *text_rows)}
         vector = [row.id for row in vector_rows]
@@ -253,8 +226,9 @@ class Retriever:
             text=lexical,
             fused=fused,
             content={chunk_id: row.content for chunk_id, row in rows.items()},
+            # Not re-ranked yet: score 0.
             candidates=[
-                _regulation_candidate(rows[chunk_id])
+                regulation_chunk(rows[chunk_id], 0.0)
                 for chunk_id in fused[: settings.retrieval_rerank_candidates]
             ],
         )
