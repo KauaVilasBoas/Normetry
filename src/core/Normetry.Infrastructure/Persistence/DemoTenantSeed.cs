@@ -1,8 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Normetry.Application.Abstractions;
 using Normetry.Domain.Establishments;
 using Normetry.Domain.Identity;
 using Normetry.Domain.Tenancy;
@@ -20,11 +19,15 @@ namespace Normetry.Infrastructure.Persistence;
 /// own row, so no owner role or RLS bypass is involved.
 /// </summary>
 public sealed class DemoTenantSeed(
-    IConfiguration configuration,
+    IServiceScopeFactory scopes,
     IHostEnvironment environment,
     ILogger<DemoTenantSeed> logger
 ) : IHostedService
 {
+    private static readonly string InspectionsArea = Permissions.AreaOf(
+        Permissions.Inspections.Read
+    );
+
     // Same ids as the tenant_id attributes and the user ids in deploy/keycloak/normetry-realm.json,
     // so the token's sub finds its row.
     internal static readonly DemoTenant[] Tenants =
@@ -77,84 +80,117 @@ public sealed class DemoTenantSeed(
             throw new InvalidOperationException("The demo tenant seed runs only in Development.");
         }
 
-        var connectionString = CoreDatabase.GetConnectionString(configuration);
-        foreach (var (id, name, establishments, users) in Tenants)
+        foreach (var tenant in Tenants)
         {
-            var options = new DbContextOptionsBuilder<CoreDbContext>()
-                .UseTenantScopedCoreDatabase(connectionString, new SeedTenant(id))
-                .Options;
-            await using var db = new CoreDbContext(options);
+            // The tenant's own row passes the core.tenants policies too, so all four steps run in
+            // one transaction under its tenant.
+            await using var scope = TenantScope.Open(scopes, logger, tenant.Id);
+            var db = scope.Services.GetRequiredService<CoreDbContext>();
             await using var transaction = await db.Database.BeginTransactionAsync(
                 cancellationToken
             );
-            if (!await db.Tenants.AnyAsync(tenant => tenant.Id == id, cancellationToken))
-            {
-                db.Tenants.Add(Tenant.Create(id, name));
-                logger.LogInformation("Seeding demo tenant {TenantName}", name);
-            }
-
-            // RLS shows only this tenant's rows from here on.
-            var profiles = await db
-                .Profiles.Include(profile => profile.GrantedPermissions)
-                .Where(profile => profile.SystemKey != null)
-                .ToListAsync(cancellationToken);
-            foreach (var key in Profile.SystemKeys.All)
-            {
-                if (!profiles.Any(profile => profile.SystemKey == key))
-                {
-                    var profile = Profile.CreateSystem(id, key);
-                    db.Profiles.Add(profile);
-                    profiles.Add(profile);
-                    logger.LogInformation("Seeding system profile {ProfileName}", profile.Name);
-                }
-            }
-            foreach (var profile in profiles)
-            {
-                GrantInspectionDefaults(profile);
-            }
-
-            var existingUsers = await db
-                .Users.Select(user => user.Sub)
-                .ToListAsync(cancellationToken);
-            foreach (var (sub, displayName, email, systemKey) in users)
-            {
-                if (!existingUsers.Contains(sub))
-                {
-                    var user = User.Create(id, sub, displayName, email);
-                    user.Assign(profiles.Single(profile => profile.SystemKey == systemKey));
-                    db.Users.Add(user);
-                    logger.LogInformation("Seeding demo user {DisplayName}", displayName);
-                }
-            }
-
-            var existing = await db
-                .Establishments.Select(establishment => establishment.Name)
-                .ToListAsync(cancellationToken);
-            foreach (var (establishment, jurisdiction) in establishments)
-            {
-                if (!existing.Contains(establishment))
-                {
-                    db.Establishments.Add(
-                        Establishment.Create(
-                            id,
-                            establishment,
-                            EstablishmentType.Restaurant,
-                            jurisdiction
-                        )
-                    );
-                    logger.LogInformation(
-                        "Seeding demo establishment {EstablishmentName}",
-                        establishment
-                    );
-                }
-            }
-
+            await EnsureTenantRowAsync(db, tenant, cancellationToken);
+            var profiles = await EnsureSystemProfilesAsync(db, tenant, cancellationToken);
+            await EnsureDemoUsersAsync(db, tenant, profiles, cancellationToken);
+            await EnsureDemoEstablishmentsAsync(db, tenant, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private async Task EnsureTenantRowAsync(
+        CoreDbContext db,
+        DemoTenant tenant,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!await db.Tenants.AnyAsync(row => row.Id == tenant.Id, cancellationToken))
+        {
+            db.Tenants.Add(Tenant.Create(tenant.Id, tenant.Name));
+            logger.LogInformation("Seeding demo tenant {TenantName}", tenant.Name);
+        }
+    }
+
+    /// <summary>
+    /// Adds the system profiles the tenant lacks and returns all of them, each with the inspection
+    /// defaults it may predate. RLS shows only this tenant's profiles.
+    /// </summary>
+    private async Task<List<Profile>> EnsureSystemProfilesAsync(
+        CoreDbContext db,
+        DemoTenant tenant,
+        CancellationToken cancellationToken
+    )
+    {
+        var profiles = await db
+            .Profiles.Include(profile => profile.GrantedPermissions)
+            .Where(profile => profile.SystemKey != null)
+            .ToListAsync(cancellationToken);
+        foreach (var key in Profile.SystemKeys.All)
+        {
+            if (!profiles.Any(profile => profile.SystemKey == key))
+            {
+                var profile = Profile.CreateSystem(tenant.Id, key);
+                db.Profiles.Add(profile);
+                profiles.Add(profile);
+                logger.LogInformation("Seeding system profile {ProfileName}", profile.Name);
+            }
+        }
+        foreach (var profile in profiles)
+        {
+            GrantInspectionDefaults(profile);
+        }
+        return profiles;
+    }
+
+    /// <summary>Each demo user the tenant lacks (by <c>sub</c>), with its one system profile.</summary>
+    private async Task EnsureDemoUsersAsync(
+        CoreDbContext db,
+        DemoTenant tenant,
+        List<Profile> profiles,
+        CancellationToken cancellationToken
+    )
+    {
+        var existing = await db.Users.Select(user => user.Sub).ToListAsync(cancellationToken);
+        foreach (var (sub, displayName, email, systemKey) in tenant.Users)
+        {
+            if (!existing.Contains(sub))
+            {
+                var user = User.Create(tenant.Id, sub, displayName, email);
+                user.Assign(profiles.Single(profile => profile.SystemKey == systemKey));
+                db.Users.Add(user);
+                logger.LogInformation("Seeding demo user {DisplayName}", displayName);
+            }
+        }
+    }
+
+    /// <summary>Each demo establishment the tenant lacks, by name.</summary>
+    private async Task EnsureDemoEstablishmentsAsync(
+        CoreDbContext db,
+        DemoTenant tenant,
+        CancellationToken cancellationToken
+    )
+    {
+        var existing = await db
+            .Establishments.Select(establishment => establishment.Name)
+            .ToListAsync(cancellationToken);
+        foreach (var (name, jurisdiction) in tenant.Establishments)
+        {
+            if (!existing.Contains(name))
+            {
+                db.Establishments.Add(
+                    Establishment.Create(
+                        tenant.Id,
+                        name,
+                        EstablishmentType.Restaurant,
+                        jurisdiction
+                    )
+                );
+                logger.LogInformation("Seeding demo establishment {EstablishmentName}", name);
+            }
+        }
+    }
 
     /// <summary>
     /// A system profile seeded before the inspection permissions existed gets its defaults of
@@ -163,18 +199,14 @@ public sealed class DemoTenantSeed(
     /// </summary>
     private void GrantInspectionDefaults(Profile profile)
     {
-        const string Area = "inspections.";
         var granted = profile.GrantedPermissions.Select(granted => granted.Permission).ToList();
-        if (
-            profile.GrantsAll
-            || granted.Any(name => name.StartsWith(Area, StringComparison.Ordinal))
-        )
+        if (profile.GrantsAll || granted.Any(IsInspectionPermission))
         {
             return;
         }
         var defaults = Profile
             .DefaultPermissions(profile.SystemKey!)
-            .Where(name => name.StartsWith(Area, StringComparison.Ordinal))
+            .Where(IsInspectionPermission)
             .ToList();
         profile.SetPermissions(granted.Concat(defaults));
         logger.LogInformation(
@@ -182,6 +214,9 @@ public sealed class DemoTenantSeed(
             profile.Name
         );
     }
+
+    private static bool IsInspectionPermission(string name) =>
+        Permissions.AreaOf(name) == InspectionsArea;
 
     internal sealed record DemoTenant(
         Guid Id,
@@ -192,6 +227,4 @@ public sealed class DemoTenantSeed(
 
     /// <summary><paramref name="Sub"/> is the Keycloak user id; the user holds one system profile.</summary>
     internal sealed record DemoUser(string Sub, string DisplayName, string Email, string SystemKey);
-
-    private sealed record SeedTenant(Guid TenantId) : ITenantContext;
 }
