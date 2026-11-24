@@ -15,6 +15,7 @@ import {
   ErrorMessage,
   Message,
   Notice,
+  rowLink,
   secondaryButton,
   Skeleton,
   Spinner,
@@ -281,7 +282,7 @@ function InspectionTable({
                   to={paths.inspection(row.id)}
                   onClick={onOpen}
                   aria-describedby={statusId}
-                  className="block truncate text-body font-medium tabular-nums after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-mint"
+                  className={`${rowLink} truncate tabular-nums`}
                 >
                   <time dateTime={row.requestedAt}>{dateTime(row.requestedAt)}</time>
                 </Link>

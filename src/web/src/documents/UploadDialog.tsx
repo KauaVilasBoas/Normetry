@@ -14,12 +14,13 @@ import {
   uploadDialogPanel,
 } from "../ui/primitives";
 import { ACCEPT, TITLE_MAX_LENGTH } from "./documents";
+import { draggingFiles } from "../ui/drop";
 import { useUploadForm } from "./upload";
 
 // A file dropped beside the drop zone would make the browser open it, leaving the app (and its
 // in-memory session). Inside the dialog it does nothing, and it never reaches the list card.
 const swallowFiles = (event: DragEvent) => {
-  if (!event.dataTransfer.types.includes("Files")) return;
+  if (!draggingFiles(event)) return;
   event.preventDefault();
   event.stopPropagation();
 };

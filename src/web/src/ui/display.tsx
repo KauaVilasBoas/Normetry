@@ -12,6 +12,13 @@ import { Link } from "react-router";
 /** A table header cell (DESIGN.md Table, on the inset header row). */
 export const th = "h-9 px-3 text-left text-caption font-medium text-text-muted";
 
+/**
+ * A row's link or button stretched over its row (a `relative` one): the whole row opens it, with
+ * one tab stop, and its focus ring goes around the row.
+ */
+export const rowLink =
+  "block text-body font-medium after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-mint";
+
 const typeIcons: Record<string, typeof Store | undefined> = {
   Restaurant: UtensilsCrossed,
   Pharmacy: Pill,
