@@ -15,7 +15,7 @@ internal sealed class InspectionConfiguration : IEntityTypeConfiguration<Inspect
         builder.ToTable("inspections", table =>
             table.HasCheckConstraint(
                 "ck_inspections_status",
-                $"status IN ({DocumentConfiguration.Names<InspectionStatus>()})"
+                $"status IN ({SqlLiterals.List<InspectionStatus>()})"
             )
         );
         // Same shape as documents: (tenant_id, id), referenced by the findings.
@@ -61,7 +61,9 @@ internal sealed class InspectionConfiguration : IEntityTypeConfiguration<Inspect
         builder
             .HasIndex(inspection => new { inspection.TenantId, inspection.EstablishmentId })
             .IsUnique()
-            .HasFilter("status IN ('Requested', 'Running')");
+            .HasFilter(
+                $"status IN ({SqlLiterals.List([nameof(InspectionStatus.Requested), nameof(InspectionStatus.Running)])})"
+            );
     }
 }
 
@@ -73,16 +75,19 @@ internal sealed class FindingConfiguration : IEntityTypeConfiguration<Finding>
         {
             table.HasCheckConstraint(
                 "ck_findings_severity",
-                $"severity IN ({Codes(Severities.InOrder)})"
+                $"severity IN ({SqlLiterals.List(Severities.InOrder)})"
             );
-            table.HasCheckConstraint("ck_findings_verdict", $"verdict IN ({Codes(Verdicts.All)})");
+            table.HasCheckConstraint(
+                "ck_findings_verdict",
+                $"verdict IN ({SqlLiterals.List(Verdicts.All)})"
+            );
             table.HasCheckConstraint(
                 "ck_findings_confidence",
-                $"confidence IN ({Codes(Confidences.All)})"
+                $"confidence IN ({SqlLiterals.List(Confidences.All)})"
             );
             table.HasCheckConstraint(
                 "ck_findings_review_status",
-                $"review_status IN ({DocumentConfiguration.Names<ReviewStatus>()})"
+                $"review_status IN ({SqlLiterals.List<ReviewStatus>()})"
             );
         });
         builder.HasKey(finding => new { finding.TenantId, finding.Id });
@@ -123,9 +128,6 @@ internal sealed class FindingConfiguration : IEntityTypeConfiguration<Finding>
             .HasForeignKey(finding => new { finding.TenantId, finding.ReviewedBy })
             .OnDelete(DeleteBehavior.Restrict);
     }
-
-    private static string Codes(IEnumerable<string> codes) =>
-        string.Join(", ", codes.Select(code => $"'{code}'"));
 }
 
 internal sealed class ActionItemConfiguration : IEntityTypeConfiguration<ActionItem>
@@ -135,7 +137,7 @@ internal sealed class ActionItemConfiguration : IEntityTypeConfiguration<ActionI
         builder.ToTable("action_items", table =>
             table.HasCheckConstraint(
                 "ck_action_items_status",
-                $"status IN ({DocumentConfiguration.Names<ActionItemStatus>()})"
+                $"status IN ({SqlLiterals.List<ActionItemStatus>()})"
             )
         );
         builder.HasKey(item => new { item.TenantId, item.Id });
