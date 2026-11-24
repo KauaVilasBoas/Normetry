@@ -1,17 +1,10 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, ClipboardCheck, Clock, FileText, Play } from "lucide-react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Link } from "react-router";
 import { permissions } from "../api/contract";
-import {
-  inspectionsKey,
-  inspectionsPath,
-  useInspections,
-  type InspectionSummary,
-} from "../api/inspections";
+import { useInspections, type InspectionSummary } from "../api/inspections";
 import type { Live } from "../api/live";
 import { can, useQueryRetry, type Establishment, type Me } from "../api/queries";
-import { useSend } from "../api/send";
 import { untilReset } from "../chat/answers";
 import { copy, dateTime, format } from "../copy";
 import { arrivalState, paths } from "../routes";
@@ -33,11 +26,10 @@ import {
   inFlight,
   LIST_TITLE_ID,
   regulationOf,
-  requestedRow,
   resultText,
-  runRefusal,
   statusCaption,
   statusLabel,
+  useRunInspection,
   type Refusal,
 } from "./inspections";
 
@@ -61,67 +53,18 @@ export function InspectionList({
   /** A run was accepted: the screen opens it. */
   onStarted: (id: string) => void;
 }) {
-  const queryClient = useQueryClient();
   const inspections = useInspections(establishment.id, true);
   const canRun = can(me, permissions.inspections.run);
   const { failed, retrying, retry } = useQueryRetry(inspections, LIST_TITLE_ID);
   const count = inspections.data?.length ?? 0;
   const running = inspections.data?.find((row) => inFlight(row.status));
   const regulation = regulationOf(establishment);
-  const { send } = useSend();
-  const [posting, setPosting] = useState(false);
-  const [refusal, setRefusal] = useState<Refusal>();
-  const [now, setNow] = useState(Date.now);
+  const { posting, refusal, now, held, run } = useRunInspection(establishment, onStarted);
   const bodyId = useId();
-
-  // A quota or a rate limit holds Run until its time, then the notice clears; meanwhile its
-  // "in 6 hours" counts down every minute.
-  const until = refusal && "until" in refusal ? refusal.until : undefined;
-  useEffect(() => {
-    if (until === undefined) return;
-    const tick = setInterval(() => setNow(Date.now()), 60_000);
-    const reset = setTimeout(() => setRefusal(undefined), Math.max(0, until - Date.now()));
-    return () => {
-      clearInterval(tick);
-      clearTimeout(reset);
-    };
-  }, [until]);
-
-  const blocked = canRun && (running !== undefined || until !== undefined);
+  const blocked = canRun && (running !== undefined || held);
 
   // Run goes when /me stops granting it (a 403): focus, lost with the button, goes to the heading.
   useRefocusWhenGone(canRun, LIST_TITLE_ID);
-
-  const run = async () => {
-    setRefusal(undefined);
-    setPosting(true);
-    const result = await send(inspectionsPath(establishment.id), { method: "POST" });
-    const { id } = result.ok
-      ? ((await result.response.json().catch(() => ({}))) as { id?: unknown })
-      : {};
-    setPosting(false);
-    const key = inspectionsKey(establishment.id);
-    if (typeof id === "string") {
-      // The row shows at once, as Waiting; the refetch brings the server's.
-      queryClient.setQueryData<InspectionSummary[]>(key, (list = []) => [
-        requestedRow(id, regulation),
-        ...list.filter((row) => row.id !== id),
-      ]);
-      void queryClient.invalidateQueries({ queryKey: key });
-      onStarted(id);
-      return;
-    }
-    const at = Date.now();
-    // An accepted start without its id counts as a failed one.
-    const next = runRefusal(result.ok ? { ok: false, status: 0, code: undefined } : result, at);
-    // A stale list: the refetch shows the running row, and with it the running notice.
-    if (next === "running") {
-      void queryClient.invalidateQueries({ queryKey: key });
-      return;
-    }
-    setNow(at);
-    setRefusal(next);
-  };
 
   // At most one notice: a running inspection first, then the last refusal. A refusal still shows
   // once /me no longer grants Run (a 403), so the button's disappearance is explained.
