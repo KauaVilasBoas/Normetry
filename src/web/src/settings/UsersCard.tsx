@@ -1,13 +1,12 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
-import { permissions, problemCodes } from "../api/contract";
-import { userProfilePath, usersKey, useUsers, type TenantUser } from "../api/profiles";
-import { can, meKey, useQueryRetry, type Me, type ProfileSummary } from "../api/queries";
-import { useSend } from "../api/send";
+import { useEffect, useRef } from "react";
+import { permissions } from "../api/contract";
+import { useUsers, type TenantUser } from "../api/profiles";
+import { can, useQueryRetry, type Me, type ProfileSummary } from "../api/queries";
 import { copy, format, locale } from "../copy";
 import { Avatar, Button, ErrorMessage, Skeleton, Spinner, Tag } from "../ui/primitives";
+import { useProfileToggle } from "./editor";
 import { sortProfiles } from "./profiles";
 
 export const USERS_TITLE_ID = "users-title";
@@ -125,9 +124,9 @@ export function UsersCard({
 }
 
 /**
- * Each toggle gives or takes one profile and keeps the menu open. A toggle in flight shows the
- * target state with a spinner; a refusal reverts it and shows inside the menu, since Radix hides
- * everything outside an open menu from assistive tech.
+ * Each toggle (`useProfileToggle`) gives or takes one profile and keeps the menu open. A toggle in
+ * flight shows the target state with a spinner; a refusal reverts it and shows inside the menu,
+ * since Radix hides everything outside an open menu from assistive tech.
  */
 function ProfilesMenu({
   user,
@@ -140,49 +139,10 @@ function ProfilesMenu({
   profiles: ProfileSummary[];
   onOpenChange: (open: boolean) => void;
 }) {
-  const queryClient = useQueryClient();
-  const { send, closed } = useSend({ inside: true });
-  // Profile id → the state its request is setting.
-  const [pending, setPending] = useState<Record<string, boolean>>({});
-  const [error, setError] = useState<string>();
-  const held = new Set(user.profiles.map((profile) => profile.id));
-
-  const toggle = async (profile: ProfileSummary) => {
-    if (profile.id in pending) return;
-    const on = !held.has(profile.id);
-    setError(undefined);
-    setPending((current) => ({ ...current, [profile.id]: on }));
-    const result = await send(userProfilePath(user.id, profile.id), {
-      method: on ? "PUT" : "DELETE",
-    });
-    if (result.ok) {
-      if (user.isCurrentUser) void queryClient.invalidateQueries({ queryKey: meKey });
-      await queryClient.invalidateQueries({ queryKey: usersKey });
-    } else {
-      setError(
-        result.code === problemCodes.lastOwner
-          ? format(copy.users.lastOwner, { name })
-          : result.status === 403
-            ? copy.settings.denied
-            : format(copy.users.error, { name }),
-      );
-    }
-    setPending((current) => {
-      const next = { ...current };
-      delete next[profile.id];
-      return next;
-    });
-  };
+  const { error, stateOf, toggle, openChange } = useProfileToggle({ user, name, onOpenChange });
 
   return (
-    <DropdownMenu.Root
-      onOpenChange={(open) => {
-        onOpenChange(open);
-        if (open) return;
-        setError(undefined);
-        closed();
-      }}
-    >
+    <DropdownMenu.Root onOpenChange={openChange}>
       <DropdownMenu.Trigger asChild>
         {/* The visible "Profiles" is part of the name (WCAG 2.5.3). */}
         <Button variant="secondary" aria-label={format(copy.users.menuLabel, { name })}>
@@ -201,8 +161,7 @@ function ProfilesMenu({
             {format(copy.users.menuTitle, { name })}
           </DropdownMenu.Label>
           {profiles.map((profile) => {
-            const inFlight = profile.id in pending;
-            const checked = inFlight ? pending[profile.id] : held.has(profile.id);
+            const { inFlight, checked } = stateOf(profile);
             return (
               <DropdownMenu.CheckboxItem
                 key={profile.id}
