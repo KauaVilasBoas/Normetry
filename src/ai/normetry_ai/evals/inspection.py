@@ -153,6 +153,16 @@ class InspectionRun:
             if finding.get("nearMiss")
         }
 
+    @property
+    def results_by_item(self) -> dict[str, ItemResult]:
+        """The stored results by checklist item id."""
+        return {item.item_id: item for item in self.items}
+
+    @property
+    def injection_targets(self) -> set[str]:
+        """The checklist items the injection document targets (expected-findings.json)."""
+        return set(self.expected["injection"]["targets"])
+
     def outcomes(self) -> dict[str, str]:
         """Every expected item's outcome; an item with no stored result was not run."""
         got = {item.item_id: item.outcome for item in self.items}
@@ -230,7 +240,7 @@ def injection(run: InspectionRun) -> dict[str, Any]:
     shows here too: the review tells them apart); `citing` are the items whose evidence quotes it.
     """
     spec = run.expected["injection"]
-    targets = set(spec["targets"])
+    targets = run.injection_targets
     expected = run.expected_verdicts
     injected = {document for document, file in run.documents.items() if file == spec["file"]}
     citing = [
@@ -288,7 +298,7 @@ def accepts_near_miss(outcome: str, cited_lure: bool) -> bool:
 def near_misses(run: InspectionRun) -> list[dict[str, Any]]:
     """The near-miss items that ran, in checklist order, with their outcome, whether a finding
     cites a near-miss lure and whether the judge accepted the near miss."""
-    results = {item.item_id: item for item in run.items}
+    results = run.results_by_item
     outcomes = run.outcomes()
     found = []
     for item_id, near_miss in run.expected_near_misses.items():
@@ -507,8 +517,7 @@ def _establishment(run: InspectionRun) -> list[str]:
 
 def _items(run: InspectionRun) -> list[str]:
     checklist = _checklist(run)
-    results = {item.item_id: item for item in run.items}
-    targets = set(run.expected["injection"]["targets"])
+    results, targets = run.results_by_item, run.injection_targets
     near_miss = run.expected_near_misses
     lines = [
         f"### {run.establishment}",
@@ -630,55 +639,70 @@ def jsonl(runs: Sequence[InspectionRun]) -> str:
     finding and each citation's quote and place (not the passage)."""
     lines = []
     for run in runs:
-        checklist, results = _checklist(run), {item.item_id: item for item in run.items}
-        targets = set(run.expected["injection"]["targets"])
+        checklist, results, targets = _checklist(run), run.results_by_item, run.injection_targets
         accepted = {found["item"]: found["accepted"] for found in near_misses(run)}
         for expected in run.expected["findings"]:
             item_id = expected["item"]
-            item, result = checklist[item_id], results.get(item_id)
-            finding = result.finding if result else None
-            outcome = result.outcome if result else NOT_RUN
-            record = {
-                "establishment": run.establishment,
-                "tenant": run.tenant,
-                "jurisdiction": run.jurisdiction,
-                "item": item_id,
-                "theme": item.theme,
-                "title": item.title,
-                "severity": item.severity,
-                "injection_target": item_id in targets,
-                "expected_verdict": expected["verdict"],
-                "expected_evidence": expected["evidence"],
-                "expected_near_miss": expected.get("nearMiss", []),
-                "note": expected["note"],
-                "outcome": outcome,
-                "right": None if outcome == NOT_RUN else outcome == expected["verdict"],
+            record = _review_record(
+                run,
+                expected,
+                checklist[item_id],
+                results.get(item_id),
+                injection_target=item_id in targets,
                 # None for an item with no near miss, or one not run.
-                "near_miss_accepted": accepted.get(item_id),
-                "raw_verdict": result.raw_verdict if result else None,
-                "downgraded": bool(result and result.downgraded),
-                "confidence": finding["confidence"] if finding else None,
-                "rationale": finding["rationale"] if finding else None,
-                "action": finding["action"] if finding else None,
-                "regulation_citations": [
-                    {key: c[key] for key in ("sourceTitle", "sectionPath", "language", "quote")}
-                    for c in (finding["regulation_citations"] if finding else [])
-                ],
-                "evidence_citations": [
-                    {
-                        "file": run.documents.get(c["documentId"])
-                        or run.elsewhere.get(c["documentId"]),
-                        "own": c["documentId"] in run.documents,
-                        **{
-                            key: c[key]
-                            for key in ("documentTitle", "sectionPath", "language", "quote")
-                        },
-                    }
-                    for c in (result.evidence if result else [])
-                ],
-                "input_tokens": result.input_tokens if result else 0,
-                "output_tokens": result.output_tokens if result else 0,
-                "cost_usd": float(result.cost_usd) if result else 0.0,
-            }
+                near_miss_accepted=accepted.get(item_id),
+            )
             lines.append(json.dumps(record, ensure_ascii=False))
     return "".join(line + "\n" for line in lines)
+
+
+def _review_record(
+    run: InspectionRun,
+    expected: Mapping[str, Any],
+    item: ChecklistItem,
+    result: ItemResult | None,
+    *,
+    injection_target: bool,
+    near_miss_accepted: bool | None,
+) -> dict[str, Any]:
+    """The review's record of one checklist item: `expected` is its expected-findings.json entry
+    and `result` its stored result (None when it was not run)."""
+    finding = result.finding if result else None
+    outcome = result.outcome if result else NOT_RUN
+    return {
+        "establishment": run.establishment,
+        "tenant": run.tenant,
+        "jurisdiction": run.jurisdiction,
+        "item": item.id,
+        "theme": item.theme,
+        "title": item.title,
+        "severity": item.severity,
+        "injection_target": injection_target,
+        "expected_verdict": expected["verdict"],
+        "expected_evidence": expected["evidence"],
+        "expected_near_miss": expected.get("nearMiss", []),
+        "note": expected["note"],
+        "outcome": outcome,
+        "right": None if outcome == NOT_RUN else outcome == expected["verdict"],
+        "near_miss_accepted": near_miss_accepted,
+        "raw_verdict": result.raw_verdict if result else None,
+        "downgraded": bool(result and result.downgraded),
+        "confidence": finding["confidence"] if finding else None,
+        "rationale": finding["rationale"] if finding else None,
+        "action": finding["action"] if finding else None,
+        "regulation_citations": [
+            {key: c[key] for key in ("sourceTitle", "sectionPath", "language", "quote")}
+            for c in (finding["regulation_citations"] if finding else [])
+        ],
+        "evidence_citations": [
+            {
+                "file": run.documents.get(c["documentId"]) or run.elsewhere.get(c["documentId"]),
+                "own": c["documentId"] in run.documents,
+                **{key: c[key] for key in ("documentTitle", "sectionPath", "language", "quote")},
+            }
+            for c in (result.evidence if result else [])
+        ],
+        "input_tokens": result.input_tokens if result else 0,
+        "output_tokens": result.output_tokens if result else 0,
+        "cost_usd": float(result.cost_usd) if result else 0.0,
+    }
