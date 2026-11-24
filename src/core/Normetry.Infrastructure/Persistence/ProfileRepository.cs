@@ -36,10 +36,7 @@ internal sealed class ProfileRepository(CoreDbContext db) : IProfileRepository
         db.Profiles.AnyAsync(profile => profile.Name == name, cancellationToken);
 
     public Task LockAsync(Guid id, CancellationToken cancellationToken) =>
-        db.Database.ExecuteSqlAsync(
-            $"SELECT FROM core.profiles WHERE id = {id} FOR UPDATE",
-            cancellationToken
-        );
+        db.LockByIdAsync<Profile>(id, cancellationToken);
 
     public async Task<IReadOnlyList<string>> ListCatalogAsync(
         CancellationToken cancellationToken

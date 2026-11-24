@@ -11,10 +11,7 @@ internal sealed class DocumentRepository(CoreDbContext db) : IDocumentRepository
 
     public async Task<Document?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken)
     {
-        await db.Database.ExecuteSqlAsync(
-            $"SELECT FROM core.documents WHERE id = {id} FOR UPDATE",
-            cancellationToken
-        );
+        await db.LockByIdAsync<Document>(id, cancellationToken);
         return await db
             .Documents.Include(document => document.Versions)
             .FirstOrDefaultAsync(document => document.Id == id, cancellationToken);
@@ -27,10 +24,7 @@ internal sealed class DocumentRepository(CoreDbContext db) : IDocumentRepository
         CancellationToken cancellationToken
     )
     {
-        await db.Database.ExecuteSqlAsync(
-            $"SELECT FROM core.documents WHERE id = {id} AND establishment_id = {establishmentId} FOR UPDATE",
-            cancellationToken
-        );
+        await db.LockOfEstablishmentAsync<Document>(establishmentId, id, cancellationToken);
         return await db
             .Documents.Include(document => document.Versions)
             .FirstOrDefaultAsync(
