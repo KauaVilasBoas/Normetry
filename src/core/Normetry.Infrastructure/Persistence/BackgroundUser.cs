@@ -11,7 +11,7 @@ namespace Normetry.Infrastructure.Persistence;
 /// </summary>
 public sealed class BackgroundUser() : SetOnce<string>("user"), ICurrentUser
 {
-    public string UserId => Value;
+    public string Sub => Value;
 
     public string? DisplayName => null;
 

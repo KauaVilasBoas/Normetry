@@ -41,7 +41,7 @@ internal sealed class GetOverviewHandler(
         }
         var establishment = found.Value;
         // The action lets in a caller holding either permission; each section checks its own.
-        var permissions = await users.GetPermissionsAsync(currentUser.UserId, cancellationToken);
+        var permissions = await users.GetPermissionsAsync(currentUser.Sub, cancellationToken);
         var today = clock.UtcToday();
         var documentsOverview = await BuildDocumentsSectionIfAllowedAsync(
             permissions,

@@ -10,7 +10,7 @@ internal sealed class ChatMessageCounter(CoreDbContext db, ITenantContext tenant
     : IChatMessageCounter
 {
     public async Task<int?> TryIncrementAsync(
-        string userId,
+        string sub,
         DateOnly day,
         int? limit,
         CancellationToken cancellationToken
@@ -23,7 +23,7 @@ internal sealed class ChatMessageCounter(CoreDbContext db, ITenantContext tenant
             .Database.SqlQuery<int>(
                 $"""
                 INSERT INTO core.chat_message_counts AS c (tenant_id, user_id, day, count)
-                VALUES ({tenant.TenantId}, {userId}, {day}, 1)
+                VALUES ({tenant.TenantId}, {sub}, {day}, 1)
                 ON CONFLICT (tenant_id, user_id, day) DO UPDATE SET count = c.count + 1
                     WHERE {limit}::integer IS NULL OR c.count < {limit}::integer
                 RETURNING c.count AS "Value"
@@ -33,10 +33,10 @@ internal sealed class ChatMessageCounter(CoreDbContext db, ITenantContext tenant
         return counts is [var count] ? count : null;
     }
 
-    public Task<int> GetAsync(string userId, DateOnly day, CancellationToken cancellationToken) =>
+    public Task<int> GetAsync(string sub, DateOnly day, CancellationToken cancellationToken) =>
         db
             .ChatMessageCounts.AsNoTracking()
-            .Where(count => count.UserId == userId && count.Day == day)
+            .Where(count => count.UserId == sub && count.Day == day)
             .Select(count => count.Count)
             .FirstOrDefaultAsync(cancellationToken);
 }

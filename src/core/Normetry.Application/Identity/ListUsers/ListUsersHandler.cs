@@ -12,6 +12,6 @@ internal sealed class ListUsersHandler(IUserRepository users, ICurrentUser curre
         CancellationToken cancellationToken
     ) =>
         Result<IReadOnlyList<UserResponse>>.Success(
-            await users.ListAsync(currentUser.UserId, cancellationToken)
+            await users.ListAsync(currentUser.Sub, cancellationToken)
         );
 }

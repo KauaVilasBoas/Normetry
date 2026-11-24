@@ -14,7 +14,7 @@ internal sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentU
             ? user
             : throw new InvalidOperationException("The request has no authenticated user.");
 
-    public string UserId =>
+    public string Sub =>
         User.TryGetSubject(out var subject)
             ? subject
             : throw new InvalidOperationException("The token has no sub claim.");

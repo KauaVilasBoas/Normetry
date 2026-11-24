@@ -13,12 +13,12 @@ public interface IChatMessageCounter
     /// added.
     /// </summary>
     Task<int?> TryIncrementAsync(
-        string userId,
+        string sub,
         DateOnly day,
         int? limit,
         CancellationToken cancellationToken
     );
 
     /// <summary>The user's count for the day, 0 when there is none.</summary>
-    Task<int> GetAsync(string userId, DateOnly day, CancellationToken cancellationToken);
+    Task<int> GetAsync(string sub, DateOnly day, CancellationToken cancellationToken);
 }

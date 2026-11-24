@@ -117,7 +117,7 @@ internal sealed class StartInspectionHandler(
         var inspection = Inspection.Request(
             tenant.TenantId,
             establishment.Id,
-            currentUser.UserId,
+            currentUser.Sub,
             now
         );
         inspections.Add(inspection);
@@ -128,7 +128,7 @@ internal sealed class StartInspectionHandler(
                 establishment.Jurisdiction,
                 establishment.Type,
                 options.TokenCeiling,
-                currentUser.UserId
+                currentUser.Sub
             ),
             cancellationToken
         );

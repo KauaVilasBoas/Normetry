@@ -27,7 +27,7 @@ internal sealed class CountChatMessageHandler(
         var now = clock.GetUtcNow();
         var limit = options.DailyMessagesPerUser(tenant.TenantId);
         var count = await counter.TryIncrementAsync(
-            user.UserId,
+            user.Sub,
             now.UtcDate(),
             limit,
             cancellationToken
