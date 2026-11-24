@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { problemCodes } from "../api/contract";
 import {
   documentKey,
@@ -13,6 +13,8 @@ import {
 import { queryFailed, queryNotFound, useQueryRetry } from "../api/queries";
 import { refusalText, useSend } from "../api/send";
 import { copy } from "../copy";
+import { useFormDialog, type Submitted } from "../ui/dialogs";
+import { useFieldErrorFocus } from "../ui/focus";
 import { cachedTitle, expiryProblem, inFlight } from "./documents";
 import { DETAIL_TITLE_ID } from "./parts";
 
@@ -87,33 +89,29 @@ export function useDocumentDetail({
 export function useExpiryForm(detail: DocumentDetail, announce: (text: string) => void) {
   const queryClient = useQueryClient();
   const { send, closed } = useSend({ inside: true });
-  const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
-  // A new object per refusal, so the same error twice still moves focus to the field.
-  const [fieldError, setFieldError] = useState<{ text: string }>();
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-  const saved = useRef<string>(undefined);
   const input = useRef<HTMLInputElement>(null);
+  const { fieldError, setFieldError } = useFieldErrorFocus(input);
   const current = detail.expiresOn ?? "";
+  const { submit: submitDialog, ...dialog } = useFormDialog<string>({
+    reset: () => {
+      setValue(current);
+      setFieldError();
+    },
+    onClosed: closed,
+    onSaved: (message) => announce(message),
+  });
 
-  useEffect(() => {
-    if (fieldError) input.current?.focus();
-  }, [fieldError]);
-
-  const save = async (expiresOn: string | null) => {
-    setError(undefined);
-    setSubmitting(true);
+  const save = async (expiresOn: string | null): Promise<Submitted<string>> => {
     const result = await send(establishmentDocumentPath(detail.establishmentId, detail.id), {
       method: "PATCH",
       json: { expiresOn },
     });
-    setSubmitting(false);
     if (!result.ok) {
-      if (result.code === problemCodes.validation)
-        setFieldError({ text: copy.upload.expiryInvalid });
-      else setError(refusalText(result, copy.documents.expiryError));
-      return;
+      if (result.code !== problemCodes.validation)
+        return { error: refusalText(result, copy.documents.expiryError) };
+      setFieldError(copy.upload.expiryInvalid);
+      return undefined;
     }
     queryClient.setQueryData<DocumentDetail>(
       documentKey(detail.id),
@@ -121,56 +119,35 @@ export function useExpiryForm(detail: DocumentDetail, announce: (text: string) =
     );
     void queryClient.invalidateQueries({ queryKey: documentKey(detail.id) });
     void queryClient.invalidateQueries({ queryKey: documentsKey(detail.establishmentId) });
-    saved.current = expiresOn ? copy.documents.expirySaved : copy.documents.expiryRemoved;
-    setOpen(false);
-  };
-
-  const openChange = (next: boolean) => {
-    setOpen(next);
-    if (!next) {
-      closed();
-      return;
-    }
-    setValue(current);
-    setFieldError(undefined);
-    setError(undefined);
+    return { saved: expiresOn ? copy.documents.expirySaved : copy.documents.expiryRemoved };
   };
 
   const changeValue = (event: ChangeEvent<HTMLInputElement>) => {
     setValue(event.target.value);
-    setFieldError(undefined);
+    setFieldError();
   };
 
   const submit = () => {
     const problem = expiryProblem(input.current);
-    if (problem) setFieldError({ text: problem });
-    else void save(value || null);
+    if (problem) setFieldError(problem);
+    else void submitDialog(() => save(value || null));
   };
 
   const removeDate = () => {
     // Focus moves first: the button goes once the field is empty.
     input.current?.focus();
     setValue("");
-    setFieldError(undefined);
-  };
-
-  const afterClose = () => {
-    if (saved.current) announce(saved.current);
-    saved.current = undefined;
+    setFieldError();
   };
 
   return {
-    open,
-    openChange,
+    ...dialog,
     value,
     changeValue,
     input,
-    fieldError: fieldError?.text,
-    error,
-    submitting,
+    fieldError,
     ready: value !== current,
     submit,
     removeDate,
-    afterClose,
   };
 }
