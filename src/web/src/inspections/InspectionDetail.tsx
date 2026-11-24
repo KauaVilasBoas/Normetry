@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CircleAlert } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
 import { inspectionStatuses, permissions } from "../api/contract";
@@ -15,14 +15,15 @@ import { copy, dateTime, format } from "../copy";
 import { hasFindingFilter, paths } from "../routes";
 import { focusById, useRefocusWhenGone } from "../ui/focus";
 import {
-  Button,
+  BackLink,
   ChecklistRow,
   ConnectionNotice,
+  DetailUnavailable,
   Message,
   RadialProgress,
+  RetryButton,
   secondaryButton,
   Skeleton,
-  Spinner,
   StatusPill,
   Stepper,
 } from "../ui/primitives";
@@ -94,50 +95,35 @@ export function InspectionDetailView({
   }, [arrival, settled, search]);
 
   const back = (
-    <Link
-      to={paths.inspections}
-      onClick={onBack}
-      className="-mx-1 inline-flex items-center gap-1.5 self-start rounded-sm px-1 text-body text-text-secondary hover:text-text-primary"
-    >
-      <ArrowLeft aria-hidden="true" className="size-4" />
+    <BackLink to={paths.inspections} onClick={onBack}>
       {copy.inspections.back}
-    </Link>
+    </BackLink>
   );
 
   if (notFound || failed)
     return (
       <div className="flex flex-col gap-3">
         {back}
-        <section
-          aria-labelledby={DETAIL_TITLE_ID}
-          aria-busy={retrying}
-          className="w-full max-w-160 rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in"
-        >
-          <div role={failed ? "alert" : undefined} className="flex flex-col items-start gap-2">
-            <CircleAlert aria-hidden="true" className="size-5 text-text-secondary" />
-            <h2 id={DETAIL_TITLE_ID} tabIndex={-1} className="text-title font-semibold">
-              {notFound ? copy.inspections.notFoundTitle : copy.inspections.loadErrorTitle}
-            </h2>
-            <p className="text-body text-text-secondary">
-              {notFound ? copy.inspections.notFoundBody : copy.inspections.errorBody}
-            </p>
-            {notFound ? (
-              <Link to={paths.inspections} onClick={onBack} className={`${secondaryButton} mt-2`}>
+        <DetailUnavailable
+          titleId={DETAIL_TITLE_ID}
+          title={notFound ? copy.inspections.notFoundTitle : copy.inspections.loadErrorTitle}
+          body={notFound ? copy.inspections.notFoundBody : copy.inspections.errorBody}
+          failed={failed}
+          retrying={retrying}
+          action={
+            notFound ? (
+              <Link to={paths.inspections} onClick={onBack} className={secondaryButton}>
                 {copy.inspections.backToInspections}
               </Link>
             ) : (
-              <Button
-                variant="secondary"
-                className="mt-2"
-                aria-disabled={retrying}
-                onClick={retrying ? undefined : load.retry}
-              >
-                {retrying && <Spinner />}
-                {copy.inspections.tryAgain}
-              </Button>
-            )}
-          </div>
-        </section>
+              <RetryButton
+                label={copy.inspections.tryAgain}
+                retrying={retrying}
+                onRetry={load.retry}
+              />
+            )
+          }
+        />
       </div>
     );
 

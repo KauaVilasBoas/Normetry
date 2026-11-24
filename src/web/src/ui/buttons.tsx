@@ -1,4 +1,6 @@
-import type { ComponentProps } from "react";
+import { ArrowLeft } from "lucide-react";
+import type { ComponentProps, ReactNode } from "react";
+import { Link } from "react-router";
 
 const buttonVariants = {
   primary: "bg-mint text-on-mint font-semibold hover:bg-mint-hover",
@@ -38,6 +40,28 @@ export function Button({
       className={`${buttonBase} ${buttonVariants[variant]} ${hover} ${className}`}
       {...props}
     />
+  );
+}
+
+/** A detail view's way back to its list, above its header. `onClick`: it was chosen (it navigates). */
+export function BackLink({
+  to,
+  onClick,
+  children,
+}: {
+  to: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="-mx-1 inline-flex items-center gap-1.5 self-start rounded-sm px-1 text-body text-text-secondary hover:text-text-primary"
+    >
+      <ArrowLeft aria-hidden="true" className="size-4" />
+      {children}
+    </Link>
   );
 }
 
