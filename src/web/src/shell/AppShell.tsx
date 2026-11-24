@@ -3,10 +3,9 @@ import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
 import { useConversations } from "../api/chat";
-import { permissions } from "../api/contract";
 import { useDocument } from "../api/documents";
 import { useInspection } from "../api/inspections";
-import { can, useEstablishments, useMe, type Establishment } from "../api/queries";
+import { useEstablishments, useMe, type Establishment } from "../api/queries";
 import { ChatScreen } from "../chat/ChatScreen";
 import { copy, dateTime, format } from "../copy";
 import { DocumentsScreen } from "../documents/DocumentsScreen";
@@ -17,9 +16,8 @@ import { OverviewScreen } from "../overview/OverviewScreen";
 import { paths } from "../routes";
 import { ProfilesScreen } from "../settings/ProfilesScreen";
 import { iconButton, Message } from "../ui/primitives";
+import { screenAccess, type Screen } from "./screens";
 import { Sidebar } from "./Sidebar";
-
-type Screen = "overview" | "chat" | "documents" | "inspections" | "settings";
 
 const headings: Record<Screen, string> = {
   overview: copy.shell.overview,
@@ -44,22 +42,19 @@ const sectionRoots = {
  */
 export function AppShell({ screen }: { screen: Screen }) {
   const me = useMe();
-  const chatAllowed = can(me.data, permissions.chat.ask);
-  const documentsAllowed = can(me.data, permissions.documents.read);
-  const inspectionsAllowed = can(me.data, permissions.inspections.read);
-  const establishmentsAllowed = can(me.data, permissions.establishments.read);
-  const establishments = useEstablishments(establishmentsAllowed);
+  const access = screenAccess(me.data);
+  const establishments = useEstablishments(access.establishments);
   const state = listState(me, establishments);
   const { selected, select } = useEstablishmentSelection(me.data, establishments.data);
   const { conversationId, documentId, inspectionId } = useParams();
   const navigate = useNavigate();
-  const conversations = useConversations(chatAllowed && screen === "chat");
-  const openDocument = useDocument(documentId, documentsAllowed && screen === "documents");
+  const conversations = useConversations(access.opens.chat && screen === "chat");
+  const openDocument = useDocument(documentId, access.opens.documents && screen === "documents");
   // For the page title; the screen shares the query.
   const openInspection = useInspection(
     selected?.id ?? "",
     inspectionId,
-    inspectionsAllowed && screen === "inspections" && selected !== undefined,
+    access.opens.inspections && screen === "inspections" && selected !== undefined,
   );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -127,18 +122,8 @@ export function AppShell({ screen }: { screen: Screen }) {
     if (establishments.isError) void establishments.refetch();
   };
 
-  // The screens the user may open. Home goes to the first: Overview (either read permission opens
-  // it, so Documents and Simulated Inspection are never home), the chat, then Settings.
-  const canOpenAScreen =
-    chatAllowed ||
-    documentsAllowed ||
-    inspectionsAllowed ||
-    can(me.data, permissions.profiles.read);
-  const overviewAllowed = documentsAllowed || inspectionsAllowed;
-  const home = overviewAllowed ? paths.overview : chatAllowed ? paths.ask : paths.profiles;
-
   let content: ReactNode;
-  if (me.data && !canOpenAScreen) {
+  if (me.data && access.nav.length === 0) {
     // No profile at all, or profiles whose permissions open no screen: the same on every route.
     content =
       me.data.profiles.length === 0 ? (
@@ -150,7 +135,7 @@ export function AppShell({ screen }: { screen: Screen }) {
     // A token without a valid tenant: the same on every route.
     content = <AccessCard title={copy.picker.noTenantTitle} body={copy.picker.noTenantBody} />;
   } else if (screen === "settings") {
-    if (me.data && !can(me.data, permissions.profiles.read))
+    if (me.data && !access.opens.settings)
       content = (
         <AccessCard
           title={format(copy.access.refusedTitle, { screen: copy.shell.settings })}
@@ -158,33 +143,33 @@ export function AppShell({ screen }: { screen: Screen }) {
         />
       );
     else content = <ProfilesScreen me={me} />;
-  } else if (screen === "documents" && me.data && !documentsAllowed) {
+  } else if (screen === "documents" && me.data && !access.opens.documents) {
     content = (
       <AccessCard
         title={format(copy.access.refusedTitle, { screen: copy.shell.documents })}
         body={copy.access.refusedBody}
       />
     );
-  } else if (screen === "inspections" && me.data && !inspectionsAllowed) {
+  } else if (screen === "inspections" && me.data && !access.opens.inspections) {
     content = (
       <AccessCard
         title={format(copy.access.refusedTitle, { screen: copy.shell.inspections })}
         body={copy.access.refusedBody}
       />
     );
-  } else if (screen === "overview" && me.data && !overviewAllowed) {
-    content = <Navigate to={home} replace />;
-  } else if (screen === "chat" && me.data && !chatAllowed) {
+  } else if (screen === "overview" && me.data && !access.opens.overview) {
+    content = <Navigate to={access.home} replace />;
+  } else if (screen === "chat" && me.data && !access.opens.chat) {
     content =
       conversationId === undefined ? (
-        <Navigate to={home} replace />
+        <Navigate to={access.home} replace />
       ) : (
         <AccessCard
           title={format(copy.access.refusedTitle, { screen: copy.shell.askTheRegulation })}
           body={copy.access.refusedBody}
         />
       );
-  } else if (me.data && !establishmentsAllowed) {
+  } else if (me.data && !access.establishments) {
     content = (
       <AccessCard title={copy.access.establishmentsTitle} body={copy.access.establishmentsBody} />
     );
