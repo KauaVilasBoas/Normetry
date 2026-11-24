@@ -228,7 +228,7 @@ function RefusalNotice({
         </Notice>
       );
     case "denied":
-      return <Notice className="mx-5 mb-4" icon={alert} title={copy.inspections.denied} />;
+      return <Notice className="mx-5 mb-4" icon={alert} title={copy.common.denied} />;
     case "error":
       return (
         <Notice className="mx-5 mb-4" icon={alert} title={copy.inspections.startErrorTitle}>

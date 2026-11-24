@@ -10,7 +10,7 @@ import {
   type DocumentSummary,
 } from "../api/documents";
 import { queryFailed, queryNotFound, useQueryRetry } from "../api/queries";
-import { useSend } from "../api/send";
+import { refusalText, useSend } from "../api/send";
 import { copy } from "../copy";
 import { cachedTitle, expiryProblem, inFlight } from "./documents";
 import { DETAIL_TITLE_ID } from "./parts";
@@ -102,7 +102,7 @@ export function useExpiryForm(detail: DocumentDetail, announce: (text: string) =
     if (!result.ok) {
       if (result.code === problemCodes.validation)
         setFieldError({ text: copy.upload.expiryInvalid });
-      else setError(result.status === 403 ? copy.settings.denied : copy.documents.expiryError);
+      else setError(refusalText(result, copy.documents.expiryError));
       return;
     }
     queryClient.setQueryData<DocumentDetail>(
