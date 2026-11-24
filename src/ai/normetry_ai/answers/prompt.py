@@ -77,7 +77,7 @@ def excerpt_ids(chunks: Sequence[RetrievedChunk], prefix: str = "E") -> dict[str
 
 def _attributes(chunk: RetrievedChunk) -> str:
     section = attribute(chunk.section_path or "")
-    if chunk.source_type == "tenant_document":
+    if chunk.is_document:
         # The title comes from whoever uploaded the file: escaped like the text.
         title = attribute(chunk.document_title or "")
         kind = attribute(chunk.document_type or "")

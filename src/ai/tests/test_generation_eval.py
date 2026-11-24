@@ -205,7 +205,7 @@ def test_generation_eval(app_ai: Engine, corpus: Engine) -> None:
                 "language": c.chunk.language,
                 "quote": c.quote,
             }
-            if c.chunk.source_type == "tenant_document":
+            if c.chunk.is_document:
                 name, file = owners.get(str(c.chunk.document_id), ("unknown", "unknown"))
                 record |= {"establishment": name, "document": file}
             return record

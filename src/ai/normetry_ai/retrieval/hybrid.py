@@ -102,7 +102,7 @@ def best(chunks: list[RetrievedChunk], top_k: int, document_top_k: int) -> list[
     kept: list[RetrievedChunk] = []
     documents = 0
     for chunk in sorted(chunks, key=lambda chunk: -chunk.score):
-        if chunk.source_type == "tenant_document":
+        if chunk.is_document:
             if documents == document_top_k:
                 continue
             documents += 1

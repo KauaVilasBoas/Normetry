@@ -385,7 +385,7 @@ def citation_json(citation: Citation) -> dict[str, Any]:
         "quoteStart": citation.quote_start,
         "quoteEnd": citation.quote_end,
     }
-    if chunk.source_type == "tenant_document":
+    if chunk.is_document:
         return {
             **shown,
             "sourceType": "document",
