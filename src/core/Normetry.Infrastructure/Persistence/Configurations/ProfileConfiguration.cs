@@ -7,6 +7,9 @@ namespace Normetry.Infrastructure.Persistence.Configurations;
 
 internal sealed class ProfileConfiguration : IEntityTypeConfiguration<Profile>
 {
+    /// <summary>One name per tenant; a concurrent create or rename ends here.</summary>
+    internal const string NameIndex = "ix_profiles_tenant_id_name";
+
     public void Configure(EntityTypeBuilder<Profile> builder)
     {
         builder.ToTable("profiles", table =>
@@ -28,7 +31,10 @@ internal sealed class ProfileConfiguration : IEntityTypeConfiguration<Profile>
         builder.Property(profile => profile.Id).ValueGeneratedNever();
         builder.Property(profile => profile.Name).HasMaxLength(Profile.NameMaxLength);
         builder.Property(profile => profile.SystemKey).HasMaxLength(20);
-        builder.HasIndex(profile => new { profile.TenantId, profile.Name }).IsUnique();
+        builder
+            .HasIndex(profile => new { profile.TenantId, profile.Name })
+            .IsUnique()
+            .HasDatabaseName(NameIndex);
         // One profile per system key and tenant, so a tenant has exactly one Owner.
         builder
             .HasIndex(profile => new { profile.TenantId, profile.SystemKey })

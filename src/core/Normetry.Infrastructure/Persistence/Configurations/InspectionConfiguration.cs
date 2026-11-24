@@ -10,6 +10,9 @@ namespace Normetry.Infrastructure.Persistence.Configurations;
 
 internal sealed class InspectionConfiguration : IEntityTypeConfiguration<Inspection>
 {
+    /// <summary>One inspection in flight per establishment: a concurrent start ends here.</summary>
+    internal const string InFlightIndex = "ix_inspections_tenant_id_establishment_id";
+
     public void Configure(EntityTypeBuilder<Inspection> builder)
     {
         builder.ToTable("inspections", table =>
@@ -57,10 +60,10 @@ internal sealed class InspectionConfiguration : IEntityTypeConfiguration<Inspect
             inspection.EstablishmentId,
             inspection.RequestedAt,
         });
-        // One inspection in flight per establishment: a concurrent start ends here.
         builder
             .HasIndex(inspection => new { inspection.TenantId, inspection.EstablishmentId })
             .IsUnique()
+            .HasDatabaseName(InFlightIndex)
             .HasFilter(
                 $"status IN ({SqlLiterals.List([nameof(InspectionStatus.Requested), nameof(InspectionStatus.Running)])})"
             );
