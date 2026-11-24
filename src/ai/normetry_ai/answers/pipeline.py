@@ -51,7 +51,8 @@ class Unavailable:
     pass
 
 
-AnswerEvent = Claim | Answered | Refused | Unavailable
+# What `answer()` yields: claims, then exactly one of the others.
+AnswerStreamItem = Claim | Answered | Refused | Unavailable
 
 
 class ClaimModel(Protocol):
@@ -72,7 +73,7 @@ async def answer(
     model: ClaimModel,
     settings: AnswerSettings,
     record_usage: Callable[[Usage], None],
-) -> AsyncGenerator[AnswerEvent, None]:
+) -> AsyncGenerator[AnswerStreamItem, None]:
     """Yield guarded claims, then Answered, Refused or Unavailable.
 
     `record_usage` stores the model call's tokens and cost once, before the final event, typically

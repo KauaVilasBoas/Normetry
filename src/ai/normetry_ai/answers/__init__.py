@@ -3,7 +3,7 @@
 from normetry_ai.answers.guard import Citation, Claim
 from normetry_ai.answers.pipeline import (
     Answered,
-    AnswerEvent,
+    AnswerStreamItem,
     ClaimModel,
     RefusalReason,
     Refused,
@@ -12,7 +12,7 @@ from normetry_ai.answers.pipeline import (
 )
 
 __all__ = [
-    "AnswerEvent",
+    "AnswerStreamItem",
     "Answered",
     "Citation",
     "Claim",
