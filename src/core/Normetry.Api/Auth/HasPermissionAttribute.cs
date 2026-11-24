@@ -17,10 +17,13 @@ public sealed class HasPermissionAttribute(string permission, params string[] al
     /// <summary>Policy names <see cref="PermissionPolicyProvider"/> builds on demand.</summary>
     public const string PolicyPrefix = "permission:";
 
+    /// <summary>Joins the names of a policy any one of which will do.</summary>
+    public const char AnyOfSeparator = '|';
+
     /// <summary>The caller needs one of them.</summary>
     public IReadOnlyList<string> AnyOf { get; } = [permission, .. alternatives];
 
     /// <summary><c>permission:{name}</c>, the names joined by <c>|</c> when any of several will do.</summary>
     public static string PolicyName(params string[] anyOf) =>
-        PolicyPrefix + string.Join('|', anyOf);
+        PolicyPrefix + string.Join(AnyOfSeparator, anyOf);
 }
