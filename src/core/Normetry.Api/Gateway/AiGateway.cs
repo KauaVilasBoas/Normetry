@@ -1,3 +1,4 @@
+using Microsoft.Net.Http.Headers;
 using Normetry.Api.Auth;
 using Normetry.Api.RateLimiting;
 using Normetry.Domain.Identity;
@@ -42,29 +43,66 @@ public static class InternalHeaders
 /// </summary>
 internal static class AiGateway
 {
-    /// <summary>Aspire service discovery resolves it from <c>Services:ai:http</c>.</summary>
-    private const string Destination = "http://ai";
+    /// <summary>
+    /// The AI service's name in Aspire service discovery, which resolves it from
+    /// <see cref="DestinationSetting"/>. Its cluster and that cluster's one destination carry it as
+    /// their id.
+    /// </summary>
+    private const string ServiceName = "ai";
 
-    private const string DestinationSetting = "Services:ai:http";
+    private const string Destination = $"http://{ServiceName}";
+
+    private const string DestinationSetting = $"Services:{ServiceName}:http";
+
+    /// <summary>Every path but an establishment's (<see cref="EstablishmentScope.RouteId"/>).</summary>
+    private const string CatchAllRouteId = ServiceName;
+
+    /// <summary>Every AI route lives under it; it is removed before forwarding.</summary>
+    private const string PathPrefix = "/ai";
 
     private const string TokenSetting = "Ai:InternalToken";
 
+    /// <summary>Same rule as the AI service, which refuses to start with a shorter token.</summary>
+    private const int MinimumTokenLength = 32;
+
     public static WebApplicationBuilder AddAiGateway(this WebApplicationBuilder builder)
     {
-        // Same rule as the AI service, which refuses to start with a shorter token.
-        var token = builder.Configuration[TokenSetting];
-        if (token is not { Length: >= 32 })
+        var token = ReadInternalToken(builder.Configuration);
+        EnsureAiDestinationConfigured(builder.Configuration);
+
+        builder
+            .Services.AddReverseProxy()
+            .LoadFromMemory(Routes(), Clusters())
+            .AddServiceDiscoveryDestinationResolver()
+            .AddTransforms(context =>
+            {
+                context.RequestTransforms.Add(new InternalHeadersTransform(token));
+                context.AddResponseTransform(RemoveInternalResponseHeaders);
+            });
+        return builder;
+    }
+
+    private static string ReadInternalToken(IConfiguration configuration)
+    {
+        var token = configuration[TokenSetting];
+        if (token is not { Length: >= MinimumTokenLength })
         {
             throw new InvalidOperationException(
-                $"Set {TokenSetting} to the AI service's internal token (32 characters or more)."
+                $"Set {TokenSetting} to the AI service's internal token ({MinimumTokenLength} characters or more)."
             );
         }
+        return token;
+    }
 
-        // Without it, service discovery falls back to a DNS lookup of "ai", which could send the
-        // token and the caller's tenant to whatever host answers to that name.
+    /// <summary>
+    /// Without it, service discovery falls back to a DNS lookup of "ai", which could send the
+    /// token and the caller's tenant to whatever host answers to that name.
+    /// </summary>
+    private static void EnsureAiDestinationConfigured(IConfiguration configuration)
+    {
         if (
-            !builder
-                .Configuration.GetSection(DestinationSetting)
+            !configuration
+                .GetSection(DestinationSetting)
                 .GetChildren()
                 .Any(endpoint => !string.IsNullOrEmpty(endpoint.Value))
         )
@@ -73,68 +111,62 @@ internal static class AiGateway
                 $"Set {DestinationSetting}:0 to the AI service's address (the AppHost does)."
             );
         }
+    }
 
-        // The literal "establishments" segment wins over the catch-all, in any case. The id is
-        // not constrained in the pattern: a malformed one must get 404 from EstablishmentScope,
-        // not fall through to the catch-all route without establishment headers. Conversations
-        // and messages (each a model call) go through the establishment route, so it takes the
-        // stricter chat limit; reading and deleting conversations take only the global one.
-        RouteConfig[] routes =
+    /// <summary>
+    /// The literal "establishments" segment wins over the catch-all, in any case. The id is not
+    /// constrained in the pattern: a malformed one must get 404 from EstablishmentScope, not fall
+    /// through to the catch-all route without establishment headers. Conversations and messages
+    /// (each a model call) go through the establishment route, so it takes the stricter chat
+    /// limit; reading and deleting conversations take only the global one.
+    /// </summary>
+    private static RouteConfig[] Routes() =>
         [
-            Route("ai", $"/ai/{{**{EstablishmentScope.CatchAllRouteValue}}}"),
+            Route(CatchAllRouteId, $"{PathPrefix}/{{**{EstablishmentScope.CatchAllRouteValue}}}"),
             Route(
                 EstablishmentScope.RouteId,
-                $"/ai/establishments/{{**{EstablishmentScope.RouteValue}}}"
+                $"{PathPrefix}/{EstablishmentScope.EstablishmentsSegment}/{{**{EstablishmentScope.RouteValue}}}"
             ) with
             {
                 RateLimiterPolicy = RateLimitPolicies.Chat,
             },
         ];
-        ClusterConfig[] clusters =
+
+    private static ClusterConfig[] Clusters() =>
         [
             new ClusterConfig
             {
-                ClusterId = "ai",
+                ClusterId = ServiceName,
                 Destinations = new Dictionary<string, DestinationConfig>
                 {
-                    ["ai"] = new() { Address = Destination },
+                    [ServiceName] = new() { Address = Destination },
                 },
             },
         ];
-
-        builder
-            .Services.AddReverseProxy()
-            .LoadFromMemory(routes, clusters)
-            .AddServiceDiscoveryDestinationResolver()
-            .AddTransforms(context =>
-            {
-                context.RequestTransforms.Add(new InternalHeadersTransform(token));
-                // Nothing internal goes back to the client either, the token above all.
-                context.AddResponseTransform(response =>
-                {
-                    var headers = response.HttpContext.Response.Headers;
-                    foreach (var name in headers.Keys.Where(IsInternal).ToArray())
-                    {
-                        headers.Remove(name);
-                    }
-                    return ValueTask.CompletedTask;
-                });
-            });
-        return builder;
-    }
 
     private static RouteConfig Route(string id, string path) =>
         new RouteConfig
         {
             RouteId = id,
-            ClusterId = "ai",
+            ClusterId = ServiceName,
             // Every AI route is chat: conversations, messages and their search.
             AuthorizationPolicy = HasPermissionAttribute.PolicyName(Permissions.Chat.Ask),
             Match = new RouteMatch { Path = path },
         }
-            .WithTransformPathRemovePrefix("/ai")
+            .WithTransformPathRemovePrefix(PathPrefix)
             // A query-string token (SignalR style) must not reach the AI service or its logs.
-            .WithTransformQueryRemoveKey("access_token");
+            .WithTransformQueryRemoveKey(HubPaths.AccessTokenQueryKey);
+
+    /// <summary>Nothing internal goes back to the client either, the token above all.</summary>
+    private static ValueTask RemoveInternalResponseHeaders(ResponseTransformContext context)
+    {
+        var headers = context.HttpContext.Response.Headers;
+        foreach (var name in headers.Keys.Where(IsInternal).ToArray())
+        {
+            headers.Remove(name);
+        }
+        return ValueTask.CompletedTask;
+    }
 
     // Also catches X_Normetry_*: some servers and adapters read underscores as dashes.
     private static bool IsInternal(string name) =>
@@ -158,9 +190,23 @@ internal static class AiGateway
     private sealed class InternalHeadersTransform(string token) : RequestTransform
     {
         // Credentials meant for the core never reach the AI service.
-        private static readonly string[] Credentials = ["Authorization", "Cookie"];
+        private static readonly string[] Credentials =
+        [
+            HeaderNames.Authorization,
+            HeaderNames.Cookie,
+        ];
 
         public override ValueTask ApplyAsync(RequestTransformContext context)
+        {
+            RemoveClientInternalHeadersAndCredentials(context);
+            AddCallerHeaders(context);
+            AddEstablishmentHeaders(context);
+            return ValueTask.CompletedTask;
+        }
+
+        private static void RemoveClientInternalHeadersAndCredentials(
+            RequestTransformContext context
+        )
         {
             var inbound = context
                 .HttpContext.Request.Headers.Keys.Where(IsInternal)
@@ -170,7 +216,15 @@ internal static class AiGateway
             {
                 RemoveHeader(context, name);
             }
+        }
 
+        /// <summary>
+        /// The internal token, and the tenant and user of the validated token, plus
+        /// <see cref="InternalHeaders.DocumentsRead"/> when the caller's permissions include
+        /// <c>documents.read</c>.
+        /// </summary>
+        private void AddCallerHeaders(RequestTransformContext context)
+        {
             // The route policy guarantees both; failing here means the policy was removed.
             if (!context.HttpContext.User.TryGetCaller(out var tenantId, out var userId))
             {
@@ -192,7 +246,14 @@ internal static class AiGateway
             {
                 AddHeader(context, InternalHeaders.DocumentsRead, "true");
             }
+        }
 
+        /// <summary>
+        /// The establishment <see cref="EstablishmentScope"/> loaded and its jurisdiction. An
+        /// establishment route without it means the proxy pipeline lost that step.
+        /// </summary>
+        private static void AddEstablishmentHeaders(RequestTransformContext context)
+        {
             if (context.HttpContext.Features.Get<EstablishmentScope>() is { } establishment)
             {
                 AddHeader(
@@ -215,7 +276,6 @@ internal static class AiGateway
                     $"The proxy pipeline must run {nameof(EstablishmentScope)} on establishment routes."
                 );
             }
-            return ValueTask.CompletedTask;
         }
     }
 }
