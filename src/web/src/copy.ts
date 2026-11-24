@@ -844,6 +844,25 @@ export function calendarDate(date: string, now = new Date()): string {
 export const relativeDays = (days: number) =>
   new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(days, "day");
 
+/** Whole days from today to a date with no time, in local dates: 0 today, -1 yesterday. */
+export function daysFromToday(date: string, now = new Date()): number {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Rounded: a day across a daylight saving change is 23 or 25 hours.
+  return Math.round((localDate(date).getTime() - today.getTime()) / 86_400_000);
+}
+
+/**
+ * "in 6 hours" from one hour on, "in 12 minutes" from one minute on, else "in 3 seconds" (a rate
+ * limit's `Retry-After`); rounded up so it is never too early.
+ */
+export function untilReset(resetsAt: number, now: number): string {
+  const ms = Math.max(0, resetsAt - now);
+  const relative = new Intl.RelativeTimeFormat(locale);
+  if (ms >= 3_600_000) return relative.format(Math.ceil(ms / 3_600_000), "hour");
+  if (ms >= 60_000) return relative.format(Math.ceil(ms / 60_000), "minute");
+  return relative.format(Math.max(1, Math.ceil(ms / 1000)), "second");
+}
+
 /** "Portuguese" for "pt"; the code itself when the browser can't name it. */
 export function languageName(code: string): string {
   try {
