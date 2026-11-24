@@ -37,6 +37,13 @@ const STICK_PX = 80;
 
 export type ConversationView = "new" | "loading" | "error" | "not-found" | "ready";
 
+/** A question being asked: its turn, its text, and the signal that aborts it. */
+interface Asking {
+  key: string;
+  question: string;
+  signal: AbortSignal;
+}
+
 /**
  * Keeps the latest content in view while the reader is at the bottom; leaves them if they
  * scrolled up. `scroller` and `onScroll` go on the scrolling area, `content` on the list (it
@@ -120,111 +127,145 @@ export function useAnswerStream({
 
   useEffect(() => () => inFlight.current?.abort(), []);
 
+  const update = ({ key, signal }: Asking, change: (turn: Turn) => Partial<Turn>) => {
+    if (signal.aborted) return;
+    setTurns((list) =>
+      list.map((turn) => (turn.key === key ? { ...turn, ...change(turn) } : turn)),
+    );
+  };
+
+  // 5xx from the gateway: the assistant is unavailable; any other 4xx: a generic failure. A 403
+  // is a permission taken away: /me again, which closes the chat if chat.ask is gone.
+  const fail = (asking: Asking, status: number) => {
+    if (status === 403) void queryClient.invalidateQueries({ queryKey: meKey });
+    update(asking, () => ({ status: status >= 500 ? "unavailable" : "error" }));
+  };
+
+  // A 429: nothing was sent, so the question goes back to the composer.
+  const giveBack = ({ key, question }: Asking) => {
+    setTurns((list) => list.filter((turn) => turn.key !== key));
+    setDraft(question);
+  };
+
+  // The rate limit, not the quota: Send waits for Retry-After (seconds), the quota is unchanged.
+  const holdForRateLimit = (asking: Asking, response: Response) => {
+    if (asking.signal.aborted) return;
+    giveBack(asking);
+    const now = Date.now();
+    // ponytail: a 429 without Retry-After waits a minute; the core always sends one.
+    const until = now + (seconds(response.headers, "Retry-After") ?? 60) * 1000;
+    const when = untilReset(until, now);
+    rateLimit.hold({ until, when });
+    announce(copy.chat.rateLimitedTitle);
+    announce(format(copy.chat.rateLimitedBody, { when }));
+  };
+
+  // The daily quota: the question goes back, and the notice is said.
+  const quotaReached = (asking: Asking, quota: ChatQuota | undefined) => {
+    if (asking.signal.aborted) return;
+    giveBack(asking);
+    if (!quota) return;
+    const notice = quotaNoticeText(quota);
+    announce(notice.title);
+    announce(notice.body);
+  };
+
+  /** The quota a post's headers leave (a 429 here is the daily quota: none left). */
+  const recordQuota = (response: Response) => {
+    const before = queryClient.getQueryData<ChatQuota>(quotaKey);
+    const after = quotaAfter(response, before);
+    if (after && after !== before) queryClient.setQueryData(quotaKey, after);
+    return after;
+  };
+
+  /**
+   * The first question creates the conversation (D4), at the top of the list right away, titled
+   * by this question. Resolves its id, or undefined once a refusal ended the turn.
+   */
+  const createConversation = async (asking: Asking) => {
+    const created = await api.request(establishmentConversationsPath(establishment.id), {
+      method: "POST",
+      signal: asking.signal,
+    });
+    if (!created.ok) {
+      if (await rateLimited(created)) holdForRateLimit(asking, created);
+      else fail(asking, created.status);
+      return undefined;
+    }
+    const summary = (await created.json()) as ConversationSummary;
+    setCreatedId(summary.id);
+    queryClient.setQueryData<ConversationSummary[]>(conversationsKey, (list = []) => [
+      { ...summary, title: asking.question },
+      ...list.filter((item) => item.id !== summary.id),
+    ]);
+    onCreated(summary.id);
+    return summary.id;
+  };
+
+  const postQuestion = (asking: Asking, id: string) =>
+    api.request(conversationMessagesPath(establishment.id, id), {
+      method: "POST",
+      json: { text: asking.question },
+      accept: "text/event-stream",
+      signal: asking.signal,
+    });
+
+  /**
+   * What ends the turn before an answer streams: the rate limit, the daily quota, a 404 or another
+   * failure. The quota headers are recorded first, except on the rate limit. Resolves whether the
+   * post was refused.
+   */
+  const handleRefusedPost = async (asking: Asking, response: Response) => {
+    if (await rateLimited(response)) {
+      holdForRateLimit(asking, response);
+      return true;
+    }
+    const quota = recordQuota(response);
+    if (response.ok) return false;
+    if (response.status === 429) quotaReached(asking, quota);
+    else if (response.status === 404) {
+      if (!asking.signal.aborted) setNotFound(true);
+    } else fail(asking, response.status);
+    return true;
+  };
+
+  /** The answer's claims into the turn as they arrive, each said; then how it ended. */
+  const streamIntoTurn = async (asking: Asking, response: Response) => {
+    update(asking, () => ({ status: "streaming" }));
+    let shown = 0;
+    const end = await streamAnswer(response, (claim, language) => {
+      if (asking.signal.aborted) return;
+      shown += 1;
+      update(asking, (turn) => ({
+        claims: [...turn.claims, claim],
+        language: turn.language ?? language,
+      }));
+      // A Portuguese claim in the English interface is read with a Portuguese voice.
+      announce(claim.text, language);
+    });
+    if (asking.signal.aborted) return;
+    update(asking, () => ({ status: end }));
+    if (end === answerEvents.done && shown > 0) announce(copy.chat.answerComplete);
+    else if (end === answerEvents.done || end === answerEvents.refusal) {
+      announce(format(copy.chat.refusal, { regulation }));
+      announce(copy.chat.refusalHint);
+    }
+  };
+
   async function ask(key: string, question: string) {
     const abort = new AbortController();
     inFlight.current = abort;
-    const { signal } = abort;
-    const update = (change: (turn: Turn) => Partial<Turn>) => {
-      if (signal.aborted) return;
-      setTurns((list) =>
-        list.map((turn) => (turn.key === key ? { ...turn, ...change(turn) } : turn)),
-      );
-    };
-    // 5xx from the gateway: the assistant is unavailable; any other 4xx: a generic failure. A 403
-    // is a permission taken away: /me again, which closes the chat if chat.ask is gone.
-    const fail = (status: number) => {
-      if (status === 403) void queryClient.invalidateQueries({ queryKey: meKey });
-      update(() => ({ status: status >= 500 ? "unavailable" : "error" }));
-    };
-    // A 429: nothing was sent, so the question goes back to the composer.
-    const giveBack = () => {
-      setTurns((list) => list.filter((turn) => turn.key !== key));
-      setDraft(question);
-    };
-    // The rate limit, not the quota: Send waits for Retry-After (seconds), the quota is unchanged.
-    const limited = (response: Response) => {
-      if (signal.aborted) return;
-      giveBack();
-      const now = Date.now();
-      // ponytail: a 429 without Retry-After waits a minute; the core always sends one.
-      const until = now + (seconds(response.headers, "Retry-After") ?? 60) * 1000;
-      const when = untilReset(until, now);
-      rateLimit.hold({ until, when });
-      announce(copy.chat.rateLimitedTitle);
-      announce(format(copy.chat.rateLimitedBody, { when }));
-    };
+    const asking = { key, question, signal: abort.signal };
     announce(format(copy.chat.checking, { regulation }));
     try {
-      let id = savedId;
-      if (id === undefined) {
-        const created = await api.request(establishmentConversationsPath(establishment.id), {
-          method: "POST",
-          signal,
-        });
-        if (!created.ok)
-          return (await rateLimited(created)) ? limited(created) : fail(created.status);
-        const summary = (await created.json()) as ConversationSummary;
-        id = summary.id;
-        setCreatedId(id);
-        // At the top of the list right away, titled by this question.
-        queryClient.setQueryData<ConversationSummary[]>(conversationsKey, (list = []) => [
-          { ...summary, title: question },
-          ...list.filter((item) => item.id !== summary.id),
-        ]);
-        onCreated(id);
-      }
-
-      const response = await api.request(conversationMessagesPath(establishment.id, id), {
-        method: "POST",
-        json: { text: question },
-        accept: "text/event-stream",
-        signal,
-      });
-      if (await rateLimited(response)) return limited(response);
-      const before = queryClient.getQueryData<ChatQuota>(quotaKey);
-      const after = quotaAfter(response, before);
-      if (after && after !== before) queryClient.setQueryData(quotaKey, after);
-
-      if (response.status === 429) {
-        // The daily quota.
-        if (signal.aborted) return;
-        giveBack();
-        if (after) {
-          const notice = quotaNoticeText(after);
-          announce(notice.title);
-          announce(notice.body);
-        }
-        return;
-      }
-      if (response.status === 404) {
-        if (!signal.aborted) setNotFound(true);
-        return;
-      }
-      if (!response.ok) return fail(response.status);
-
-      update(() => ({ status: "streaming" }));
-      let shown = 0;
-      const end = await streamAnswer(response, (claim, language) => {
-        if (signal.aborted) return;
-        shown += 1;
-        update((turn) => ({
-          claims: [...turn.claims, claim],
-          language: turn.language ?? language,
-        }));
-        // A Portuguese claim in the English interface is read with a Portuguese voice.
-        announce(claim.text, language);
-      });
-      if (signal.aborted) return;
-      update(() => ({ status: end }));
-      if (end === answerEvents.done && shown > 0) announce(copy.chat.answerComplete);
-      else if (end === answerEvents.done || end === answerEvents.refusal) {
-        announce(format(copy.chat.refusal, { regulation }));
-        announce(copy.chat.refusalHint);
-      }
+      const id = savedId ?? (await createConversation(asking));
+      if (id === undefined) return;
+      const response = await postQuestion(asking, id);
+      if (!(await handleRefusedPost(asking, response))) await streamIntoTurn(asking, response);
     } catch {
       // The request failed (a 401 after renewal also lands here, as the session-expired flow
       // takes over the screen).
-      update(() => ({ status: "network" }));
+      update(asking, () => ({ status: "network" }));
     } finally {
       if (inFlight.current === abort) inFlight.current = null;
       void queryClient.invalidateQueries({ queryKey: conversationsKey });
