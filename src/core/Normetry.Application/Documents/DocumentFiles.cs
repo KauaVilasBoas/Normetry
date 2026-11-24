@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using Normetry.BuildingBlocks.Results;
+using Normetry.Domain;
 using Normetry.Domain.Documents;
 
 namespace Normetry.Application.Documents;
@@ -78,30 +79,27 @@ public static class DocumentFiles
     }
 
     /// <summary>
-    /// The name without any directory part or control character, at most 255 characters with its
-    /// extension kept (an extension that long is not: no format has one). Never cuts a surrogate
-    /// pair in half.
+    /// The name without any directory part or control character, at most 255 characters (counted
+    /// like <see cref="Names.Truncate"/>) with its extension kept (an extension that long is not:
+    /// no format has one).
     /// </summary>
     private static string DisplayName(string fileName)
     {
         var name = new string(
             Path.GetFileName(fileName.Replace('\\', '/')).Where(c => !char.IsControl(c)).ToArray()
         ).Trim();
-        if (name.Length <= DocumentVersion.FileNameMaxLength)
+        if (name.EnumerateRunes().Count() <= DocumentVersion.FileNameMaxLength)
         {
             return name;
         }
         var extension = Path.GetExtension(name);
-        if (extension.Length >= DocumentVersion.FileNameMaxLength)
+        var extensionLength = extension.EnumerateRunes().Count();
+        if (extensionLength >= DocumentVersion.FileNameMaxLength)
         {
-            extension = "";
+            return Names.Truncate(name, DocumentVersion.FileNameMaxLength);
         }
-        var length = DocumentVersion.FileNameMaxLength - extension.Length;
-        if (char.IsHighSurrogate(name[length - 1]))
-        {
-            length--;
-        }
-        return name[..length] + extension;
+        return Names.Truncate(name, DocumentVersion.FileNameMaxLength - extensionLength)
+            + extension;
     }
 
     private static bool IsPdf(byte[] content) => content.AsSpan().StartsWith("%PDF-"u8);
