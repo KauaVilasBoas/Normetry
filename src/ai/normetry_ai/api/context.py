@@ -10,13 +10,14 @@ from uuid import UUID
 from fastapi import HTTPException
 from starlette.requests import HTTPConnection
 
+from normetry_ai.retrieval.policy import JURISDICTIONS
+
 TENANT_HEADER = "X-Normetry-Tenant-Id"
 USER_HEADER = "X-Normetry-User-Id"
 ESTABLISHMENT_HEADER = "X-Normetry-Establishment-Id"
 JURISDICTION_HEADER = "X-Normetry-Jurisdiction"
 # Set by the gateway to `true` only when the caller holds documents.read.
 DOCUMENTS_READ_HEADER = "X-Normetry-Documents-Read"
-JURISDICTIONS = frozenset({"US", "EU", "BR"})
 _DETAIL = "Missing or invalid internal context headers."
 
 
