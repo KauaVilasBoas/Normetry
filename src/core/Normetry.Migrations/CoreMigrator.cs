@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Normetry.Infrastructure;
 using Normetry.Infrastructure.Persistence;
 
 namespace Normetry.Migrations;
@@ -6,7 +7,9 @@ namespace Normetry.Migrations;
 public static class CoreMigrator
 {
     /// <summary>The only setting: the <c>core_owner</c> connection string.</summary>
-    public const string ConnectionStringVariable = "ConnectionStrings__core-migrations";
+    public static readonly string ConnectionStringVariable = HostingKeys.ConnectionStringVariableOf(
+        HostingKeys.MigrationsConnectionString
+    );
 
     /// <summary>
     /// Applies every pending migration in <c>Schema/</c> and <c>Data/</c> (one history) as the

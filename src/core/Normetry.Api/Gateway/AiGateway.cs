@@ -2,6 +2,7 @@ using Microsoft.Net.Http.Headers;
 using Normetry.Api.Auth;
 using Normetry.Api.RateLimiting;
 using Normetry.Domain.Identity;
+using Normetry.Infrastructure;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Transforms;
 
@@ -16,7 +17,7 @@ public static class InternalHeaders
     /// <summary>Every internal header starts with it; the gateway drops any a client sends.</summary>
     public const string Prefix = "X-Normetry-";
 
-    public const string Token = "X-Normetry-Internal-Token";
+    public const string Token = HostingKeys.InternalTokenHeader;
     public const string TenantId = "X-Normetry-Tenant-Id";
     public const string UserId = "X-Normetry-User-Id";
 
@@ -48,7 +49,7 @@ internal static class AiGateway
     /// <see cref="DestinationSetting"/>. Its cluster and that cluster's one destination carry it as
     /// their id.
     /// </summary>
-    private const string ServiceName = "ai";
+    private const string ServiceName = HostingKeys.AiService;
 
     private const string Destination = $"http://{ServiceName}";
 
@@ -60,7 +61,7 @@ internal static class AiGateway
     /// <summary>Every AI route lives under it; it is removed before forwarding.</summary>
     private const string PathPrefix = "/ai";
 
-    private const string TokenSetting = "Ai:InternalToken";
+    private const string TokenSetting = HostingKeys.InternalTokenSetting;
 
     /// <summary>Same rule as the AI service, which refuses to start with a shorter token.</summary>
     private const int MinimumTokenLength = 32;

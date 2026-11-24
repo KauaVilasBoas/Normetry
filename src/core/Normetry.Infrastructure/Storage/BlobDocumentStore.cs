@@ -15,7 +15,7 @@ internal sealed class BlobDocumentStore(BlobContainerClient container) : IDocume
 {
     public const string ConnectionStringName = "blobs";
 
-    public const string ContainerSetting = $"{DocumentsOptions.Section}:BlobContainer";
+    public const string ContainerSetting = HostingKeys.BlobContainerSetting;
 
     /// <summary>The container when <see cref="ContainerSetting"/> is not set.</summary>
     public const string DefaultContainer = "documents";

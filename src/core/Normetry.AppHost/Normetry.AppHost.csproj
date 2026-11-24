@@ -12,6 +12,11 @@
     <ProjectReference Include="..\Normetry.Migrations\Normetry.Migrations.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The names the API also reads, compiled in: an Aspire project reference does not reference
+         the assembly. -->
+    <Compile Include="..\Normetry.Infrastructure\HostingKeys.cs" Link="HostingKeys.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Azure.Storage" />
     <!-- The AI service's read-only SAS (ReadOnlyBlobAccess). -->
     <PackageReference Include="Azure.Storage.Blobs" />
