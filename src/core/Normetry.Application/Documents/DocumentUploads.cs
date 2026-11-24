@@ -7,15 +7,6 @@ namespace Normetry.Application.Documents;
 /// <summary>What the upload of a first or a new version shares.</summary>
 internal static class DocumentUploads
 {
-    /// <summary>The caller's user id. They hold a permission, so their user row exists.</summary>
-    public static async Task<Guid> UploaderAsync(
-        IUserRepository users,
-        ICurrentUser currentUser,
-        CancellationToken cancellationToken
-    ) =>
-        await users.FindIdAsync(currentUser.UserId, cancellationToken)
-        ?? throw new InvalidOperationException("The caller has no user row.");
-
     /// <summary>
     /// Stores the file, then announces the version: the blob exists before the message can, and
     /// the message is saved only if the transaction that saves the version commits.
