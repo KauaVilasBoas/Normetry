@@ -11,7 +11,10 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
     public void Configure(EntityTypeBuilder<Document> builder)
     {
         builder.ToTable("documents", table =>
-            table.HasCheckConstraint("ck_documents_type", $"type IN ({Names<DocumentType>()})")
+            table.HasCheckConstraint(
+                "ck_documents_type",
+                $"type IN ({SqlLiterals.List<DocumentType>()})"
+            )
         );
         // Same shape as profiles and users: (tenant_id, id), referenced by the versions.
         builder.HasKey(document => new { document.TenantId, document.Id });
@@ -35,10 +38,6 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .HasForeignKey(version => new { version.TenantId, version.DocumentId })
             .OnDelete(DeleteBehavior.Restrict);
     }
-
-    internal static string Names<TEnum>()
-        where TEnum : struct, Enum =>
-        string.Join(", ", Enum.GetNames<TEnum>().Select(name => $"'{name}'"));
 }
 
 internal sealed class DocumentVersionConfiguration : IEntityTypeConfiguration<DocumentVersion>
@@ -48,7 +47,7 @@ internal sealed class DocumentVersionConfiguration : IEntityTypeConfiguration<Do
         builder.ToTable("document_versions", table =>
             table.HasCheckConstraint(
                 "ck_document_versions_status",
-                $"status IN ({DocumentConfiguration.Names<DocumentVersionStatus>()})"
+                $"status IN ({SqlLiterals.List<DocumentVersionStatus>()})"
             )
         );
         builder.HasKey(version => new { version.TenantId, version.Id });
@@ -84,7 +83,7 @@ internal sealed class DocumentVersionConfiguration : IEntityTypeConfiguration<Do
         // The timeout sweep: versions Processing since before a cutoff.
         builder
             .HasIndex(version => new { version.TenantId, version.StatusChangedAt })
-            .HasFilter("status = 'Processing'");
+            .HasFilter($"status = {SqlLiterals.Quote(nameof(DocumentVersionStatus.Processing))}");
         builder
             .HasOne<User>()
             .WithMany()

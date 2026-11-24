@@ -13,12 +13,12 @@ internal sealed class ProfileConfiguration : IEntityTypeConfiguration<Profile>
         {
             table.HasCheckConstraint(
                 "ck_profiles_system_key",
-                $"system_key IN ({string.Join(", ", Profile.SystemKeys.All.Select(key => $"'{key}'"))})"
+                $"system_key IN ({SqlLiterals.List(Profile.SystemKeys.All)})"
             );
             // Owner, and only Owner, grants every permission.
             table.HasCheckConstraint(
                 "ck_profiles_grants_all",
-                $"grants_all = (coalesce(system_key, '') = '{Profile.SystemKeys.Owner}')"
+                $"grants_all = (coalesce(system_key, '') = {SqlLiterals.Quote(Profile.SystemKeys.Owner)})"
             );
         });
         // The key leads with tenant_id like every tenant-scoped lookup (the RLS predicate
