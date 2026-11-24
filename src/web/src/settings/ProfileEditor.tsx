@@ -1,25 +1,11 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
-import { permissions } from "../api/contract";
-import {
-  profileKey,
-  profilePath,
-  profilePermissionsPath,
-  profilesKey,
-  usePermissionCatalog,
-  useProfile,
-  usersKey,
-  type Profile,
-  type ProfileListItem,
-} from "../api/profiles";
-import { can, meKey, queryFailed, queryNotFound, type Me } from "../api/queries";
-import { useSend } from "../api/send";
+import type { ProfileListItem } from "../api/profiles";
+import type { Me } from "../api/queries";
 import { copy, format } from "../copy";
 import { paths } from "../routes";
-import { focusById } from "../ui/focus";
 import {
   Button,
   Checkbox,
@@ -32,15 +18,13 @@ import {
   Spinner,
   Tag,
 } from "../ui/primitives";
+import { EDITOR_TITLE_ID, useProfileEditor } from "./editor";
 import { NameDialog } from "./NameDialog";
-import { groupPermissions, sameSet, togglePermission } from "./profiles";
-
-export const EDITOR_TITLE_ID = "profile-title";
+import { groupPermissions } from "./profiles";
 
 /**
- * One profile's permissions by area. Editing changes a local draft that Save sends whole; the
- * draft goes when the profile changes (the screen keys the editor by id). Owner is read-only, and
- * so is every profile without `profiles.manage`.
+ * One profile's permissions by area (`useProfileEditor`): the header with Rename and Delete, the
+ * grid, and Save. The draft goes when the profile changes (the screen keys the editor by id).
  */
 export function ProfileEditor({
   id,
@@ -60,91 +44,29 @@ export function ProfileEditor({
   onDeleted: (name: string) => void;
   announce: (text: string) => void;
 }) {
-  const queryClient = useQueryClient();
-  const { send } = useSend();
-  // Rename and Delete happen inside their dialogs (one open at a time).
-  const inDialog = useSend({ inside: true });
-  const readable = can(me, permissions.profiles.read);
-  const canManage = can(me, permissions.profiles.manage);
-  const profile = useProfile(id, readable);
-  const catalog = usePermissionCatalog(readable);
-  const [draft, setDraft] = useState<string[]>();
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string>();
-
-  const shown = profile.data ?? known;
-  const name = shown?.name;
-  const system = shown?.systemKey != null;
-  const grantsAll = shown?.grantsAll ?? false;
-  const notFound = queryNotFound(profile);
-  const failed = !notFound && (queryFailed(profile) || queryFailed(catalog));
-  const retrying = failed && (profile.isFetching || catalog.isFetching);
-  const loading = !notFound && !failed && (!profile.data || !catalog.data);
-  const editable = canManage && !grantsAll;
-  const saved = profile.data?.permissions ?? [];
-  const granted = draft ?? saved;
-  const dirty = draft !== undefined && !sameSet(draft, saved);
-  const caption = !canManage
-    ? copy.profiles.readOnlyCaption
-    : system && !grantsAll
-      ? copy.profiles.systemCaption
-      : undefined;
-
-  // Names show in the users' tags and the account menu; counts in the list.
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: profilesKey });
-    void queryClient.invalidateQueries({ queryKey: usersKey });
-    if (me?.profiles.some((held) => held.id === id))
-      void queryClient.invalidateQueries({ queryKey: meKey });
-  };
-
-  const path = profilePath(id ?? "");
-
-  const save = async () => {
-    if (!dirty || saving || id === undefined || name === undefined) return;
-    setSaving(true);
-    setSaveError(undefined);
-    const result = await send(profilePermissionsPath(id), {
-      method: "PUT",
-      json: { permissions: granted },
-    });
-    if (result.ok) {
-      queryClient.setQueryData(profileKey(id), (await result.response.json()) as Profile);
-      setDraft(undefined);
-      refresh();
-      announce(format(copy.profiles.saved, { name }));
-    } else {
-      setSaveError(
-        result.status === 403 ? copy.settings.denied : format(copy.profiles.saveError, { name }),
-      );
-    }
-    setSaving(false);
-  };
-
-  const rename = async (next: string) => {
-    const result = await inDialog.send(path, { method: "PATCH", json: { name: next } });
-    if (result.ok && id !== undefined) {
-      queryClient.setQueryData<Profile>(profileKey(id), (old) => old && { ...old, name: next });
-      refresh();
-      announce(format(copy.profiles.renamed, { name: next }));
-    }
-    return result;
-  };
-
-  /** Resolves to the refusal to show, or undefined once the profile is gone. */
-  const remove = async () => {
-    const result = await inDialog.send(path, { method: "DELETE" });
-    // 404: it is already gone, which is what the user asked for.
-    if (!result.ok && result.status !== 404)
-      return result.status === 403 ? copy.settings.denied : copy.profiles.deleteError;
-    queryClient.setQueryData<ProfileListItem[]>(profilesKey, (list) =>
-      list?.filter((item) => item.id !== id),
-    );
-    queryClient.removeQueries({ queryKey: profileKey(id ?? "") });
-    refresh();
-    onDeleted(name ?? "");
-    return undefined;
-  };
+  const {
+    canManage,
+    catalog,
+    name,
+    system,
+    grantsAll,
+    notFound,
+    failed,
+    retrying,
+    loading,
+    editable,
+    granted,
+    dirty,
+    caption,
+    saving,
+    saveError,
+    toggle,
+    save,
+    rename,
+    remove,
+    retry,
+    closed,
+  } = useProfileEditor({ id, known, me, onDeleted, announce });
 
   return (
     <section
@@ -192,9 +114,9 @@ export function ProfileEditor({
               submittingLabel={copy.profiles.renameSaving}
               initialName={name}
               onSubmit={rename}
-              onClosed={inDialog.closed}
+              onClosed={closed}
             />
-            <DeleteProfile name={name} onDelete={remove} onClosed={inDialog.closed} />
+            <DeleteProfile name={name} onDelete={remove} onClosed={closed} />
           </>
         )}
       </div>
@@ -214,14 +136,10 @@ export function ProfileEditor({
             body={copy.profiles.errorBody}
             retryLabel={copy.settings.tryAgain}
             retrying={retrying}
-            onRetry={() => {
-              void Promise.all([profile.refetch(), catalog.refetch()]).then((results) => {
-                if (results.every((result) => result.isSuccess)) focusById(EDITOR_TITLE_ID);
-              });
-            }}
+            onRetry={retry}
           />
         </div>
-      ) : loading || !catalog.data ? (
+      ) : loading || !catalog ? (
         <EditorSkeleton label={name !== undefined} />
       ) : (
         <>
@@ -235,7 +153,7 @@ export function ProfileEditor({
             </p>
           )}
           <div className="mt-4 flex flex-col gap-4">
-            {groupPermissions(catalog.data).map((group) => (
+            {groupPermissions(catalog).map((group) => (
               <fieldset key={group.area} className="min-w-0">
                 <legend className="text-small font-semibold text-text-secondary">
                   {group.legend}
@@ -250,16 +168,7 @@ export function ProfileEditor({
                         label={text?.label ?? permission}
                         description={text?.description}
                         checked={checked}
-                        onChange={(event) =>
-                          setDraft(
-                            togglePermission(
-                              granted,
-                              permission,
-                              event.target.checked,
-                              catalog.data,
-                            ),
-                          )
-                        }
+                        onChange={(event) => toggle(permission, event.target.checked)}
                       />
                     ) : (
                       <ReadOnlyCheckbox
