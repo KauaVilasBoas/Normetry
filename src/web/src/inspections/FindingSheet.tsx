@@ -12,7 +12,12 @@ import { useEffect, useId, useRef, type ReactNode, type Ref } from "react";
 import { Link } from "react-router";
 import type { RequestOptions } from "../api/client";
 import { actionStatuses, reviewStatuses } from "../api/contract";
-import type { EvidenceCitation, Finding, RegulationCitation } from "../api/inspections";
+import {
+  findingPaths,
+  type EvidenceCitation,
+  type Finding,
+  type RegulationCitation,
+} from "../api/inspections";
 import type { Sent } from "../api/send";
 import { calendarDate, copy, format, languageName } from "../copy";
 import { arrivalState, paths } from "../routes";
@@ -143,6 +148,7 @@ export function FindingSheet({
         <ReviewFooter
           key={`footer-${finding.id}`}
           finding={finding}
+          reviewPaths={findingPaths(establishmentId, inspectionId, finding.id)}
           reviewId={reviewId}
           review={review}
           announce={announce}
@@ -374,18 +380,19 @@ function EvidenceQuote({
 /** Reject and Edit (each with its dialog), then the primary Accept, under an inline error. */
 function ReviewFooter({
   finding,
+  reviewPaths,
   reviewId,
   review,
   announce,
 }: {
   finding: Finding;
+  reviewPaths: ReturnType<typeof findingPaths>;
   /** The review sentence, which says why Accept is unavailable once accepted. */
   reviewId: string;
   review: Review;
   announce: (text: string) => void;
 }) {
-  const path = `findings/${encodeURIComponent(finding.id)}`;
-  const { accepting, error, accept } = useAccept(path, review, announce);
+  const { accepting, error, accept } = useAccept(reviewPaths.accept, review, announce);
   const accepted = finding.reviewStatus === reviewStatuses.accepted;
 
   return (
@@ -397,8 +404,13 @@ function ReviewFooter({
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <RejectDialog finding={finding} path={path} review={review} announce={announce} />
-        <EditDialog finding={finding} path={path} review={review} announce={announce} />
+        <RejectDialog
+          finding={finding}
+          path={reviewPaths.reject}
+          review={review}
+          announce={announce}
+        />
+        <EditDialog finding={finding} path={reviewPaths.edit} review={review} announce={announce} />
         {/* aria-disabled, not disabled: focus stays on it after accepting. */}
         <Button
           variant="primary"

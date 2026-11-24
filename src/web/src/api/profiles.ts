@@ -23,6 +23,17 @@ export interface TenantUser {
   profiles: ProfileSummary[];
 }
 
+/** GET the tenant's profiles; POST creates one. */
+export const profilesPath = "/profiles";
+/** GET one profile; PATCH renames it; DELETE removes it. */
+export const profilePath = (id: string) => `${profilesPath}/${encodeURIComponent(id)}`;
+/** PUT replaces what the profile grants. */
+export const profilePermissionsPath = (id: string) => `${profilePath(id)}/permissions`;
+const usersPath = "/users";
+/** PUT gives the user the profile; DELETE takes it away. */
+export const userProfilePath = (userId: string, profileId: string) =>
+  `${usersPath}/${encodeURIComponent(userId)}/profiles/${encodeURIComponent(profileId)}`;
+
 export const profilesKey = ["profiles"];
 export const profileKey = (id: string) => ["profile", id];
 export const usersKey = ["users"];
@@ -32,7 +43,7 @@ export function useProfiles(enabled: boolean) {
   const { api } = useSession();
   return useQuery({
     queryKey: profilesKey,
-    queryFn: () => api.get<ProfileListItem[]>("/profiles"),
+    queryFn: () => api.get<ProfileListItem[]>(profilesPath),
     enabled,
   });
 }
@@ -41,7 +52,7 @@ export function useProfile(id: string | undefined, enabled: boolean) {
   const { api } = useSession();
   return useQuery({
     queryKey: profileKey(id ?? ""),
-    queryFn: () => api.get<Profile>(`/profiles/${encodeURIComponent(id ?? "")}`),
+    queryFn: () => api.get<Profile>(profilePath(id ?? "")),
     enabled: enabled && id !== undefined,
   });
 }
@@ -62,7 +73,7 @@ export function useUsers(enabled: boolean) {
   const { api } = useSession();
   return useQuery({
     queryKey: usersKey,
-    queryFn: () => api.get<TenantUser[]>("/users"),
+    queryFn: () => api.get<TenantUser[]>(usersPath),
     enabled,
   });
 }

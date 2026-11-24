@@ -227,9 +227,9 @@ export function reviewError({ status }: Refusal): string {
 }
 
 /**
- * Sends a review or an action toggle (`path` under the inspection) and patches the finding it
- * answers into the cached inspection. With `refetch`, the inspection and the list are fetched again
- * afterwards. Resolves to the refusal, or undefined once saved.
+ * Sends a review or an action toggle to `path` (from `findingPaths` or `actionItemPaths`) and
+ * patches the finding it answers into the cached inspection. With `refetch`, the inspection and
+ * the list are fetched again afterwards. Resolves to the refusal, or undefined once saved.
  */
 export function useReview(
   establishmentId: string,
@@ -240,10 +240,7 @@ export function useReview(
   const queryClient = useQueryClient();
   const key = inspectionKey(establishmentId, inspectionId);
   return async (path: string, options: RequestOptions): Promise<Refusal | undefined> => {
-    const result = await send(
-      `/establishments/${encodeURIComponent(establishmentId)}/inspections/${encodeURIComponent(inspectionId)}/${path}`,
-      options,
-    );
+    const result = await send(path, options);
     if (!result.ok) return result;
     const finding = (await result.response.json().catch(() => undefined)) as Finding | undefined;
     if (finding?.id) {

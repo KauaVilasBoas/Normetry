@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
+import { establishmentPath } from "./queries";
 
 /**
  * A document version. `status` is Uploaded (shown as Waiting), Processing, Indexed or Failed;
@@ -47,6 +48,17 @@ export interface DocumentDetail extends DocumentFields {
   versions: DocumentVersion[];
 }
 
+/** GET the establishment's documents; POST uploads a new one. */
+export const documentsPath = (establishmentId: string) =>
+  `${establishmentPath(establishmentId)}/documents`;
+/** PATCH sets or removes the expiry date. */
+export const establishmentDocumentPath = (establishmentId: string, id: string) =>
+  `${documentsPath(establishmentId)}/${encodeURIComponent(id)}`;
+/** GET one document with its versions; DELETE removes it. */
+export const documentPath = (id: string) => `/documents/${encodeURIComponent(id)}`;
+/** POST uploads a new version. */
+export const documentVersionsPath = (id: string) => `${documentPath(id)}/versions`;
+
 export const documentsKey = (establishmentId: string) => ["documents", establishmentId];
 export const documentKey = (id: string) => ["document", id];
 
@@ -59,10 +71,7 @@ export function useDocuments(establishmentId: string, enabled: boolean) {
   const { api } = useSession();
   return useQuery({
     queryKey: documentsKey(establishmentId),
-    queryFn: () =>
-      api.get<DocumentSummary[]>(
-        `/establishments/${encodeURIComponent(establishmentId)}/documents`,
-      ),
+    queryFn: () => api.get<DocumentSummary[]>(documentsPath(establishmentId)),
     enabled,
   });
 }
@@ -71,7 +80,7 @@ export function useDocument(id: string | undefined, enabled: boolean) {
   const { api } = useSession();
   return useQuery({
     queryKey: documentKey(id ?? ""),
-    queryFn: () => api.get<DocumentDetail>(`/documents/${encodeURIComponent(id ?? "")}`),
+    queryFn: () => api.get<DocumentDetail>(documentPath(id ?? "")),
     enabled: enabled && id !== undefined,
   });
 }

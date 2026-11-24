@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
 import type { InspectionSummary } from "./inspections";
+import { establishmentPath } from "./queries";
 
 /** A theme's verdict counts in the latest inspection, Rejected findings left out. */
 export interface ThemeVerdicts extends VerdictCounts {
@@ -64,7 +65,6 @@ export function useOverview(
   const { api } = useSession();
   return useQuery({
     queryKey: ["overview", establishmentId, inspectionsRead, documentsRead],
-    queryFn: () =>
-      api.get<Overview>(`/establishments/${encodeURIComponent(establishmentId)}/overview`),
+    queryFn: () => api.get<Overview>(`${establishmentPath(establishmentId)}/overview`),
   });
 }

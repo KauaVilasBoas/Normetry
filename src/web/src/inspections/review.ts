@@ -13,7 +13,7 @@ import {
   type useReview,
 } from "./findings";
 
-/** Sends a review change to the finding at `path`; resolves to its refusal, if any. */
+/** Sends a review change to `path` (one of `findingPaths`); resolves to its refusal, if any. */
 export type Review = ReturnType<typeof useReview>;
 
 /** The footer's Accept: sends it, then says it or shows why it failed. */
@@ -24,7 +24,7 @@ export function useAccept(path: string, review: Review, announce: (text: string)
   const accept = async () => {
     setAccepting(true);
     setError(undefined);
-    const refusal = await review(`${path}/accept`, { method: "POST" });
+    const refusal = await review(path, { method: "POST" });
     setAccepting(false);
     if (refusal) setError(reviewError(refusal));
     else announce(copy.findings.accepted);
@@ -78,7 +78,7 @@ export function useRejectForm(
       return;
     }
     setSubmitting(true);
-    const refusal = await review(`${path}/reject`, { method: "POST", json: { note: trimmed } });
+    const refusal = await review(path, { method: "POST", json: { note: trimmed } });
     setSubmitting(false);
     if (refusal) {
       setError(reviewError(refusal));
