@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { createQueryClient } from "./api/queries";
 import { AuthScreen } from "./auth/AuthScreen";
 import { SessionContext, useAuth, type Auth } from "./auth/session";
+import { paths, routePatterns } from "./routes";
 import { AppShell } from "./shell/AppShell";
 
 export function App({ auth }: { auth: Auth }) {
@@ -26,15 +27,15 @@ export function App({ auth }: { auth: Auth }) {
             on the new view (the chat's conversation heading or composer). */}
         <BrowserRouter useTransitions={false}>
           <Routes>
-            <Route path="/" element={<Navigate to="/overview" replace />} />
-            <Route path="/overview" element={<AppShell screen="overview" />} />
-            <Route path="/ask" element={<AppShell screen="chat" />} />
-            <Route path="/conversations/:conversationId" element={<AppShell screen="chat" />} />
-            <Route path="/documents/:documentId?" element={<AppShell screen="documents" />} />
-            <Route path="/inspections/:inspectionId?" element={<AppShell screen="inspections" />} />
-            <Route path="/settings" element={<Navigate to="/settings/profiles" replace />} />
-            <Route path="/settings/profiles/:profileId?" element={<AppShell screen="settings" />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path={paths.home} element={<Navigate to={paths.overview} replace />} />
+            <Route path={paths.overview} element={<AppShell screen="overview" />} />
+            <Route path={paths.ask} element={<AppShell screen="chat" />} />
+            <Route path={routePatterns.conversation} element={<AppShell screen="chat" />} />
+            <Route path={routePatterns.documents} element={<AppShell screen="documents" />} />
+            <Route path={routePatterns.inspections} element={<AppShell screen="inspections" />} />
+            <Route path={paths.settings} element={<Navigate to={paths.profiles} replace />} />
+            <Route path={routePatterns.profiles} element={<AppShell screen="settings" />} />
+            <Route path={routePatterns.fallback} element={<Navigate to={paths.home} replace />} />
           </Routes>
         </BrowserRouter>
       </SessionContext>

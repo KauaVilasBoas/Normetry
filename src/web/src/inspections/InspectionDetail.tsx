@@ -12,6 +12,7 @@ import {
 import type { Live } from "../api/live";
 import { can, queryNotFound, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
+import { paths } from "../routes";
 import { focusById, useRefocusWhenGone } from "../ui/focus";
 import {
   Button,
@@ -94,7 +95,7 @@ export function InspectionDetailView({
 
   const back = (
     <Link
-      to="/inspections"
+      to={paths.inspections}
       onClick={onBack}
       className="-mx-1 inline-flex items-center gap-1.5 self-start rounded-sm px-1 text-body text-text-secondary hover:text-text-primary"
     >
@@ -121,7 +122,7 @@ export function InspectionDetailView({
               {notFound ? copy.inspections.notFoundBody : copy.inspections.errorBody}
             </p>
             {notFound ? (
-              <Link to="/inspections" onClick={onBack} className={`${secondaryButton} mt-2`}>
+              <Link to={paths.inspections} onClick={onBack} className={`${secondaryButton} mt-2`}>
                 {copy.inspections.backToInspections}
               </Link>
             ) : (

@@ -13,6 +13,7 @@ import {
 import { can, queryFailed, useQueryRetry, type Me } from "../api/queries";
 import { useSend } from "../api/send";
 import { copy, format } from "../copy";
+import { paths } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
 import { useFocusAfterCommit, useRefocusWhenGone } from "../ui/focus";
 import { media, useMediaQuery } from "../ui/media";
@@ -91,7 +92,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
   // Once the dialog has closed (below 768px the list, and the dialog with it, goes away).
   const openCreated = () => {
     if (created.current === undefined) return;
-    void navigate(`/settings/profiles/${created.current}`);
+    void navigate(paths.profile(created.current));
     created.current = undefined;
     focus(EDITOR_TITLE_ID);
   };
@@ -101,11 +102,11 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
       {showList ? (
         <TabStrip
           label={copy.settings.sections}
-          tabs={[{ to: "/settings/profiles", label: copy.settings.profilesTab, active: true }]}
+          tabs={[{ to: paths.profiles, label: copy.settings.profilesTab, active: true }]}
         />
       ) : (
         <Link
-          to="/settings/profiles"
+          to={paths.profiles}
           onClick={() => focus(PROFILES_TITLE_ID)}
           className="-mx-2 mb-3 inline-flex h-9 items-center gap-1.5 self-start rounded-control px-2 text-body font-medium text-mint focus-visible:-outline-offset-2"
         >
@@ -172,7 +173,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
                     return (
                       <li key={profile.id}>
                         <Link
-                          to={`/settings/profiles/${profile.id}`}
+                          to={paths.profile(profile.id)}
                           onClick={() => focus(EDITOR_TITLE_ID)}
                           aria-current={current ? "page" : undefined}
                           className={`flex min-h-12 items-center gap-2 rounded-control px-3 py-1.5 focus-visible:-outline-offset-2 ${
@@ -222,7 +223,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
             me={me.data}
             onBack={() => focus(PROFILES_TITLE_ID)}
             onDeleted={(name) => {
-              void navigate("/settings/profiles");
+              void navigate(paths.profiles);
               focus(PROFILES_TITLE_ID);
               announce(format(copy.profiles.deleted, { name }));
             }}

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { useConversations, type Citation } from "../api/chat";
 import type { Establishment } from "../api/queries";
 import { copy } from "../copy";
+import { paths } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
 import { focusById, useFocusAfterCommit, useShellFocusRequest } from "../ui/focus";
 import { media, useMediaQuery } from "../ui/media";
@@ -72,7 +73,7 @@ export function ChatScreen({
   };
 
   const startNew = () => {
-    void navigate("/ask");
+    void navigate(paths.ask);
     focusNext(COMPOSER_ID);
   };
 
@@ -112,10 +113,10 @@ export function ChatScreen({
         onEstablishment={onEstablishment}
         onCreated={(id) => {
           setCreated({ id, paneKey });
-          void navigate(`/conversations/${id}`, { replace: true });
+          void navigate(paths.conversation(id), { replace: true });
         }}
         onDeleted={() => {
-          void navigate("/ask");
+          void navigate(paths.ask);
           focusNext(TITLE_ID);
           announce(copy.chat.deleted);
         }}

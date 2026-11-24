@@ -14,6 +14,7 @@ import { EstablishmentPicker } from "../establishments/EstablishmentPicker";
 import { listState, useEstablishmentSelection } from "../establishments/selection";
 import { InspectionsScreen } from "../inspections/InspectionsScreen";
 import { OverviewScreen } from "../overview/OverviewScreen";
+import { paths } from "../routes";
 import { ProfilesScreen } from "../settings/ProfilesScreen";
 import { iconButton, Message } from "../ui/primitives";
 import { Sidebar } from "./Sidebar";
@@ -30,10 +31,10 @@ const headings: Record<Screen, string> = {
 
 /** Where an establishment chosen in the switcher leads: the section's root. */
 const sectionRoots = {
-  overview: "/overview",
-  chat: "/ask",
-  documents: "/documents",
-  inspections: "/inspections",
+  overview: paths.overview,
+  chat: paths.ask,
+  documents: paths.documents,
+  inspections: paths.inspections,
 };
 
 /**
@@ -134,7 +135,7 @@ export function AppShell({ screen }: { screen: Screen }) {
     inspectionsAllowed ||
     can(me.data, permissions.profiles.read);
   const overviewAllowed = documentsAllowed || inspectionsAllowed;
-  const home = overviewAllowed ? "/overview" : chatAllowed ? "/ask" : "/settings/profiles";
+  const home = overviewAllowed ? paths.overview : chatAllowed ? paths.ask : paths.profiles;
 
   let content: ReactNode;
   if (me.data && !canOpenAScreen) {

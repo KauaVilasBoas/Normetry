@@ -6,6 +6,7 @@ import { documentKey, documentsKey } from "../api/documents";
 import { offersReconnect, useLiveStatus } from "../api/live";
 import type { Establishment, Me } from "../api/queries";
 import { copy, format } from "../copy";
+import { paths } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
 import {
   focusById,
@@ -119,7 +120,7 @@ export function DocumentsScreen({
           live={live}
           onBack={() => focus(LIST_TITLE_ID)}
           onDeleted={(title) => {
-            void navigate("/documents");
+            void navigate(paths.documents);
             focus(LIST_TITLE_ID);
             announce(format(copy.documents.deleted, { title }));
           }}
