@@ -21,6 +21,7 @@ from normetry_ai.ingestion.chunking import chunk_sections
 from normetry_ai.ingestion.corpus import load_manifest, parse_corpus
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.ingestion.parsers import CSV, DOCX, PDF, TXT, parse_file
+from normetry_ai.retrieval.policy import CORPUS_LANGUAGES
 from normetry_ai.settings import RetrievalSettings
 
 EVALS = Path(__file__).resolve().parents[4] / "evals"
@@ -40,8 +41,6 @@ FIELDS = {
     "provisions",
 }
 PROVISION_FIELDS = {"source_id", "section_path", "quote"}
-# The language an establishment of each jurisdiction asks in (phase 1 design, "Languages").
-LANGUAGES = {"US": {"en"}, "EU": {"en", "pt"}, "BR": {"pt"}}
 # The behavior each item type expects; a follow-up's last turn can go either way.
 BEHAVIORS = {
     "direct": {"answer"},
@@ -86,7 +85,7 @@ def check_item(item: dict, sections: Sections, sources: Mapping[str, dict]) -> l
         isinstance(item_id, str) and re.fullmatch(rf"{str(jurisdiction).lower()}-\d{{3}}", item_id),
         "id must be the jurisdiction in lowercase and three digits, like br-001",
     )
-    need(language in LANGUAGES.get(jurisdiction, ()), "jurisdiction and language do not fit")
+    need(language in CORPUS_LANGUAGES.get(jurisdiction, ()), "jurisdiction and language do not fit")
     need(behavior in BEHAVIORS.get(kind, ()), f"type {kind!r} cannot expect {behavior!r}")
     need(
         isinstance(turns, list) and all(isinstance(t, str) and t.strip() for t in turns),
@@ -256,7 +255,7 @@ def check_document_item(
         establishment is None or establishment.jurisdiction == jurisdiction,
         "the jurisdiction is not the establishment's",
     )
-    need(language in LANGUAGES.get(jurisdiction, ()), "jurisdiction and language do not fit")
+    need(language in CORPUS_LANGUAGES.get(jurisdiction, ()), "jurisdiction and language do not fit")
     need(
         isinstance(turns, list)
         and len(turns) == 1

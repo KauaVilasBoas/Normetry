@@ -18,15 +18,17 @@ from uuid import UUID
 from normetry_ai.ingestion.normalize import normalize_text
 from normetry_ai.retrieval.hybrid import Trace
 from normetry_ai.retrieval.models import SourceType
+from normetry_ai.retrieval.policy import CORPUS_LANGUAGES
 
 K_VALUES = (1, 3, 5, 10)
 STEPS = ("vector", "text", "fused", "reranked")
+# Each jurisdiction's corpus source, as the report names it.
+SOURCE_LABELS = {"US": "FDA Food Code", "EU": "Reg. 852/2004", "BR": "RDC 216/2004"}
 # The four corpus sources, by item jurisdiction and language.
 GROUPS = {
-    ("US", "en"): "FDA Food Code (US, en)",
-    ("EU", "en"): "Reg. 852/2004 (EU, en)",
-    ("EU", "pt"): "Reg. 852/2004 (EU, pt)",
-    ("BR", "pt"): "RDC 216/2004 (BR, pt)",
+    (jurisdiction, language): f"{SOURCE_LABELS[jurisdiction]} ({jurisdiction}, {language})"
+    for jurisdiction, languages in CORPUS_LANGUAGES.items()
+    for language in languages
 }
 
 
