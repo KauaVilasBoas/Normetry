@@ -10,7 +10,6 @@ import {
 import { Dialog } from "radix-ui";
 import { useEffect, useId, useRef, type ReactNode, type Ref } from "react";
 import { Link } from "react-router";
-import type { RequestOptions } from "../api/client";
 import { actionStatuses, reviewStatuses } from "../api/contract";
 import {
   findingPaths,
@@ -18,7 +17,6 @@ import {
   type Finding,
   type RegulationCitation,
 } from "../api/inspections";
-import type { Sent } from "../api/send";
 import { calendarDate, copy, format, languageName } from "../copy";
 import { arrivalState, paths } from "../routes";
 import {
@@ -45,7 +43,6 @@ import {
   severityLabel,
   severityOrder,
   themeLabel,
-  useReview,
   verdictLabel,
   verdictOrder,
 } from "./findings";
@@ -89,11 +86,10 @@ export function FindingSheet({
   onPrevious,
   onNext,
   onClose,
-  establishmentId,
-  inspectionId,
   canReview,
   canReadDocuments,
-  send,
+  review,
+  reviewPaths,
   announce,
 }: {
   finding: Finding;
@@ -104,17 +100,16 @@ export function FindingSheet({
   /** Undefined at the last finding. */
   onNext: (() => void) | undefined;
   onClose: () => void;
-  establishmentId: string;
-  inspectionId: string;
   canReview: boolean;
   canReadDocuments: boolean;
-  send: (path: string, options: RequestOptions) => Promise<Sent>;
+  review: Review;
+  /** The finding's review paths (`findingPaths`). */
+  reviewPaths: ReturnType<typeof findingPaths>;
   /** The sheet's own polite region (the page's is hidden while the sheet is open). */
   announce: (text: string) => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const reviewId = useId();
-  const review = useReview(establishmentId, inspectionId, send);
 
   useEffect(() => {
     heading.current?.focus();
@@ -148,7 +143,7 @@ export function FindingSheet({
         <ReviewFooter
           key={`footer-${finding.id}`}
           finding={finding}
-          reviewPaths={findingPaths(establishmentId, inspectionId, finding.id)}
+          reviewPaths={reviewPaths}
           reviewId={reviewId}
           review={review}
           announce={announce}
