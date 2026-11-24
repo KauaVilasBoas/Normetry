@@ -16,6 +16,6 @@ internal sealed class GetDocumentHandler(IDocumentRepository documents, IUserRep
         {
             return DocumentErrors.NotFound;
         }
-        return await DocumentUploads.ResponseAsync(users, document, cancellationToken);
+        return await DocumentResponse.LoadAsync(users, document, cancellationToken);
     }
 }

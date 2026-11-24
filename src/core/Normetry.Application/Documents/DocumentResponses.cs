@@ -16,7 +16,21 @@ public sealed record DocumentResponse(
     IReadOnlyList<DocumentVersionResponse> Versions
 )
 {
-    internal static DocumentResponse From(
+    /// <summary>The document with every uploader's display name.</summary>
+    internal static async Task<DocumentResponse> LoadAsync(
+        IUserRepository users,
+        Document document,
+        CancellationToken cancellationToken
+    ) =>
+        From(
+            document,
+            await users.GetDisplayNamesAsync(
+                document.Versions.Select(version => version.UploadedBy).Distinct(),
+                cancellationToken
+            )
+        );
+
+    private static DocumentResponse From(
         Document document,
         IReadOnlyDictionary<Guid, string?> uploaders
     ) =>
