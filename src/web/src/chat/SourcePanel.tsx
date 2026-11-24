@@ -6,7 +6,7 @@ import { quoteFound, type Citation } from "../api/chat";
 import { permissions, sourceTypes } from "../api/contract";
 import { can, useMe } from "../api/queries";
 import { copy, format, languageName } from "../copy";
-import { paths } from "../routes";
+import { arrivalState, paths } from "../routes";
 import { iconButton, QuotedPassage } from "../ui/primitives";
 import { SOURCE_PANEL_ID } from "./Answer";
 
@@ -41,11 +41,7 @@ export function SourcePanel({
   const link =
     citation.sourceType === sourceTypes.document
       ? canReadDocuments && (
-          <Link
-            to={paths.document(citation.documentId)}
-            state={{ focusTitle: true }}
-            className={linkClass}
-          >
+          <Link to={paths.document(citation.documentId)} state={arrivalState} className={linkClass}>
             <FileText aria-hidden="true" className="size-4 shrink-0" />
             {copy.source.openDocument}
           </Link>

@@ -5,6 +5,7 @@ import { severities } from "../api/contract";
 import type { Finding, InspectionDetail } from "../api/inspections";
 import { useSend } from "../api/send";
 import { copy, dateTime, format } from "../copy";
+import { findingFilterParams, hasFindingFilter } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
 import { focusById } from "../ui/focus";
 import { Button, FilterSelect, Message, PoliteRegion, Sheet, th } from "../ui/primitives";
@@ -47,17 +48,17 @@ export function FindingsCard({
     const known = (options: { value: string }[], value: string | null) =>
       options.some((option) => option.value === value) ? (value ?? "") : "";
     return {
-      verdict: known(verdictOptions(findings), params.get("verdict")),
-      theme: known(themeOptions(findings), params.get("theme")),
+      verdict: known(verdictOptions(findings), params.get(findingFilterParams.verdict)),
+      theme: known(themeOptions(findings), params.get(findingFilterParams.theme)),
     };
   });
-  const filtered = params.has("verdict") || params.has("theme");
+  const filtered = hasFindingFilter(params);
   useEffect(() => {
     if (filtered)
       setParams(
         (next) => {
-          next.delete("verdict");
-          next.delete("theme");
+          next.delete(findingFilterParams.verdict);
+          next.delete(findingFilterParams.theme);
           return next;
         },
         { replace: true },

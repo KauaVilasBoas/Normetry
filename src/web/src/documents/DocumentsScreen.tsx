@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { documentStatuses } from "../api/contract";
 import { documentKey, documentsKey } from "../api/documents";
 import { offersReconnect, useLiveStatus } from "../api/live";
 import type { Establishment, Me } from "../api/queries";
 import { copy, format } from "../copy";
-import { paths } from "../routes";
+import { paths, useArrivalKey } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
 import {
   focusById,
@@ -55,11 +55,7 @@ export function DocumentsScreen({
 
   // A link from another screen ("Go to Documents", a finding's "Open document") asks for the
   // page's heading with its state.
-  const location = useLocation();
-  const focusArrival =
-    (location.state as { focusTitle?: unknown } | null)?.focusTitle === true
-      ? location.key
-      : undefined;
+  const focusArrival = useArrivalKey();
   useEffect(() => {
     if (focusArrival) focusById(LIST_TITLE_ID, DETAIL_TITLE_ID);
   }, [focusArrival]);
