@@ -1,6 +1,6 @@
 import { ArrowRight, type LucideIcon } from "lucide-react";
 import type { ButtonHTMLAttributes, Ref } from "react";
-import { quoteFound, type Citation } from "../api/chat";
+import { quoteFound, type StoredPassage } from "../api/passages";
 import { copy, locale } from "../copy";
 
 /**
@@ -49,7 +49,7 @@ export function QuotedPassage({
   markRef,
   className = "",
 }: {
-  citation: Pick<Citation, "text" | "quote" | "quoteStart" | "quoteEnd" | "language">;
+  citation: Omit<StoredPassage, "sectionPath">;
   mode: "quote" | "passage";
   markRef?: Ref<HTMLElement>;
   className?: string;
