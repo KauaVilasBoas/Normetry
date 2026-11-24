@@ -3,7 +3,12 @@ import { CircleAlert, ClipboardCheck, Clock, FileText, Play } from "lucide-react
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { permissions } from "../api/contract";
-import { inspectionsKey, useInspections, type InspectionSummary } from "../api/inspections";
+import {
+  inspectionsKey,
+  inspectionsPath,
+  useInspections,
+  type InspectionSummary,
+} from "../api/inspections";
 import type { Live } from "../api/live";
 import { can, useQueryRetry, type Establishment, type Me } from "../api/queries";
 import { useSend } from "../api/send";
@@ -90,10 +95,7 @@ export function InspectionList({
   const run = async () => {
     setRefusal(undefined);
     setPosting(true);
-    const result = await send(
-      `/establishments/${encodeURIComponent(establishment.id)}/inspections`,
-      { method: "POST" },
-    );
+    const result = await send(inspectionsPath(establishment.id), { method: "POST" });
     const { id } = result.ok
       ? ((await result.response.json().catch(() => ({}))) as { id?: unknown })
       : {};

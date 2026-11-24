@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "../auth/session";
 import type { ApiClient } from "./client";
+import { establishmentPath } from "./queries";
 
 /** An inspection's progress in one checklist theme (a contract code, "temperature_control"). */
 export interface ThemeProgress {
@@ -114,8 +115,26 @@ export interface InspectionDetail {
   findings: Finding[];
 }
 
-const inspectionsPath = (establishmentId: string) =>
-  `/establishments/${encodeURIComponent(establishmentId)}/inspections`;
+/** GET the establishment's history; POST runs an inspection. */
+export const inspectionsPath = (establishmentId: string) =>
+  `${establishmentPath(establishmentId)}/inspections`;
+/** GET one inspection. */
+export const inspectionPath = (establishmentId: string, id: string) =>
+  `${inspectionsPath(establishmentId)}/${encodeURIComponent(id)}`;
+
+/** A finding's review: PATCH edits it, POST accepts or rejects it. */
+export function findingPaths(establishmentId: string, inspectionId: string, findingId: string) {
+  const inspection = inspectionPath(establishmentId, inspectionId);
+  const finding = `${inspection}/findings/${encodeURIComponent(findingId)}`;
+  return { edit: finding, accept: `${finding}/accept`, reject: `${finding}/reject` };
+}
+
+/** An action item's toggle (POST): done, or open again. */
+export function actionItemPaths(establishmentId: string, inspectionId: string, actionId: string) {
+  const inspection = inspectionPath(establishmentId, inspectionId);
+  const item = `${inspection}/action-items/${encodeURIComponent(actionId)}`;
+  return { done: `${item}/done`, reopen: `${item}/reopen` };
+}
 
 export const inspectionsKey = (establishmentId: string) => ["inspections", establishmentId];
 export const inspectionKey = (establishmentId: string, id: string) => [
@@ -141,10 +160,7 @@ export function useInspection(establishmentId: string, id: string | undefined, e
   const { api } = useSession();
   return useQuery({
     queryKey: inspectionKey(establishmentId, id ?? ""),
-    queryFn: () =>
-      api.get<InspectionDetail>(
-        `${inspectionsPath(establishmentId)}/${encodeURIComponent(id ?? "")}`,
-      ),
+    queryFn: () => api.get<InspectionDetail>(inspectionPath(establishmentId, id ?? "")),
     enabled: enabled && id !== undefined,
   });
 }

@@ -69,12 +69,17 @@ export function useMe() {
   return useQuery({ queryKey: meKey, queryFn: () => api.get<Me>("/me") });
 }
 
+const establishmentsPath = "/establishments";
+
+/** An establishment's path: its documents, inspections and overview sit below it. */
+export const establishmentPath = (id: string) => `${establishmentsPath}/${encodeURIComponent(id)}`;
+
 /** `enabled`: the user holds `establishments.read` (without it the list is never requested). */
 export function useEstablishments(enabled = true) {
   const { api } = useSession();
   return useQuery({
     queryKey: ["establishments"],
-    queryFn: () => api.get<Establishment[]>("/establishments"),
+    queryFn: () => api.get<Establishment[]>(establishmentsPath),
     enabled,
   });
 }

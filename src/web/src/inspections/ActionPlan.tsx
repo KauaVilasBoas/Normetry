@@ -1,7 +1,7 @@
 import { CircleAlert, ListChecks } from "lucide-react";
 import { useRef, useState } from "react";
 import { actionStatuses } from "../api/contract";
-import type { ActionItem, InspectionDetail } from "../api/inspections";
+import { actionItemPaths, type ActionItem, type InspectionDetail } from "../api/inspections";
 import { useSend } from "../api/send";
 import { calendarDate, copy, format } from "../copy";
 import { useRefocusWhenGone } from "../ui/focus";
@@ -45,10 +45,8 @@ export function ActionPlan({
       [action.id]: checked ? actionStatuses.done : actionStatuses.open,
     }));
     setErrors((map) => ({ ...map, [action.id]: undefined }));
-    const refusal = await review(
-      `action-items/${encodeURIComponent(action.id)}/${checked ? "done" : "reopen"}`,
-      { method: "POST" },
-    );
+    const toggles = actionItemPaths(inspection.establishmentId, inspection.id, action.id);
+    const refusal = await review(checked ? toggles.done : toggles.reopen, { method: "POST" });
     busy.current.delete(action.id);
     setToggled((map) => {
       const rest = { ...map };

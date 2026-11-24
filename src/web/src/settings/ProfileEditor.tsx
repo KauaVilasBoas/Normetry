@@ -6,6 +6,8 @@ import { Link } from "react-router";
 import { permissions } from "../api/contract";
 import {
   profileKey,
+  profilePath,
+  profilePermissionsPath,
   profilesKey,
   usePermissionCatalog,
   useProfile,
@@ -96,13 +98,13 @@ export function ProfileEditor({
       void queryClient.invalidateQueries({ queryKey: meKey });
   };
 
-  const path = `/profiles/${encodeURIComponent(id ?? "")}`;
+  const path = profilePath(id ?? "");
 
   const save = async () => {
     if (!dirty || saving || id === undefined || name === undefined) return;
     setSaving(true);
     setSaveError(undefined);
-    const result = await send(`${path}/permissions`, {
+    const result = await send(profilePermissionsPath(id), {
       method: "PUT",
       json: { permissions: granted },
     });
