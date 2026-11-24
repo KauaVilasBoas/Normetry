@@ -22,7 +22,7 @@ internal sealed class GetChatQuotaHandler(
         var limit = options.DailyMessagesPerUser(tenant.TenantId);
         var used = limit is null
             ? 0
-            : await counter.GetAsync(user.UserId, now.UtcDate(), cancellationToken);
+            : await counter.GetAsync(user.Sub, now.UtcDate(), cancellationToken);
         return ChatQuotaResponse.Create(limit, used, now);
     }
 }

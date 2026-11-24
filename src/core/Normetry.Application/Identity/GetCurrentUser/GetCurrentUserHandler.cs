@@ -18,10 +18,10 @@ internal sealed class GetCurrentUserHandler(
     )
     {
         var row = await tenants.GetAsync(tenant.TenantId, cancellationToken);
-        var profiles = await users.GetProfilesAsync(currentUser.UserId, cancellationToken);
-        var permissions = await users.GetPermissionsAsync(currentUser.UserId, cancellationToken);
+        var profiles = await users.GetProfilesAsync(currentUser.Sub, cancellationToken);
+        var permissions = await users.GetPermissionsAsync(currentUser.Sub, cancellationToken);
         return new CurrentUserResponse(
-            currentUser.UserId,
+            currentUser.Sub,
             tenant.TenantId,
             row?.Name,
             permissions,

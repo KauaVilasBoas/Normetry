@@ -7,7 +7,7 @@ namespace Normetry.Application.Abstractions;
 public interface ICurrentUser
 {
     /// <summary>The identity provider's subject id (<c>sub</c>). Never the email: users can change it.</summary>
-    string UserId { get; }
+    string Sub { get; }
 
     /// <summary>The token's <c>name</c> (or <c>preferred_username</c>), for display only.</summary>
     string? DisplayName { get; }
