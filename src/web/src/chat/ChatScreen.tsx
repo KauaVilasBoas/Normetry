@@ -11,7 +11,7 @@ import { PoliteRegion, Sheet } from "../ui/primitives";
 import { chipId } from "./answers";
 import { COMPOSER_ID } from "./Composer";
 import { ConversationList } from "./ConversationList";
-import { SHOW_CONVERSATIONS_ID, TITLE_ID } from "./conversation";
+import { CONVERSATIONS_TITLE_ID, SHOW_CONVERSATIONS_ID, TITLE_ID } from "./conversation";
 import { ConversationPane } from "./ConversationPane";
 import { SourcePanel } from "./SourcePanel";
 
@@ -133,6 +133,7 @@ export function ChatScreen({
         side="left"
         open={listSheetOpen}
         onOpenChange={setListOpen}
+        aria-labelledby={CONVERSATIONS_TITLE_ID}
         className="w-70 max-w-[85vw]"
         // After a choice, focus goes where it leads; otherwise back to Show conversations (Radix
         // only returns focus to a Dialog.Trigger, and this sheet opens from the pane header). Show
