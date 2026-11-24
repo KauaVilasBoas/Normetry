@@ -17,11 +17,11 @@ from uuid import UUID
 
 from sqlalchemy import Connection, text
 
-from normetry_ai.answers.prompt import excerpt_ids
 from normetry_ai.db import current_tenant
 from normetry_ai.inspection.checklist import ChecklistItem
 from normetry_ai.inspection.guard import JudgedFinding, check_finding
 from normetry_ai.inspection.prompt import system_prompt, user_message
+from normetry_ai.llm.prompt_xml import excerpt_ids
 from normetry_ai.llm.usage import Usage, record_usage_shielded
 from normetry_ai.retrieval.models import RetrievedChunk
 from normetry_ai.retrieval.policy import corpus_versions, jurisdictions_for
