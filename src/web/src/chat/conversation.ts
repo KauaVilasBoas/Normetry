@@ -13,7 +13,13 @@ import {
 } from "../api/chat";
 import { ApiError, seconds } from "../api/client";
 import { answerEvents } from "../api/contract";
-import { meKey, useEstablishments, useQueryRetry, type Establishment } from "../api/queries";
+import {
+  meKey,
+  queryFailed,
+  useEstablishments,
+  useQueryRetry,
+  type Establishment,
+} from "../api/queries";
 import { useSend } from "../api/send";
 import { useSession } from "../auth/session";
 import { copy, format } from "../copy";
@@ -370,9 +376,15 @@ export function useConversationView({
   const establishments = useEstablishments();
   const load = conversationId !== undefined && conversationId !== createdId;
   const conversation = useConversation(load ? conversationId : undefined);
-  const loadRetry = useQueryRetry(conversation, TITLE_ID);
-  const loadFailed = load && loadRetry.failed;
   const loadStatus = conversation.error instanceof ApiError ? conversation.error.status : 0;
+  // A 404, or a 422 for an id that is not one: the not-found view, which has no Try again.
+  const loadNotFound = loadStatus === 404 || loadStatus === 422;
+  const loadRetry = useQueryRetry(
+    conversation,
+    TITLE_ID,
+    queryFailed(conversation) && !loadNotFound,
+  );
+  const loadFailed = load && loadRetry.failed;
   const stored = conversation.data;
   const owner =
     stored && stored.establishmentId !== establishment.id
@@ -382,7 +394,7 @@ export function useConversationView({
   let view: ConversationView;
   if (notFound) view = "not-found";
   else if (!load) view = asked.length > 0 ? "ready" : "new";
-  else if (loadFailed) view = loadStatus === 404 || loadStatus === 422 ? "not-found" : "error";
+  else if (loadFailed) view = loadNotFound ? "not-found" : "error";
   else if (!stored) view = "loading";
   // Another of the user's establishments: it gets selected (below). Anyone else's: not found.
   else if (stored.establishmentId !== establishment.id) view = owner ? "loading" : "not-found";
