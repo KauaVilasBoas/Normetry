@@ -424,6 +424,19 @@ describe("permissions", () => {
     await expectNoAxeViolations();
   });
 
+  it("leaves focus alone when the first load shows an access card", async () => {
+    window.history.replaceState(null, "", "/documents");
+    renderApp({
+      "/me": { body: without("documents.read") },
+      "/establishments": { body: establishments },
+    });
+
+    await screen.findByRole("heading", { level: 2, name: "You don't have access to Documents" });
+    await expectNoAxeViolations();
+
+    expect(document.body).toHaveFocus();
+  });
+
   it.each(["/overview", "/ask", "/settings/profiles"])(
     "tells a user whose profile opens no screen, at %s",
     async (path) => {

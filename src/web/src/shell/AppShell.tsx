@@ -13,6 +13,7 @@ import { InspectionsScreen } from "../inspections/InspectionsScreen";
 import { OverviewScreen } from "../overview/OverviewScreen";
 import { paths } from "../routes";
 import { ProfilesScreen } from "../settings/ProfilesScreen";
+import { useRefocusWhenGone } from "../ui/focus";
 import { iconButton, Message } from "../ui/primitives";
 import {
   usePageTitle,
@@ -25,6 +26,8 @@ import {
 } from "./frame";
 import { screenAccess, type Screen, type ScreenAccess } from "./screens";
 import { Sidebar } from "./Sidebar";
+
+const ACCESS_TITLE_ID = "access-title";
 
 /** What a screen of the selected establishment is given. */
 interface SectionView {
@@ -131,6 +134,13 @@ export function AppShell({ screen }: { screen: Screen }) {
   const switcher = useSwitcherChoice(frame.section?.root, selection.select, focusScreen);
   const retry = useRetryFocus(me, establishments, state, focusScreen);
   const title = usePageTitle(frame.title, routed, access, selection.selected);
+  // What the screen needs. Losing it mid-session (a 403 refetched /me) swaps the screen for an
+  // access card, whose heading takes the focus that went with the screen. While /me is pending
+  // the screen is not open yet, so a card on first load leaves focus where it is.
+  useRefocusWhenGone(
+    access.opens[screen] && (access.establishments || !frame.section),
+    ACCESS_TITLE_ID,
+  );
 
   const sidebarProps = {
     me,
@@ -286,6 +296,7 @@ function AccessCard({ title, body }: { title: string; body: string }) {
     <div className="w-full max-w-160 rounded-card border border-border bg-card p-5 motion-safe:animate-fade-in">
       <Message
         heading="h2"
+        headingId={ACCESS_TITLE_ID}
         className="items-start"
         icon={<Lock aria-hidden="true" className="size-5 text-neutral" />}
         title={title}
