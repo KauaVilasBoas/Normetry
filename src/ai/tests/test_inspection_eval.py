@@ -33,7 +33,6 @@ from xml.sax.saxutils import unescape
 import pytest
 from conftest import AI_DIR
 from sqlalchemy import Engine, text
-from test_generation_eval import STOPPED
 from test_retrieval_eval import EMBEDDING_CACHE, TENANTS, CachedEmbedder, index_demo
 
 from normetry_ai.evals.dataset import ESTABLISHMENTS
@@ -45,7 +44,7 @@ from normetry_ai.inspection.checklist import items_for
 from normetry_ai.inspection.checkpoints import TenantCheckpointSaver
 from normetry_ai.inspection.judge import JudgeModel
 from normetry_ai.inspection.worker import InspectionWorker
-from normetry_ai.llm.claude import ClaudeJudgeModel
+from normetry_ai.llm.claude import STOPPED, ClaudeJudgeModel
 from normetry_ai.llm.embeddings import SentenceTransformerEmbedder
 from normetry_ai.llm.reranker import CrossEncoderReranker
 from normetry_ai.llm.usage import Usage
