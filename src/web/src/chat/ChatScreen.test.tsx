@@ -336,6 +336,22 @@ describe("a streamed answer", () => {
     );
   });
 
+  it("goes home and focuses its heading when a 403 takes the chat away", async () => {
+    renderChat({
+      "/me": [
+        { body: me },
+        { body: { ...me, permissions: ["establishments.read", "documents.read"] } },
+      ],
+      [createRoute]: { status: 403, body: { code: "permission.denied" } },
+    });
+    await ask();
+
+    await waitFor(() => expect(window.location.pathname).toBe("/overview"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Bistro Lisboa" })).toHaveFocus(),
+    );
+  });
+
   it("on 429 takes the question back to the composer and shows the quota notice", async () => {
     renderChat({
       [createRoute]: { status: 201, body: summary("c-new", "e-lisboa", null) },
