@@ -1,5 +1,5 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useNavigate, type Params } from "react-router";
 import { useConversations } from "../api/chat";
 import { useDocument } from "../api/documents";
@@ -7,6 +7,7 @@ import { useInspection } from "../api/inspections";
 import type { Establishment, Me } from "../api/queries";
 import { copy, dateTime, format } from "../copy";
 import type { ListState, useEstablishmentSelection } from "../establishments/selection";
+import { focusIsLost } from "../ui/focus";
 import type { Screen, ScreenAccess } from "./screens";
 
 /** The route's params: a conversation, a document or an inspection opened by URL. */
@@ -53,6 +54,29 @@ export function useRoutedEstablishment(
 export function useScreenFocus() {
   const [focusKey, setFocusKey] = useState(0);
   return { focusKey, focusScreen: () => setFocusKey((key) => key + 1) };
+}
+
+/** The access card's heading, which takes focus when the card replaces a screen. */
+export const ACCESS_TITLE_ID = "access-title";
+
+/**
+ * `open`: what the screen needs. Lost mid-session (a 403 refetched /me), the screen goes and the
+ * focus it held falls to the page: the access card that replaces it takes it, else the screen a
+ * refused one goes home to does (`focusScreen`). While /me is pending the screen is not open yet,
+ * so a first load leaves focus where it is, as does focus on something that stays.
+ */
+export function useLostScreenFocus(open: boolean, focusScreen: () => void) {
+  const wasOpen = useRef(open);
+  const refocus = useEffectEvent(() => {
+    const card = document.getElementById(ACCESS_TITLE_ID);
+    if (card) card.focus();
+    else focusScreen();
+  });
+
+  useEffect(() => {
+    if (wasOpen.current && !open && focusIsLost()) refocus();
+    wasOpen.current = open;
+  }, [open]);
 }
 
 /**
