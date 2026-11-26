@@ -503,33 +503,37 @@ describe("document detail", () => {
     expect(calls(fetch, "/documents/d-cold", "DELETE")).toHaveLength(1);
   });
 
-  it("focuses the refusal when a 403 on delete turns out to take Documents away", async () => {
-    renderDocuments(
-      {
-        "/me": [
-          { body: me },
-          { body: { ...me, permissions: ["establishments.read", "chat.ask"] } },
-        ],
-        "DELETE /documents/d-cold": { status: 403, body: { code: "permission.denied" } },
-      },
-      { path: "/documents/d-cold" },
-    );
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Delete document" }));
-    const dialog = await screen.findByRole("alertdialog");
-    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-      "You no longer have permission to do this.",
-    );
+  it.each([
+    [
+      "Documents",
+      { body: { ...me, permissions: ["establishments.read", "chat.ask"] } },
+      "You don't have access to Documents",
+    ],
+    ["the organization", { status: 403 }, "Your account isn't linked to an organization"],
+  ])(
+    "focuses the refusal when a 403 on delete turns out to take %s away",
+    async (_, refetched, title) => {
+      renderDocuments(
+        {
+          "/me": [{ body: me }, refetched],
+          "DELETE /documents/d-cold": { status: 403, body: { code: "permission.denied" } },
+        },
+        { path: "/documents/d-cold" },
+      );
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "Delete document" }));
+      const dialog = await screen.findByRole("alertdialog");
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+        "You no longer have permission to do this.",
+      );
 
-    await user.keyboard("{Escape}");
+      await user.keyboard("{Escape}");
 
-    const refusal = await screen.findByRole("heading", {
-      level: 2,
-      name: "You don't have access to Documents",
-    });
-    await waitFor(() => expect(refusal).toHaveFocus());
-  });
+      const refusal = await screen.findByRole("heading", { level: 2, name: title });
+      await waitFor(() => expect(refusal).toHaveFocus());
+    },
+  );
 
   it("shows skeletons while it loads, with the list's title when known", async () => {
     renderDocuments({ "/documents/d-cold": never }, { path: "/documents/d-cold" });
