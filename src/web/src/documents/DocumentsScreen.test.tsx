@@ -895,4 +895,29 @@ describe("documents access and navigation", () => {
     });
     await waitFor(() => expect(refusal).toHaveFocus());
   });
+
+  it("leaves focus on the switcher when a 403 in the background takes Documents away", async () => {
+    let refused = false;
+    renderDocuments({
+      "/me": [{ body: me }, { body: { ...me, permissions: ["establishments.read", "chat.ask"] } }],
+      "/establishments/e-lisboa/documents": () =>
+        Promise.resolve(
+          refused
+            ? Response.json({ code: "permission.denied" }, { status: 403 })
+            : Response.json(list),
+        ),
+    });
+    await screen.findByRole("heading", { level: 2, name: "Bistro Lisboa" });
+    await waitFor(() => expect(latestHub().invoke).toHaveBeenCalled());
+    const switcher = screen.getByRole("combobox", { name: "Establishment" });
+    switcher.focus();
+    refused = true;
+
+    push({ documentId: "d-cold", versionNumber: 4, status: "Processing" });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "You don't have access to Documents" }),
+    ).toBeVisible();
+    expect(switcher).toHaveFocus();
+  });
 });
