@@ -134,11 +134,12 @@ export function AppShell({ screen }: { screen: Screen }) {
   const switcher = useSwitcherChoice(frame.section?.root, selection.select, focusScreen);
   const retry = useRetryFocus(me, establishments, state, focusScreen);
   const title = usePageTitle(frame.title, routed, access, selection.selected);
-  // What the screen needs. Losing it mid-session (a 403 refetched /me) swaps the screen for an
-  // access card, whose heading takes the focus that went with the screen. While /me is pending
-  // the screen is not open yet, so a card on first load leaves focus where it is.
+  // What the screen needs, and a tenant (a 403 from /me keeps the old data). Losing it mid-session
+  // (a 403 refetched /me) swaps the screen for an access card, whose heading takes the focus that
+  // went with the screen. While /me is pending the screen is not open yet, so a card on first load
+  // leaves focus where it is.
   useRefocusWhenGone(
-    access.opens[screen] && (access.establishments || !frame.section),
+    access.opens[screen] && (access.establishments || !frame.section) && state !== "forbidden",
     ACCESS_TITLE_ID,
   );
 
