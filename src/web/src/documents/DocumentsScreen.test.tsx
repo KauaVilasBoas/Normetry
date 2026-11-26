@@ -882,4 +882,17 @@ describe("documents access and navigation", () => {
     expect(hubs.all).toHaveLength(0);
     await expectNoAxeViolations();
   });
+
+  it("focuses the refusal when the list's 403 on load turns out to take Documents away", async () => {
+    renderDocuments({
+      "/me": [{ body: me }, { body: { ...me, permissions: ["establishments.read", "chat.ask"] } }],
+      "/establishments/e-lisboa/documents": { status: 403, body: { code: "permission.denied" } },
+    });
+
+    const refusal = await screen.findByRole("heading", {
+      level: 2,
+      name: "You don't have access to Documents",
+    });
+    await waitFor(() => expect(refusal).toHaveFocus());
+  });
 });
