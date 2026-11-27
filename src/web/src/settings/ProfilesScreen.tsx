@@ -7,7 +7,7 @@ import { can, queryFailed, useQueryRetry, type Me } from "../api/queries";
 import { copy, format } from "../copy";
 import { paths } from "../routes";
 import { useAnnouncer } from "../ui/announcer";
-import { useFocusAfterCommit, useRefocusWhenGone } from "../ui/focus";
+import { useFocusAfterCommit, useRefocusWhenGone, useShellFocusRequest } from "../ui/focus";
 import { media, useMediaQuery } from "../ui/media";
 import { Button, ErrorMessage, PoliteRegion, Skeleton, TabStrip, Tag } from "../ui/primitives";
 import { NameDialog } from "./NameDialog";
@@ -24,7 +24,7 @@ const PROFILES_TITLE_ID = "profiles-title";
  * `/settings/profiles/:profileId` the editor alone. Renders while /me loads (skeletons); a failed
  * /me shows in the list card with Try again.
  */
-export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
+export function ProfilesScreen({ me, focusKey }: { me: UseQueryResult<Me>; focusKey: number }) {
   const { profileId } = useParams();
   const navigate = useNavigate();
   const wide = useMediaQuery(media.list);
@@ -48,6 +48,7 @@ export function ProfilesScreen({ me }: { me: UseQueryResult<Me> }) {
     !meFailed && (profileId !== undefined || (wide && (selectedId !== undefined || !listFailed)));
 
   const focus = useFocusAfterCommit();
+  useShellFocusRequest(focusKey, PROFILES_TITLE_ID);
 
   // Losing profiles.manage (a refetched /me) removes Save, the dialogs and the menus, maybe the
   // focused one. The users card moves focus first for its menus; anything else lands here.

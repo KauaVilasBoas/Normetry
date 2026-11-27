@@ -264,7 +264,7 @@ function mainContent({
         body={copy.access.refusedBody}
       />
     );
-  if (!section) return <ProfilesScreen me={me} />;
+  if (!section) return <ProfilesScreen me={me} focusKey={focusKey} />;
   if (me.data && !access.establishments)
     return (
       <AccessCard title={copy.access.establishmentsTitle} body={copy.access.establishmentsBody} />
