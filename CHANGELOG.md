@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.7.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.6.0...v0.7.0) (2026-11-27)
+
+
+### Features
+
+* **evals:** near-miss acceptance rate in the inspection eval ([8b4df6c](https://github.com/KauaVilasBoas/Normetry/commit/8b4df6c19bcfd1be53f446e5e81022a7c0e13de1))
+* **evals:** near-miss backflow test report for Bakery Austin ([7d79cc0](https://github.com/KauaVilasBoas/Normetry/commit/7d79cc0a8e66b28582318b4ee0b9e47264408b11))
+* **evals:** near-miss ice analysis for Bistro São Paulo ([f33c4cc](https://github.com/KauaVilasBoas/Normetry/commit/f33c4cc24261da1d3d9a4f6f7ae5b4aa99b5943a))
+* **evals:** near-miss terrace rules for Bistro Lisboa ([c30a4e2](https://github.com/KauaVilasBoas/Normetry/commit/c30a4e23fdbb3c2d67793ed93b834fcccad3dd26))
+* **infra:** show the new logo on the Keycloak login ([45e2e50](https://github.com/KauaVilasBoas/Normetry/commit/45e2e50f9d3e9763a423e7140604d792742a4fe0)), closes [#142](https://github.com/KauaVilasBoas/Normetry/issues/142)
+* **web:** draw the new Normetry logo and favicon ([139d32a](https://github.com/KauaVilasBoas/Normetry/commit/139d32a39d346fd32b1868dfef8abfcc138c10be)), closes [#142](https://github.com/KauaVilasBoas/Normetry/issues/142)
+
+
+### Bug Fixes
+
+* **ai:** cite the FDA subsections the checklist items rest on ([5be9bd3](https://github.com/KauaVilasBoas/Normetry/commit/5be9bd397fd6af047e49188410e04a34d8d53d97))
+* **ai:** fail an inspection whose corpus lacks a checklist section ([f1bdfcd](https://github.com/KauaVilasBoas/Normetry/commit/f1bdfcd917c67897b9e050a49f2157d9f88221df))
+* **ai:** give the judge a long section's chunks in text order ([f19049d](https://github.com/KauaVilasBoas/Normetry/commit/f19049de3553aae2d5f4a668249d5ba8f0b834db))
+* **ai:** recognise three-digit FDA Food Code section numbers ([c7c2eda](https://github.com/KauaVilasBoas/Normetry/commit/c7c2edafc1258e358c4588de1fbacfe5d8eab7f4))
+* **core:** check the document failure reason length in characters ([2d864a6](https://github.com/KauaVilasBoas/Normetry/commit/2d864a654cb5a5dd1e2169501754b0a4d4e00401))
+* **core:** cut uploaded file names by characters, not UTF-16 units ([6f92042](https://github.com/KauaVilasBoas/Normetry/commit/6f920425ea7348b547defd051a7826e9efde0a3b))
+* **core:** truncate failure reasons by characters, not UTF-16 units ([fb9be73](https://github.com/KauaVilasBoas/Normetry/commit/fb9be73f722f75c40f721f0c8b09ba92beaf7104))
+* **corpus:** hash a local RDC page without its cache busters ([8d009b7](https://github.com/KauaVilasBoas/Normetry/commit/8d009b7c8b18b64bc0e57ff96d0e74dc4a53b957))
+* **corpus:** strip AnvisaLegis's daily cache busters before hashing RDC 216 ([a4c64ea](https://github.com/KauaVilasBoas/Normetry/commit/a4c64eab32cd9855dbce33c0174f1a9d72003133)), closes [#136](https://github.com/KauaVilasBoas/Normetry/issues/136)
+* **evals:** apply the near-miss review to the ground truth ([a8c93d2](https://github.com/KauaVilasBoas/Normetry/commit/a8c93d2736a5c0a0637e5137f509b4ca4afb7632))
+* **evals:** count only a near miss's lure as accepted when non_compliant ([e6a5784](https://github.com/KauaVilasBoas/Normetry/commit/e6a57843005f8d4bd6b758d596ff02b20b2337a8))
+* **web:** delete a conversation through useSend ([6d9948b](https://github.com/KauaVilasBoas/Normetry/commit/6d9948bb2afbc6311eab0b45a7b924e94b77d1b1))
+* **web:** focus the access card when it replaces the current screen ([9732e53](https://github.com/KauaVilasBoas/Normetry/commit/9732e53307696a7197f0c6cf3b4947ae980feb33))
+* **web:** focus the home screen's heading when a refused screen goes home ([9d1dff1](https://github.com/KauaVilasBoas/Normetry/commit/9d1dff159c3d059536c0fec372338a70d602c448))
+* **web:** focus the no-organization card when a refetched /me says 403 ([8d635fe](https://github.com/KauaVilasBoas/Normetry/commit/8d635fe80a1b425133238285b88b398afa1d95b0))
+* **web:** focus the Profiles heading when a refused screen goes home to Settings ([af00b4b](https://github.com/KauaVilasBoas/Normetry/commit/af00b4b1a936c134f733ee1dc859a141ae4cf699))
+* **web:** give the conversation list's heading an id and use useQueryRetry ([08818ee](https://github.com/KauaVilasBoas/Normetry/commit/08818eeb491588bafd7ceb004309abad0f4e1bbc))
+* **web:** keep the confirm button's color on hover while it deletes ([0c3127b](https://github.com/KauaVilasBoas/Normetry/commit/0c3127bd5bc43063e227b1a41826031ca3acc1b2))
+* **web:** move focus to the heading when a query's error card goes away ([6c2d6e6](https://github.com/KauaVilasBoas/Normetry/commit/6c2d6e65da93f96298449a65f3517444d21dd27a))
+* **web:** move focus to the heading when Try again finds the conversation gone ([dd713fd](https://github.com/KauaVilasBoas/Normetry/commit/dd713fdcba8506d0384b554d26d9a7a2fa12322d))
+* **web:** show the permission refusal in the conversation delete dialog ([4a9e76b](https://github.com/KauaVilasBoas/Normetry/commit/4a9e76b9f075be676bc00f35c13e141b6d6745fb))
+
 ## [0.6.0](https://github.com/KauaVilasBoas/Normetry/compare/v0.5.0...v0.6.0) (2026-11-20)
 
 
