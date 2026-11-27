@@ -352,6 +352,19 @@ describe("a streamed answer", () => {
     );
   });
 
+  it("goes home to Profiles and focuses its heading when a 403 takes the chat away", async () => {
+    renderChat({
+      "/me": [{ body: me }, { body: { ...me, permissions: ["profiles.read"] } }],
+      [createRoute]: { status: 403, body: { code: "permission.denied" } },
+    });
+    await ask();
+
+    await waitFor(() => expect(window.location.pathname).toBe("/settings/profiles"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 2, name: "Profiles" })).toHaveFocus(),
+    );
+  });
+
   it("on 429 takes the question back to the composer and shows the quota notice", async () => {
     renderChat({
       [createRoute]: { status: 201, body: summary("c-new", "e-lisboa", null) },
